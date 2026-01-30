@@ -1,0 +1,182 @@
+package finance
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/schoolerp/api/internal/middleware"
+	financeservice "github.com/schoolerp/api/internal/service/finance"
+)
+
+type Handler struct {
+	svc *financeservice.Service
+}
+
+func NewHandler(svc *financeservice.Service) *Handler {
+	return &Handler{svc: svc}
+}
+
+func (h *Handler) RegisterRoutes(r chi.Router) {
+	r.Route("/fees", func(r chi.Router) {
+		r.Post("/heads", h.CreateFeeHead)
+		r.Get("/heads", h.ListFeeHeads)
+		r.Post("/plans", h.CreateFeePlan)
+		r.Post("/assign", h.AssignPlan)
+	})
+	r.Route("/payments", func(r chi.Router) {
+		r.Post("/offline", h.IssueReceipt)
+	})
+	r.Route("/receipts", func(r chi.Router) {
+		r.Post("/{id}/cancel", h.CancelReceipt)
+	})
+}
+
+func (h *Handler) RegisterParentRoutes(r chi.Router) {
+	r.Get("/children/{id}/fees/summary", h.GetFeeSummary)
+	r.Get("/children/{id}/fees/receipts", h.ListReceipts)
+}
+
+func (h *Handler) CreateFeeHead(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name string `json:"name"`
+		Type string `json:"type"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	head, err := h.svc.CreateFeeHead(r.Context(), middleware.GetTenantID(r.Context()), req.Name, req.Type)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(head)
+}
+
+func (h *Handler) ListFeeHeads(w http.ResponseWriter, r *http.Request) {
+	heads, err := h.svc.ListFeeHeads(r.Context(), middleware.GetTenantID(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(heads)
+}
+
+func (h *Handler) CreateFeePlan(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name  string `json:"name"`
+		AYID  string `json:"academic_year_id"`
+		Total int64  `json:"total_amount"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	plan, err := h.svc.CreateFeePlan(r.Context(), middleware.GetTenantID(r.Context()), req.Name, req.AYID, req.Total)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(plan)
+}
+
+func (h *Handler) AssignPlan(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		StudentID string `json:"student_id"`
+		PlanID    string `json:"plan_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.svc.AssignPlanToStudent(r.Context(), req.StudentID, req.PlanID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) IssueReceipt(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		StudentID string `json:"student_id"`
+		Amount    int64  `json:"amount"`
+		Mode      string `json:"mode"`
+		Ref       string `json:"transaction_ref"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	p := financeservice.IssueReceiptParams{
+		TenantID:       middleware.GetTenantID(r.Context()),
+		StudentID:      req.StudentID,
+		Amount:         req.Amount,
+		Mode:           req.Mode,
+		TransactionRef: req.Ref,
+		UserID:         middleware.GetUserID(r.Context()),
+		RequestID:      middleware.GetReqID(r.Context()),
+		IP:             r.RemoteAddr,
+	}
+
+	receipt, err := h.svc.IssueReceipt(r.Context(), p)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(receipt)
+}
+
+func (h *Handler) CancelReceipt(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	receipt, err := h.svc.CancelReceipt(r.Context(), 
+		middleware.GetTenantID(r.Context()), 
+		id, 
+		middleware.GetUserID(r.Context()), 
+		req.Reason, 
+		middleware.GetReqID(r.Context()), 
+		r.RemoteAddr,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(receipt)
+}
+
+func (h *Handler) GetFeeSummary(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	summary, err := h.svc.GetStudentFeeSummary(r.Context(), id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(summary)
+}
+
+func (h *Handler) ListReceipts(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	receipts, err := h.svc.ListStudentReceipts(r.Context(), middleware.GetTenantID(r.Context()), id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(receipts)
+}
