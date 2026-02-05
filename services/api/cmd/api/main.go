@@ -87,6 +87,7 @@ func main() {
 	r.Use(middleware.RequestIDPropagation) // Propagate to response
 	r.Use(middleware.TenantResolver)       // Resolve tenant from header/subdomain
 	r.Use(middleware.AuthResolver)         // Parse JWT and set user context
+	r.Use(middleware.LocaleResolver)       // Detect language from Accept-Language
 
 	// 3. Health Endpoint
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {

@@ -13,6 +13,7 @@ type contextKey string
 const (
 	TenantIDKey contextKey = "tenant_id"
 	UserIDKey   contextKey = "user_id"
+	LocaleKey   contextKey = "locale"
 )
 
 // GetReqID returns the request ID from the context
@@ -34,6 +35,14 @@ func GetUserID(ctx context.Context) string {
 		return val
 	}
 	return ""
+}
+
+// GetLocale returns the locale from the context
+func GetLocale(ctx context.Context) string {
+	if val, ok := ctx.Value(LocaleKey).(string); ok {
+		return val
+	}
+	return "en"
 }
 
 // RequestIDPropagation ensures the X-Request-ID is sent back in the response header
@@ -65,6 +74,25 @@ func AuthResolver(next http.Handler) http.Handler {
 		// For Release 1 development, we might set a default if missing
 		userID := "user-1" // stub
 		ctx := context.WithValue(r.Context(), UserIDKey, userID)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// LocaleResolver extracts the locale from the Accept-Language header
+func LocaleResolver(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		locale := "en"
+		lang := r.Header.Get("Accept-Language")
+		
+		// Very simple prefix matching for demo/Release 1
+		if len(lang) >= 2 {
+			prefix := lang[:2]
+			if prefix == "hi" {
+				locale = "hi"
+			}
+		}
+		
+		ctx := context.WithValue(r.Context(), LocaleKey, locale)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

@@ -1,0 +1,25 @@
+{
+  "Common": {
+    "title": "SchoolERP",
+    "dashboard": "Dashboard",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete"
+  },
+  "Dashboard": {
+    "welcome": "Welcome back, {name}",
+    "overview": "Overview",
+    "quickActions": "Quick Actions"
+  },
+  "SIS": {
+    "students": "Students",
+    "admissionNumber": "Admission Number",
+    "fullName": "Full Name",
+    "gender": "Gender",
+    "dob": "Date of Birth",
+    "status": "Status",
+    "addStudent": "Add Student"
+  }
+}

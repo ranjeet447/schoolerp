@@ -1,0 +1,25 @@
+{
+  "Common": {
+    "title": "schoolERP",
+    "dashboard": "डैशबोर्ड",
+    "loading": "लोड हो रहा है...",
+    "error": "एक त्रुटि हुई",
+    "save": "सहेजें",
+    "cancel": "रद्द करें",
+    "delete": "हटाएं"
+  },
+  "Dashboard": {
+    "welcome": "वापसी पर स्वागत है, {name}",
+    "overview": "अवलोकन",
+    "quickActions": "त्वरित कार्रवाइयां"
+  },
+  "SIS": {
+    "students": "छात्र",
+    "admissionNumber": "प्रवेश संख्या",
+    "fullName": "पूरा नाम",
+    "gender": "लिंग",
+    "dob": "जन्म तिथि",
+    "status": "स्थिति",
+    "addStudent": "छात्र जोड़ें"
+  }
+}

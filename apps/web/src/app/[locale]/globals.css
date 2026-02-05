@@ -1,0 +1,9 @@
+@import "tailwindcss";
+@config "../../../../packages/config/tailwind.config.js";
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+  }
+}
