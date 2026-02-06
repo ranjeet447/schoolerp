@@ -27,3 +27,9 @@ UPDATE pdf_jobs
 SET status = $3, file_id = $4, error_message = $5, updated_at = NOW()
 WHERE id = $1 AND tenant_id = $2
 RETURNING *;
+
+-- name: ListPendingPDFJobs :many
+SELECT * FROM pdf_jobs
+WHERE status = 'pending'
+ORDER BY created_at ASC
+LIMIT $1;

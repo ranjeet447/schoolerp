@@ -7,10 +7,29 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/schoolerp/worker/internal/db"
+	"github.com/schoolerp/worker/internal/service/pdf"
 )
 
 func main() {
 	log.Println("Worker starting...")
+
+	// 0. Database Connection
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		dbURL = "postgres://schoolerp:password@localhost:5432/schoolerp?sslmode=disable"
+	}
+	
+	pool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		log.Fatalf("Unable to connect to database: %v", err)
+	}
+	defer pool.Close()
+
+	querier := db.New(pool)
+	pdfSvc := pdf.NewProcessor(querier)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -20,7 +39,7 @@ func main() {
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
 	// Poll loop
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	go func() {
@@ -29,7 +48,7 @@ func main() {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				processOutbox(ctx)
+				processPoll(ctx, querier, pdfSvc)
 			}
 		}
 	}()
@@ -41,34 +60,21 @@ func main() {
 	log.Println("Worker exited")
 }
 
-func processOutbox(ctx context.Context) {
-	// Stub: In real app, query "SELECT * FROM outbox_events WHERE status = 'pending' FOR UPDATE SKIP LOCKED"
-	// case "generate_marketing_pdf": generateMarketingPDF(event.Payload)
-	// case "demo.booking.created": handleBookingCreated(event.Payload)
-}
+func processPoll(ctx context.Context, q db.Querier, pdfSvc *pdf.Processor) {
+	// 1. Poll PDF Jobs
+	jobs, err := q.ListPendingPDFJobs(ctx, 10) // batch of 10
+	if err != nil {
+		log.Printf("[Poll] Error fetching jobs: %v", err)
+		return
+	}
 
-func handleBookingCreated(payload map[string]interface{}) {
-	log.Printf("Sending demo booking confirmation to: %v", payload["email"])
-	// 1. Generate .ics file attachment
-	// 2. Send email via stub
-	// 3. Enqueue reminder jobs (24h, 1h)
-}
+	for _, job := range jobs {
+		err := pdfSvc.ProcessJob(ctx, job)
+		if err != nil {
+			log.Printf("[Poll] Error processing job %s: %v", job.ID, err)
+		}
+	}
 
-func generateMarketingPDF(payload map[string]interface{}) {
-	log.Printf("Generating marketing PDF for slug: %v", payload["slug"])
-}
-
-// CalendarProvider interface for future integrations
-type CalendarProvider interface {
-	CreateEvent(ctx context.Context, title string, start, end time.Time) (string, error)
-	DeleteEvent(ctx context.Context, externalID string) error
-}
-
-type NoOpCalendarProvider struct{}
-
-func (n *NoOpCalendarProvider) CreateEvent(ctx context.Context, title string, start, end time.Time) (string, error) {
-	return "noop-id", nil
-}
-func (n *NoOpCalendarProvider) DeleteEvent(ctx context.Context, externalID string) error {
-	return nil
+	// 2. Poll Outbox (Placeholder for other events)
+	// processOutbox(ctx, q)
 }
