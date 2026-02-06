@@ -96,6 +96,8 @@ func main() {
 	r.Use(chimiddleware.Logger)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.Timeout(60 * time.Second))
+	r.Use(middleware.CORS)      // Handle cross-origin requests
+	r.Use(middleware.RateLimit) // Protect sensitive endpoints
 
 	// 2. Custom Foundation Middlewares
 	r.Use(middleware.RequestIDPropagation) // Propagate to response

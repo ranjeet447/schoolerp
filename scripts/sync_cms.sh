@@ -30,6 +30,17 @@ for coll in "${collections[@]}"; do
     else
         echo "  [OK] $coll"
     fi
+# 3. Role Verification
+echo "Verifying ERP roles..."
+declare -a roles=("super_admin" "school_admin" "teacher" "parent")
+
+for role in "${roles[@]}"; do
+    CHECK=$(curl -s -H "Authorization: Bearer $ADMIN_TOKEN" "$DIRECTUS_URL/roles?filter[name][_eq]=$role")
+    if echo "$CHECK" | grep -q "\"data\":\[\]"; then
+        echo "  [MISSING] Role: $role"
+    else
+        echo "  [OK] Role: $role"
+    fi
 done
 
 echo "CMS synchronization check complete."

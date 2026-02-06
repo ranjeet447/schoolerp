@@ -1,43 +1,29 @@
-.PHONY: up down dev-api dev-worker dev-web dev-marketing storybook test-ui test-all
+.PHONY: dev build migrate seed help
 
-up:
-	docker-compose -f infra/docker-compose.yml up -d
+# Standard local development
+dev:
+	pnpm dev
 
-up-cms:
-	docker-compose -f infra/docker-compose.yml --profile cms up -d
+# Build all services
+build:
+	pnpm build
+	cd services/api && go build ./...
+	cd services/worker && go build ./...
 
-down:
-	docker-compose -f infra/docker-compose.yml down
+# Database Migrations
+migrate:
+	# Requires golang-migrate installed
+	migrate -path infra/migrations -database "$(DATABASE_URL)" up
 
-dev-api:
-	cd services/api && export PATH=$$PATH:/usr/local/go/bin && go run cmd/api/main.go
+# Database Seeding
+seed:
+	chmod +x scripts/seed_db.sh
+	./scripts/seed_db.sh --demo
 
-dev-worker:
-	cd services/worker && export PATH=$$PATH:/usr/local/go/bin && go run cmd/worker/main.go
-
-dev-web:
-	pnpm --filter @schoolerp/web dev
-
-dev-marketing:
-	pnpm --filter @schoolerp/marketing dev
-
-storybook:
-	pnpm --filter @schoolerp/storybook storybook
-
-test-ui:
-	pnpm exec playwright test
-
-test-all:
-	pnpm lint && pnpm test && pnpm exec playwright test
-
-test-marketing-ui:
-	cd apps/marketing && pnpm exec playwright test
-
-test-demo-booking:
-	cd apps/marketing && pnpm exec playwright test tests/demo-booking.spec.ts
-
-seed-marketing:
-	docker exec -i schoolerp-db psql -U user -d schoolerp < infra/seed/marketing_seed.sql
-
-seed-demo:
-	docker exec -i schoolerp-db psql -U user -d schoolerp < infra/seed/demo_seed.sql
+# Help
+help:
+	@echo "SchoolERP Makefile"
+	@echo "  make dev      - Start all services (web, api, worker)"
+	@echo "  make build    - Build all services"
+	@echo "  make migrate  - Run DB migrations"
+	@echo "  make seed     - Seed DB with demo data"
