@@ -1,0 +1,44 @@
+name: Build & Lint
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  go-services:
+    name: Go Services
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - name: Build API
+        run: cd services/api && go build ./...
+      - name: Build Worker
+        run: cd services/worker && go build ./...
+
+  frontend:
+    name: Frontend & Packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build UI Package
+        run: pnpm --filter @schoolerp/ui build
+      
+      - name: Build Web App
+        run: pnpm --filter @schoolerp/web build
