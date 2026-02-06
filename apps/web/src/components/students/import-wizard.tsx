@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Upload, FileText, CheckCircle2, AlertCircle } from "lucide-react"
+import { apiClient } from "@/lib/api-client"
 
 export function ImportStudentWizard() {
   const [open, setOpen] = useState(false)
@@ -40,11 +41,8 @@ export function ImportStudentWizard() {
     formData.append("file", file)
 
     try {
-      const res = await fetch("http://localhost:8080/v1/admin/students/import", {
+      const res = await apiClient("/admin/students/import", {
         method: "POST",
-        headers: {
-          "X-Tenant-ID": "default-tenant", // Stub
-        },
         body: formData,
       })
       
@@ -102,10 +100,8 @@ export function ImportStudentWizard() {
                   className="hidden"
                   onChange={handleFileChange}
                 />
-                <Button asChild variant="secondary">
-                  <Label htmlFor="csv-upload" className="cursor-pointer">
-                    {file ? file.name : "Choose File"}
-                  </Label>
+                <Button variant="secondary" onClick={() => document.getElementById('csv-upload')?.click()}>
+                  {file ? file.name : "Choose File"}
                 </Button>
               </div>
             </div>

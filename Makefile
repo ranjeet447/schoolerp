@@ -1,4 +1,4 @@
-.PHONY: dev build migrate seed help
+.PHONY: dev build migrate seed test help
 
 # Standard local development
 dev:
@@ -9,6 +9,12 @@ build:
 	pnpm build
 	cd services/api && go build ./...
 	cd services/worker && go build ./...
+
+# Run all tests
+test:
+	cd services/api && go test -v ./...
+	cd services/worker && go test -v ./...
+	pnpm --filter @schoolerp/web test:e2e
 
 # Database Migrations
 migrate:

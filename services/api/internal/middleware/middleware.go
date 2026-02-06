@@ -17,8 +17,11 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
@@ -81,14 +84,54 @@ func TenantResolver(next http.Handler) http.Handler {
 	})
 }
 
-// AuthResolver is a placeholder for JWT parsing
+// AuthResolver validates JWT tokens from the Authorization header
 func AuthResolver(next http.Handler) http.Handler {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		secret = "your-very-secret-key-123" // Fallback for dev only
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Stub: in real app, parse Authorization header
-		// For Release 1 development, we might set a default if missing
-		userID := "user-1" // stub
-		ctx := context.WithValue(r.Context(), UserIDKey, userID)
-		next.ServeHTTP(w, r.WithContext(ctx))
+		// 1. Skip auth for public paths
+		if r.URL.Path == "/healthz" || strings.HasPrefix(r.URL.Path, "/v1/auth") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// 2. Extract Bearer Token
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			// For Release 1 development, we allow fallback for non-sensitive paths if needed, 
+			// but for Absolute Zero we'll be strict on /admin and /teacher
+			if strings.HasPrefix(r.URL.Path, "/v1/admin") || strings.HasPrefix(r.URL.Path, "/v1/teacher") {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		tokenString := authHeader[7:]
+
+		// 3. Parse and Validate
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			return []byte(secret), nil
+		})
+
+		if err != nil || !token.Valid {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		// 4. Extract Claims
+		if claims, ok := token.Claims.(jwt.MapClaims); ok {
+			userID, _ := claims["sub"].(string)
+			ctx := context.WithValue(r.Context(), UserIDKey, userID)
+			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
+
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	})
 }
 
