@@ -66,7 +66,7 @@ Release 1 is designed for easy deployment on modern cloud platforms:
 2. **Backend**: Deployed to **Render** or **Railway** (Go standard library).
 3. **Database**: **Supabase** (PostgreSQL).
 
-Refer to [Deployment Documentation](file:///Users/ranjeet/projects/schoolERP/docs/23-deployment-infrastructure.md) for step-by-step instructions.
+Refer to [Deployment Documentation](./docs/23-deployment-infrastructure.md) for step-by-step instructions.
 
 ## Release 1 Status: COMPLETELY IMPLEMENTED ✅
 
@@ -79,6 +79,5 @@ All core modules for Release 1 have been implemented, tested (Playwright/Storybo
 - [x] Phase 6: Exams + Report Cards
 
 ### Documentation
-- [View Implementation Walkthrough](file:///Users/ranjeet/.gemini/antigravity/brain/bfb7db47-8fbf-436e-b29e-11e897b26b0d/walkthrough.md)
-- [API Reference](file:///Users/ranjeet/projects/schoolERP/docs/api-reference.md)
-- [Changelog](file:///Users/ranjeet/projects/schoolERP/CHANGELOG.md)
+- [API Reference](./docs/api-reference.md)
+- [Changelog](./CHANGELOG.md)

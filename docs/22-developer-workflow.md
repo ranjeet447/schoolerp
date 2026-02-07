@@ -7,7 +7,7 @@ We use **pnpm** and **Turborepo** to manage the codebase.
 
 - **Start all services**: `npm run dev` from the root.
 - **Target specific apps**: `pnpm --filter @schoolerp/web dev`.
-- **Utility Tasks**: Use the [Makefile](file:///Users/ranjeet/projects/schoolERP/Makefile) for common commands like `make dev-api` or `make storybook`.
+- **Utility Tasks**: Use the [Makefile](../Makefile) for common commands like `make dev-api` or `make storybook`.
 
 ## 2. Git Conventions
 We follow **Conventional Commits** to keep our history clean and make it easier to generate changelogs.

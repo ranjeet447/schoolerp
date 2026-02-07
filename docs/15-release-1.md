@@ -43,5 +43,5 @@ Release 1 establishes the production-grade foundation for the School ERP SaaS, c
 - **E2E**: Playwright smoke tests for "Admin Setup -> Teacher Mark -> Parent View" happy paths across all modules.
 ## Next Steps
 For future scope and Phase 2 implementation details, refer to:
-- [Roadmap Summary](file:///Users/ranjeet/projects/schoolERP/docs/16-roadmap-summary.md)
-- [Phase 2 PRD Enhancements](file:///Users/ranjeet/projects/schoolERP/docs/prd/)
+- [Roadmap Summary](./16-roadmap-summary.md)
+- [Phase 2 PRD Enhancements](./prd/)
