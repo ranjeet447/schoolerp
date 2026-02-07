@@ -69,6 +69,13 @@ Optional modules that incur vendor costs or require specialized infrastructure. 
 | **Storage Pack** | 100GB: ₹9,999/yr <br> 500GB: ₹29,999/yr <br> 1TB: ₹49,999/yr | For documents, photos, backups |
 | **GPS Transport Tracking** | ₹19,999 one-time + ₹99–₹199 / vehicle / mo | Vendor dependent hardware/SIM costs |
 
+### AI Suite
+| Plan | Pricing | Features |
+| :--- | :--- | :--- |
+| **P2: AI Suite v1** | ₹9,999 / year | Parent Helpdesk, Lesson Drafter, Fee Intelligence, Voice Notes. |
+| **P3: AI Premium** | ₹19,999 / year | Timetable Optimizer, Insights/Anomalies, Remedial Recs. |
+| **Enterprise AI** | Custom | Face Auth, Admissions Scoring, Grading Assistant. |
+
 ### Enterprise Options
 | Plugin | Pricing | Notes |
 | :--- | :--- | :--- |

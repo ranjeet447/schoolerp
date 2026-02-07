@@ -28,6 +28,17 @@ Permissions are not just global; they are scoped:
 - **Parent**: View-only for their own children.
 - **Gate Staff**: Safety module access.
 
+## AI Suite Permissions (New)
+The AI Suite introduces new capability-based permissions:
+
+| Permission | Description | Target Role |
+| :--- | :--- | :--- |
+| `ai:chat:query` | Ask questions to the Helpdesk bot. | Parent, Student |
+| `ai:content:gen` | Generate lesson plans/quizzes. | Teacher, Coordinator |
+| `ai:finance:view` | View predictive fee risk scores. | Accountant, Admin |
+| `ai:admin:config` | Enable/Disable AI features, View Logs. | Tenant Admin |
+| `ai:premium:config` | Configure Timetable/Insight constraints. | Tenant Admin |
+
 ## Security Enhancements (Phase 2)
 
 ### Multi-Factor Authentication (MFA)

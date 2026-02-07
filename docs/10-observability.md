@@ -8,6 +8,7 @@ All services (API, Worker, Web) must emit JSON logs.
 Propagation of `X-Request-ID` across all boundaries.
 - API -> Worker (via Outbox payload).
 - Worker -> Notification Provider.
+- **AI Tracing**: All LLM calls must carry `X-AI-Trace-ID` linking the User Prompt to the Model Completion.
 
 ## 3. Error Tracking
 - Use **Sentry** (or self-hosted Glitchtip) for automated error reporting.
@@ -18,3 +19,10 @@ Propagation of `X-Request-ID` across all boundaries.
 - **p95/p99**: API middleware logs duration for all routes.
 - **Queue Health**: Monitor `outbox_events` depth and worker lag.
 - **Index Watch**: Regular review of sequential scans on large tenant tables.
+
+## 5. AI Observability
+Specific metrics for the AI Suite:
+- **Token Usage**: Count Input/Output tokens per Tenant for billing.
+- **Latency**: Measure `LLM_Time_To_First_Token` and `Total_Generation_Time`.
+- **Feedback Loop**: Monitor "Thumbs Up/Down" rate on AI Helpdesk answers.
+- **Guardrail Trips**: Log frequency of "I cannot answer that" fallbacks (indicates gaps in KB or prompt attacks).

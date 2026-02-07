@@ -135,6 +135,24 @@ export const PLUGINS = [
   }
 ];
 
+export const AI_SUITE_PLANS = [
+  {
+    name: "AI Suite v1",
+    description: "Parent Helpdesk, Lesson Drafter, Fee Intelligence.",
+    pricing: "₹9,999/year"
+  },
+  {
+    name: "AI Premium",
+    description: "Timetable Optimizer, Insights & Anomalies, Remedial Recs.",
+    pricing: "₹19,999/year"
+  },
+  {
+    name: "Enterprise AI",
+    description: "Face Auth, Grading Assistant, Admissions Scoring.",
+    pricing: "Custom Quote"
+  }
+];
+
 export const ONBOARDING_FEES = [
   { plan: "Starter", fee: "₹14,999 one-time" },
   { plan: "Standard", fee: "₹24,999 one-time" },

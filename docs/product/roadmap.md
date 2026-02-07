@@ -44,25 +44,25 @@ This document tracks the high-level roadmap and current status of SchoolERP modu
 
 We prioritize **explainable, low-cost intelligence** first. Heavier AI features are opt-in plugins to keep base costs sustainable.
 
-### Practical AI (Low-cost, High-value)
+### Practical AI (AI Suite v1)
 *Included in Standard/Premium plans or minimal top-up.*
 
 | Feature | Status | Description |
 | :--- | :--- | :--- |
-| **Smart Notices & Reminders** | 🚧 Planned | Template-based fee reminders & circulars (Hindi/English). |
-| **Helpdesk Auto-Triage** | 🚧 Planned | Auto-tag parent requests (Fees, Transport, Exam). |
-| **At-Risk Student Flags** | 🚧 Planned | Rules-first signals from attendance/grades/fees. |
-| **Policy Search Copilot** | 🚧 Planned | Retrieval-first answers from policies/calendar. |
-| **PTM Summary & Action Items** | 🚧 Planned | Convert quick notes into clean parent summaries. |
+| **A1: AI Parent Helpdesk** | 🚧 Planned | WhatsApp/Web Chat for fee/holiday queries. Grounded in notices. |
+| **A2: AI Teacher Assistant** | 🚧 Planned | Draft lesson plans & quizzes (Teacher-in-the-loop). |
+| **A3: Fee Intelligence** | 🚧 Planned | Predictive risk flags for late payments. |
+| **A4: Smart Search + Voice** | 🚧 Planned | Voice-to-text remarks & policy search. |
 
-### Optional AI Plugins
+### AI Suite Premium
 *Heavier compute; billed separately.*
 
 | Feature | Status | Description |
 | :--- | :--- | :--- |
-| **Voice-to-Text Remarks** | 🚧 Planned | Batch mode + caching; multi-language. |
-| **Question Bank Assistant** | 🚧 Planned | Generate papers from approved bank + blueprint. |
-| **Advanced Forecasting** | 🚧 Planned | Branch/cohort trends & explainable projections. |
+| **A5: Timetable Optimizer** | 🚧 Planned | Constraint-based schedule generator. |
+| **A6: Insights & Anomalies** | 🚧 Planned | Attendance spikes, fee deviations, GPS alerts. |
+| **A7: Remedial Recs** | 🚧 Planned | Personalized topic suggestions based on marks. |
+| **A8-A10: Enterprise AI** | 🚧 Planned | Grading Assistance, Face Auth, Admissions Scoring. |
 
 ---
 

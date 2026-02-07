@@ -6,7 +6,7 @@ import { Container, Section } from './layout-foundation';
 import { Button } from './button';
 import { Check, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { PRICING_PLANS, PLUGINS, ONBOARDING_FEES, FAQS } from '../constants/pricing';
+import { PRICING_PLANS, PLUGINS, AI_SUITE_PLANS, ONBOARDING_FEES, FAQS } from '../constants/pricing';
 
 export const PricingTable = () => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
@@ -156,6 +156,47 @@ export const PricingTable = () => {
         
         <div className="text-center text-xs text-muted-foreground max-w-2xl mx-auto mb-24 font-medium px-6 py-3 rounded-full border bg-muted/30 inline-block w-full">
           Note: 3rd-party charges (SMS/WhatsApp/Payment Gateway/Maps/GPS) billed separately as per usage.
+        </div>
+
+        {/* AI Suite Section */}
+        <div className="mb-24 relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-violet-600/10 to-indigo-600/10 blur-[100px] rounded-full -z-10" />
+          <div className="text-center mb-12">
+            <span className="inline-block px-3 py-1 rounded-full bg-violet-500/10 text-violet-500 text-[10px] font-black uppercase tracking-widest mb-4 border border-violet-500/20">
+              New
+            </span>
+            <h3 className="text-3xl md:text-5xl font-black tracking-tight mb-4">
+              AI Suite <span className="text-violet-500">Add-ons</span>
+            </h3>
+            <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
+              Supercharge your ERP with safe, grounded AI tools.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto px-4">
+            {AI_SUITE_PLANS.map((plan) => (
+              <div key={plan.name} className="flex flex-col p-8 rounded-[2rem] border border-violet-500/20 bg-gradient-to-b from-violet-500/5 to-transparent backdrop-blur-sm relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/10 blur-[50px] rounded-full -translate-y-1/2 translate-x-1/2" />
+                
+                <h4 className="font-black text-2xl mb-2 text-foreground group-hover:text-violet-400 transition-colors">{plan.name}</h4>
+                <p className="text-sm text-muted-foreground font-medium mb-6 flex-1 leading-relaxed">
+                  {plan.description}
+                </p>
+                
+                <div className="mt-auto">
+                  <div className="text-3xl font-black tracking-tighter text-foreground">
+                    {plan.pricing}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="text-center mt-8">
+            <a href="/use-cases/ai-suite" className="text-sm font-bold text-violet-500 hover:text-violet-400 underline underline-offset-4 transition-colors">
+              Read about the Rules & Safety Guardrails →
+            </a>
+          </div>
         </div>
 
         {/* Plugins Section */}
