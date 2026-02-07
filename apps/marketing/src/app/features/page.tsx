@@ -41,11 +41,32 @@ const MODULES = [
     imageSide: "left" as const
   },
   {
+    title: "HRMS & Automated Payroll",
+    description: "Manage your most valuable asset—your staff. Automated biometric sync and compliance-grade payslip generation.",
+    badge: "Staff",
+    benefits: ["Biometric payroll integration", "Salary structure configurator", "Teacher performance tracking"],
+    imageSide: "right" as const
+  },
+  {
+    title: "Multi-School Portfolio",
+    description: "Designed for school groups. Monitor academic and financial health across all campuses from a single group dashboard.",
+    badge: "Groups",
+    benefits: ["Cross-campus analytics", "Group-level financial rollup", "Unified management cockpit"],
+    imageSide: "left" as const
+  },
+  {
+    title: "Alumni & Placement Portal",
+    description: "Nurture your legacy. Stay connected with alumni and coordinate placement drives to help your graduates succeed.",
+    badge: "Community",
+    benefits: ["Verified alumni directory", "Placement drive automation", "Carrier success tracking"],
+    imageSide: "right" as const
+  },
+  {
     title: "Automation Studio",
     description: "The future of school management. A no-code platform to build custom workflows, rules, and triggers that fit your school's unique culture.",
     badge: "Innovation",
-    benefits: ["No-code workflow builder", "Custom logic & rule engine", "Sandboxed scripted functions"],
-    imageSide: "right" as const
+    benefits: ["No-code workflow builder", "Custom logic & rule engine", "Time-based auto-triggers"],
+    imageSide: "left" as const
   }
 ];
 

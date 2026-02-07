@@ -207,16 +207,16 @@ export const FEATURES_DATA = [
   {
     id: "logistics",
     slug: "fleet-tracking",
-    title: "Fleet Tracking",
-    description: "Manage school transport with live GPS tracking and procurement workflows.",
+    title: "Transport & Logistics",
+    description: "Full-stack transport management with live GPS tracking and optimized route mapping.",
     longDescription: "Real-time visibility for parents and administrators. Track location, fuel consumption, and maintenance schedules for your entire fleet.",
-    icon: "Cpu",
+    icon: "Truck",
     color: "bg-rose-500",
     benefits: [
       "Live GPS Bus Tracking",
-      "Parent App Map Integration",
-      "Inventory & Procurement Logs",
-      "Diesel & Maintenance Tracking"
+      "Route Optimization Engine",
+      "Automated Fee Integration",
+      "Maintenance & Fuel Logs"
     ],
     mockUI: {
       title: "Live Transport Map",
@@ -224,22 +224,98 @@ export const FEATURES_DATA = [
     }
   },
   {
-    id: "language",
-    slug: "multilingual-support",
-    title: "Multi-language Support",
-    description: "Support for English, Hindi, and regional languages for both platform UI and PDFs.",
-    longDescription: "Education speaks every language. Our localized platform ensures that parents, students, and staff can interact in their preferred language.",
+    id: "library",
+    slug: "digital-library",
+    title: "Digital Media Center",
+    description: "Next-gen library management with digital media support and ISBN integration.",
+    longDescription: "Bridge physical books with digital resources. Manage stocks, circulation, and library memberships while providing access to e-books and video content.",
+    icon: "BookOpen",
+    color: "bg-amber-500",
+    benefits: [
+      "Digital Asset Support (PDF/Video)",
+      "Automated Issue & Return Logs",
+      "ISBN & QR Cataloging",
+      "Student Reading Progress"
+    ],
+    mockUI: {
+      title: "Library Catalog View",
+      type: "table"
+    }
+  },
+  {
+    id: "inventory",
+    slug: "inventory-procurement",
+    title: "Inventory & Procurement",
+    description: "Audit-grade inventory controls with purchase order workflows and vendor management.",
+    longDescription: "Stop leakage in your supply chain. Manage recurring stock, purchase orders, and asset allocations across all departments.",
+    icon: "ShoppingCart",
+    color: "bg-sky-500",
+    benefits: [
+      "Purchase Order Workflow",
+      "Multi-Godown Stock Tracking",
+      "Supplier Performance Metrics",
+      "Low Stock Auto-Alerts"
+    ],
+    mockUI: {
+      title: "Inventory Dashboard",
+      type: "chart"
+    }
+  },
+  {
+    id: "hrms",
+    slug: "automated-payroll",
+    title: "HRMS & Payroll",
+    description: "Complete employee lifecycle management with automated biometric payroll processing.",
+    longDescription: "Manage your workforce with precision. From recruitment to payslip generation, our HRMS ensures compliance and teacher satisfaction.",
+    icon: "Users",
+    color: "bg-violet-500",
+    benefits: [
+      "Biometric Attendance Link",
+      "Automated Payslip Engine",
+      "Salary Structure Configurator",
+      "Performance and KRA Logs"
+    ],
+    mockUI: {
+      title: "Payroll Summary",
+      type: "table"
+    }
+  },
+  {
+    id: "portfolio",
+    slug: "portfolio-dashboards",
+    title: "Portfolio Dashboards",
+    description: "High-level analytics for school groups to monitor performance across all campuses.",
+    longDescription: "Manage multiple schools from a single cockpit. Compare academic results, financial health, and safety metrics across your entire portfolio.",
+    icon: "Sparkles",
+    color: "bg-fuchsia-500",
+    benefits: [
+      "Cross-Campus Data Views",
+      "Financial Health Aggregators",
+      "Member School Comparisons",
+      "Group-Level Policy Control"
+    ],
+    mockUI: {
+      title: "Group Analytics View",
+      type: "chart"
+    }
+  },
+  {
+    id: "alumni",
+    slug: "alumni-placement",
+    title: "Alumni & Placements",
+    description: "Build a thriving community with alumni directories and coordinate career placement drives.",
+    longDescription: "Nurture your school's legacy. Stay connected with alumni, celebrate their success, and coordinate placement drives for current batches.",
     icon: "Globe",
     color: "bg-blue-500",
     benefits: [
-      "Hindi & Regional UI Options",
-      "Localized Fee Receipts",
-      "Multilingual Report Cards",
-      "Regional Language SMS Alerts"
+      "Alumni Directory Portal",
+      "Placement Drive Coordination",
+      "Application Tracking System",
+      "Verified Professional Profiles"
     ],
     mockUI: {
-      title: "Language Picker UI",
-      type: "selection"
+      title: "Alumni Connector",
+      type: "list"
     }
   }
 ];

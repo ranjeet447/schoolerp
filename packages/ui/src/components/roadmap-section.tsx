@@ -8,7 +8,7 @@ import { cn } from '../lib/utils';
 
 const PHASES = [
   {
-    status: "Active & Released",
+    status: "Released",
     title: "Phase 1: Academic & Financial Core",
     description: "The complete foundation for modern school operations. Audit-grade controls for trust and scale.",
     features: [
@@ -23,34 +23,34 @@ const PHASES = [
     active: true,
   },
   {
-    status: "Coming Soon (Q2 2026)",
+    status: "Released",
     title: "Phase 2: Logistics & Operations",
     description: "Extending the ERP into physical campus management with live tracking and automation.",
     features: [
-      "Live GPS Transport Tracking",
-      "Library Management (ISBN Integration)",
-      "Inventory & Procurement Workflows",
-      "Visitor & Gate Pass Management",
+      "Live GPS Transport & Routes",
+      "Digital Media Center & Library",
+      "Inventory & Procurement POs",
+      "Public Admission Portals",
       "Asset & Maintenance Tracking"
     ],
     icon: Truck,
     color: "emerald",
-    active: false,
+    active: true,
   },
   {
-    status: "Planned (Q4 2026)",
+    status: "Released",
     title: "Phase 3: Ecosystem & Automation",
     description: "Next-gen intelligence for elite institutions. Parent apps and no-code automation.",
     features: [
-      "Native iOS & Android Parent Apps",
-      "Automation Studio (No-code Workflows)",
-      "HRMS & Biometric Payroll",
-      "Online Admission Portals",
-      "Alumni & Placement Modules"
+      "Portfolio Dashboards for Groups",
+      "HRMS & Automated Payroll",
+      "Alumni & Placement Portal",
+      "Native Parent App (Prerelease)",
+      "Automation Studio (Staging)"
     ],
     icon: Sparkles,
     color: "purple",
-    active: false,
+    active: true,
   }
 ];
 

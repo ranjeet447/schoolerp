@@ -29,6 +29,7 @@ export default function MarketingHomePage() {
       </div>
 
       <FeatureGrid />
+      <RoadmapSection />
       <TestimonialSection />
       <FAQSection />
       <FinalCTA />
