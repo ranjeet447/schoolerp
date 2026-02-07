@@ -73,7 +73,7 @@ export const UseCaseGrid = ({ cases = DEFAULT_USE_CASES }: { cases?: UseCaseItem
       <div className="absolute bottom-0 left-0 w-1/4 h-1/2 bg-fuchsia-500/5 blur-[100px] rounded-full pointer-events-none" />
       
       <Container>
-        <div className="flex flex-col items-center text-center max-w-3xl mx-auto mb-20">
+        <div className="flex flex-col items-center text-center max-w-3xl mx-auto mb-12 md:mb-16">
           <div className="text-primary font-black uppercase tracking-[0.3em] text-[10px] mb-4">
             Specialized Solutions
           </div>

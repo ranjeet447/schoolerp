@@ -28,24 +28,57 @@ export function BookDemoClient() {
   };
 
   return (
-    <>
-      <Section className="bg-muted/20">
-        <Container className="text-center space-y-4">
-          <h1 className="text-4xl font-extrabold tracking-tight">Book a 30-minute product demo</h1>
-          <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-            One live walkthrough covering academics, finance, safety, and operations. Tell us your school details and a preferred time.
-          </p>
-        </Container>
-      </Section>
-
-      <Section>
-        <Container className="max-w-3xl">
-          <div className="rounded-2xl border bg-card p-8 shadow-sm">
-            <BookingForm onSubmit={handleBooking} status={status} />
-            {error && <p className="mt-3 text-sm text-amber-600">{error}</p>}
+    <Section className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 pt-32 pb-24 overflow-hidden relative">
+      <Container>
+        <div className="grid lg:grid-cols-2 gap-16 items-start">
+          {/* Left Column: Content */}
+          <div className="space-y-8 pt-4">
+            <h1 className="text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.1]">
+              Transform your school operations.
+            </h1>
+            <p className="text-xl text-slate-600 leading-relaxed max-w-lg">
+              Get a personalized walkthrough of the complete operating system. See how you can save 20+ hours a week.
+            </p>
+            
+            <div className="space-y-6 pt-4">
+              {[
+                { title: "Complete System Tour", desc: "SIS, Finance, Transport, and more." },
+                { title: "Q&A Session", desc: "Ask specific questions about your school's needs." },
+                { title: "Pricing Discussion", desc: "Transparent pricing tailored to your size." }
+              ].map((item, i) => (
+                <div key={i} className="flex gap-4">
+                  <div className="flex-none w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                    {i + 1}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900">{item.title}</h3>
+                    <p className="text-slate-600">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </Container>
-      </Section>
-    </>
+
+          {/* Right Column: Form */}
+          <div className="relative">
+            <div className="absolute inset-0 bg-indigo-500 blur-3xl opacity-10 rounded-full transform translate-x-12 translate-y-12"></div>
+            <div className="relative rounded-3xl border border-slate-200 bg-white p-8 shadow-xl">
+              <h2 className="text-2xl font-bold mb-6 text-slate-900">Schedule your demo</h2>
+              <BookingForm onSubmit={handleBooking} status={status} />
+              {error && <p className="mt-4 p-3 rounded-lg bg-red-50 text-red-600 text-sm border border-red-100">{error}</p>}
+              {status === 'success' && (
+                 <div className="absolute inset-0 bg-white/95 backdrop-blur-sm flex items-center justify-center rounded-3xl z-10 transition-all duration-500">
+                   <div className="text-center p-8">
+                     <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">✓</div>
+                     <h3 className="text-2xl font-bold text-slate-900">Request Received!</h3>
+                     <p className="text-slate-600 mt-2">We'll be in touch shortly to confirm the time.</p>
+                   </div>
+                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </Container>
+    </Section>
   );
 }

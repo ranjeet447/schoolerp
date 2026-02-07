@@ -50,7 +50,7 @@ export const Navbar = () => {
         </a>
 
         {/* Desktop Links */}
-        <div className="hidden items-center gap-1 md:flex">
+        <div className="hidden items-center gap-1 lg:flex">
           {NAV_LINKS.map((link) => (
             <a 
               key={link.label} 
@@ -70,7 +70,7 @@ export const Navbar = () => {
 
         {/* Mobile Toggle */}
         <button 
-          className="rounded-full p-2 md:hidden bg-primary/10 text-primary transition-colors hover:bg-primary/20" 
+          className="rounded-full p-2 lg:hidden bg-primary/10 text-primary transition-colors hover:bg-primary/20" 
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
         >
           {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -81,7 +81,7 @@ export const Navbar = () => {
       <motion.div 
         initial={false}
         animate={mobileMenuOpen ? { height: 'auto', opacity: 1 } : { height: 0, opacity: 0 }}
-        className="overflow-hidden md:hidden bg-background/95 backdrop-blur-2xl border-b border-primary/10"
+        className="overflow-hidden lg:hidden bg-background/95 backdrop-blur-2xl border-b border-primary/10"
       >
         <div className="flex flex-col gap-2 p-6">
           {NAV_LINKS.map((link) => (

@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function MarketingHomePage() {
   return (
-    <main className="flex min-h-screen flex-col gap-24">
+    <main className="flex min-h-screen flex-col">
       <HeroSection />
 
       <Section className="bg-background">

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from 'react';
-import { IntegrationCard } from '@schoolerp/ui';
+import { useState } from 'react';
+import { Container, Section, IntegrationCard } from '@schoolerp/ui';
 import { INTEGRATIONS } from './data';
 
 export default function IntegrationsPage() {
@@ -13,7 +13,8 @@ export default function IntegrationsPage() {
     : INTEGRATIONS.filter(i => i.category === category);
 
   return (
-    <div className="container py-24">
+    <Section className="pt-32">
+      <Container>
       <div className="space-y-4">
         <h1 className="text-4xl font-bold">Integrations & Ecosystem</h1>
         <p className="max-w-2xl text-lg text-muted-foreground">
@@ -42,6 +43,7 @@ export default function IntegrationsPage() {
           <IntegrationCard key={integration.slug} {...integration} status="active" />
         ))}
       </div>
-    </div>
+      </Container>
+    </Section>
   );
 }

@@ -40,7 +40,7 @@ export default function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body suppressHydrationWarning>
+      <body className="relative overflow-x-hidden antialiased" suppressHydrationWarning>
         {analyticsId && (
           <>
             <Script

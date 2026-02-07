@@ -27,7 +27,7 @@ export const FeatureTabs = () => {
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mx-auto max-w-4xl text-center mb-20"
+          className="mx-auto max-w-4xl text-center mb-12 md:mb-16"
         >
           <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-[11px] font-black uppercase tracking-widest text-primary shadow-sm border border-primary/10">
             Comprehensive Suite

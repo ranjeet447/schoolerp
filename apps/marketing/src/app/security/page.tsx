@@ -44,7 +44,7 @@ const SECURITY_FEATURES = [
 export default function SecurityPage() {
   return (
     <main>
-      <div className="pt-24 pb-12 bg-primary text-primary-foreground text-center">
+      <div className="pt-32 pb-12 bg-primary text-primary-foreground text-center">
         <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl">Enterprise Trust</h1>
         <p className="mt-4 text-xl opacity-90 mx-auto max-w-2xl">
           Security is not a feature for us; it is our foundation.

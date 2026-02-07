@@ -50,8 +50,8 @@ export const Section = ({
     <section 
       className={cn(
         "relative",
-        spacing === 'default' && "py-24 md:py-32",
-        spacing === 'large' && "py-32 md:py-48",
+        spacing === 'default' && "py-16 md:py-24",
+        spacing === 'large' && "py-24 md:py-32",
         spacing === 'none' && "py-0",
         className
       )}

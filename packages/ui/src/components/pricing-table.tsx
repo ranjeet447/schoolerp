@@ -75,7 +75,7 @@ export const PricingTable = () => {
       </div>
 
       <Container>
-        <div className="text-center max-w-4xl mx-auto mb-20">
+        <div className="text-center max-w-4xl mx-auto mb-12 md:mb-16">
           <div className="text-primary font-black uppercase tracking-[0.4em] text-[10px] mb-6">
             Investment Plans
           </div>
@@ -192,7 +192,7 @@ export const PricingTable = () => {
           initial={{ opacity: 0, scale: 0.98 }}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
-          className="mt-24 rounded-[4rem] border border-white/10 bg-slate-900 px-12 py-16 text-center shadow-3xl overflow-hidden relative"
+          className="mt-16 rounded-[4rem] border border-white/10 bg-slate-900 px-12 py-16 text-center shadow-3xl overflow-hidden relative"
         >
           {/* Accent Glow */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[80px] rounded-full translate-x-1/2 -translate-y-1/2" />

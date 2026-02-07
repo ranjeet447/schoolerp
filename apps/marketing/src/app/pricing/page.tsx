@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default function PricingPage() {
   return (
     <main>
-      <div className="pt-24 pb-12 text-center bg-muted/20">
+      <div className="pt-32 pb-12 text-center bg-muted/20">
         <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl">Invest in Efficiency</h1>
         <p className="mt-4 text-xl text-muted-foreground mx-auto max-w-2xl">
           Our pricing scales with your student count. Start small, grow indefinitely.

@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default function FeaturesPage() {
   return (
     <main>
-      <Section className="bg-gradient-to-b from-muted/40 to-background pt-28 pb-16">
+      <Section className="bg-gradient-to-b from-muted/40 to-background pt-32 pb-16">
         <Container className="space-y-8 text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">Product Overview</p>
           <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl">All the rails your school needs.</h1>

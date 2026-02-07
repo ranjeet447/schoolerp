@@ -5,7 +5,7 @@ import { Button } from './button';
 
 interface BookingFormProps {
   onSubmit: (data: any) => Promise<void>;
-  status?: 'idle' | 'loading' | 'success';
+  status?: 'idle' | 'loading' | 'success' | 'error';
 }
 
 export const BookingForm = ({ onSubmit, status = 'idle' }: BookingFormProps) => {

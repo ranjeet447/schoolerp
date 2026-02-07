@@ -11,24 +11,26 @@ export const HeroSection = () => {
   return (
     <Section spacing="none" className="relative overflow-hidden bg-background pt-32 pb-20 lg:pt-48 lg:pb-32 lg:min-h-screen flex items-center">
       {/* Premium background elements */}
-      <motion.div 
-        animate={{
-          scale: [1, 1.1, 1],
-          opacity: [0.3, 0.4, 0.3],
-          x: [0, 20, 0],
-        }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute top-0 left-1/4 -translate-y-1/2 w-[800px] h-[800px] bg-primary/30 blur-[150px] rounded-full pointer-events-none" 
-      />
-      <motion.div 
-        animate={{
-          scale: [1.1, 1, 1.1],
-          opacity: [0.1, 0.2, 0.1],
-          x: [0, -20, 0],
-        }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute bottom-0 right-1/4 translate-y-1/2 w-[600px] h-[600px] bg-fuchsia-500/20 blur-[120px] rounded-full pointer-events-none" 
-      />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div 
+          animate={{
+            scale: [1, 1.1, 1],
+            opacity: [0.3, 0.4, 0.3],
+            x: [0, 20, 0],
+          }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/30 blur-[150px] rounded-full" 
+        />
+        <motion.div 
+          animate={{
+            scale: [1.1, 1, 1.1],
+            opacity: [0.1, 0.2, 0.1],
+            x: [0, -20, 0],
+          }}
+          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-[600px] h-[600px] bg-fuchsia-500/20 blur-[120px] rounded-full" 
+        />
+      </div>
 
       <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none mix-blend-overlay" />
       

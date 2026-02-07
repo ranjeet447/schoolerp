@@ -27,7 +27,7 @@ export default function AboutPage() {
       </Section>
 
       <Section>
-        <Container className="space-y-32">
+        <Container className="space-y-20">
           <div className="grid gap-16 lg:grid-cols-2 lg:items-center">
             <div className="space-y-10">
                <h2 className="text-4xl font-black tracking-tight leading-tight">Software that feels like <span className="text-primary">magic</span>, runs like clockwork.</h2>
