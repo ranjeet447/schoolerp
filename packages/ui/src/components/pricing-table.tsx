@@ -15,7 +15,11 @@ const PLANS = [
     features: [
       "Up to 1,000 students", 
       "SIS & Attendance", 
-      "Fee Receipts", 
+      "Fee Receipts & Defaulters",
+      "Timetable & Academics",
+      "Certificates & Docs",
+      "Homework & Assignments", 
+      "Mobile App for Parents",
       "5 Automation Rules", 
       "7-Day Audit Logs"
     ],
@@ -27,8 +31,12 @@ const PLANS = [
     description: "For growing schools scaling operations.",
     features: [
       "Up to 3,000 students", 
+      "Exams & Report Cards", // Critical ERP feature
+      "Library & Inventory", 
+      "Admissions & CRM",
+      "Transport & GPS",
+      "Staff & HRMS",
       "Tally Export Integration", 
-      "Transport & Library", 
       "30 Automation Rules", 
       "30-Day Audit Logs"
     ],
@@ -41,9 +49,11 @@ const PLANS = [
     description: "Advanced controls for elite institutions.",
     features: [
       "Unlimited students", 
-      "Smart Alert Management", 
+      "Visitor & Gate Pass",
+      "Hostel & Canteen",
+      "Health & Medical Logs",
       "2FA & Secure Access", 
-      "Unlimited Automations", 
+      "Smart Alert Management", 
       "90-Day Audit Logs"
     ],
     highlight: false
@@ -57,7 +67,9 @@ const PLANS = [
       "White-label Mobile Apps", 
       "Custom SLA & Support", 
       "Automation Sandbox", 
-      "3-Year Compliance Logs"
+      "3-Year Compliance Logs",
+      "Dedicated Account Manager",
+      "Custom Report Builder"
     ],
     highlight: false
   }
