@@ -1,19 +1,25 @@
-import {
-  Globe,
-  Wallet,
-  GraduationCap,
-  ShieldCheck,
-  Zap,
-  Cpu,
-  Bell,
-  FileWarning,
-  ClipboardList,
-  CalendarDays,
-  MessagesSquare,
-  Fingerprint
-} from 'lucide-react';
 
-export const FEATURES_DATA = [
+
+
+export type FeatureCategory = 'academics' | 'finance' | 'safety' | 'communication' | 'platform';
+
+export interface FeatureItem {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  longDescription: string;
+  icon: string;
+  color: string;
+  category: FeatureCategory;
+  benefits: string[];
+  mockUI: {
+    title: string;
+    type: 'table' | 'chart' | 'list' | 'nodes' | 'selection' | 'map';
+  };
+}
+
+export const FEATURES_DATA: FeatureItem[] = [
   {
     id: "academics",
     slug: "academic-lifecycle",
@@ -22,6 +28,7 @@ export const FEATURES_DATA = [
     longDescription: "Manage every aspect of the student journey. Our board-agnostic gradebook supports CBSE, ICSE, and regional standards with automated weighted calculations.",
     icon: "GraduationCap",
     color: "bg-purple-500",
+    category: "academics",
     benefits: [
       "Customizable Gradebook Schemas",
       "Automated Hall Ticket Generation",
@@ -41,6 +48,7 @@ export const FEATURES_DATA = [
     longDescription: "Stop revenue leakage with audit-grade financial tools. Automated SMS/Email reminders ensuring over 98% on-time fee collection.",
     icon: "Wallet",
     color: "bg-emerald-500",
+    category: "finance",
     benefits: [
       "Sequential Receipt Compliance",
       "Auto-Reconciliation via Gateway",
@@ -60,6 +68,7 @@ export const FEATURES_DATA = [
     longDescription: "A secure perimeter for your students. Manage visitor logs, teacher gate passes, and pickup authorizations from a single dashboard.",
     icon: "ShieldCheck",
     color: "bg-orange-500",
+    category: "safety",
     benefits: [
       "QR-Based Secure Gate Pass",
       "Visitor Photo & ID Verification",
@@ -79,6 +88,7 @@ export const FEATURES_DATA = [
     longDescription: "Your school, your rules. Build custom automation for everything from birthday alerts to low-balance fee triggers without writing code.",
     icon: "Zap",
     color: "bg-yellow-500",
+    category: "platform",
     benefits: [
       "Drag-and-Drop Logic Builder",
       "Custom SMS & Email Templates",
@@ -98,6 +108,7 @@ export const FEATURES_DATA = [
     longDescription: "React instantly to critical events. Our Smart Alert system enqueues notifications across Push, WhatsApp, and SMS based on tenant policies.",
     icon: "Bell",
     color: "bg-indigo-500",
+    category: "communication",
     benefits: [
       "Absence Auto-Alerts",
       "Payment Success Receipts",
@@ -110,6 +121,26 @@ export const FEATURES_DATA = [
     }
   },
   {
+    id: "notices",
+    slug: "notices-circulars",
+    title: "Notices & Circulars",
+    description: "Targeted broadcasting of circulars and tracking of parent acknowledgments.",
+    longDescription: "Ensure your message is heard. Send targeted notices to specific classes, sections, or user groups and track who has read them in real-time.",
+    icon: "Megaphone",
+    color: "bg-teal-500",
+    category: "communication",
+    benefits: [
+      "Role-Based Targeting",
+      "Read Receipt Tracking",
+      "Attachment Support (PDF/Images)",
+      "Scheduled Publishing"
+    ],
+    mockUI: {
+      title: "Notice Board View",
+      type: "list"
+    }
+  },
+  {
     id: "discipline",
     slug: "student-discipline",
     title: "Discipline & Behavior",
@@ -117,6 +148,7 @@ export const FEATURES_DATA = [
     longDescription: "Foster a positive school environment. Track incidents with severity levels, manage resolutions, and maintain parent transparency.",
     icon: "FileWarning",
     color: "bg-red-500",
+    category: "platform",
     benefits: [
       "Behavioral Incident Logs",
       "Severity-Based Notifications",
@@ -136,6 +168,7 @@ export const FEATURES_DATA = [
     longDescription: "Extend learning beyond the classroom. Teachers post topics with attachments, and students submit work directly via the mobile app.",
     icon: "ClipboardList",
     color: "bg-blue-600",
+    category: "academics",
     benefits: [
       "Photo-Based Submissions",
       "Automated Due Reminders",
@@ -155,6 +188,7 @@ export const FEATURES_DATA = [
     longDescription: "Ensure academic consistency. Track syllabus completion against planned timelines and manage teacher workload efficiently.",
     icon: "CalendarDays",
     color: "bg-cyan-500",
+    category: "academics",
     benefits: [
       "Weekly Topic Planning",
       "Syllabus Lag Alerts",
@@ -174,6 +208,7 @@ export const FEATURES_DATA = [
     longDescription: "Bridge the communication gap. Book PTM slots instantly and engage in moderated, student-specific chats without sharing personal numbers.",
     icon: "MessagesSquare",
     color: "bg-pink-500",
+    category: "communication",
     benefits: [
       "Instant PTM Slot Booking",
       "Moderated Two-Way Chat",
@@ -193,6 +228,7 @@ export const FEATURES_DATA = [
     longDescription: "Security you can trust. Protect sensitive financial and academic data with 2FA, session tracking, and role-level permission customization.",
     icon: "Fingerprint",
     color: "bg-slate-700",
+    category: "safety",
     benefits: [
       "TOTP/SMS Authenticator",
       "Role-Level Customization",
@@ -212,6 +248,7 @@ export const FEATURES_DATA = [
     longDescription: "Real-time visibility for parents and administrators. Track location, fuel consumption, and maintenance schedules for your entire fleet.",
     icon: "Truck",
     color: "bg-rose-500",
+    category: "safety",
     benefits: [
       "Live GPS Bus Tracking",
       "Route Optimization Engine",
@@ -231,6 +268,7 @@ export const FEATURES_DATA = [
     longDescription: "Bridge physical books with digital resources. Manage stocks, circulation, and library memberships while providing access to e-books and video content.",
     icon: "BookOpen",
     color: "bg-amber-500",
+    category: "academics",
     benefits: [
       "Digital Asset Support (PDF/Video)",
       "Automated Issue & Return Logs",
@@ -250,6 +288,7 @@ export const FEATURES_DATA = [
     longDescription: "Stop leakage in your supply chain. Manage recurring stock, purchase orders, and asset allocations across all departments.",
     icon: "ShoppingCart",
     color: "bg-sky-500",
+    category: "finance",
     benefits: [
       "Purchase Order Workflow",
       "Multi-Godown Stock Tracking",
@@ -269,6 +308,7 @@ export const FEATURES_DATA = [
     longDescription: "Manage your workforce with precision. From recruitment to payslip generation, our HRMS ensures compliance and teacher satisfaction.",
     icon: "Users",
     color: "bg-violet-500",
+    category: "finance",
     benefits: [
       "Biometric Attendance Link",
       "Automated Payslip Engine",
@@ -288,6 +328,7 @@ export const FEATURES_DATA = [
     longDescription: "Manage multiple schools from a single cockpit. Compare academic results, financial health, and safety metrics across your entire portfolio.",
     icon: "Sparkles",
     color: "bg-fuchsia-500",
+    category: "platform",
     benefits: [
       "Cross-Campus Data Views",
       "Financial Health Aggregators",
@@ -307,6 +348,7 @@ export const FEATURES_DATA = [
     longDescription: "Nurture your school's legacy. Stay connected with alumni, celebrate their success, and coordinate placement drives for current batches.",
     icon: "Globe",
     color: "bg-blue-500",
+    category: "academics",
     benefits: [
       "Alumni Directory Portal",
       "Placement Drive Coordination",
@@ -319,3 +361,4 @@ export const FEATURES_DATA = [
     }
   }
 ];
+

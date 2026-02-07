@@ -164,7 +164,7 @@ VALUES (
 
 INSERT INTO user_identities (id, user_id, provider, identifier, credential)
 VALUES (
-    'dddddddd-dddd-dddd-dddd-dddddddddddde',
+    'dddddddd-dddd-dddd-dddd-ddddddddddde',
     'dddddddd-dddd-dddd-dddd-dddddddddddd',
     'password',
     'accountant@school.edu',
@@ -177,14 +177,15 @@ VALUES (
 INSERT INTO role_assignments (tenant_id, user_id, role_id, scope_type)
 VALUES 
     -- Admin has Tenant Admin role
-    ('a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'tenant'),
+    ((SELECT id FROM tenants WHERE subdomain = 'demo'), 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'tenant'),
     -- Teacher has Teacher role
-    ('a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '33333333-3333-3333-3333-333333333333', 'tenant'),
+    ((SELECT id FROM tenants WHERE subdomain = 'demo'), 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '33333333-3333-3333-3333-333333333333', 'tenant'),
     -- Parent has Parent role
-    ('a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', 'cccccccc-cccc-cccc-cccc-cccccccccccc', '55555555-5555-5555-5555-555555555555', 'tenant'),
+    ((SELECT id FROM tenants WHERE subdomain = 'demo'), 'cccccccc-cccc-cccc-cccc-cccccccccccc', '55555555-5555-5555-5555-555555555555', 'tenant'),
     -- Accountant has Accountant role
-    ('a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', 'dddddddd-dddd-dddd-dddd-dddddddddddd', '44444444-4444-4444-4444-444444444444', 'tenant')
+    ((SELECT id FROM tenants WHERE subdomain = 'demo'), 'dddddddd-dddd-dddd-dddd-dddddddddddd', '44444444-4444-4444-4444-444444444444', 'tenant')
 ON CONFLICT DO NOTHING;
+
 
 COMMIT;
 

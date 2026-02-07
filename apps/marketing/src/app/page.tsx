@@ -1,8 +1,7 @@
 import { 
   HeroSection, 
-  FeatureGrid, 
-  FeatureCarousel,
-  FEATURES_DATA,
+  FeatureTabs, // Replaced FeatureGrid
+  RoadmapSection, 
   TestimonialSection, 
   FAQSection, 
   FinalCTA 
@@ -20,15 +19,9 @@ export default function MarketingHomePage() {
     <main className="flex min-h-screen flex-col gap-24">
       <HeroSection />
       
-      <div className="space-y-12">
-        <div className="text-center space-y-4">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-5xl">Feature Highlights</h2>
-          <p className="text-lg text-muted-foreground">Swipe to explore the core modules of our platform.</p>
-        </div>
-        <FeatureCarousel slides={FEATURES_DATA} />
-      </div>
 
-      <FeatureGrid />
+
+      <FeatureTabs />
       <TestimonialSection />
       <FAQSection />
       <FinalCTA />
