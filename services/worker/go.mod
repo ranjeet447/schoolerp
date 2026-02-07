@@ -1,6 +1,6 @@
 module github.com/schoolerp/worker
 
-go 1.25.1
+go 1.25.0
 
 require github.com/jackc/pgx/v5 v5.8.0
 
