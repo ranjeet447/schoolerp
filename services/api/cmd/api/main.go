@@ -44,6 +44,7 @@ import (
 	"github.com/schoolerp/api/internal/handler/library"
 	"github.com/schoolerp/api/internal/handler/notices"
 	"github.com/schoolerp/api/internal/handler/portfolio"
+	roleshandler "github.com/schoolerp/api/internal/handler/roles"
 	"github.com/schoolerp/api/internal/handler/sis"
 	"github.com/schoolerp/api/internal/handler/transport"
 	"github.com/schoolerp/api/internal/middleware"
@@ -58,9 +59,12 @@ import (
 	libraryservice "github.com/schoolerp/api/internal/service/library"
 	noticeservice "github.com/schoolerp/api/internal/service/notices"
 	portfolioservice "github.com/schoolerp/api/internal/service/portfolio"
+	rolesservice "github.com/schoolerp/api/internal/service/roles"
 	sisservice "github.com/schoolerp/api/internal/service/sis"
 	transportservice "github.com/schoolerp/api/internal/service/transport"
 )
+
+
 
 
 func main() {
@@ -105,6 +109,7 @@ func main() {
 	portfolioService := portfolioservice.NewService(querier)
 	alumniService := alumniservice.NewService(querier)
 	authService := authservice.NewService(querier)
+	rolesService := rolesservice.NewService(querier)
 	
 	// Initialize Handlers
 	studentHandler := sis.NewHandler(studentService)
@@ -120,6 +125,8 @@ func main() {
 	portfolioHandler := portfolio.NewHandler(portfolioService)
 	alumniHandler := alumni.NewHandler(alumniService)
 	authHandler := authhandler.NewHandler(authService)
+	rolesHandler := roleshandler.NewHandler(rolesService)
+
 
 
 	r := chi.NewRouter()
@@ -169,10 +176,12 @@ func main() {
 			hrmsHandler.RegisterRoutes(r)
 			portfolioHandler.RegisterRoutes(r)
 			alumniHandler.RegisterRoutes(r)
+			rolesHandler.RegisterRoutes(r) // Role management endpoints
 			
 			// Growth/Other stubs maintained for now
 			r.Get("/demo-bookings", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(`[]`)) })
 		})
+
 
 		// Teacher Routes
 		r.Route("/teacher", func(r chi.Router) {
