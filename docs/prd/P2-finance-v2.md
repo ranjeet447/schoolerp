@@ -1,63 +1,137 @@
-# P2 - Accounting (Tally Export) & Payment Enhancements
+# P2 - Accounting (Tally) & Payment Reconciliation (Implementation Spec)
 
 ## 1. Overview
-Finance V2 extends the basic Fee module into an enterprise-grade accounting engine. It focuses on externalizing financial data for Tally reconciliation and ensuring 100% reliability for online payments.
+This module automates financial reconciliation and accounting exports. It ensures 100% accurate synchronization between the Payment Gateway (PG), the School ERP Fee Ledger, and external accounting software (Tally Prime).
 
 **Goals:**
-- Automated Ledger mapping for Tally export.
-- Idempotent payment webhook processing.
-- Multi-receipt series management for complex school branches.
+- **Zero-touch Reconciliation**: PG settlements match ERP receipts automatically.
+- **Tally Integration**: XML export of Vouchers (Receipt, Refund, Journal) with mapped Ledgers.
+- **Compliance**: GST-ready invoicing for taxable services (Transport, Books).
 
-## 2. Personas & RBAC Permission Matrix
+---
 
-| Action | Admin | Accountant | Auditor |
-| :--- | :---: | :---: | :---: |
-| Map Ledgers | ✅ | ✅ | ❌ |
-| Run Tally Export | ✅ | ✅ | ✅ |
-| Reconcile Settlements| ✅ | ✅ | ✅ |
-| Override Webhooks | ✅ | ❌ | ❌ |
+## 2. Personas & RBAC
+
+| Role | Permissions |
+| :--- | :--- |
+| **Accountant** | Map Ledgers, Generate Tally XML, View Reconciliation Reports. |
+| **Auditor** | View-only access to Tally Exports & Audit Logs. |
+| **Super Admin** | Configure Gateway API Keys, Manage Tax Rules. |
+
+---
 
 ## 3. Workflows
-### Happy Path: Tally Export
-1. **Mapping**: Accountant maps local `fee_heads` (e.g., "Library Fee") to Tally ledgers (e.g., "Library Income A/c").
-2. **Generate**: Accountant selects date range and clicks "Generate Tally XML/Excel".
-3. **Download**: System aggregates all receipts and refunds, applying the ledger mappings, and providing a download.
 
-### Happy Path: Payment Reconciliation
-1. **Event**: Payment Gateway (Razorpay) sends `order.paid` webhook.
-2. **Ingestion**: System checks for idempotency (has this Ref ID been processed?).
-3. **Update**: System marks Invoice as "Paid", generates Receipt via R1 series logic, and triggers parent notification.
+### 3.1 Happy Path: Tally Export
+1.  **Map Ledgers**: Accountant maps `Fee Head: Tuition` -> `Legder: Tuition Income`.
+2.  **Filter**: Select Date Range (e.g., Apr 1 - Apr 30).
+3.  **Generate**: System fetches all *Posted* Receipts & Refunds.
+4.  **Format**: Convert to Tally XML schema (`<VOUCHER>...`).
+5.  **Download**: Standard XML file for import into Tally.
+
+### 3.2 Happy Path: Payment Reconciliation
+1.  **Webhook**: Razorpay sends `payment.captured` event.
+2.  **Idempotency Check**: Has `order_id` been processed? If yes, ignore (return 200).
+3.  **Ledger Entry**:
+    - Debit: Bank Account (PG Settlement).
+    - Credit: Student Fee Account (Receivable).
+4.  **Receipt**: Generate PDF Receipt (Series: `ONLINE-2026-001`).
+5.  **Notify**: Send WhatsApp receipt link to Parent.
+
+### 3.3 Edge Case: Settlement Mismatch
+1.  **Daily Job**: Fetch PG Settlement Report (API).
+2.  **Compare**: Total Settled Amount vs Total System Receipts for Batch ID.
+3.  **Alert**: If discrepancy > ₹0, flag batch "Action Required".
+4.  **Resolution**: Admin manually links orphaned payment or initiates refund.
+
+---
 
 ## 4. Data Model
-### `accounting_mappings`
-- `tenant_id` (FK)
-- `fee_head_id` (FK)
-- `tally_ledger_name` (String)
-- `tally_group_name` (String)
 
-### `payment_webhook_logs`
-- `provider_id` (e.g., `razorpay`)
-- `payload` (JSONB)
-- `processed_at` (Timestamp)
-- `idempotency_key` (String, Unique)
+### `ledger_mappings`
+*Maps internal Fee Heads to external Accounting Ledgers.*
+- `id` (UUID, PK)
+- `tenant_id` (UUID, FK)
+- `fee_head_id` (UUID, FK, Unique constraint with `tenant_id`)
+- `tally_ledger_name` (String, e.g., "Tuition Fees FY26")
+- `tally_group_name` (String, e.g., "Direct Incomes")
+- `is_taxable` (Boolean)
+- `tax_rate` (Decimal)
+
+### `payment_gateway_configs`
+*Per-tenant gateway settings.*
+- `id` (UUID, PK)
+- `tenant_id` (UUID, FK)
+- `provider` (Enum: `razorpay`, `payu`, `cashfree`)
+- `merchant_id` (String)
+- `api_key_enc` (Text, Encrypted)
+- `webhook_secret_enc` (Text, Encrypted)
+- `is_active` (Boolean)
+
+### `reconciliation_batches`
+*Tracks settlement batches from PG.*
+- `id` (UUID, PK)
+- `tenant_id` (UUID, FK)
+- `provider_batch_id` (String)
+- `settlement_date` (Date)
+- `total_amount` (Decimal)
+- `status` (Enum: `matched`, `mismatch`, `pending`)
+- `discrepancy_amount` (Decimal)
+
+---
 
 ## 5. API Contracts
-### Tally Export Run
-`GET /api/v1/finance/exports/tally?start_date=...&end_date=...`
+
+### 5.1 Generate Tally XML
+`GET /api/v1/finance/exports/tally`
+**Query Params**: `start_date`, `end_date`, `voucher_type` (receipt/refund)
+**Response**: `Content-Type: application/xml`, File Download.
+
+### 5.2 Payment Webhook (Public)
+`POST /webhooks/payments/{provider}`
+**Headers**: `X-Razorpay-Signature` (HMAC verification required)
+**Body**: JSON payload from provider.
+**Logic**: Verify signature -> Check Idempotency -> Process Order -> Return 200 OK.
+
+### 5.3 Trigger Manual Reconciliation
+`POST /api/v1/finance/reconcile`
+**Request**: `{ "date": "2026-02-01" }`
+**Response**: `{ "status": "queued", "job_id": "abc-123" }`
+
+---
 
 ## 6. UI Screens
-- **Ledger Mapping Table**: Simple UI to manage associations between fee heads and accounting ledgers.
-- **Settlement Dashboard**: Comparison of Gateway "Transferred" amounts vs System "Receipts".
-- **Webhook Monitor**: Logs for developers/admins to troubleshoot failed PG callbacks.
+1.  **Ledger Configuration**: Table mapping Fee Heads to Ledger Names.
+2.  **Reconciliation Dashboard**: Calendar view showing Daily Collection vs Bank Settlement. Red/Green indicators.
+3.  **Webhook Logs**: Troubleshooting tool for Admins (Raw Payload, Response Code).
+4.  **Tally Export History**: List of generated files with download links & Audit info (Who/When).
 
-## 7. Notifications
-- **Payment Success**: Instant WhatsApp receipt.
-- **Settlement Mismatch**: Alert email to Accountant if PG payout doesn't match receipt volume.
+---
 
-## 8. Compliance (India)
-- **GST Ready**: Fields for CGST/SGST if applicable for certain fee types (e.g., canteen/services).
-- **Audit Logs**: Every manual override of a payment status must be double-approved.
+## 7. Reporting
+- **Settlement Report**: Daily breakdown of Gross Collection, MDR (Gateway Fee), Net Settlement.
+- **Unreconciled Transactions**: List of payments with status `authorized` but not `captured` or missing Order ID.
+- **GST Input/Output**: Summary of Tax Collected vs Tax Paid (if relevant).
+
+---
+
+## 8. Security & Privacy
+- **Credentials**: API Keys/Secrets stored using AES-256 encryption.
+- **Logging**: Mask PII/Card details in webhook logs.
+- **Access**: Only `finance.admin` role can view Gateway Keys or Trigger Refunds.
+
+---
 
 ## 9. QA Plan
-- **Verification**: Simulate duplicate webhooks and verify only one receipt is created.
-- **Export Test**: Validate Tally XML output against the standard TallyPrime import schema.
+
+### 9.1 Playwright Scenarios
+- **Mapping**: Login as Accountant -> Map "Tuition" to "Tuition Income" -> Save -> Verify persistence.
+- **Export**: Generate XML for last month -> Verify file downloads -> Check content for correct `<VOUCHER>` tags.
+- **Dashboard**: Simulate a mismatched settlement -> Verify dashboard shows "Red" status.
+
+### 9.2 API Tests
+- **Webhook Security**: Send payload without Signature header -> Expect `401 Unauthorized`.
+- **Idempotency**: Send same `payment.captured` webhook twice -> Expect 200 OK but NO duplicate receipt created.
+- **Format**: Verify Tally XML output validates against standard XSD.
+
+---

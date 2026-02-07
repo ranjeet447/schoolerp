@@ -1,87 +1,158 @@
-# P2 - Alert Management System (Automated)
+# P2 - Alert Management System (Implementation Spec)
 
 ## 1. Overview
-The Alert Management System (AMS) enables schools to configure automated, event-driven notifications. Unlike "Notices" (manual broadcast), AMS reacts to domain events (e.g., student absence, low fee balance, medical incident) based on tenant-defined rules.
+The Alert Management System (AMS) is an event-driven notification engine that automatically triggers alerts based on tenant-defined rules. It listens for domain events (e.g., `attendance.absent`, `fees.overdue`) and dispatches notifications via configured channels (SMS, WhatsApp, Push).
 
 **Goals:**
-- Automate repetitive communication (Absence alerts, Payment reminders).
-- Reduce manual overhead for administrative staff.
-- Ensure timely delivery of critical safety/finance alerts.
+- Zero-touch notification for routine events (Attendance, Fees).
+- Configurable "Quiet Hours" to prevent nuisance alerts.
+- High reliability for safety/emergency alerts (bypassing quiet hours).
 
 **Non-goals:**
-- Generic marketing newsletter broadcasts (use Notices module).
-- Real-time chat (use Parent-Teacher Interaction module).
+- Marketing campaigns (handled by "Notices" module).
+- Real-time chat.
 
-## 2. Personas & RBAC Permission Matrix
+---
 
-| Action | Admin | Accountant | Teacher | Parent |
-| :--- | :---: | :---: | :---: | :---: |
-| Configure Alert Rules | ✅ | ❌ | ❌ | ❌ |
-| Manage Templates | ✅ | ✅ (Finance only) | ❌ | ❌ |
-| View Delivery Logs | ✅ | ✅ | ✅ (Class only) | ❌ |
-| Set Preferences | ❌ | ❌ | ❌ | ✅ |
+## 2. Personas & RBAC
+
+| Role | Permissions |
+| :--- | :--- |
+| **Super Admin** | Manage global event types, debug delivery logs. |
+| **School Admin** | Create/Edit Alert Rules, Configure Templates, View Logs. |
+| **Accountant** | Configure Fee-related Rules/Templates only. |
+| **Parent/Staff** | Receive alerts, Manage preferences (if enabled). |
+
+---
 
 ## 3. Workflows
-### Happy Path: Automated Absence Alert
-1. **Trigger**: Teacher marks student "Absent" in Attendance module.
-2. **Evaluation**: AMS checks if `attendance.absent` rule is active for the tenant.
-3. **Template**: AMS fetches the "Absence Alert" template in the parent's preferred language.
-4. **Routing**: If within "Quiet Hours", it enqueues for later; otherwise, sends via Push -> WhatsApp fallback.
-5. **Logging**: Entry added to `notification_delivery_logs`.
 
-### Edge Case: Delivery Failure
-1. **Failure**: WhatsApp provider returns `ERROR_REJECTED`.
-2. **Action**: System attempts fallback to SMS.
-3. **Alert**: If both fail, the "Notification Error" dashboard is updated for Admin review.
+### 3.1 Happy Path: Automated Absence Alert
+1.  **Trigger**: `AttendanceService` emits `attendance.absent` event for Student A.
+2.  **Rule Match**: AMS finds active rule: `Event=attendance.absent` for `Tenant=101`.
+3.  **Time Check**: Current time (8:00 PM) is within `Quiet Hours` (9 PM - 7 AM)? No.
+4.  **Template Render**: Fetch `HI` (Hindi) template for Parent A. Render: "Student A is absent today."
+5.  **Dispatch**: Send via `WhatsApp`.
+6.  **Log**: Record success in `notification_delivery_logs`.
+
+### 3.2 Edge Case: Quiet Hours & Batching
+1.  **Trigger**: `Fees.Overdue` event at 11:00 PM (Batch job).
+2.  **Rule Match**: Active rule exists.
+3.  **Time Check**: Inside Quiet Hours.
+4.  **Action**: Enqueue to `delayed_alerts_queue` with `process_after = 7:00 AM next day`.
+
+### 3.3 Edge Case: Channel Failover
+1.  **Attempt**: WhatsApp API returns `503 Unavailable`.
+2.  **Retry**: Exponential backoff (x3).
+3.  **Failover**: If all retries fail, check Rule config for `fallback_channel` (e.g., SMS).
+4.  **Final Dispatch**: Send via SMS.
+
+---
 
 ## 4. Data Model
+
 ### `alert_rules`
+*Configuration for when to trigger alerts.*
 - `id` (UUID, PK)
-- `tenant_id` (FK)
-- `event_type` (e.g., `fees.overdue`, `attendance.absent`)
-- `is_active` (Boolean)
-- `threshold_amount` (Decimal, optional for finance)
-- `delay_minutes` (Int)
+- `tenant_id` (UUID, FK, Index)
+- `event_type` (Enum: `attendance.absent`, `fees.overdue`, `exam.results`, `discipline.incident`)
+- `is_active` (Boolean, Default: `true`)
+- `channels` (Array<String>: `["whatsapp", "sms"]`)
+- `config` (JSONB: Thresholds, delay logic)
+- `created_at`, `updated_at`
 
 ### `alert_templates`
+*Multilingual content for rules.*
 - `id` (UUID, PK)
-- `rule_id` (FK)
-- `language_code` (e.g., `hi`, `en`)
-- `channel` (Enum: `push`, `whatsapp`, `sms`, `email`)
-- `content_template` (Text with `{{student_name}}` placeholders)
+- `alert_rule_id` (UUID, FK)
+- `language` (String, e.g., `en`, `hi`)
+- `template_body` (Text, supports Mustache vars `{{name}}`, `{{date}}`)
+- `is_approved` (Boolean, DLT requirement)
+
+### `notification_delivery_logs`
+*Audit trail of all sent messages.*
+- `id` (UUID, PK)
+- `tenant_id` (UUID, FK)
+- `student_id` (UUID, FK, Index)
+- `event_type` (String)
+- `channel` (String)
+- `status` (Enum: `queued`, `sent`, `delivered`, `failed`, `skipped_quiet_hours`)
+- `provider_response` (JSONB)
+- `sent_at` (Timestamp)
+
+---
 
 ## 5. API Contracts
-### Create Alert Rule
+
+### 5.1 Create Alert Rule
 `POST /api/v1/alerts/rules`
+**Permission**: `alerts.manage`
+
+**Request:**
 ```json
 {
   "event_type": "attendance.absent",
-  "is_active": true,
-  "channels": ["push", "whatsapp"]
+  "channels": ["push", "whatsapp"],
+  "config": {
+    "quiet_hours_bypass": false,
+    "delay_minutes": 30
+  },
+  "templates": [
+    { "lang": "en", "body": "Your child {{name}} is absent today." },
+    { "lang": "hi", "body": "आपका बच्चा {{name}} आज अनुपस्थित है।" }
+  ]
 }
 ```
 
-### Get Delivery Logs
-`GET /api/v1/alerts/logs?student_id={uuid}`
+**Response:** `201 Created`
+
+### 5.2 Get Delivery Logs
+`GET /api/v1/alerts/logs`
+**Permission**: `alerts.view`
+**Query Params**: `student_id`, `status`, `date_range`
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "id": "log_123",
+      "event": "attendance.absent",
+      "channel": "whatsapp",
+      "status": "delivered",
+      "sent_at": "2026-02-07T09:30:00Z"
+    }
+  ]
+}
+```
+
+---
 
 ## 6. UI Screens
-- **Alert Dashboard**: Status of active automated alerts.
-- **Rule Editor**: Trigger selection, condition builder, channel priority.
-- **Template Library**: Multilingual editor for each channel.
-- **Delivery Analytics**: Success/failure rates by channel.
+1.  **Alert Rules Manager**: Table of configured rules/triggers with toggles (Active/Inactive).
+2.  **Template Editor**: Rich text/Plain text editor per language with variable picker.
+3.  **Delivery Report**: Dashboard showing Delivery Rate, Failure Rate, and Channel Spend.
+4.  **Student Notification History**: View within Student Profile showing all timeline alerts sent.
 
-## 7. Notifications
-- Multi-channel support (FCM, WhatsApp, SMS).
-- Support for "Priority" alerts (Safety) that bypass quiet hours.
+---
 
-## 8. Reporting & Exports
-- **Failure Report**: List of failed critical alerts for manual follow-up.
-- **Cost Analysis**: Estimated spend per month on SMS/WhatsApp bytes.
+## 7. Reporting
+- **Channel Cost Report**: Monthly breakdown of SMS/WhatsApp costs per tenant.
+- **Delivery Reliability**: Percentage of alerts delivered within <5 mins.
+- **Failure Analysis**: Top error codes from providers (e.g., "Invalid Number").
 
-## 9. Security & Privacy
-- **Tenancy**: `tenant_id` mandatory in all queries and events.
-- **PII**: Templates must not include sensitive PII in non-encrypted channels (e.g., partial mask for Fee IDs).
+---
 
-## 10. QA Plan
-- **Sanity**: Trigger an absence alert via API and verify mock delivery to Worker outbox.
-- **Acceptance**: Rule persists post-refresh; fallback logic executes if primary channel is disabled.
+## 8. QA Plan
+
+### 8.1 Playwright Scenarios
+- **Rule Creation**: Admin creates a new "Fee Overdue" rule and saves template.
+- **Trigger**: Simulate `fees.overdue` event via dev-tools. Verify log appears in "Delivery Report".
+- **Quiet Hours**: Configure Quiet Hours. Trigger alert. Verify status is `queued`. Fast-forward time. Verify status changes to `sent`.
+
+### 8.2 API Tests
+- **Idempotency**: Emit same event ID twice. Verify only 1 log entry created.
+- **Validation**: Try creating rule with empty template. Expect `400 Bad Request`.
+- **Tenancy**: Ensure Tenant A cannot see Tenant B's logs.
+
+---
