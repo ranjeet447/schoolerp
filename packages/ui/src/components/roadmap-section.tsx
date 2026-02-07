@@ -2,11 +2,23 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle2, Clock, Sparkles, Truck, ArrowRight } from 'lucide-react';
+import { CheckCircle2, Clock, Sparkles, Truck, ArrowRight, BrainCircuit, Cpu } from 'lucide-react';
 import { Container, Section } from './layout-foundation';
 import { cn } from '../lib/utils';
 
-const PHASES = [
+type PhaseStatus = "Released" | "In Progress" | "Planned";
+
+interface Phase {
+  status: PhaseStatus;
+  title: string;
+  description: string;
+  features: string[];
+  icon: React.ElementType;
+  color: "blue" | "emerald" | "purple" | "orange";
+  active: boolean;
+}
+
+const PHASES: Phase[] = [
   {
     status: "Released",
     title: "Phase 1: Academic & Financial Core",
@@ -38,19 +50,65 @@ const PHASES = [
     active: true,
   },
   {
-    status: "Released",
-    title: "Phase 3: Ecosystem & Automation",
-    description: "Automation Studio, moderated chat/PTM, portfolio analytics, native apps.",
+    status: "In Progress",
+    title: "Phase 3: Automation & Optimization",
+    description: "Smart workflows, automated scheduling, and advanced analytics.",
     features: [
-      "Portfolio Dashboards for Groups",
+      "Automated Timetable Generation (Constraint-based)",
       "HRMS & Automated Payroll",
+      "Portfolio Dashboards for Groups",
       "Alumni & Placement Portal",
-      "Native Parent App (Prerelease)",
-      "Automation Studio (Staging)"
+      "Native Parent App (Prerelease)"
     ],
     icon: Sparkles,
     color: "purple",
     active: true,
+  }
+];
+
+const PRACTICAL_AI_FEATURES = [
+  {
+    title: "Smart Notices & Reminders",
+    desc: "Template-based fee reminders & circulars in Hindi/English.",
+    icon: "📢"
+  },
+  {
+    title: "Helpdesk Auto-Triage",
+    desc: "Auto-tag parent requests: Fees, Transport, TC, etc.",
+    icon: "🏷️"
+  },
+  {
+    title: "At-Risk Student Flags",
+    desc: "Rules-first signals from attendance/grades/fees => early alerts.",
+    icon: "🚩"
+  },
+  {
+    title: "Policy Search Copilot",
+    desc: "Instant answers from school policies & calendar (retrieval-first).",
+    icon: "🔍"
+  },
+  {
+    title: "PTM Summary & Action Items",
+    desc: "Convert quick notes into clean parent summaries.",
+    icon: "📝"
+  }
+];
+
+const AI_PLUGINS = [
+  {
+    title: "Voice-to-Text Remarks",
+    desc: "Batch mode + caching; multi-language teacher remarks.",
+    icon: "🎙️"
+  },
+  {
+    title: "Question Bank Assistant",
+    desc: "Generate papers from approved question bank + blueprint.",
+    icon: "📚"
+  },
+  {
+    title: "Advanced Forecasting",
+    desc: "Branch/cohort trends & explainable financial projections.",
+    icon: "📊"
   }
 ];
 
@@ -104,7 +162,8 @@ export const RoadmapSection = () => {
                         "text-xs font-black uppercase tracking-widest px-2 py-0.5 rounded",
                         phase.color === 'blue' ? "bg-blue-100 text-blue-700" :
                         phase.color === 'emerald' ? "bg-emerald-100 text-emerald-700" :
-                        "bg-purple-100 text-purple-700"
+                        phase.color === 'purple' ? "bg-purple-100 text-purple-700" :
+                        "bg-orange-100 text-orange-700"
                       )}>
                         {phase.status}
                       </span>
@@ -115,7 +174,8 @@ export const RoadmapSection = () => {
                     "h-10 w-10 opacity-20",
                     phase.color === 'blue' ? "text-blue-500" :
                     phase.color === 'emerald' ? "text-emerald-500" :
-                    "text-purple-500"
+                    phase.color === 'purple' ? "text-purple-500" :
+                    "text-orange-500"
                   )} />
                 </div>
                 
@@ -134,66 +194,86 @@ export const RoadmapSection = () => {
           ))}
         </div>
 
-        {/* AI Features Section */}
+        {/* Practical AI Section */}
         <div className="mt-32">
           <div className="text-center mb-16">
             <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-primary mb-4">
-              <Sparkles className="h-4 w-4" />
-              Coming Soon
+              <BrainCircuit className="h-4 w-4" />
+              Innovation
             </div>
             <h2 className="text-3xl font-black tracking-tight sm:text-5xl mb-6">
-              The <span className="text-primary">AI</span> Frontier
+              Practical <span className="text-primary">AI</span> (Low-cost, High-value)
             </h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              We are actively developing next-gen features powered by predictive intelligence.
+              We prioritize explainable, low-cost intelligence first. Heavier AI ships as opt-in plugins.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              {
-                title: "Predictive Dropout Analysis",
-                desc: "Identify students at risk of dropping out based on attendance and grade patterns before it happens.",
-                icon: "📉"
-              },
-              {
-                title: "Smart Fee Forecasting",
-                desc: "AI-driven cash flow projections based on historical payment behaviors of parents.",
-                icon: "💰"
-              },
-              {
-                title: "Automated Timetable Gen",
-                desc: "Constraint-based genetic algorithms to generate conflict-free schedules in seconds.",
-                icon: "🗓️"
-              },
-              {
-                title: "Voice-to-Text Remarks",
-                desc: "Teachers can dictate student remarks and diary notes in 10+ Indian languages.",
-                icon: "🎙️"
-              },
-              {
-                title: "Exam Question Generator",
-                desc: "Generate balanced question papers from the syllabus automatically.",
-                icon: "📝"
-              },
-               {
-                title: "Intelligent Chatbot",
-                desc: "24/7 automated responses for common parent queries about fees, transport, and events.",
-                icon: "🤖"
-              }
-            ].map((feature, idx) => (
-              <motion.div 
-                key={idx}
-                whileHover={{ y: -5 }}
-                className="p-8 rounded-3xl border bg-muted/20 hover:bg-muted/40 transition-colors"
-              >
-                <div className="text-4xl mb-4">{feature.icon}</div>
-                <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
-                <p className="text-muted-foreground leading-relaxed text-sm">
-                  {feature.desc}
-                </p>
-              </motion.div>
-            ))}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            {/* Low-cost AI Group */}
+            <div>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+                  <Clock className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">AI that Saves Time</h3>
+                  <p className="text-sm text-muted-foreground">Low-cost, ships early, rules-first.</p>
+                </div>
+              </div>
+              <div className="grid gap-4">
+                {PRACTICAL_AI_FEATURES.map((feature, idx) => (
+                  <motion.div 
+                    key={idx}
+                    whileHover={{ x: 4 }}
+                    className="p-4 rounded-2xl border bg-card hover:border-primary/30 transition-all flex items-start gap-4"
+                  >
+                    <span className="text-2xl pt-1">{feature.icon}</span>
+                    <div>
+                      <h4 className="font-bold text-sm">{feature.title}</h4>
+                      <p className="text-xs text-muted-foreground mt-1">{feature.desc}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+
+            {/* Plugins AI Group */}
+            <div>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="h-10 w-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500">
+                  <Cpu className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">Optional AI Plugins</h3>
+                  <p className="text-sm text-muted-foreground">Heavier compute, billed separately.</p>
+                </div>
+              </div>
+              <div className="grid gap-4">
+                {AI_PLUGINS.map((feature, idx) => (
+                  <motion.div 
+                    key={idx}
+                    whileHover={{ x: 4 }}
+                    className="p-4 rounded-2xl border border-purple-500/20 bg-purple-500/5 hover:border-purple-500/40 transition-all flex items-start gap-4"
+                  >
+                    <span className="text-2xl pt-1">{feature.icon}</span>
+                    <div>
+                      <h4 className="font-bold text-sm text-foreground">{feature.title}</h4>
+                      <p className="text-xs text-muted-foreground mt-1">{feature.desc}</p>
+                      <div className="mt-2 text-[10px] font-bold uppercase tracking-wider text-purple-500 bg-purple-500/10 px-2 py-0.5 rounded w-fit">
+                        Opt-in Plugin
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-12 text-center">
+            <div className="inline-block px-6 py-2 rounded-full bg-muted/40 text-xs font-medium text-muted-foreground border border-white/5">
+              💡 Note: We do not charge for base AI rules. You only pay for plugins that use 3rd-party APIs.
+            </div>
           </div>
         </div>
 
