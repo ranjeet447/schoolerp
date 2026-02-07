@@ -161,3 +161,35 @@ func (s *AdmissionService) ListApplications(ctx context.Context, tenantID string
 		Offset:   offset,
 	})
 }
+
+func (s *AdmissionService) RecordFeePayment(ctx context.Context, tenantID, appID string, amount int64, ref, userID, ip string) error {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	aID := pgtype.UUID{}
+	aID.Scan(appID)
+	uID := pgtype.UUID{}
+	uID.Scan(userID)
+
+	err := s.q.UpdateApplicationFee(ctx, db.UpdateApplicationFeeParams{
+		ID:                   aID,
+		TenantID:             tID,
+		ProcessingFeeAmount:  pgtype.Int8{Int64: amount, Valid: true},
+		ProcessingFeeStatus:  pgtype.Text{String: "paid", Valid: true},
+		PaymentReference:     pgtype.Text{String: ref, Valid: true},
+	})
+	if err != nil {
+		return err
+	}
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tID,
+		UserID:       uID,
+		Action:       "RECORD_ADMISSION_FEE",
+		ResourceType: "admission_application",
+		ResourceID:   aID,
+		After:        map[string]interface{}{"amount": amount, "ref": ref},
+		IPAddress:    ip,
+	})
+
+	return nil
+}

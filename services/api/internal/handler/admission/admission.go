@@ -91,6 +91,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		
 		r.Post("/applications", h.CreateApplication)
 		r.Get("/applications", h.ListApplications)
+		r.Post("/applications/{id}/pay-fee", h.RecordFeePayment)
 	})
 }
 
@@ -207,6 +208,26 @@ func (h *Handler) ListApplications(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondJSON(w, http.StatusOK, items)
+}
+
+func (h *Handler) RecordFeePayment(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	type payReq struct {
+		Amount int64  `json:"amount"`
+		Ref    string `json:"reference"`
+	}
+	var req payReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	err := h.svc.RecordFeePayment(r.Context(), middleware.GetTenantID(r.Context()), id, req.Amount, req.Ref, middleware.GetUserID(r.Context()), r.RemoteAddr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]string{"message": "payment recorded"})
 }
 
 func respondJSON(w http.ResponseWriter, status int, payload interface{}) {

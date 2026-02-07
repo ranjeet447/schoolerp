@@ -45,3 +45,11 @@ SELECT * FROM admission_applications WHERE id = $1 AND tenant_id = $2;
 UPDATE admission_applications 
 SET status = $3, reviewed_by = $4, updated_at = NOW()
 WHERE id = $1 AND tenant_id = $2;
+
+-- name: UpdateApplicationFee :exec
+UPDATE admission_applications
+SET processing_fee_amount = $3, 
+    processing_fee_status = $4, 
+    payment_reference = $5, 
+    updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2;
