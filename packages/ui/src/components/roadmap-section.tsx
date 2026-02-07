@@ -75,77 +75,126 @@ export const RoadmapSection = () => {
           </p>
         </motion.div>
 
-        <div className="relative space-y-24">
+        <div className="relative space-y-12 after:absolute after:inset-y-0 after:left-9 after:w-px after:bg-muted-foreground/20 after:-z-10 mt-16">
           {PHASES.map((phase, idx) => (
             <motion.div 
               key={idx}
-              initial={{ opacity: 0, x: idx % 2 === 0 ? -50 : 50 }}
+              initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.8, type: "spring" }}
-              className={cn(
-                "flex flex-col lg:flex-row items-center gap-12",
-                idx % 2 === 0 ? "lg:flex-row" : "lg:flex-row-reverse"
-              )}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.5, delay: idx * 0.1 }}
+              className="relative pl-24 md:pl-32"
             >
-              <div className="flex-1 w-full">
-                <div className={cn(
-                  "relative group rounded-[2.5rem] border p-10 bg-card/30 backdrop-blur-sm transition-all hover:shadow-2xl hover:border-primary/20",
-                  phase.active ? "border-primary/30" : "border-muted"
-                )}>
-                  {/* Phase Label */}
-                  <div className={cn(
-                    "inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest mb-6",
-                    phase.color === 'blue' ? "bg-blue-500/10 text-blue-500" :
-                    phase.color === 'emerald' ? "bg-emerald-500/10 text-emerald-500" :
-                    "bg-purple-500/10 text-purple-500"
-                  )}>
-                    <div className={cn("h-1.5 w-1.5 rounded-full", phase.active ? "animate-pulse bg-current" : "bg-current")} />
-                    {phase.status}
+              {/* Timeline Dot */}
+              <div className={cn(
+                "absolute left-6 top-8 h-6 w-6 rounded-full border-4 border-background flex items-center justify-center z-10",
+                phase.active ? "bg-primary ring-4 ring-primary/20" : "bg-muted-foreground"
+              )}>
+                {phase.active && <div className="h-2 w-2 rounded-full bg-white animate-pulse" />}
+              </div>
+
+              <div className={cn(
+                "group relative rounded-3xl border bg-card p-8 hover:shadow-lg transition-all",
+                phase.active ? "border-primary/50 shadow-md" : "border-muted"
+              )}>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                       <span className={cn(
+                        "text-xs font-black uppercase tracking-widest px-2 py-0.5 rounded",
+                        phase.color === 'blue' ? "bg-blue-100 text-blue-700" :
+                        phase.color === 'emerald' ? "bg-emerald-100 text-emerald-700" :
+                        "bg-purple-100 text-purple-700"
+                      )}>
+                        {phase.status}
+                      </span>
+                    </div>
+                    <h3 className="text-2xl font-bold">{phase.title}</h3>
                   </div>
-
-                  <h3 className="text-3xl font-bold tracking-tight mb-4">{phase.title}</h3>
-                  <p className="text-muted-foreground mb-8 text-lg leading-relaxed">
-                    {phase.description}
-                  </p>
-
-                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {phase.features.map((feature, fIdx) => (
-                      <li key={fIdx} className="flex items-start gap-2">
-                        <CheckCircle2 className={cn(
-                          "h-5 w-5 mt-0.5 shrink-0 opacity-20",
-                          phase.color === 'blue' ? "text-blue-500" :
-                          phase.color === 'emerald' ? "text-emerald-500" :
-                          "text-purple-500"
-                        )} />
-                        <span className="text-sm font-bold text-foreground/80">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {/* Icon Badge */}
-                  <div className={cn(
-                    "absolute -top-6 -right-6 h-16 w-16 rounded-2xl shadow-xl flex items-center justify-center border-4 border-background transition-transform group-hover:rotate-12",
-                    phase.color === 'blue' ? "bg-blue-500 text-white" :
-                    phase.color === 'emerald' ? "bg-emerald-500 text-white" :
-                    "bg-purple-500 text-white"
-                  )}>
-                    <phase.icon className="h-8 w-8" />
-                  </div>
+                  <phase.icon className={cn(
+                    "h-10 w-10 opacity-20",
+                    phase.color === 'blue' ? "text-blue-500" :
+                    phase.color === 'emerald' ? "text-emerald-500" :
+                    "text-purple-500"
+                  )} />
                 </div>
+                
+                <p className="text-muted-foreground mb-6">{phase.description}</p>
+                
+                <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {phase.features.map((feature, fIdx) => (
+                    <li key={fIdx} className="flex items-start gap-2 text-sm">
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 text-primary shrink-0" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-
-              {/* Center Dot for Desktop */}
-              <div className="relative hidden lg:flex h-12 w-12 items-center justify-center shrink-0 z-20">
-                <div className={cn(
-                  "h-5 w-5 rounded-full border-4 border-background ring-4 ring-muted",
-                  phase.active ? "bg-primary animate-ping-slow" : "bg-muted-foreground/30"
-                )} />
-              </div>
-
-              <div className="flex-1 hidden lg:block" />
             </motion.div>
           ))}
+        </div>
+
+        {/* AI Features Section */}
+        <div className="mt-32">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-primary mb-4">
+              <Sparkles className="h-4 w-4" />
+              Coming Soon
+            </div>
+            <h2 className="text-3xl font-black tracking-tight sm:text-5xl mb-6">
+              The <span className="text-primary">AI</span> Frontier
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              We are actively developing next-gen features powered by predictive intelligence.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              {
+                title: "Predictive Dropout Analysis",
+                desc: "Identify students at risk of dropping out based on attendance and grade patterns before it happens.",
+                icon: "📉"
+              },
+              {
+                title: "Smart Fee Forecasting",
+                desc: "AI-driven cash flow projections based on historical payment behaviors of parents.",
+                icon: "💰"
+              },
+              {
+                title: "Automated Timetable Gen",
+                desc: "Constraint-based genetic algorithms to generate conflict-free schedules in seconds.",
+                icon: "🗓️"
+              },
+              {
+                title: "Voice-to-Text Remarks",
+                desc: "Teachers can dictate student remarks and diary notes in 10+ Indian languages.",
+                icon: "🎙️"
+              },
+              {
+                title: "Exam Question Generator",
+                desc: "Generate balanced question papers from the syllabus automatically.",
+                icon: "📝"
+              },
+               {
+                title: "Intelligent Chatbot",
+                desc: "24/7 automated responses for common parent queries about fees, transport, and events.",
+                icon: "🤖"
+              }
+            ].map((feature, idx) => (
+              <motion.div 
+                key={idx}
+                whileHover={{ y: -5 }}
+                className="p-8 rounded-3xl border bg-muted/20 hover:bg-muted/40 transition-colors"
+              >
+                <div className="text-4xl mb-4">{feature.icon}</div>
+                <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
+                <p className="text-muted-foreground leading-relaxed text-sm">
+                  {feature.desc}
+                </p>
+              </motion.div>
+            ))}
+          </div>
         </div>
 
         <motion.div 
