@@ -9,10 +9,14 @@ import {
 import { apiClient } from "@/lib/api-client"
 import { AdmissionApplication } from "@/types/admission"
 import { format } from "date-fns"
+import { ApplicationDocumentsDialog } from "@/components/admission/documents-dialog"
+import { FileText } from "lucide-react"
 
 export default function AdminApplicationsPage() {
   const [applications, setApplications] = useState<AdmissionApplication[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedApp, setSelectedApp] = useState<AdmissionApplication | null>(null)
+  const [docDialogOpen, setDocDialogOpen] = useState(false)
 
   useEffect(() => {
     fetchApplications()
@@ -30,6 +34,11 @@ export default function AdminApplicationsPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleDocs = (app: AdmissionApplication) => {
+    setSelectedApp(app)
+    setDocDialogOpen(true)
   }
 
   return (
@@ -85,7 +94,11 @@ export default function AdminApplicationsPage() {
                     <TableCell>
                         <Badge variant="outline">{app.status}</Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right flex items-center justify-end gap-2">
+                      <Button variant="outline" size="sm" className="gap-2" onClick={() => handleDocs(app)}>
+                        <FileText className="w-4 h-4" />
+                        Docs
+                      </Button>
                       <Button variant="ghost" size="sm">
                         View Details
                       </Button>
@@ -97,6 +110,13 @@ export default function AdminApplicationsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <ApplicationDocumentsDialog 
+        application={selectedApp}
+        open={docDialogOpen}
+        onOpenChange={setDocDialogOpen}
+        onSuccess={fetchApplications}
+      />
     </div>
   )
 }

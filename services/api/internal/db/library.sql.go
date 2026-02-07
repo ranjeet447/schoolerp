@@ -185,6 +185,36 @@ func (q *Queries) GetBook(ctx context.Context, arg GetBookParams) (LibraryBook, 
 	return i, err
 }
 
+const getIssue = `-- name: GetIssue :one
+SELECT id, tenant_id, book_id, student_id, user_id, issue_date, due_date, return_date, fine_amount, status, remarks, created_at, updated_at FROM library_issues WHERE id = $1 AND tenant_id = $2
+`
+
+type GetIssueParams struct {
+	ID       pgtype.UUID `json:"id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) GetIssue(ctx context.Context, arg GetIssueParams) (LibraryIssue, error) {
+	row := q.db.QueryRow(ctx, getIssue, arg.ID, arg.TenantID)
+	var i LibraryIssue
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.BookID,
+		&i.StudentID,
+		&i.UserID,
+		&i.IssueDate,
+		&i.DueDate,
+		&i.ReturnDate,
+		&i.FineAmount,
+		&i.Status,
+		&i.Remarks,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const issueBook = `-- name: IssueBook :one
 INSERT INTO library_issues (
     tenant_id, book_id, student_id, user_id, issue_date, due_date, status

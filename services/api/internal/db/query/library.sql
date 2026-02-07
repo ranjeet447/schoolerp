@@ -73,3 +73,6 @@ LEFT JOIN students s ON i.student_id = s.id
 WHERE i.tenant_id = $1
 ORDER BY i.created_at DESC
 LIMIT $2 OFFSET $3;
+
+-- name: GetIssue :one
+SELECT * FROM library_issues WHERE id = $1 AND tenant_id = $2;

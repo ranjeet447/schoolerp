@@ -11,6 +11,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countRouteAllocations = `-- name: CountRouteAllocations :one
+SELECT COUNT(*) FROM transport_allocations
+WHERE route_id = $1 AND tenant_id = $2 AND status = 'active'
+`
+
+type CountRouteAllocationsParams struct {
+	RouteID  pgtype.UUID `json:"route_id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) CountRouteAllocations(ctx context.Context, arg CountRouteAllocationsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countRouteAllocations, arg.RouteID, arg.TenantID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createAllocation = `-- name: CreateAllocation :one
 INSERT INTO transport_allocations (tenant_id, student_id, route_id, stop_id, start_date, status)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -217,6 +234,33 @@ type DeleteVehicleParams struct {
 func (q *Queries) DeleteVehicle(ctx context.Context, arg DeleteVehicleParams) error {
 	_, err := q.db.Exec(ctx, deleteVehicle, arg.ID, arg.TenantID)
 	return err
+}
+
+const getRoute = `-- name: GetRoute :one
+SELECT id, tenant_id, name, vehicle_id, driver_id, description, is_active, created_at, updated_at FROM transport_routes
+WHERE id = $1 AND tenant_id = $2
+`
+
+type GetRouteParams struct {
+	ID       pgtype.UUID `json:"id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) GetRoute(ctx context.Context, arg GetRouteParams) (TransportRoute, error) {
+	row := q.db.QueryRow(ctx, getRoute, arg.ID, arg.TenantID)
+	var i TransportRoute
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Name,
+		&i.VehicleID,
+		&i.DriverID,
+		&i.Description,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getVehicle = `-- name: GetVehicle :one

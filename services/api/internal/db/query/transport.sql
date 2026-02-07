@@ -66,3 +66,10 @@ JOIN students s ON ta.student_id = s.id
 JOIN transport_routes tr ON ta.route_id = tr.id
 LEFT JOIN transport_route_stops trs ON ta.stop_id = trs.id
 WHERE ta.tenant_id = $1;
+-- name: GetRoute :one
+SELECT * FROM transport_routes
+WHERE id = $1 AND tenant_id = $2;
+
+-- name: CountRouteAllocations :one
+SELECT COUNT(*) FROM transport_allocations
+WHERE route_id = $1 AND tenant_id = $2 AND status = 'active';

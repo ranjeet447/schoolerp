@@ -193,23 +193,35 @@ func (s *LibraryService) ReturnBook(ctx context.Context, p ReturnBookParams) (db
 	iID := pgtype.UUID{}
 	iID.Scan(p.IssueID)
 
-	// Since we don't have GetIssue, fetch from List or assume valid ID for update
-	// In real implementation, should GetIssue to verify it's not already returned.
-	// For MVP, proceed with update.
+	// 1. Fetch the Issue to get Due Date
+	issue, err := s.q.GetIssue(ctx, db.GetIssueParams{ID: iID, TenantID: tID})
+	if err != nil {
+		return db.LibraryIssue{}, fmt.Errorf("issue not found: %w", err)
+	}
 
-	// Calculate Fine (Mock for now)
-	var fineAmount float64 = 0.0 
-	_ = fineAmount // Suppress unused var error until logic implemented
-	
-	// Prepare numeric for fine
-	// pgtype.Numeric is complex to construct manually without helper, sending 0/NULL for now simplicity
-	// or rely on default.
-	
-	issue, err := s.q.ReturnBook(ctx, db.ReturnBookParams{
+	if issue.Status == "returned" {
+		return issue, nil // Already returned
+	}
+
+	// 2. Calculate Fine: $1 per day overdue
+	var fineAmount float64 = 0.0
+	now := time.Now()
+	if issue.DueDate.Valid && now.After(issue.DueDate.Time) {
+		daysOverdue := int(now.Sub(issue.DueDate.Time).Hours() / 24)
+		if daysOverdue > 0 {
+			fineAmount = float64(daysOverdue) * 1.0 // $1 per day
+		}
+	}
+
+	fineNumeric := pgtype.Numeric{}
+	fineNumeric.Scan(fmt.Sprintf("%.2f", fineAmount))
+
+	// 3. Update Issue
+	updatedIssue, err := s.q.ReturnBook(ctx, db.ReturnBookParams{
 		ID:         iID,
 		TenantID:   tID,
-		ReturnDate: pgtype.Timestamptz{Time: time.Now(), Valid: true},
-		FineAmount: pgtype.Numeric{Int: nil, Valid: false}, // 0 fine
+		ReturnDate: pgtype.Timestamptz{Time: now, Valid: true},
+		FineAmount: fineNumeric,
 		Status:     "returned",
 		Remarks:    pgtype.Text{String: p.Remarks, Valid: p.Remarks != ""},
 	})
@@ -217,17 +229,16 @@ func (s *LibraryService) ReturnBook(ctx context.Context, p ReturnBookParams) (db
 		return db.LibraryIssue{}, fmt.Errorf("failed to return book: %w", err)
 	}
 
-	// Increment Copies
+	// 4. Increment Copies
 	bID := issue.BookID
 	if err := s.q.UpdateBookCopies(ctx, db.UpdateBookCopiesParams{
 		ID:              bID,
 		AvailableCopies: 1,
 	}); err != nil {
-		// Critical error: Data inconsistency
-		return issue, fmt.Errorf("book returned but failed to update copies: %w", err)
+		return updatedIssue, fmt.Errorf("book returned but failed to update copies: %w", err)
 	}
 
-	return issue, nil
+	return updatedIssue, nil
 }
 
 func (s *LibraryService) ListIssues(ctx context.Context, tenantID string, limit, offset int32) ([]db.ListIssuesRow, error) {

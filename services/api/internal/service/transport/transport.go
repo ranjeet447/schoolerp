@@ -2,6 +2,7 @@ package transport
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/schoolerp/api/internal/db"
@@ -235,6 +236,18 @@ func (s *TransportService) CreateAllocation(ctx context.Context, p CreateAllocat
 
     rUUID := pgtype.UUID{}
     rUUID.Scan(p.RouteID)
+
+    // 1. Capacity Check
+    route, err := s.q.GetRoute(ctx, db.GetRouteParams{ID: rUUID, TenantID: tUUID})
+    if err == nil && route.VehicleID.Valid {
+        vehicle, vErr := s.q.GetVehicle(ctx, db.GetVehicleParams{ID: route.VehicleID, TenantID: tUUID})
+        if vErr == nil {
+            count, _ := s.q.CountRouteAllocations(ctx, db.CountRouteAllocationsParams{RouteID: rUUID, TenantID: tUUID})
+            if int32(count) >= vehicle.Capacity {
+                return db.TransportAllocation{}, fmt.Errorf("vehicle capacity (%d) reached for this route", vehicle.Capacity)
+            }
+        }
+    }
 
     stopUUID := pgtype.UUID{}
     if p.StopID != "" { stopUUID.Scan(p.StopID) }

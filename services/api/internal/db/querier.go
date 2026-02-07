@@ -17,6 +17,7 @@ type Querier interface {
 	BatchUpsertAttendanceEntries(ctx context.Context, arg []BatchUpsertAttendanceEntriesParams) (int64, error)
 	CancelReceipt(ctx context.Context, arg CancelReceiptParams) (Receipt, error)
 	CheckLock(ctx context.Context, arg CheckLockParams) (bool, error)
+	CountRouteAllocations(ctx context.Context, arg CountRouteAllocationsParams) (int64, error)
 	CountStudents(ctx context.Context, tenantID pgtype.UUID) (int64, error)
 	// Academic Structure
 	CreateAcademicYear(ctx context.Context, arg CreateAcademicYearParams) (AcademicYear, error)
@@ -166,6 +167,7 @@ type Querier interface {
 	GetExamResultsForStudent(ctx context.Context, arg GetExamResultsForStudentParams) ([]GetExamResultsForStudentRow, error)
 	GetFile(ctx context.Context, arg GetFileParams) (File, error)
 	GetInventoryItem(ctx context.Context, arg GetInventoryItemParams) (InventoryItem, error)
+	GetIssue(ctx context.Context, arg GetIssueParams) (LibraryIssue, error)
 	GetNextReceiptNumber(ctx context.Context, arg GetNextReceiptNumberParams) (interface{}, error)
 	GetNotice(ctx context.Context, arg GetNoticeParams) (Notice, error)
 	GetNoticeAcks(ctx context.Context, noticeID pgtype.UUID) ([]GetNoticeAcksRow, error)
@@ -187,6 +189,7 @@ type Querier interface {
 	// foundation.sql
 	// Policies
 	GetPolicy(ctx context.Context, arg GetPolicyParams) (Policy, error)
+	GetRoute(ctx context.Context, arg GetRouteParams) (TransportRoute, error)
 	GetStudent(ctx context.Context, arg GetStudentParams) (GetStudentRow, error)
 	GetStudentFeeSummary(ctx context.Context, studentID pgtype.UUID) ([]GetStudentFeeSummaryRow, error)
 	GetStudentGuardians(ctx context.Context, studentID pgtype.UUID) ([]GetStudentGuardiansRow, error)
