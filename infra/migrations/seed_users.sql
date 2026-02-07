@@ -61,7 +61,7 @@ INSERT INTO roles (id, tenant_id, name, code, description, is_system) VALUES
 ('44444444-4444-4444-4444-444444444444', NULL, 'Accountant', 'accountant', 'Finance and fee collector', TRUE),
 ('55555555-5555-5555-5555-555555555555', NULL, 'Parent', 'parent', 'Guardian view', TRUE),
 ('66666666-6666-6666-6666-666666666666', NULL, 'Student', 'student', 'Student view', TRUE)
-ON CONFLICT (tenant_id, code) DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================================
 -- 4. MAP ROLES TO PERMISSIONS
