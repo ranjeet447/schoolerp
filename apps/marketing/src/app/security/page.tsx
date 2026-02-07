@@ -44,11 +44,23 @@ const SECURITY_FEATURES = [
 export default function SecurityPage() {
   return (
     <main>
-      <div className="pt-32 pb-12 bg-primary text-primary-foreground text-center">
-        <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl">Enterprise Trust</h1>
-        <p className="mt-4 text-xl opacity-90 mx-auto max-w-2xl">
-          Security is not a feature for us; it is our foundation.
-        </p>
+      <div className="relative pt-32 pb-20 overflow-hidden bg-muted/20 text-center">
+        {/* Ambient Background */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-primary/20 blur-[120px] rounded-full pointer-events-none" />
+        
+        <div className="relative z-10 container">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-background/50 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.2em] text-primary mb-8 backdrop-blur-xl shadow-lg">
+             <ShieldCheck className="h-4 w-4" />
+             Bank-Grade Protection
+          </div>
+          <h1 className="text-4xl font-black tracking-tighter sm:text-7xl mb-6">
+            Uncompromising <br /><span className="text-primary italic">Security</span>
+          </h1>
+          <p className="text-xl text-muted-foreground font-medium mx-auto max-w-2xl leading-relaxed">
+            We treat your school's data with the same rigor as a financial institution. <br />
+            ISO 27001 certified processes and SOC2 Type II compliant infrastructure.
+          </p>
+        </div>
       </div>
 
       <Section>
