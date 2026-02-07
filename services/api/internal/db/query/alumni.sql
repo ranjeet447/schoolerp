@@ -1,7 +1,7 @@
 -- name: CreateAlumni :one
 INSERT INTO alumni (
     tenant_id, student_id, user_id, full_name, graduation_year, batch, email, phone, 
-    current_company, current_role, linkedin_url, bio, is_verified
+    current_company, job_role, linkedin_url, bio, is_verified
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
 ) RETURNING *;
@@ -17,7 +17,7 @@ LIMIT $2 OFFSET $3;
 
 -- name: UpdateAlumni :one
 UPDATE alumni SET
-    current_company = $3, current_role = $4, linkedin_url = $5, bio = $6, updated_at = NOW()
+    current_company = $3, job_role = $4, linkedin_url = $5, bio = $6, updated_at = NOW()
 WHERE id = $1 AND tenant_id = $2
 RETURNING *;
 
@@ -59,7 +59,7 @@ JOIN alumni a ON pa.alumni_id = a.id
 WHERE pa.drive_id = $1
 ORDER BY pa.applied_at DESC;
 
--- name: UpdateApplicationStatus :one
+-- name: UpdatePlacementApplicationStatus :one
 UPDATE placement_applications SET status = $2, updated_at = NOW()
 WHERE id = $1
 RETURNING *;

@@ -13,6 +13,7 @@ import (
 type Querier interface {
 	AcknowledgeNotice(ctx context.Context, arg AcknowledgeNoticeParams) (NoticeAck, error)
 	AddExamSubject(ctx context.Context, arg AddExamSubjectParams) error
+	AddGroupMember(ctx context.Context, arg AddGroupMemberParams) error
 	AssignPlanToStudent(ctx context.Context, arg AssignPlanToStudentParams) (StudentFeePlan, error)
 	BatchUpsertAttendanceEntries(ctx context.Context, arg []BatchUpsertAttendanceEntriesParams) (int64, error)
 	CancelReceipt(ctx context.Context, arg CancelReceiptParams) (Receipt, error)
@@ -22,6 +23,7 @@ type Querier interface {
 	// Academic Structure
 	CreateAcademicYear(ctx context.Context, arg CreateAcademicYearParams) (AcademicYear, error)
 	CreateAllocation(ctx context.Context, arg CreateAllocationParams) (TransportAllocation, error)
+	CreateAlumni(ctx context.Context, arg CreateAlumniParams) (Alumni, error)
 	CreateApplication(ctx context.Context, arg CreateApplicationParams) (AdmissionApplication, error)
 	// Approvals
 	CreateApprovalRequest(ctx context.Context, arg CreateApprovalRequestParams) (ApprovalRequest, error)
@@ -58,7 +60,9 @@ type Querier interface {
 	CreateBookAuthor(ctx context.Context, arg CreateBookAuthorParams) error
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (LibraryCategory, error)
 	CreateClass(ctx context.Context, arg CreateClassParams) (Class, error)
+	CreateDigitalAsset(ctx context.Context, arg CreateDigitalAssetParams) (LibraryDigitalAsset, error)
 	CreateDriver(ctx context.Context, arg CreateDriverParams) (TransportDriver, error)
+	CreateEmployee(ctx context.Context, arg CreateEmployeeParams) (Employee, error)
 	CreateEnquiry(ctx context.Context, arg CreateEnquiryParams) (AdmissionEnquiry, error)
 	// Copyright 2026 Google LLC
 	//
@@ -127,10 +131,19 @@ type Querier interface {
 	CreateNotice(ctx context.Context, arg CreateNoticeParams) (Notice, error)
 	CreatePDFJob(ctx context.Context, arg CreatePDFJobParams) (PdfJob, error)
 	CreatePaymentOrder(ctx context.Context, arg CreatePaymentOrderParams) (PaymentOrder, error)
+	CreatePayrollRun(ctx context.Context, arg CreatePayrollRunParams) (PayrollRun, error)
+	CreatePayslip(ctx context.Context, arg CreatePayslipParams) (Payslip, error)
+	CreatePlacementApplication(ctx context.Context, arg CreatePlacementApplicationParams) (PlacementApplication, error)
+	CreatePlacementDrive(ctx context.Context, arg CreatePlacementDriveParams) (PlacementDrife, error)
+	// ==================== Purchase Orders ====================
+	CreatePurchaseOrder(ctx context.Context, arg CreatePurchaseOrderParams) (PurchaseOrder, error)
+	CreatePurchaseOrderItem(ctx context.Context, arg CreatePurchaseOrderItemParams) (PurchaseOrderItem, error)
 	CreateReceipt(ctx context.Context, arg CreateReceiptParams) (Receipt, error)
 	CreateRefund(ctx context.Context, arg CreateRefundParams) (FeeRefund, error)
 	CreateRoute(ctx context.Context, arg CreateRouteParams) (TransportRoute, error)
 	CreateRouteStop(ctx context.Context, arg CreateRouteStopParams) (TransportRouteStop, error)
+	CreateSalaryStructure(ctx context.Context, arg CreateSalaryStructureParams) (SalaryStructure, error)
+	CreateSchoolGroup(ctx context.Context, arg CreateSchoolGroupParams) (SchoolGroup, error)
 	CreateSection(ctx context.Context, arg CreateSectionParams) (Section, error)
 	// Copyright 2026 Google LLC
 	//
@@ -150,22 +163,28 @@ type Querier interface {
 	CreateSupplier(ctx context.Context, arg CreateSupplierParams) (InventorySupplier, error)
 	CreateVehicle(ctx context.Context, arg CreateVehicleParams) (TransportVehicle, error)
 	DeleteAttendanceEntries(ctx context.Context, sessionID pgtype.UUID) error
+	DeleteDigitalAsset(ctx context.Context, id pgtype.UUID) error
 	DeleteLock(ctx context.Context, arg DeleteLockParams) error
 	DeleteNotice(ctx context.Context, arg DeleteNoticeParams) error
 	DeleteStudent(ctx context.Context, arg DeleteStudentParams) error
 	DeleteVehicle(ctx context.Context, arg DeleteVehicleParams) error
 	GetActiveSeries(ctx context.Context, tenantID pgtype.UUID) (ReceiptSeries, error)
+	GetAlumni(ctx context.Context, arg GetAlumniParams) (Alumni, error)
+	GetAlumniApplications(ctx context.Context, alumniID pgtype.UUID) ([]GetAlumniApplicationsRow, error)
 	GetApplication(ctx context.Context, arg GetApplicationParams) (AdmissionApplication, error)
 	GetApprovalRequest(ctx context.Context, id pgtype.UUID) (ApprovalRequest, error)
 	GetAttendanceEntries(ctx context.Context, sessionID pgtype.UUID) ([]GetAttendanceEntriesRow, error)
 	GetAttendanceSession(ctx context.Context, arg GetAttendanceSessionParams) (AttendanceSession, error)
 	GetBook(ctx context.Context, arg GetBookParams) (LibraryBook, error)
 	GetChildrenByParentUser(ctx context.Context, arg GetChildrenByParentUserParams) ([]GetChildrenByParentUserRow, error)
+	GetEmployee(ctx context.Context, arg GetEmployeeParams) (Employee, error)
+	GetEmployeePayslips(ctx context.Context, arg GetEmployeePayslipsParams) ([]GetEmployeePayslipsRow, error)
 	GetEnquiry(ctx context.Context, arg GetEnquiryParams) (AdmissionEnquiry, error)
 	GetExam(ctx context.Context, arg GetExamParams) (Exam, error)
 	GetExamMarks(ctx context.Context, arg GetExamMarksParams) ([]GetExamMarksRow, error)
 	GetExamResultsForStudent(ctx context.Context, arg GetExamResultsForStudentParams) ([]GetExamResultsForStudentRow, error)
 	GetFile(ctx context.Context, arg GetFileParams) (File, error)
+	GetGroupAnalytics(ctx context.Context, groupID pgtype.UUID) (GetGroupAnalyticsRow, error)
 	GetInventoryItem(ctx context.Context, arg GetInventoryItemParams) (InventoryItem, error)
 	GetIssue(ctx context.Context, arg GetIssueParams) (LibraryIssue, error)
 	GetNextReceiptNumber(ctx context.Context, arg GetNextReceiptNumberParams) (interface{}, error)
@@ -173,6 +192,8 @@ type Querier interface {
 	GetNoticeAcks(ctx context.Context, noticeID pgtype.UUID) ([]GetNoticeAcksRow, error)
 	GetPDFTemplate(ctx context.Context, arg GetPDFTemplateParams) (PdfTemplate, error)
 	GetPaymentOrder(ctx context.Context, arg GetPaymentOrderParams) (PaymentOrder, error)
+	GetPayrollRun(ctx context.Context, arg GetPayrollRunParams) (PayrollRun, error)
+	GetPlacementDrive(ctx context.Context, arg GetPlacementDriveParams) (PlacementDrife, error)
 	// Copyright 2026 Google LLC
 	//
 	// Licensed under the Apache License, Version 2.0 (the "License");
@@ -189,7 +210,10 @@ type Querier interface {
 	// foundation.sql
 	// Policies
 	GetPolicy(ctx context.Context, arg GetPolicyParams) (Policy, error)
+	GetPurchaseOrder(ctx context.Context, arg GetPurchaseOrderParams) (PurchaseOrder, error)
 	GetRoute(ctx context.Context, arg GetRouteParams) (TransportRoute, error)
+	GetRouteStop(ctx context.Context, id pgtype.UUID) (TransportRouteStop, error)
+	GetSchoolGroup(ctx context.Context, id pgtype.UUID) (SchoolGroup, error)
 	GetStudent(ctx context.Context, arg GetStudentParams) (GetStudentRow, error)
 	GetStudentFeeSummary(ctx context.Context, studentID pgtype.UUID) ([]GetStudentFeeSummaryRow, error)
 	GetStudentGuardians(ctx context.Context, studentID pgtype.UUID) ([]GetStudentGuardiansRow, error)
@@ -198,16 +222,21 @@ type Querier interface {
 	LinkStudentGuardian(ctx context.Context, arg LinkStudentGuardianParams) error
 	ListAcademicYears(ctx context.Context, tenantID pgtype.UUID) ([]AcademicYear, error)
 	ListAllocations(ctx context.Context, tenantID pgtype.UUID) ([]ListAllocationsRow, error)
+	ListAlumni(ctx context.Context, arg ListAlumniParams) ([]Alumni, error)
 	ListApplications(ctx context.Context, arg ListApplicationsParams) ([]ListApplicationsRow, error)
 	ListAuthors(ctx context.Context, tenantID pgtype.UUID) ([]LibraryAuthor, error)
 	ListBooks(ctx context.Context, arg ListBooksParams) ([]LibraryBook, error)
 	ListCategories(ctx context.Context, tenantID pgtype.UUID) ([]LibraryCategory, error)
 	ListClasses(ctx context.Context, tenantID pgtype.UUID) ([]Class, error)
+	ListDigitalAssets(ctx context.Context, arg ListDigitalAssetsParams) ([]LibraryDigitalAsset, error)
+	ListDriveApplications(ctx context.Context, driveID pgtype.UUID) ([]ListDriveApplicationsRow, error)
 	ListDrivers(ctx context.Context, tenantID pgtype.UUID) ([]TransportDriver, error)
+	ListEmployees(ctx context.Context, arg ListEmployeesParams) ([]Employee, error)
 	ListEnquiries(ctx context.Context, arg ListEnquiriesParams) ([]AdmissionEnquiry, error)
 	ListExamSubjects(ctx context.Context, examID pgtype.UUID) ([]ListExamSubjectsRow, error)
 	ListExams(ctx context.Context, tenantID pgtype.UUID) ([]Exam, error)
 	ListFeeHeads(ctx context.Context, tenantID pgtype.UUID) ([]FeeHead, error)
+	ListGroupMembers(ctx context.Context, groupID pgtype.UUID) ([]ListGroupMembersRow, error)
 	ListInventoryCategories(ctx context.Context, tenantID pgtype.UUID) ([]InventoryCategory, error)
 	ListInventoryItems(ctx context.Context, arg ListInventoryItemsParams) ([]ListInventoryItemsRow, error)
 	ListInventoryTransactions(ctx context.Context, arg ListInventoryTransactionsParams) ([]ListInventoryTransactionsRow, error)
@@ -217,11 +246,18 @@ type Querier interface {
 	// This is a bit simplified, in real prod you'd filter by scope.
 	// For now, we fetch all notices for the tenant.
 	ListNoticesForParent(ctx context.Context, arg ListNoticesForParentParams) ([]ListNoticesForParentRow, error)
+	ListPayrollRuns(ctx context.Context, arg ListPayrollRunsParams) ([]PayrollRun, error)
+	ListPayslipsByRun(ctx context.Context, payrollRunID pgtype.UUID) ([]ListPayslipsByRunRow, error)
 	ListPendingApprovals(ctx context.Context, tenantID pgtype.UUID) ([]ApprovalRequest, error)
 	ListPendingPDFJobs(ctx context.Context, limit int32) ([]PdfJob, error)
+	ListPlacementDrives(ctx context.Context, arg ListPlacementDrivesParams) ([]PlacementDrife, error)
 	ListPolicies(ctx context.Context, tenantID pgtype.UUID) ([]Policy, error)
+	ListPurchaseOrderItems(ctx context.Context, poID pgtype.UUID) ([]ListPurchaseOrderItemsRow, error)
+	ListPurchaseOrders(ctx context.Context, arg ListPurchaseOrdersParams) ([]ListPurchaseOrdersRow, error)
 	ListRouteStops(ctx context.Context, routeID pgtype.UUID) ([]TransportRouteStop, error)
 	ListRoutes(ctx context.Context, tenantID pgtype.UUID) ([]ListRoutesRow, error)
+	ListSalaryStructures(ctx context.Context, tenantID pgtype.UUID) ([]SalaryStructure, error)
+	ListSchoolGroups(ctx context.Context, ownerUserID pgtype.UUID) ([]SchoolGroup, error)
 	ListSectionsByClass(ctx context.Context, classID pgtype.UUID) ([]Section, error)
 	ListStudentReceipts(ctx context.Context, arg ListStudentReceiptsParams) ([]Receipt, error)
 	ListStudents(ctx context.Context, arg ListStudentsParams) ([]ListStudentsRow, error)
@@ -229,15 +265,25 @@ type Querier interface {
 	ListSuppliers(ctx context.Context, tenantID pgtype.UUID) ([]InventorySupplier, error)
 	ListVehicles(ctx context.Context, tenantID pgtype.UUID) ([]TransportVehicle, error)
 	PublishExam(ctx context.Context, arg PublishExamParams) (Exam, error)
+	ReceivePurchaseOrder(ctx context.Context, arg ReceivePurchaseOrderParams) (PurchaseOrder, error)
+	RemoveGroupMember(ctx context.Context, arg RemoveGroupMemberParams) error
 	ReturnBook(ctx context.Context, arg ReturnBookParams) (LibraryIssue, error)
+	UpdateAlumni(ctx context.Context, arg UpdateAlumniParams) (Alumni, error)
+	UpdateApplicationFee(ctx context.Context, arg UpdateApplicationFeeParams) error
 	UpdateApplicationStatus(ctx context.Context, arg UpdateApplicationStatusParams) error
 	UpdateApprovalStatus(ctx context.Context, arg UpdateApprovalStatusParams) (ApprovalRequest, error)
 	UpdateBookCopies(ctx context.Context, arg UpdateBookCopiesParams) error
+	UpdateEmployee(ctx context.Context, arg UpdateEmployeeParams) (Employee, error)
 	UpdateEnquiryStatus(ctx context.Context, arg UpdateEnquiryStatusParams) error
 	UpdateLeaveStatus(ctx context.Context, arg UpdateLeaveStatusParams) (LeaveRequest, error)
 	UpdateOrCreatePolicy(ctx context.Context, arg UpdateOrCreatePolicyParams) (Policy, error)
 	UpdatePDFJobStatus(ctx context.Context, arg UpdatePDFJobStatusParams) (PdfJob, error)
+	UpdatePOItemReceived(ctx context.Context, arg UpdatePOItemReceivedParams) error
 	UpdatePaymentOrderStatus(ctx context.Context, arg UpdatePaymentOrderStatusParams) (PaymentOrder, error)
+	UpdatePayrollRunStatus(ctx context.Context, arg UpdatePayrollRunStatusParams) (PayrollRun, error)
+	UpdatePlacementApplicationStatus(ctx context.Context, arg UpdatePlacementApplicationStatusParams) (PlacementApplication, error)
+	UpdatePlacementDriveStatus(ctx context.Context, arg UpdatePlacementDriveStatusParams) (PlacementDrife, error)
+	UpdatePurchaseOrderStatus(ctx context.Context, arg UpdatePurchaseOrderStatusParams) (PurchaseOrder, error)
 	UpdateStudent(ctx context.Context, arg UpdateStudentParams) (Student, error)
 	UpdateVehicle(ctx context.Context, arg UpdateVehicleParams) (TransportVehicle, error)
 	UpsertMarks(ctx context.Context, arg UpsertMarksParams) error

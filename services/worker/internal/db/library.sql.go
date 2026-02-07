@@ -152,6 +152,60 @@ func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) 
 	return i, err
 }
 
+const createDigitalAsset = `-- name: CreateDigitalAsset :one
+INSERT INTO library_digital_assets (
+    tenant_id, book_id, asset_type, title, url, file_size_bytes, access_level
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7
+) RETURNING id, tenant_id, book_id, asset_type, title, url, file_size_bytes, access_level, is_active, created_at, updated_at
+`
+
+type CreateDigitalAssetParams struct {
+	TenantID      pgtype.UUID `json:"tenant_id"`
+	BookID        pgtype.UUID `json:"book_id"`
+	AssetType     string      `json:"asset_type"`
+	Title         string      `json:"title"`
+	Url           string      `json:"url"`
+	FileSizeBytes pgtype.Int8 `json:"file_size_bytes"`
+	AccessLevel   string      `json:"access_level"`
+}
+
+func (q *Queries) CreateDigitalAsset(ctx context.Context, arg CreateDigitalAssetParams) (LibraryDigitalAsset, error) {
+	row := q.db.QueryRow(ctx, createDigitalAsset,
+		arg.TenantID,
+		arg.BookID,
+		arg.AssetType,
+		arg.Title,
+		arg.Url,
+		arg.FileSizeBytes,
+		arg.AccessLevel,
+	)
+	var i LibraryDigitalAsset
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.BookID,
+		&i.AssetType,
+		&i.Title,
+		&i.Url,
+		&i.FileSizeBytes,
+		&i.AccessLevel,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const deleteDigitalAsset = `-- name: DeleteDigitalAsset :exec
+UPDATE library_digital_assets SET is_active = FALSE WHERE id = $1
+`
+
+func (q *Queries) DeleteDigitalAsset(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteDigitalAsset, id)
+	return err
+}
+
 const getBook = `-- name: GetBook :one
 SELECT id, tenant_id, title, isbn, publisher, published_year, category_id, total_copies, available_copies, shelf_location, cover_image_url, price, language, status, created_at, updated_at FROM library_books WHERE id = $1 AND tenant_id = $2
 `
@@ -366,6 +420,49 @@ func (q *Queries) ListCategories(ctx context.Context, tenantID pgtype.UUID) ([]L
 			&i.Name,
 			&i.ParentID,
 			&i.Description,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDigitalAssets = `-- name: ListDigitalAssets :many
+SELECT id, tenant_id, book_id, asset_type, title, url, file_size_bytes, access_level, is_active, created_at, updated_at FROM library_digital_assets
+WHERE book_id = $1 AND tenant_id = $2 AND is_active = TRUE
+ORDER BY created_at
+`
+
+type ListDigitalAssetsParams struct {
+	BookID   pgtype.UUID `json:"book_id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) ListDigitalAssets(ctx context.Context, arg ListDigitalAssetsParams) ([]LibraryDigitalAsset, error) {
+	rows, err := q.db.Query(ctx, listDigitalAssets, arg.BookID, arg.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LibraryDigitalAsset
+	for rows.Next() {
+		var i LibraryDigitalAsset
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.BookID,
+			&i.AssetType,
+			&i.Title,
+			&i.Url,
+			&i.FileSizeBytes,
+			&i.AccessLevel,
+			&i.IsActive,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {

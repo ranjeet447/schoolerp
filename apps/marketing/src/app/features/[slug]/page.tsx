@@ -50,8 +50,10 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
                 {feature.longDescription}
               </p>
               <div className="pt-4">
-                <Button size="lg" className="rounded-full px-10 text-lg" onClick={() => window.location.href = '/book-demo'}>
-                  Book a Demo
+                <Button size="lg" className="rounded-full px-10 text-lg" asChild>
+                  <Link href="/book-demo">
+                    Book a Demo
+                  </Link>
                 </Button>
               </div>
             </div>

@@ -56,7 +56,7 @@ func (h *Handler) CreateAlumni(w http.ResponseWriter, r *http.Request) {
 		Email          string `json:"email"`
 		Phone          string `json:"phone"`
 		CurrentCompany string `json:"current_company"`
-		CurrentRole    string `json:"current_role"`
+		JobRole        string `json:"job_role"`
 		LinkedInURL    string `json:"linkedin_url"`
 		Bio            string `json:"bio"`
 	}
@@ -73,7 +73,7 @@ func (h *Handler) CreateAlumni(w http.ResponseWriter, r *http.Request) {
 		Email:          req.Email,
 		Phone:          req.Phone,
 		CurrentCompany: req.CurrentCompany,
-		CurrentRole:    req.CurrentRole,
+		JobRole:        req.JobRole,
 		LinkedInURL:    req.LinkedInURL,
 		Bio:            req.Bio,
 	})

@@ -1,30 +1,37 @@
 # 23 - Deployment & Infrastructure
 
-This document provides an overview of the infrastructure that powers the SchoolERP SaaS platform.
+This document provides a step-by-step guide for deploying the SchoolERP SaaS platform using free-tier services.
 
-## 1. Containerization
-The entire platform is containerized using **Docker**.
-- **Base Config**: [infra/docker-compose.yml](file:///Users/ranjeet/projects/schoolERP/infra/docker-compose.yml).
-- **Profiles**:
-  - `default`: API, Web, DB, Redis.
-  - `cms`: Adds Directus for content management.
+## 1. Database: Supabase (PostgreSQL)
+1. Create a new project on [Supabase](https://supabase.com/).
+2. Retrieve your **Connection string** (URI) from **Project Settings > Database**.
+3. Apply migrations using the `Makefile`:
+   ```bash
+   export DATABASE_URL="your-supabase-uri"
+   make migrate
+   ```
 
-## 2. Environment Management
-Environment variables are used to manage configurations across different stages.
-- **Local**: `.env` and `.env.local` files.
-- **Staging/Production**: Managed via the deployment platform (e.g., Vercel for apps, Railway/AWS for services).
+## 2. Backend: Render (Go API)
+1. Create a new **Web Service** on [Render](https://render.com/).
+2. Connect the [schoolerp repository](https://github.com/ranjeet447/schoolerp).
+3. Configuration:
+   - **Root Directory**: `services/api`
+   - **Runtime**: `Go`
+   - **Build Command**: `go build -o api ./cmd/api`
+   - **Start Command**: `./api`
+4. **Environment Variables**:
+   - `DATABASE_URL`: Your Supabase URI.
+   - `JWT_SECRET`: A secure random string.
+   - `ENV`: `production`
 
-## 3. Deployment Strategy
-- **Frontend (Next.js)**: Deployed to Vercel for edge-optimized delivery.
-- **Backend (Go)**: Compiled into single binaries and deployed as containers.
-- **Database**: Managed PostgreSQL (e.g., AWS RDS or Supabase) with daily backups.
+## 3. Frontend: Vercel (Next.js)
+1. Import the repository into [Vercel](https://vercel.com/).
+2. Deploy two projects from the monorepo:
+   - **Marketing**: Root Directory = `apps/marketing`
+   - **Web App**: Root Directory = `apps/web`
+3. **Environment Variables**:
+   - `NEXT_PUBLIC_API_URL`: Your Render API URL (e.g., `https://schoolerp-api.onrender.com/v1`).
 
-## 4. Multi-tenancy Scaling
-- **Routing**: Tenants are identified via subdomains (e.g., `school1.schoolerp.com`) or a dedicated header.
-- **Data Isolation**: Enforced at the application layer via `tenant_id` and optionally at the DB layer via Row Level Security (RLS).
-- **Static Assets**: Stored in S3-compatible object storage with tenant-scoped prefixes.
-
-## 5. Monitoring & Logs
-- **Logging**: Structured JSON logs collected for centralized searching.
-- **Error Tracking**: Sentry is used for both frontend and backend error reporting.
-- **Metrics**: Prometheus/Grafana for monitoring system health and throughput (in plan).
+## 4. Multi-tenancy & Scaling
+- **Isolation**: Enforced via `tenant_id` at the application layer.
+- **Assets**: MinIO used locally, S3 recommended for production.

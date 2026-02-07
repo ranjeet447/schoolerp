@@ -11,7 +11,7 @@ CREATE TABLE alumni (
     email TEXT,
     phone TEXT,
     current_company TEXT,
-    current_role TEXT,
+    job_role TEXT,
     linkedin_url TEXT,
     profile_picture_url TEXT,
     bio TEXT,

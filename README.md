@@ -2,6 +2,9 @@
 
 A production-grade foundation for a multi-tenant School Operating System.
 
+## Repository
+- **GitHub**: [ranjeet447/schoolerp](https://github.com/ranjeet447/schoolerp)
+
 ## Architecture
 - **Backend**: Go (chi + pgx + SQLC)
 - **Frontend**: Next.js (App Router) + Tailwind + shadcn/ui
@@ -15,7 +18,7 @@ A production-grade foundation for a multi-tenant School Operating System.
 ### 1. Prerequisites
 - Docker & Docker Compose
 - Node.js & pnpm
-- Go (1.21+)
+- Go (1.25+)
 
 ### 2. Infrastructure Setup
 ```bash
@@ -56,6 +59,15 @@ make storybook
 make test-ui
 ```
 
+## Deployment Strategy (v1)
+
+Release 1 is designed for easy deployment on modern cloud platforms:
+1. **Frontend**: Deployed to **Vercel** (`apps/marketing` and `apps/web`).
+2. **Backend**: Deployed to **Render** or **Railway** (Go standard library).
+3. **Database**: **Supabase** (PostgreSQL).
+
+Refer to [Deployment Documentation](file:///Users/ranjeet/projects/schoolERP/docs/23-deployment-infrastructure.md) for step-by-step instructions.
+
 ## Release 1 Status: COMPLETELY IMPLEMENTED ✅
 
 All core modules for Release 1 have been implemented, tested (Playwright/Storybook), and documented:
@@ -66,7 +78,7 @@ All core modules for Release 1 have been implemented, tested (Playwright/Storybo
 - [x] Phase 5: Notices + Acknowledgement
 - [x] Phase 6: Exams + Report Cards
 
-### Release Documentation
-- [View Task Tracker](file:///Users/ranjeet/.gemini/antigravity/brain/dcf2a783-6d6e-405e-a0d1-c7795c4927c9/task.md)
-- [View Implementation Walkthrough](file:///Users/ranjeet/.gemini/antigravity/brain/dcf2a783-6d6e-405e-a0d1-c7795c4927c9/walkthrough.md)
-- [View Changelog](file:///Users/ranjeet/projects/schoolERP/CHANGELOG.md)
+### Documentation
+- [View Implementation Walkthrough](file:///Users/ranjeet/.gemini/antigravity/brain/bfb7db47-8fbf-436e-b29e-11e897b26b0d/walkthrough.md)
+- [API Reference](file:///Users/ranjeet/projects/schoolERP/docs/api-reference.md)
+- [Changelog](file:///Users/ranjeet/projects/schoolERP/CHANGELOG.md)

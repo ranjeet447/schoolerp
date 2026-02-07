@@ -16,7 +16,7 @@ INSERT INTO admission_applications (
     tenant_id, enquiry_id, application_number, status, form_data, documents
 ) VALUES (
     $1, $2, $3, $4, $5, $6
-) RETURNING id, tenant_id, enquiry_id, application_number, status, form_data, documents, reviewed_by, created_at, updated_at
+) RETURNING id, tenant_id, enquiry_id, application_number, status, form_data, documents, reviewed_by, created_at, updated_at, processing_fee_amount, processing_fee_status, payment_reference
 `
 
 type CreateApplicationParams struct {
@@ -49,6 +49,9 @@ func (q *Queries) CreateApplication(ctx context.Context, arg CreateApplicationPa
 		&i.ReviewedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ProcessingFeeAmount,
+		&i.ProcessingFeeStatus,
+		&i.PaymentReference,
 	)
 	return i, err
 }
@@ -107,7 +110,7 @@ func (q *Queries) CreateEnquiry(ctx context.Context, arg CreateEnquiryParams) (A
 }
 
 const getApplication = `-- name: GetApplication :one
-SELECT id, tenant_id, enquiry_id, application_number, status, form_data, documents, reviewed_by, created_at, updated_at FROM admission_applications WHERE id = $1 AND tenant_id = $2
+SELECT id, tenant_id, enquiry_id, application_number, status, form_data, documents, reviewed_by, created_at, updated_at, processing_fee_amount, processing_fee_status, payment_reference FROM admission_applications WHERE id = $1 AND tenant_id = $2
 `
 
 type GetApplicationParams struct {
@@ -129,6 +132,9 @@ func (q *Queries) GetApplication(ctx context.Context, arg GetApplicationParams) 
 		&i.ReviewedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ProcessingFeeAmount,
+		&i.ProcessingFeeStatus,
+		&i.PaymentReference,
 	)
 	return i, err
 }
@@ -165,7 +171,7 @@ func (q *Queries) GetEnquiry(ctx context.Context, arg GetEnquiryParams) (Admissi
 
 const listApplications = `-- name: ListApplications :many
 SELECT 
-    a.id, a.tenant_id, a.enquiry_id, a.application_number, a.status, a.form_data, a.documents, a.reviewed_by, a.created_at, a.updated_at,
+    a.id, a.tenant_id, a.enquiry_id, a.application_number, a.status, a.form_data, a.documents, a.reviewed_by, a.created_at, a.updated_at, a.processing_fee_amount, a.processing_fee_status, a.payment_reference,
     e.parent_name,
     e.student_name,
     e.grade_interested
@@ -183,19 +189,22 @@ type ListApplicationsParams struct {
 }
 
 type ListApplicationsRow struct {
-	ID                pgtype.UUID        `json:"id"`
-	TenantID          pgtype.UUID        `json:"tenant_id"`
-	EnquiryID         pgtype.UUID        `json:"enquiry_id"`
-	ApplicationNumber string             `json:"application_number"`
-	Status            string             `json:"status"`
-	FormData          []byte             `json:"form_data"`
-	Documents         []byte             `json:"documents"`
-	ReviewedBy        pgtype.UUID        `json:"reviewed_by"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
-	ParentName        pgtype.Text        `json:"parent_name"`
-	StudentName       pgtype.Text        `json:"student_name"`
-	GradeInterested   pgtype.Text        `json:"grade_interested"`
+	ID                  pgtype.UUID        `json:"id"`
+	TenantID            pgtype.UUID        `json:"tenant_id"`
+	EnquiryID           pgtype.UUID        `json:"enquiry_id"`
+	ApplicationNumber   string             `json:"application_number"`
+	Status              string             `json:"status"`
+	FormData            []byte             `json:"form_data"`
+	Documents           []byte             `json:"documents"`
+	ReviewedBy          pgtype.UUID        `json:"reviewed_by"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	ProcessingFeeAmount pgtype.Int8        `json:"processing_fee_amount"`
+	ProcessingFeeStatus pgtype.Text        `json:"processing_fee_status"`
+	PaymentReference    pgtype.Text        `json:"payment_reference"`
+	ParentName          pgtype.Text        `json:"parent_name"`
+	StudentName         pgtype.Text        `json:"student_name"`
+	GradeInterested     pgtype.Text        `json:"grade_interested"`
 }
 
 func (q *Queries) ListApplications(ctx context.Context, arg ListApplicationsParams) ([]ListApplicationsRow, error) {
@@ -218,6 +227,9 @@ func (q *Queries) ListApplications(ctx context.Context, arg ListApplicationsPara
 			&i.ReviewedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ProcessingFeeAmount,
+			&i.ProcessingFeeStatus,
+			&i.PaymentReference,
 			&i.ParentName,
 			&i.StudentName,
 			&i.GradeInterested,
@@ -277,6 +289,34 @@ func (q *Queries) ListEnquiries(ctx context.Context, arg ListEnquiriesParams) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateApplicationFee = `-- name: UpdateApplicationFee :exec
+UPDATE admission_applications
+SET processing_fee_amount = $3, 
+    processing_fee_status = $4, 
+    payment_reference = $5, 
+    updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2
+`
+
+type UpdateApplicationFeeParams struct {
+	ID                  pgtype.UUID `json:"id"`
+	TenantID            pgtype.UUID `json:"tenant_id"`
+	ProcessingFeeAmount pgtype.Int8 `json:"processing_fee_amount"`
+	ProcessingFeeStatus pgtype.Text `json:"processing_fee_status"`
+	PaymentReference    pgtype.Text `json:"payment_reference"`
+}
+
+func (q *Queries) UpdateApplicationFee(ctx context.Context, arg UpdateApplicationFeeParams) error {
+	_, err := q.db.Exec(ctx, updateApplicationFee,
+		arg.ID,
+		arg.TenantID,
+		arg.ProcessingFeeAmount,
+		arg.ProcessingFeeStatus,
+		arg.PaymentReference,
+	)
+	return err
 }
 
 const updateApplicationStatus = `-- name: UpdateApplicationStatus :exec

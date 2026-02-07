@@ -27,12 +27,12 @@ type CreateAlumniParams struct {
 	Email          string
 	Phone          string
 	CurrentCompany string
-	CurrentRole    string
+	JobRole        string
 	LinkedInURL    string
 	Bio            string
 }
 
-func (s *Service) CreateAlumni(ctx context.Context, p CreateAlumniParams) (db.Alumnus, error) {
+func (s *Service) CreateAlumni(ctx context.Context, p CreateAlumniParams) (db.Alumni, error) {
 	tID := pgtype.UUID{}
 	tID.Scan(p.TenantID)
 	sID := pgtype.UUID{}
@@ -54,14 +54,14 @@ func (s *Service) CreateAlumni(ctx context.Context, p CreateAlumniParams) (db.Al
 		Email:          pgtype.Text{String: p.Email, Valid: p.Email != ""},
 		Phone:          pgtype.Text{String: p.Phone, Valid: p.Phone != ""},
 		CurrentCompany: pgtype.Text{String: p.CurrentCompany, Valid: p.CurrentCompany != ""},
-		CurrentRole:    pgtype.Text{String: p.CurrentRole, Valid: p.CurrentRole != ""},
+		JobRole:        pgtype.Text{String: p.JobRole, Valid: p.JobRole != ""},
 		LinkedinUrl:    pgtype.Text{String: p.LinkedInURL, Valid: p.LinkedInURL != ""},
 		Bio:            pgtype.Text{String: p.Bio, Valid: p.Bio != ""},
 		IsVerified:     pgtype.Bool{Bool: false, Valid: true},
 	})
 }
 
-func (s *Service) ListAlumni(ctx context.Context, tenantID string, limit, offset int32) ([]db.Alumnus, error) {
+func (s *Service) ListAlumni(ctx context.Context, tenantID string, limit, offset int32) ([]db.Alumni, error) {
 	tID := pgtype.UUID{}
 	tID.Scan(tenantID)
 	return s.q.ListAlumni(ctx, db.ListAlumniParams{
@@ -85,7 +85,7 @@ type CreateDriveParams struct {
 	CreatedBy         string
 }
 
-func (s *Service) CreatePlacementDrive(ctx context.Context, p CreateDriveParams) (db.PlacementDrive, error) {
+func (s *Service) CreatePlacementDrive(ctx context.Context, p CreateDriveParams) (db.PlacementDrife, error) {
 	tID := pgtype.UUID{}
 	tID.Scan(p.TenantID)
 	uID := pgtype.UUID{}
@@ -103,7 +103,7 @@ func (s *Service) CreatePlacementDrive(ctx context.Context, p CreateDriveParams)
 	})
 }
 
-func (s *Service) ListPlacementDrives(ctx context.Context, tenantID string, limit, offset int32) ([]db.PlacementDrive, error) {
+func (s *Service) ListPlacementDrives(ctx context.Context, tenantID string, limit, offset int32) ([]db.PlacementDrife, error) {
 	tID := pgtype.UUID{}
 	tID.Scan(tenantID)
 	return s.q.ListPlacementDrives(ctx, db.ListPlacementDrivesParams{
@@ -139,7 +139,7 @@ func (s *Service) ListDriveApplications(ctx context.Context, driveID string) ([]
 func (s *Service) UpdateApplicationStatus(ctx context.Context, applicationID, status string) (db.PlacementApplication, error) {
 	aID := pgtype.UUID{}
 	aID.Scan(applicationID)
-	return s.q.UpdateApplicationStatus(ctx, db.UpdateApplicationStatusParams{
+	return s.q.UpdatePlacementApplicationStatus(ctx, db.UpdatePlacementApplicationStatusParams{
 		ID:     aID,
 		Status: status,
 	})

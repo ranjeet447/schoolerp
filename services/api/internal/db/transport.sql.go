@@ -263,6 +263,30 @@ func (q *Queries) GetRoute(ctx context.Context, arg GetRouteParams) (TransportRo
 	return i, err
 }
 
+const getRouteStop = `-- name: GetRouteStop :one
+SELECT id, route_id, name, sequence_order, arrival_time, pickup_cost, drop_cost, latitude, longitude, created_at, updated_at FROM transport_route_stops
+WHERE id = $1
+`
+
+func (q *Queries) GetRouteStop(ctx context.Context, id pgtype.UUID) (TransportRouteStop, error) {
+	row := q.db.QueryRow(ctx, getRouteStop, id)
+	var i TransportRouteStop
+	err := row.Scan(
+		&i.ID,
+		&i.RouteID,
+		&i.Name,
+		&i.SequenceOrder,
+		&i.ArrivalTime,
+		&i.PickupCost,
+		&i.DropCost,
+		&i.Latitude,
+		&i.Longitude,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getVehicle = `-- name: GetVehicle :one
 SELECT id, tenant_id, registration_number, capacity, type, status, is_active, created_at, updated_at FROM transport_vehicles
 WHERE id = $1 AND tenant_id = $2

@@ -19,16 +19,19 @@ type AcademicYear struct {
 }
 
 type AdmissionApplication struct {
-	ID                pgtype.UUID        `json:"id"`
-	TenantID          pgtype.UUID        `json:"tenant_id"`
-	EnquiryID         pgtype.UUID        `json:"enquiry_id"`
-	ApplicationNumber string             `json:"application_number"`
-	Status            string             `json:"status"`
-	FormData          []byte             `json:"form_data"`
-	Documents         []byte             `json:"documents"`
-	ReviewedBy        pgtype.UUID        `json:"reviewed_by"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	ID                  pgtype.UUID        `json:"id"`
+	TenantID            pgtype.UUID        `json:"tenant_id"`
+	EnquiryID           pgtype.UUID        `json:"enquiry_id"`
+	ApplicationNumber   string             `json:"application_number"`
+	Status              string             `json:"status"`
+	FormData            []byte             `json:"form_data"`
+	Documents           []byte             `json:"documents"`
+	ReviewedBy          pgtype.UUID        `json:"reviewed_by"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	ProcessingFeeAmount pgtype.Int8        `json:"processing_fee_amount"`
+	ProcessingFeeStatus pgtype.Text        `json:"processing_fee_status"`
+	PaymentReference    pgtype.Text        `json:"payment_reference"`
 }
 
 type AdmissionEnquiry struct {
@@ -45,6 +48,26 @@ type AdmissionEnquiry struct {
 	Notes           pgtype.Text        `json:"notes"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Alumni struct {
+	ID                pgtype.UUID        `json:"id"`
+	TenantID          pgtype.UUID        `json:"tenant_id"`
+	StudentID         pgtype.UUID        `json:"student_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	FullName          string             `json:"full_name"`
+	GraduationYear    pgtype.Int4        `json:"graduation_year"`
+	Batch             pgtype.Text        `json:"batch"`
+	Email             pgtype.Text        `json:"email"`
+	Phone             pgtype.Text        `json:"phone"`
+	CurrentCompany    pgtype.Text        `json:"current_company"`
+	JobRole           pgtype.Text        `json:"job_role"`
+	LinkedinUrl       pgtype.Text        `json:"linkedin_url"`
+	ProfilePictureUrl pgtype.Text        `json:"profile_picture_url"`
+	Bio               pgtype.Text        `json:"bio"`
+	IsVerified        pgtype.Bool        `json:"is_verified"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
 type ApprovalRequest struct {
@@ -189,6 +212,24 @@ type DemoType struct {
 	Description     pgtype.Text        `json:"description"`
 	IsActive        pgtype.Bool        `json:"is_active"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
+type Employee struct {
+	ID                pgtype.UUID        `json:"id"`
+	TenantID          pgtype.UUID        `json:"tenant_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	EmployeeCode      string             `json:"employee_code"`
+	FullName          string             `json:"full_name"`
+	Email             pgtype.Text        `json:"email"`
+	Phone             pgtype.Text        `json:"phone"`
+	Department        pgtype.Text        `json:"department"`
+	Designation       pgtype.Text        `json:"designation"`
+	JoinDate          pgtype.Date        `json:"join_date"`
+	SalaryStructureID pgtype.UUID        `json:"salary_structure_id"`
+	BankDetails       []byte             `json:"bank_details"`
+	Status            string             `json:"status"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Exam struct {
@@ -419,6 +460,20 @@ type LibraryCategory struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
+type LibraryDigitalAsset struct {
+	ID            pgtype.UUID        `json:"id"`
+	TenantID      pgtype.UUID        `json:"tenant_id"`
+	BookID        pgtype.UUID        `json:"book_id"`
+	AssetType     string             `json:"asset_type"`
+	Title         string             `json:"title"`
+	Url           string             `json:"url"`
+	FileSizeBytes pgtype.Int8        `json:"file_size_bytes"`
+	AccessLevel   string             `json:"access_level"`
+	IsActive      bool               `json:"is_active"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
 type LibraryIssue struct {
 	ID         pgtype.UUID        `json:"id"`
 	TenantID   pgtype.UUID        `json:"tenant_id"`
@@ -537,6 +592,29 @@ type PaymentOrder struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
+type PayrollRun struct {
+	ID        pgtype.UUID        `json:"id"`
+	TenantID  pgtype.UUID        `json:"tenant_id"`
+	Month     int32              `json:"month"`
+	Year      int32              `json:"year"`
+	Status    string             `json:"status"`
+	RunBy     pgtype.UUID        `json:"run_by"`
+	RunAt     pgtype.Timestamptz `json:"run_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type Payslip struct {
+	ID              pgtype.UUID        `json:"id"`
+	PayrollRunID    pgtype.UUID        `json:"payroll_run_id"`
+	EmployeeID      pgtype.UUID        `json:"employee_id"`
+	GrossSalary     pgtype.Numeric     `json:"gross_salary"`
+	TotalDeductions pgtype.Numeric     `json:"total_deductions"`
+	NetSalary       pgtype.Numeric     `json:"net_salary"`
+	Breakdown       []byte             `json:"breakdown"`
+	Status          string             `json:"status"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
 type PdfJob struct {
 	ID           pgtype.UUID        `json:"id"`
 	TenantID     pgtype.UUID        `json:"tenant_id"`
@@ -568,6 +646,33 @@ type Permission struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
+type PlacementApplication struct {
+	ID          pgtype.UUID        `json:"id"`
+	DriveID     pgtype.UUID        `json:"drive_id"`
+	AlumniID    pgtype.UUID        `json:"alumni_id"`
+	ResumeUrl   pgtype.Text        `json:"resume_url"`
+	CoverLetter pgtype.Text        `json:"cover_letter"`
+	Status      string             `json:"status"`
+	AppliedAt   pgtype.Timestamptz `json:"applied_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PlacementDrife struct {
+	ID                  pgtype.UUID        `json:"id"`
+	TenantID            pgtype.UUID        `json:"tenant_id"`
+	CompanyName         string             `json:"company_name"`
+	RoleTitle           string             `json:"role_title"`
+	Description         pgtype.Text        `json:"description"`
+	DriveDate           pgtype.Date        `json:"drive_date"`
+	ApplicationDeadline pgtype.Date        `json:"application_deadline"`
+	MinGraduationYear   pgtype.Int4        `json:"min_graduation_year"`
+	MaxGraduationYear   pgtype.Int4        `json:"max_graduation_year"`
+	Status              string             `json:"status"`
+	CreatedBy           pgtype.UUID        `json:"created_by"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Policy struct {
 	ID        pgtype.UUID        `json:"id"`
 	TenantID  pgtype.UUID        `json:"tenant_id"`
@@ -577,6 +682,32 @@ type Policy struct {
 	IsActive  pgtype.Bool        `json:"is_active"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PurchaseOrder struct {
+	ID          pgtype.UUID        `json:"id"`
+	TenantID    pgtype.UUID        `json:"tenant_id"`
+	PoNumber    string             `json:"po_number"`
+	SupplierID  pgtype.UUID        `json:"supplier_id"`
+	Status      string             `json:"status"`
+	TotalAmount pgtype.Numeric     `json:"total_amount"`
+	Notes       pgtype.Text        `json:"notes"`
+	CreatedBy   pgtype.UUID        `json:"created_by"`
+	ApprovedBy  pgtype.UUID        `json:"approved_by"`
+	ApprovedAt  pgtype.Timestamptz `json:"approved_at"`
+	ReceivedAt  pgtype.Timestamptz `json:"received_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PurchaseOrderItem struct {
+	ID               pgtype.UUID        `json:"id"`
+	PoID             pgtype.UUID        `json:"po_id"`
+	ItemID           pgtype.UUID        `json:"item_id"`
+	Quantity         int32              `json:"quantity"`
+	UnitPrice        pgtype.Numeric     `json:"unit_price"`
+	ReceivedQuantity pgtype.Int4        `json:"received_quantity"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
 type Receipt struct {
@@ -658,6 +789,34 @@ type RoleAssignment struct {
 type RolePermission struct {
 	RoleID       pgtype.UUID `json:"role_id"`
 	PermissionID pgtype.UUID `json:"permission_id"`
+}
+
+type SalaryStructure struct {
+	ID              pgtype.UUID        `json:"id"`
+	TenantID        pgtype.UUID        `json:"tenant_id"`
+	Name            string             `json:"name"`
+	Basic           pgtype.Numeric     `json:"basic"`
+	Hra             pgtype.Numeric     `json:"hra"`
+	Da              pgtype.Numeric     `json:"da"`
+	OtherAllowances []byte             `json:"other_allowances"`
+	Deductions      []byte             `json:"deductions"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SchoolGroup struct {
+	ID          pgtype.UUID        `json:"id"`
+	Name        string             `json:"name"`
+	Description pgtype.Text        `json:"description"`
+	OwnerUserID pgtype.UUID        `json:"owner_user_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SchoolGroupMember struct {
+	GroupID  pgtype.UUID        `json:"group_id"`
+	TenantID pgtype.UUID        `json:"tenant_id"`
+	AddedAt  pgtype.Timestamptz `json:"added_at"`
 }
 
 type Section struct {

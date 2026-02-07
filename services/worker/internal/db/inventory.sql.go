@@ -142,6 +142,88 @@ func (q *Queries) CreateInventoryTransaction(ctx context.Context, arg CreateInve
 	return i, err
 }
 
+const createPurchaseOrder = `-- name: CreatePurchaseOrder :one
+
+INSERT INTO purchase_orders (
+    tenant_id, po_number, supplier_id, status, notes, created_by
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING id, tenant_id, po_number, supplier_id, status, total_amount, notes, created_by, approved_by, approved_at, received_at, created_at, updated_at
+`
+
+type CreatePurchaseOrderParams struct {
+	TenantID   pgtype.UUID `json:"tenant_id"`
+	PoNumber   string      `json:"po_number"`
+	SupplierID pgtype.UUID `json:"supplier_id"`
+	Status     string      `json:"status"`
+	Notes      pgtype.Text `json:"notes"`
+	CreatedBy  pgtype.UUID `json:"created_by"`
+}
+
+// ==================== Purchase Orders ====================
+func (q *Queries) CreatePurchaseOrder(ctx context.Context, arg CreatePurchaseOrderParams) (PurchaseOrder, error) {
+	row := q.db.QueryRow(ctx, createPurchaseOrder,
+		arg.TenantID,
+		arg.PoNumber,
+		arg.SupplierID,
+		arg.Status,
+		arg.Notes,
+		arg.CreatedBy,
+	)
+	var i PurchaseOrder
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.PoNumber,
+		&i.SupplierID,
+		&i.Status,
+		&i.TotalAmount,
+		&i.Notes,
+		&i.CreatedBy,
+		&i.ApprovedBy,
+		&i.ApprovedAt,
+		&i.ReceivedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createPurchaseOrderItem = `-- name: CreatePurchaseOrderItem :one
+INSERT INTO purchase_order_items (
+    po_id, item_id, quantity, unit_price
+) VALUES (
+    $1, $2, $3, $4
+) RETURNING id, po_id, item_id, quantity, unit_price, received_quantity, created_at
+`
+
+type CreatePurchaseOrderItemParams struct {
+	PoID      pgtype.UUID    `json:"po_id"`
+	ItemID    pgtype.UUID    `json:"item_id"`
+	Quantity  int32          `json:"quantity"`
+	UnitPrice pgtype.Numeric `json:"unit_price"`
+}
+
+func (q *Queries) CreatePurchaseOrderItem(ctx context.Context, arg CreatePurchaseOrderItemParams) (PurchaseOrderItem, error) {
+	row := q.db.QueryRow(ctx, createPurchaseOrderItem,
+		arg.PoID,
+		arg.ItemID,
+		arg.Quantity,
+		arg.UnitPrice,
+	)
+	var i PurchaseOrderItem
+	err := row.Scan(
+		&i.ID,
+		&i.PoID,
+		&i.ItemID,
+		&i.Quantity,
+		&i.UnitPrice,
+		&i.ReceivedQuantity,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createSupplier = `-- name: CreateSupplier :one
 INSERT INTO inventory_suppliers (
     tenant_id, name, contact_person, phone, email, address
@@ -204,6 +286,36 @@ func (q *Queries) GetInventoryItem(ctx context.Context, arg GetInventoryItemPara
 		&i.Description,
 		&i.Unit,
 		&i.ReorderLevel,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getPurchaseOrder = `-- name: GetPurchaseOrder :one
+SELECT id, tenant_id, po_number, supplier_id, status, total_amount, notes, created_by, approved_by, approved_at, received_at, created_at, updated_at FROM purchase_orders WHERE id = $1 AND tenant_id = $2
+`
+
+type GetPurchaseOrderParams struct {
+	ID       pgtype.UUID `json:"id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) GetPurchaseOrder(ctx context.Context, arg GetPurchaseOrderParams) (PurchaseOrder, error) {
+	row := q.db.QueryRow(ctx, getPurchaseOrder, arg.ID, arg.TenantID)
+	var i PurchaseOrder
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.PoNumber,
+		&i.SupplierID,
+		&i.Status,
+		&i.TotalAmount,
+		&i.Notes,
+		&i.CreatedBy,
+		&i.ApprovedBy,
+		&i.ApprovedAt,
+		&i.ReceivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -383,6 +495,132 @@ func (q *Queries) ListInventoryTransactions(ctx context.Context, arg ListInvento
 	return items, nil
 }
 
+const listPurchaseOrderItems = `-- name: ListPurchaseOrderItems :many
+SELECT 
+    poi.id, poi.po_id, poi.item_id, poi.quantity, poi.unit_price, poi.received_quantity, poi.created_at,
+    i.name as item_name,
+    i.sku as item_sku
+FROM purchase_order_items poi
+JOIN inventory_items i ON poi.item_id = i.id
+WHERE poi.po_id = $1
+ORDER BY poi.created_at
+`
+
+type ListPurchaseOrderItemsRow struct {
+	ID               pgtype.UUID        `json:"id"`
+	PoID             pgtype.UUID        `json:"po_id"`
+	ItemID           pgtype.UUID        `json:"item_id"`
+	Quantity         int32              `json:"quantity"`
+	UnitPrice        pgtype.Numeric     `json:"unit_price"`
+	ReceivedQuantity pgtype.Int4        `json:"received_quantity"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	ItemName         string             `json:"item_name"`
+	ItemSku          pgtype.Text        `json:"item_sku"`
+}
+
+func (q *Queries) ListPurchaseOrderItems(ctx context.Context, poID pgtype.UUID) ([]ListPurchaseOrderItemsRow, error) {
+	rows, err := q.db.Query(ctx, listPurchaseOrderItems, poID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPurchaseOrderItemsRow
+	for rows.Next() {
+		var i ListPurchaseOrderItemsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PoID,
+			&i.ItemID,
+			&i.Quantity,
+			&i.UnitPrice,
+			&i.ReceivedQuantity,
+			&i.CreatedAt,
+			&i.ItemName,
+			&i.ItemSku,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPurchaseOrders = `-- name: ListPurchaseOrders :many
+SELECT 
+    po.id, po.tenant_id, po.po_number, po.supplier_id, po.status, po.total_amount, po.notes, po.created_by, po.approved_by, po.approved_at, po.received_at, po.created_at, po.updated_at,
+    s.name as supplier_name,
+    u.full_name as created_by_name
+FROM purchase_orders po
+LEFT JOIN inventory_suppliers s ON po.supplier_id = s.id
+LEFT JOIN users u ON po.created_by = u.id
+WHERE po.tenant_id = $1
+ORDER BY po.created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListPurchaseOrdersParams struct {
+	TenantID pgtype.UUID `json:"tenant_id"`
+	Limit    int32       `json:"limit"`
+	Offset   int32       `json:"offset"`
+}
+
+type ListPurchaseOrdersRow struct {
+	ID            pgtype.UUID        `json:"id"`
+	TenantID      pgtype.UUID        `json:"tenant_id"`
+	PoNumber      string             `json:"po_number"`
+	SupplierID    pgtype.UUID        `json:"supplier_id"`
+	Status        string             `json:"status"`
+	TotalAmount   pgtype.Numeric     `json:"total_amount"`
+	Notes         pgtype.Text        `json:"notes"`
+	CreatedBy     pgtype.UUID        `json:"created_by"`
+	ApprovedBy    pgtype.UUID        `json:"approved_by"`
+	ApprovedAt    pgtype.Timestamptz `json:"approved_at"`
+	ReceivedAt    pgtype.Timestamptz `json:"received_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	SupplierName  pgtype.Text        `json:"supplier_name"`
+	CreatedByName pgtype.Text        `json:"created_by_name"`
+}
+
+func (q *Queries) ListPurchaseOrders(ctx context.Context, arg ListPurchaseOrdersParams) ([]ListPurchaseOrdersRow, error) {
+	rows, err := q.db.Query(ctx, listPurchaseOrders, arg.TenantID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPurchaseOrdersRow
+	for rows.Next() {
+		var i ListPurchaseOrdersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.PoNumber,
+			&i.SupplierID,
+			&i.Status,
+			&i.TotalAmount,
+			&i.Notes,
+			&i.CreatedBy,
+			&i.ApprovedBy,
+			&i.ApprovedAt,
+			&i.ReceivedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.SupplierName,
+			&i.CreatedByName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSuppliers = `-- name: ListSuppliers :many
 SELECT id, tenant_id, name, contact_person, phone, email, address, created_at, updated_at FROM inventory_suppliers
 WHERE tenant_id = $1
@@ -417,6 +655,95 @@ func (q *Queries) ListSuppliers(ctx context.Context, tenantID pgtype.UUID) ([]In
 		return nil, err
 	}
 	return items, nil
+}
+
+const receivePurchaseOrder = `-- name: ReceivePurchaseOrder :one
+UPDATE purchase_orders
+SET status = 'received', received_at = NOW(), updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2
+RETURNING id, tenant_id, po_number, supplier_id, status, total_amount, notes, created_by, approved_by, approved_at, received_at, created_at, updated_at
+`
+
+type ReceivePurchaseOrderParams struct {
+	ID       pgtype.UUID `json:"id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) ReceivePurchaseOrder(ctx context.Context, arg ReceivePurchaseOrderParams) (PurchaseOrder, error) {
+	row := q.db.QueryRow(ctx, receivePurchaseOrder, arg.ID, arg.TenantID)
+	var i PurchaseOrder
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.PoNumber,
+		&i.SupplierID,
+		&i.Status,
+		&i.TotalAmount,
+		&i.Notes,
+		&i.CreatedBy,
+		&i.ApprovedBy,
+		&i.ApprovedAt,
+		&i.ReceivedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updatePOItemReceived = `-- name: UpdatePOItemReceived :exec
+UPDATE purchase_order_items
+SET received_quantity = $2
+WHERE id = $1
+`
+
+type UpdatePOItemReceivedParams struct {
+	ID               pgtype.UUID `json:"id"`
+	ReceivedQuantity pgtype.Int4 `json:"received_quantity"`
+}
+
+func (q *Queries) UpdatePOItemReceived(ctx context.Context, arg UpdatePOItemReceivedParams) error {
+	_, err := q.db.Exec(ctx, updatePOItemReceived, arg.ID, arg.ReceivedQuantity)
+	return err
+}
+
+const updatePurchaseOrderStatus = `-- name: UpdatePurchaseOrderStatus :one
+UPDATE purchase_orders
+SET status = $3, approved_by = $4, approved_at = NOW(), updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2
+RETURNING id, tenant_id, po_number, supplier_id, status, total_amount, notes, created_by, approved_by, approved_at, received_at, created_at, updated_at
+`
+
+type UpdatePurchaseOrderStatusParams struct {
+	ID         pgtype.UUID `json:"id"`
+	TenantID   pgtype.UUID `json:"tenant_id"`
+	Status     string      `json:"status"`
+	ApprovedBy pgtype.UUID `json:"approved_by"`
+}
+
+func (q *Queries) UpdatePurchaseOrderStatus(ctx context.Context, arg UpdatePurchaseOrderStatusParams) (PurchaseOrder, error) {
+	row := q.db.QueryRow(ctx, updatePurchaseOrderStatus,
+		arg.ID,
+		arg.TenantID,
+		arg.Status,
+		arg.ApprovedBy,
+	)
+	var i PurchaseOrder
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.PoNumber,
+		&i.SupplierID,
+		&i.Status,
+		&i.TotalAmount,
+		&i.Notes,
+		&i.CreatedBy,
+		&i.ApprovedBy,
+		&i.ApprovedAt,
+		&i.ReceivedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const upsertStock = `-- name: UpsertStock :exec
