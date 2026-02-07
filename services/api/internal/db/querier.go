@@ -21,6 +21,7 @@ type Querier interface {
 	// Academic Structure
 	CreateAcademicYear(ctx context.Context, arg CreateAcademicYearParams) (AcademicYear, error)
 	CreateAllocation(ctx context.Context, arg CreateAllocationParams) (TransportAllocation, error)
+	CreateApplication(ctx context.Context, arg CreateApplicationParams) (AdmissionApplication, error)
 	// Approvals
 	CreateApprovalRequest(ctx context.Context, arg CreateApprovalRequestParams) (ApprovalRequest, error)
 	// Copyright 2026 Google LLC
@@ -57,6 +58,7 @@ type Querier interface {
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (LibraryCategory, error)
 	CreateClass(ctx context.Context, arg CreateClassParams) (Class, error)
 	CreateDriver(ctx context.Context, arg CreateDriverParams) (TransportDriver, error)
+	CreateEnquiry(ctx context.Context, arg CreateEnquiryParams) (AdmissionEnquiry, error)
 	// Copyright 2026 Google LLC
 	//
 	// Licensed under the Apache License, Version 2.0 (the "License");
@@ -152,11 +154,13 @@ type Querier interface {
 	DeleteStudent(ctx context.Context, arg DeleteStudentParams) error
 	DeleteVehicle(ctx context.Context, arg DeleteVehicleParams) error
 	GetActiveSeries(ctx context.Context, tenantID pgtype.UUID) (ReceiptSeries, error)
+	GetApplication(ctx context.Context, arg GetApplicationParams) (AdmissionApplication, error)
 	GetApprovalRequest(ctx context.Context, id pgtype.UUID) (ApprovalRequest, error)
 	GetAttendanceEntries(ctx context.Context, sessionID pgtype.UUID) ([]GetAttendanceEntriesRow, error)
 	GetAttendanceSession(ctx context.Context, arg GetAttendanceSessionParams) (AttendanceSession, error)
 	GetBook(ctx context.Context, arg GetBookParams) (LibraryBook, error)
 	GetChildrenByParentUser(ctx context.Context, arg GetChildrenByParentUserParams) ([]GetChildrenByParentUserRow, error)
+	GetEnquiry(ctx context.Context, arg GetEnquiryParams) (AdmissionEnquiry, error)
 	GetExam(ctx context.Context, arg GetExamParams) (Exam, error)
 	GetExamMarks(ctx context.Context, arg GetExamMarksParams) ([]GetExamMarksRow, error)
 	GetExamResultsForStudent(ctx context.Context, arg GetExamResultsForStudentParams) ([]GetExamResultsForStudentRow, error)
@@ -191,11 +195,13 @@ type Querier interface {
 	LinkStudentGuardian(ctx context.Context, arg LinkStudentGuardianParams) error
 	ListAcademicYears(ctx context.Context, tenantID pgtype.UUID) ([]AcademicYear, error)
 	ListAllocations(ctx context.Context, tenantID pgtype.UUID) ([]ListAllocationsRow, error)
+	ListApplications(ctx context.Context, arg ListApplicationsParams) ([]ListApplicationsRow, error)
 	ListAuthors(ctx context.Context, tenantID pgtype.UUID) ([]LibraryAuthor, error)
 	ListBooks(ctx context.Context, arg ListBooksParams) ([]LibraryBook, error)
 	ListCategories(ctx context.Context, tenantID pgtype.UUID) ([]LibraryCategory, error)
 	ListClasses(ctx context.Context, tenantID pgtype.UUID) ([]Class, error)
 	ListDrivers(ctx context.Context, tenantID pgtype.UUID) ([]TransportDriver, error)
+	ListEnquiries(ctx context.Context, arg ListEnquiriesParams) ([]AdmissionEnquiry, error)
 	ListExamSubjects(ctx context.Context, examID pgtype.UUID) ([]ListExamSubjectsRow, error)
 	ListExams(ctx context.Context, tenantID pgtype.UUID) ([]Exam, error)
 	ListFeeHeads(ctx context.Context, tenantID pgtype.UUID) ([]FeeHead, error)
@@ -221,8 +227,10 @@ type Querier interface {
 	ListVehicles(ctx context.Context, tenantID pgtype.UUID) ([]TransportVehicle, error)
 	PublishExam(ctx context.Context, arg PublishExamParams) (Exam, error)
 	ReturnBook(ctx context.Context, arg ReturnBookParams) (LibraryIssue, error)
+	UpdateApplicationStatus(ctx context.Context, arg UpdateApplicationStatusParams) error
 	UpdateApprovalStatus(ctx context.Context, arg UpdateApprovalStatusParams) (ApprovalRequest, error)
 	UpdateBookCopies(ctx context.Context, arg UpdateBookCopiesParams) error
+	UpdateEnquiryStatus(ctx context.Context, arg UpdateEnquiryStatusParams) error
 	UpdateLeaveStatus(ctx context.Context, arg UpdateLeaveStatusParams) (LeaveRequest, error)
 	UpdateOrCreatePolicy(ctx context.Context, arg UpdateOrCreatePolicyParams) (Policy, error)
 	UpdatePDFJobStatus(ctx context.Context, arg UpdatePDFJobStatusParams) (PdfJob, error)

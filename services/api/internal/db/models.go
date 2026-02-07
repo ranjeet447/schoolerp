@@ -18,6 +18,35 @@ type AcademicYear struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type AdmissionApplication struct {
+	ID                pgtype.UUID        `json:"id"`
+	TenantID          pgtype.UUID        `json:"tenant_id"`
+	EnquiryID         pgtype.UUID        `json:"enquiry_id"`
+	ApplicationNumber string             `json:"application_number"`
+	Status            string             `json:"status"`
+	FormData          []byte             `json:"form_data"`
+	Documents         []byte             `json:"documents"`
+	ReviewedBy        pgtype.UUID        `json:"reviewed_by"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AdmissionEnquiry struct {
+	ID              pgtype.UUID        `json:"id"`
+	TenantID        pgtype.UUID        `json:"tenant_id"`
+	ParentName      string             `json:"parent_name"`
+	Email           pgtype.Text        `json:"email"`
+	Phone           string             `json:"phone"`
+	StudentName     string             `json:"student_name"`
+	GradeInterested string             `json:"grade_interested"`
+	AcademicYear    string             `json:"academic_year"`
+	Source          pgtype.Text        `json:"source"`
+	Status          string             `json:"status"`
+	Notes           pgtype.Text        `json:"notes"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ApprovalRequest struct {
 	ID          pgtype.UUID        `json:"id"`
 	TenantID    pgtype.UUID        `json:"tenant_id"`

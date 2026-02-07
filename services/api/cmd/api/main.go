@@ -33,6 +33,7 @@ import (
 	"github.com/schoolerp/api/internal/foundation/locks"
 	"github.com/schoolerp/api/internal/foundation/policy"
 	"github.com/schoolerp/api/internal/foundation/quota"
+	"github.com/schoolerp/api/internal/handler/admission"
 	"github.com/schoolerp/api/internal/handler/attendance"
 	"github.com/schoolerp/api/internal/handler/exams"
 	"github.com/schoolerp/api/internal/handler/finance"
@@ -42,6 +43,7 @@ import (
 	"github.com/schoolerp/api/internal/handler/sis"
 	"github.com/schoolerp/api/internal/handler/transport"
 	"github.com/schoolerp/api/internal/middleware"
+	admissionservice "github.com/schoolerp/api/internal/service/admission"
 	attendservice "github.com/schoolerp/api/internal/service/attendance"
 	examservice "github.com/schoolerp/api/internal/service/exams"
 	financeservice "github.com/schoolerp/api/internal/service/finance"
@@ -89,6 +91,7 @@ func main() {
 	transportService := transportservice.NewTransportService(querier, auditLogger)
 	libraryService := libraryservice.NewLibraryService(querier, auditLogger)
 	inventoryService := inventoryservice.NewInventoryService(querier, auditLogger)
+	admissionService := admissionservice.NewAdmissionService(querier, auditLogger)
 	
 	// Initialize Handlers
 	studentHandler := sis.NewHandler(studentService)
@@ -99,6 +102,7 @@ func main() {
 	transportHandler := transport.NewHandler(transportService)
 	libraryHandler := library.NewHandler(libraryService)
 	inventoryHandler := inventory.NewHandler(inventoryService)
+	admissionHandler := admission.NewHandler(admissionService)
 
 	r := chi.NewRouter()
 
@@ -142,6 +146,7 @@ func main() {
 			transportHandler.RegisterRoutes(r)
 			libraryHandler.RegisterRoutes(r)
 			inventoryHandler.RegisterRoutes(r)
+			admissionHandler.RegisterRoutes(r)
 			
 			// Growth/Other stubs maintained for now
 			r.Get("/demo-bookings", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(`[]`)) })
