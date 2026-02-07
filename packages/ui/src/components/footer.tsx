@@ -35,46 +35,52 @@ const FOOTER_LINKS = [
 
 export const Footer = () => {
   return (
-    <footer className="border-t bg-muted/20 pb-12 pt-24">
+    <footer className="border-t border-white/5 bg-slate-950 pb-12 pt-32 text-slate-400">
       <Container>
-        <div className="grid grid-cols-1 gap-12 lg:grid-cols-12">
+        <div className="grid grid-cols-1 gap-16 lg:grid-cols-12">
           {/* Brand Column */}
           <div className="lg:col-span-4">
-            <a href="/" className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg">
-                <Landmark className="h-6 w-6" />
+            <a href="/" className="flex items-center gap-3 group">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-white shadow-2xl shadow-primary/20 transition-transform group-hover:scale-110 group-hover:rotate-3">
+                <Landmark className="h-7 w-7" />
               </div>
-              <span className="text-xl font-bold tracking-tight">School<span className="text-primary">ERP</span></span>
+              <span className="text-2xl font-black tracking-tighter text-white">
+                School<span className="text-primary px-0.5">ERP</span>
+              </span>
             </a>
-            <p className="mt-6 max-w-xs text-muted-foreground">
-              The modern operating system for educational institutions. Built for scale, security, and superior user experience.
+            <p className="mt-8 max-w-xs text-lg font-medium leading-relaxed text-slate-400/80">
+              The high-performance operating system for the next generation of educational excellence.
             </p>
-            <div className="mt-8 flex gap-4">
-              <a href="#" className="text-muted-foreground hover:text-primary">
-                <Twitter className="h-5 w-5" />
-              </a>
-              <a href="#" className="text-muted-foreground hover:text-primary">
-                <Linkedin className="h-5 w-5" />
-              </a>
-              <a href="#" className="text-muted-foreground hover:text-primary">
-                <Github className="h-5 w-5" />
-              </a>
+            <div className="mt-10 flex gap-6">
+              {[
+                { icon: Twitter, href: '#' },
+                { icon: Linkedin, href: '#' },
+                { icon: Github, href: '#' },
+              ].map((social, i) => (
+                <a 
+                  key={i} 
+                  href={social.href} 
+                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 border border-white/5 text-slate-400 transition-all hover:bg-primary hover:text-white hover:border-primary hover:-translate-y-1"
+                >
+                  <social.icon className="h-5 w-5" />
+                </a>
+              ))}
             </div>
           </div>
 
           {/* Links Columns */}
-          <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:col-span-8">
+          <div className="grid grid-cols-2 gap-12 sm:grid-cols-3 lg:col-span-8">
             {FOOTER_LINKS.map((group) => (
               <div key={group.title}>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">
+                <h3 className="text-xs font-black uppercase tracking-[0.3em] text-white mb-8">
                   {group.title}
                 </h3>
-                <ul className="mt-4 space-y-3">
+                <ul className="space-y-4">
                   {group.links.map((link) => (
                     <li key={link.label}>
                       <a 
                         href={link.href} 
-                        className="text-muted-foreground transition-colors hover:text-primary"
+                        className="text-sm font-bold transition-all hover:text-primary hover:translate-x-1 inline-block"
                       >
                         {link.label}
                       </a>
@@ -86,8 +92,13 @@ export const Footer = () => {
           </div>
         </div>
 
-        <div className="mt-24 border-t border-muted pt-8 text-center text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} School ERP Inc. All rights reserved.</p>
+        <div className="mt-32 border-t border-white/5 pt-12 flex flex-col md:flex-row items-center justify-between gap-6 text-xs font-black uppercase tracking-widest text-slate-500">
+          <p>© {new Date().getFullYear()} School ERP Inc. Engineered with Precision.</p>
+          <div className="flex gap-8">
+            <a href="/legal/privacy" className="hover:text-primary transition-colors">Privacy</a>
+            <a href="/legal/terms" className="hover:text-primary transition-colors">Terms</a>
+            <a href="/security" className="hover:text-primary transition-colors">Security</a>
+          </div>
         </div>
       </Container>
     </footer>

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Button } from './button';
+import { Check } from 'lucide-react';
 
 interface ContactFormProps {
   onSubmit: (data: any) => Promise<void>;
@@ -24,112 +25,104 @@ export const ContactForm = ({ onSubmit, status = 'idle' }: ContactFormProps) => 
 
   if (status === 'success') {
     return (
-      <div className="rounded-lg bg-green-50 p-8 text-center ring-1 ring-green-500/20">
-        <h3 className="text-lg font-semibold text-green-900">Thank you!</h3>
-        <p className="mt-2 text-green-700">We've received your request and will be in touch soon.</p>
+      <div className="rounded-[2.5rem] bg-emerald-500/10 p-12 text-center border border-emerald-500/20 backdrop-blur-3xl">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-500 shadow-2xl shadow-emerald-500/40 text-white mb-8">
+           <Check className="h-10 w-10" />
+        </div>
+        <h3 className="text-3xl font-black text-white">Transmission Received</h3>
+        <p className="mt-4 text-emerald-400 font-medium">Our tactical response team will be in touch within 2 business hours.</p>
       </div>
     );
   }
 
-  if (status === 'error') {
-    return (
-      <div className="rounded-lg bg-red-50 p-8 text-center ring-1 ring-red-500/20">
-        <h3 className="text-lg font-semibold text-red-900">Something went wrong</h3>
-        <p className="mt-2 text-red-700">Please try again or email us at hello@schoolerp.com.</p>
-      </div>
-    );
-  }
+  const inputClasses = "block w-full rounded-2xl border-white/10 bg-white/5 px-6 py-4 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm font-bold placeholder:text-slate-500 transition-all focus:bg-white/10";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2">
-        <div>
-          <label htmlFor="name" className="block text-sm font-semibold leading-6 text-foreground">
+    <form onSubmit={handleSubmit} className="space-y-8">
+      <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2">
+        <div className="space-y-3">
+          <label htmlFor="name" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">
             Full Name
           </label>
-          <div className="mt-2.5">
-            <input
-              type="text"
-              name="name"
-              id="name"
-              required
-              className="block w-full rounded-md border-0 px-3.5 py-2 text-foreground shadow-sm ring-1 ring-inset ring-input focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm sm:leading-6"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            />
-          </div>
+          <input
+            type="text"
+            name="name"
+            id="name"
+            placeholder="John Doe"
+            required
+            className={inputClasses}
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          />
         </div>
-        <div>
-          <label htmlFor="school_name" className="block text-sm font-semibold leading-6 text-foreground">
+        <div className="space-y-3">
+          <label htmlFor="school_name" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">
             School Name
           </label>
-          <div className="mt-2.5">
-            <input
-              type="text"
-              name="school_name"
-              id="school_name"
-              required
-              className="block w-full rounded-md border-0 px-3.5 py-2 text-foreground shadow-sm ring-1 ring-inset ring-input focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm sm:leading-6"
-              value={formData.school_name}
-              onChange={(e) => setFormData({ ...formData, school_name: e.target.value })}
-            />
-          </div>
+          <input
+            type="text"
+            name="school_name"
+            id="school_name"
+            placeholder="Heritage World School"
+            required
+            className={inputClasses}
+            value={formData.school_name}
+            onChange={(e) => setFormData({ ...formData, school_name: e.target.value })}
+          />
         </div>
-        <div>
-          <label htmlFor="email" className="block text-sm font-semibold leading-6 text-foreground">
-            Email
+        <div className="space-y-3">
+          <label htmlFor="email" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">
+            Official Email
           </label>
-          <div className="mt-2.5">
-            <input
-              type="email"
-              name="email"
-              id="email"
-              required
-              className="block w-full rounded-md border-0 px-3.5 py-2 text-foreground shadow-sm ring-1 ring-inset ring-input focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm sm:leading-6"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            />
-          </div>
+          <input
+            type="email"
+            name="email"
+            id="email"
+            placeholder="john@school.com"
+            required
+            className={inputClasses}
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          />
         </div>
-        <div>
-          <label htmlFor="phone" className="block text-sm font-semibold leading-6 text-foreground">
+        <div className="space-y-3">
+          <label htmlFor="phone" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">
             Phone Number
           </label>
-          <div className="mt-2.5">
-            <input
-              type="tel"
-              name="phone"
-              id="phone"
-              required
-              className="block w-full rounded-md border-0 px-3.5 py-2 text-foreground shadow-sm ring-1 ring-inset ring-input focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm sm:leading-6"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            />
-          </div>
+          <input
+            type="tel"
+            name="phone"
+            id="phone"
+            placeholder="+91 98XXX XXXXX"
+            required
+            className={inputClasses}
+            value={formData.phone}
+            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+          />
         </div>
-        <div className="sm:col-span-2">
-          <label htmlFor="message" className="block text-sm font-semibold leading-6 text-foreground">
-            Message
+        <div className="sm:col-span-2 space-y-3">
+          <label htmlFor="message" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">
+            Executive Message
           </label>
-          <div className="mt-2.5">
-            <textarea
-              name="message"
-              id="message"
-              rows={4}
-              className="block w-full rounded-md border-0 px-3.5 py-2 text-foreground shadow-sm ring-1 ring-inset ring-input focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm sm:leading-6"
-              value={formData.message}
-              onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-            />
-          </div>
+          <textarea
+            name="message"
+            id="message"
+            rows={4}
+            placeholder="How can we help you transform your institution?"
+            className={inputClasses}
+            value={formData.message}
+            onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+          />
         </div>
       </div>
-      <div className="mt-10">
+      <div className="mt-12">
         <Button
           type="submit"
-          className="w-full"
+          size="lg"
+          className="w-full h-16 rounded-2xl text-xs font-black uppercase tracking-widest shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
           disabled={status === 'loading'}
         >
-          {status === 'loading' ? 'Sending...' : 'Book a Demo'}
+          {status === 'loading' ? 'Encrypting & Sending...' : 'Request Priority Demo'}
         </Button>
       </div>
     </form>

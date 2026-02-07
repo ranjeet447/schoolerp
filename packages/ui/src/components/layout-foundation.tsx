@@ -21,10 +21,10 @@ export const Container = ({
   return (
     <div 
       className={cn(
-        "mx-auto px-6",
+        "mx-auto px-6 md:px-12",
         size === 'default' && "max-w-7xl",
         size === 'small' && "max-w-4xl",
-        size === 'large' && "max-w-[1440px]",
+        size === 'large' && "max-w-[1600px]",
         className
       )}
       {...props}
@@ -49,8 +49,9 @@ export const Section = ({
   return (
     <section 
       className={cn(
-        spacing === 'default' && "py-16 sm:py-24", // Reduced from 24/32
-        spacing === 'large' && "py-20 sm:py-32",   // Reduced from 32/48
+        "relative",
+        spacing === 'default' && "py-24 md:py-32",
+        spacing === 'large' && "py-32 md:py-48",
         spacing === 'none' && "py-0",
         className
       )}

@@ -1,15 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Button } from './button';
 import { Container } from './layout-foundation';
 import { Menu, X, Landmark } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '../lib/utils';
 
 const NAV_LINKS = [
   { label: 'Features', href: '/features' },
@@ -26,72 +24,81 @@ export const Navbar = () => {
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
+      setIsScrolled(window.scrollY > 10);
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   return (
     <nav 
       className={cn(
-        "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
-        isScrolled ? "bg-background/80 backdrop-blur-lg border-b py-4" : "bg-transparent py-6"
+        "fixed top-0 left-0 right-0 z-50 transition-all duration-500",
+        isScrolled 
+          ? "bg-background/70 backdrop-blur-xl border-b border-primary/10 py-3 shadow-md" 
+          : "bg-transparent py-6"
       )}
     >
       <Container className="flex items-center justify-between">
         <a href="/" className="flex items-center gap-2 group">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg transition-transform group-hover:scale-105">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 group-hover:shadow-primary/40">
             <Landmark className="h-6 w-6" />
           </div>
-          <span className="text-xl font-bold tracking-tight">School<span className="text-primary">ERP</span></span>
+          <span className="text-xl font-black tracking-tighter uppercase italic">
+            School<span className="text-primary not-italic">ERP</span>
+          </span>
         </a>
 
         {/* Desktop Links */}
-        <div className="hidden items-center gap-8 md:flex">
+        <div className="hidden items-center gap-1 md:flex">
           {NAV_LINKS.map((link) => (
             <a 
               key={link.label} 
               href={link.href} 
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+              className="px-4 py-2 text-sm font-bold text-muted-foreground transition-all duration-300 hover:text-primary hover:bg-primary/5 rounded-full relative group"
             >
               {link.label}
+              <span className="absolute bottom-1 left-4 right-4 h-0.5 bg-primary scale-x-0 transition-transform duration-300 group-hover:scale-x-100" />
             </a>
           ))}
-          <Button size="sm" className="rounded-full px-6" onClick={() => window.location.href = '/book-demo'}>
-            Book Demo
-          </Button>
-        </div>
-
-        {/* Mobile Toggle */}
-        <button 
-          className="rounded-lg p-2 md:hidden" 
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        >
-          {mobileMenuOpen ? <X /> : <Menu />}
-        </button>
-      </Container>
-
-      {/* Mobile Menu */}
-      {mobileMenuOpen && (
-        <div className="absolute top-full left-0 right-0 border-b bg-background p-6 md:hidden">
-          <div className="flex flex-col gap-4">
-            {NAV_LINKS.map((link) => (
-              <a 
-                key={link.label} 
-                href={link.href} 
-                className="text-lg font-medium"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                {link.label}
-              </a>
-            ))}
-            <Button className="w-full" onClick={() => window.location.href = '/book-demo'}>
+          <div className="ml-4 pl-4 border-l border-primary/10">
+            <Button size="sm" className="rounded-full font-black uppercase tracking-wider" onClick={() => window.location.href = '/book-demo'}>
               Book Demo
             </Button>
           </div>
         </div>
-      )}
+
+        {/* Mobile Toggle */}
+        <button 
+          className="rounded-full p-2 md:hidden bg-primary/10 text-primary transition-colors hover:bg-primary/20" 
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        >
+          {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        </button>
+      </Container>
+
+      {/* Mobile Menu */}
+      <motion.div 
+        initial={false}
+        animate={mobileMenuOpen ? { height: 'auto', opacity: 1 } : { height: 0, opacity: 0 }}
+        className="overflow-hidden md:hidden bg-background/95 backdrop-blur-2xl border-b border-primary/10"
+      >
+        <div className="flex flex-col gap-2 p-6">
+          {NAV_LINKS.map((link) => (
+            <a 
+              key={link.label} 
+              href={link.href} 
+              className="px-4 py-3 text-lg font-bold text-foreground hover:text-primary hover:bg-primary/5 rounded-xl transition-all"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              {link.label}
+            </a>
+          ))}
+          <Button size="lg" className="w-full mt-4 rounded-xl font-black uppercase tracking-widest" onClick={() => window.location.href = '/book-demo'}>
+            Book Demo
+          </Button>
+        </div>
+      </motion.div>
     </nav>
   );
 };
