@@ -152,6 +152,7 @@ func (q *Queries) GetApprovalRequest(ctx context.Context, id pgtype.UUID) (Appro
 
 const getPolicy = `-- name: GetPolicy :one
 
+
 SELECT id, tenant_id, module, action, logic, is_active, created_at, updated_at FROM policies
 WHERE tenant_id = $1 AND module = $2 AND action = $3 AND is_active = TRUE
 `
@@ -162,6 +163,19 @@ type GetPolicyParams struct {
 	Action   string      `json:"action"`
 }
 
+// Copyright 2026 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 // foundation.sql
 // Policies
 func (q *Queries) GetPolicy(ctx context.Context, arg GetPolicyParams) (Policy, error) {

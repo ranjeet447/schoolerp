@@ -38,12 +38,14 @@ import (
 	"github.com/schoolerp/api/internal/handler/finance"
 	"github.com/schoolerp/api/internal/handler/notices"
 	"github.com/schoolerp/api/internal/handler/sis"
+	"github.com/schoolerp/api/internal/handler/transport"
 	"github.com/schoolerp/api/internal/middleware"
 	attendservice "github.com/schoolerp/api/internal/service/attendance"
 	examservice "github.com/schoolerp/api/internal/service/exams"
 	financeservice "github.com/schoolerp/api/internal/service/finance"
 	noticeservice "github.com/schoolerp/api/internal/service/notices"
 	sisservice "github.com/schoolerp/api/internal/service/sis"
+	transportservice "github.com/schoolerp/api/internal/service/transport"
 )
 
 func main() {
@@ -80,6 +82,7 @@ func main() {
 	financeService := financeservice.NewService(querier, auditLogger)
 	noticeService := noticeservice.NewService(querier, auditLogger)
 	examService := examservice.NewService(querier, auditLogger)
+	transportService := transportservice.NewTransportService(querier, auditLogger)
 	
 	// Initialize Handlers
 	studentHandler := sis.NewHandler(studentService)
@@ -87,6 +90,7 @@ func main() {
 	financeHandler := finance.NewHandler(financeService)
 	noticeHandler := notices.NewHandler(noticeService)
 	examHandler := exams.NewHandler(examService)
+	transportHandler := transport.NewHandler(transportService)
 
 	r := chi.NewRouter()
 
@@ -125,7 +129,9 @@ func main() {
 			attendanceHandler.RegisterRoutes(r)
 			financeHandler.RegisterRoutes(r)
 			noticeHandler.RegisterRoutes(r)
+			noticeHandler.RegisterRoutes(r)
 			examHandler.RegisterRoutes(r)
+			transportHandler.RegisterRoutes(r)
 			
 			// Growth/Other stubs maintained for now
 			r.Get("/demo-bookings", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(`[]`)) })

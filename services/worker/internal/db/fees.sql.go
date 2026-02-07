@@ -71,6 +71,7 @@ func (q *Queries) CancelReceipt(ctx context.Context, arg CancelReceiptParams) (R
 }
 
 const createFeeHead = `-- name: CreateFeeHead :one
+
 INSERT INTO fee_heads (tenant_id, name, type)
 VALUES ($1, $2, $3)
 RETURNING id, tenant_id, name, type, created_at
@@ -82,6 +83,19 @@ type CreateFeeHeadParams struct {
 	Type     pgtype.Text `json:"type"`
 }
 
+// Copyright 2026 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 func (q *Queries) CreateFeeHead(ctx context.Context, arg CreateFeeHeadParams) (FeeHead, error) {
 	row := q.db.QueryRow(ctx, createFeeHead, arg.TenantID, arg.Name, arg.Type)
 	var i FeeHead

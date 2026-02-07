@@ -591,6 +591,70 @@ type Tenant struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+type TransportAllocation struct {
+	ID        pgtype.UUID        `json:"id"`
+	TenantID  pgtype.UUID        `json:"tenant_id"`
+	StudentID pgtype.UUID        `json:"student_id"`
+	RouteID   pgtype.UUID        `json:"route_id"`
+	StopID    pgtype.UUID        `json:"stop_id"`
+	StartDate pgtype.Date        `json:"start_date"`
+	EndDate   pgtype.Date        `json:"end_date"`
+	Status    string             `json:"status"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TransportDriver struct {
+	ID            pgtype.UUID        `json:"id"`
+	TenantID      pgtype.UUID        `json:"tenant_id"`
+	UserID        pgtype.UUID        `json:"user_id"`
+	FullName      string             `json:"full_name"`
+	LicenseNumber pgtype.Text        `json:"license_number"`
+	Phone         pgtype.Text        `json:"phone"`
+	Status        string             `json:"status"`
+	IsActive      bool               `json:"is_active"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TransportRoute struct {
+	ID          pgtype.UUID        `json:"id"`
+	TenantID    pgtype.UUID        `json:"tenant_id"`
+	Name        string             `json:"name"`
+	VehicleID   pgtype.UUID        `json:"vehicle_id"`
+	DriverID    pgtype.UUID        `json:"driver_id"`
+	Description pgtype.Text        `json:"description"`
+	IsActive    bool               `json:"is_active"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TransportRouteStop struct {
+	ID            pgtype.UUID        `json:"id"`
+	RouteID       pgtype.UUID        `json:"route_id"`
+	Name          string             `json:"name"`
+	SequenceOrder int32              `json:"sequence_order"`
+	ArrivalTime   pgtype.Time        `json:"arrival_time"`
+	PickupCost    pgtype.Int8        `json:"pickup_cost"`
+	DropCost      pgtype.Int8        `json:"drop_cost"`
+	Latitude      pgtype.Float8      `json:"latitude"`
+	Longitude     pgtype.Float8      `json:"longitude"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TransportVehicle struct {
+	ID                 pgtype.UUID        `json:"id"`
+	TenantID           pgtype.UUID        `json:"tenant_id"`
+	RegistrationNumber string             `json:"registration_number"`
+	Capacity           int32              `json:"capacity"`
+	Type               string             `json:"type"`
+	Status             string             `json:"status"`
+	IsActive           bool               `json:"is_active"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
 type User struct {
 	ID        pgtype.UUID        `json:"id"`
 	Email     pgtype.Text        `json:"email"`

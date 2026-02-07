@@ -20,32 +20,129 @@ type Querier interface {
 	CountStudents(ctx context.Context, tenantID pgtype.UUID) (int64, error)
 	// Academic Structure
 	CreateAcademicYear(ctx context.Context, arg CreateAcademicYearParams) (AcademicYear, error)
+	CreateAllocation(ctx context.Context, arg CreateAllocationParams) (TransportAllocation, error)
 	// Approvals
 	CreateApprovalRequest(ctx context.Context, arg CreateApprovalRequestParams) (ApprovalRequest, error)
+	// Copyright 2026 Google LLC
+	//
+	// Licensed under the Apache License, Version 2.0 (the "License");
+	// you may not use this file except in compliance with the License.
+	// You may obtain a copy of the License at
+	//
+	//     http://www.apache.org/licenses/LICENSE-2.0
+	//
+	// Unless required by applicable law or agreed to in writing, software
+	// distributed under the License is distributed on an "AS IS" BASIS,
+	// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	// See the License for the specific language governing permissions and
+	// limitations under the License.
 	CreateAttendanceSession(ctx context.Context, arg CreateAttendanceSessionParams) (AttendanceSession, error)
+	// Copyright 2026 Google LLC
+	//
+	// Licensed under the Apache License, Version 2.0 (the "License");
+	// you may not use this file except in compliance with the License.
+	// You may obtain a copy of the License at
+	//
+	//     http://www.apache.org/licenses/LICENSE-2.0
+	//
+	// Unless required by applicable law or agreed to in writing, software
+	// distributed under the License is distributed on an "AS IS" BASIS,
+	// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	// See the License for the specific language governing permissions and
+	// limitations under the License.
 	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) (AuditLog, error)
 	CreateClass(ctx context.Context, arg CreateClassParams) (Class, error)
+	CreateDriver(ctx context.Context, arg CreateDriverParams) (TransportDriver, error)
+	// Copyright 2026 Google LLC
+	//
+	// Licensed under the Apache License, Version 2.0 (the "License");
+	// you may not use this file except in compliance with the License.
+	// You may obtain a copy of the License at
+	//
+	//     http://www.apache.org/licenses/LICENSE-2.0
+	//
+	// Unless required by applicable law or agreed to in writing, software
+	// distributed under the License is distributed on an "AS IS" BASIS,
+	// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	// See the License for the specific language governing permissions and
+	// limitations under the License.
 	CreateExam(ctx context.Context, arg CreateExamParams) (Exam, error)
+	// Copyright 2026 Google LLC
+	//
+	// Licensed under the Apache License, Version 2.0 (the "License");
+	// you may not use this file except in compliance with the License.
+	// You may obtain a copy of the License at
+	//
+	//     http://www.apache.org/licenses/LICENSE-2.0
+	//
+	// Unless required by applicable law or agreed to in writing, software
+	// distributed under the License is distributed on an "AS IS" BASIS,
+	// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	// See the License for the specific language governing permissions and
+	// limitations under the License.
 	CreateFeeHead(ctx context.Context, arg CreateFeeHeadParams) (FeeHead, error)
 	CreateFeePlan(ctx context.Context, arg CreateFeePlanParams) (FeePlan, error)
 	CreateFeePlanItem(ctx context.Context, arg CreateFeePlanItemParams) (FeePlanItem, error)
+	// Copyright 2026 Google LLC
+	//
+	// Licensed under the Apache License, Version 2.0 (the "License");
+	// you may not use this file except in compliance with the License.
+	// You may obtain a copy of the License at
+	//
+	//     http://www.apache.org/licenses/LICENSE-2.0
+	//
+	// Unless required by applicable law or agreed to in writing, software
+	// distributed under the License is distributed on an "AS IS" BASIS,
+	// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	// See the License for the specific language governing permissions and
+	// limitations under the License.
 	CreateFile(ctx context.Context, arg CreateFileParams) (File, error)
 	CreateGuardian(ctx context.Context, arg CreateGuardianParams) (Guardian, error)
 	CreateLeaveRequest(ctx context.Context, arg CreateLeaveRequestParams) (LeaveRequest, error)
 	// Locks
 	CreateLock(ctx context.Context, arg CreateLockParams) (Lock, error)
+	// Copyright 2026 Google LLC
+	//
+	// Licensed under the Apache License, Version 2.0 (the "License");
+	// you may not use this file except in compliance with the License.
+	// You may obtain a copy of the License at
+	//
+	//     http://www.apache.org/licenses/LICENSE-2.0
+	//
+	// Unless required by applicable law or agreed to in writing, software
+	// distributed under the License is distributed on an "AS IS" BASIS,
+	// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	// See the License for the specific language governing permissions and
+	// limitations under the License.
 	CreateNotice(ctx context.Context, arg CreateNoticeParams) (Notice, error)
 	CreatePDFJob(ctx context.Context, arg CreatePDFJobParams) (PdfJob, error)
 	CreatePaymentOrder(ctx context.Context, arg CreatePaymentOrderParams) (PaymentOrder, error)
 	CreateReceipt(ctx context.Context, arg CreateReceiptParams) (Receipt, error)
 	CreateRefund(ctx context.Context, arg CreateRefundParams) (FeeRefund, error)
+	CreateRoute(ctx context.Context, arg CreateRouteParams) (TransportRoute, error)
+	CreateRouteStop(ctx context.Context, arg CreateRouteStopParams) (TransportRouteStop, error)
 	CreateSection(ctx context.Context, arg CreateSectionParams) (Section, error)
+	// Copyright 2026 Google LLC
+	//
+	// Licensed under the Apache License, Version 2.0 (the "License");
+	// you may not use this file except in compliance with the License.
+	// You may obtain a copy of the License at
+	//
+	//     http://www.apache.org/licenses/LICENSE-2.0
+	//
+	// Unless required by applicable law or agreed to in writing, software
+	// distributed under the License is distributed on an "AS IS" BASIS,
+	// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	// See the License for the specific language governing permissions and
+	// limitations under the License.
 	CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error)
 	CreateSubject(ctx context.Context, arg CreateSubjectParams) (Subject, error)
+	CreateVehicle(ctx context.Context, arg CreateVehicleParams) (TransportVehicle, error)
 	DeleteAttendanceEntries(ctx context.Context, sessionID pgtype.UUID) error
 	DeleteLock(ctx context.Context, arg DeleteLockParams) error
 	DeleteNotice(ctx context.Context, arg DeleteNoticeParams) error
 	DeleteStudent(ctx context.Context, arg DeleteStudentParams) error
+	DeleteVehicle(ctx context.Context, arg DeleteVehicleParams) error
 	GetActiveSeries(ctx context.Context, tenantID pgtype.UUID) (ReceiptSeries, error)
 	GetApprovalRequest(ctx context.Context, id pgtype.UUID) (ApprovalRequest, error)
 	GetAttendanceEntries(ctx context.Context, sessionID pgtype.UUID) ([]GetAttendanceEntriesRow, error)
@@ -60,15 +157,31 @@ type Querier interface {
 	GetNoticeAcks(ctx context.Context, noticeID pgtype.UUID) ([]GetNoticeAcksRow, error)
 	GetPDFTemplate(ctx context.Context, arg GetPDFTemplateParams) (PdfTemplate, error)
 	GetPaymentOrder(ctx context.Context, arg GetPaymentOrderParams) (PaymentOrder, error)
+	// Copyright 2026 Google LLC
+	//
+	// Licensed under the Apache License, Version 2.0 (the "License");
+	// you may not use this file except in compliance with the License.
+	// You may obtain a copy of the License at
+	//
+	//     http://www.apache.org/licenses/LICENSE-2.0
+	//
+	// Unless required by applicable law or agreed to in writing, software
+	// distributed under the License is distributed on an "AS IS" BASIS,
+	// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	// See the License for the specific language governing permissions and
+	// limitations under the License.
 	// foundation.sql
 	// Policies
 	GetPolicy(ctx context.Context, arg GetPolicyParams) (Policy, error)
 	GetStudent(ctx context.Context, arg GetStudentParams) (GetStudentRow, error)
 	GetStudentFeeSummary(ctx context.Context, studentID pgtype.UUID) ([]GetStudentFeeSummaryRow, error)
 	GetStudentGuardians(ctx context.Context, studentID pgtype.UUID) ([]GetStudentGuardiansRow, error)
+	GetVehicle(ctx context.Context, arg GetVehicleParams) (TransportVehicle, error)
 	LinkStudentGuardian(ctx context.Context, arg LinkStudentGuardianParams) error
 	ListAcademicYears(ctx context.Context, tenantID pgtype.UUID) ([]AcademicYear, error)
+	ListAllocations(ctx context.Context, tenantID pgtype.UUID) ([]ListAllocationsRow, error)
 	ListClasses(ctx context.Context, tenantID pgtype.UUID) ([]Class, error)
+	ListDrivers(ctx context.Context, tenantID pgtype.UUID) ([]TransportDriver, error)
 	ListExamSubjects(ctx context.Context, examID pgtype.UUID) ([]ListExamSubjectsRow, error)
 	ListExams(ctx context.Context, tenantID pgtype.UUID) ([]Exam, error)
 	ListFeeHeads(ctx context.Context, tenantID pgtype.UUID) ([]FeeHead, error)
@@ -80,10 +193,13 @@ type Querier interface {
 	ListPendingApprovals(ctx context.Context, tenantID pgtype.UUID) ([]ApprovalRequest, error)
 	ListPendingPDFJobs(ctx context.Context, limit int32) ([]PdfJob, error)
 	ListPolicies(ctx context.Context, tenantID pgtype.UUID) ([]Policy, error)
+	ListRouteStops(ctx context.Context, routeID pgtype.UUID) ([]TransportRouteStop, error)
+	ListRoutes(ctx context.Context, tenantID pgtype.UUID) ([]ListRoutesRow, error)
 	ListSectionsByClass(ctx context.Context, classID pgtype.UUID) ([]Section, error)
 	ListStudentReceipts(ctx context.Context, arg ListStudentReceiptsParams) ([]Receipt, error)
 	ListStudents(ctx context.Context, arg ListStudentsParams) ([]ListStudentsRow, error)
 	ListSubjects(ctx context.Context, tenantID pgtype.UUID) ([]Subject, error)
+	ListVehicles(ctx context.Context, tenantID pgtype.UUID) ([]TransportVehicle, error)
 	PublishExam(ctx context.Context, arg PublishExamParams) (Exam, error)
 	UpdateApprovalStatus(ctx context.Context, arg UpdateApprovalStatusParams) (ApprovalRequest, error)
 	UpdateLeaveStatus(ctx context.Context, arg UpdateLeaveStatusParams) (LeaveRequest, error)
@@ -91,6 +207,7 @@ type Querier interface {
 	UpdatePDFJobStatus(ctx context.Context, arg UpdatePDFJobStatusParams) (PdfJob, error)
 	UpdatePaymentOrderStatus(ctx context.Context, arg UpdatePaymentOrderStatusParams) (PaymentOrder, error)
 	UpdateStudent(ctx context.Context, arg UpdateStudentParams) (Student, error)
+	UpdateVehicle(ctx context.Context, arg UpdateVehicleParams) (TransportVehicle, error)
 	UpsertMarks(ctx context.Context, arg UpsertMarksParams) error
 }
 
