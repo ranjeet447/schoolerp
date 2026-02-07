@@ -9,8 +9,9 @@ export async function generateStaticParams() {
   return INTEGRATIONS.map((i) => ({ slug: i.slug }));
 }
 
-export default function IntegrationDetailPage({ params }: { params: { slug: string } }) {
-  const integration = INTEGRATIONS.find((i) => i.slug === params.slug);
+export default async function IntegrationDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const integration = INTEGRATIONS.find((i) => i.slug === slug);
   if (!integration) return notFound();
 
   return (
