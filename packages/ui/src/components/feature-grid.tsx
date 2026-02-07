@@ -60,10 +60,10 @@ export const FeatureGrid = () => {
           viewport={{ once: true }}
           className="mx-auto max-w-3xl text-center"
         >
-          <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-5xl">
+          <h2 className="text-4xl font-black tracking-tight text-slate-900 sm:text-6xl mb-6">
             Modern tools for <span className="text-primary italic">elite</span> education.
           </h2>
-          <p className="mt-4 text-xl text-muted-foreground">
+          <p className="mt-4 text-xl text-slate-600 font-medium">
             A unified core to manage academics, finance, and safety without the chaos of legacy software.
           </p>
         </motion.div>

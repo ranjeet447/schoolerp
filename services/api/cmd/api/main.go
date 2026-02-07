@@ -36,6 +36,7 @@ import (
 	"github.com/schoolerp/api/internal/handler/admission"
 	"github.com/schoolerp/api/internal/handler/alumni"
 	"github.com/schoolerp/api/internal/handler/attendance"
+	authhandler "github.com/schoolerp/api/internal/handler/auth"
 	"github.com/schoolerp/api/internal/handler/exams"
 	"github.com/schoolerp/api/internal/handler/finance"
 	"github.com/schoolerp/api/internal/handler/hrms"
@@ -49,6 +50,7 @@ import (
 	admissionservice "github.com/schoolerp/api/internal/service/admission"
 	alumniservice "github.com/schoolerp/api/internal/service/alumni"
 	attendservice "github.com/schoolerp/api/internal/service/attendance"
+	authservice "github.com/schoolerp/api/internal/service/auth"
 	examservice "github.com/schoolerp/api/internal/service/exams"
 	financeservice "github.com/schoolerp/api/internal/service/finance"
 	hrmsservice "github.com/schoolerp/api/internal/service/hrms"
@@ -59,6 +61,7 @@ import (
 	sisservice "github.com/schoolerp/api/internal/service/sis"
 	transportservice "github.com/schoolerp/api/internal/service/transport"
 )
+
 
 func main() {
 	// 0. Database Connection
@@ -101,6 +104,7 @@ func main() {
 	hrmsService := hrmsservice.NewService(querier, auditLogger)
 	portfolioService := portfolioservice.NewService(querier)
 	alumniService := alumniservice.NewService(querier)
+	authService := authservice.NewService(querier)
 	
 	// Initialize Handlers
 	studentHandler := sis.NewHandler(studentService)
@@ -115,6 +119,8 @@ func main() {
 	hrmsHandler := hrms.NewHandler(hrmsService)
 	portfolioHandler := portfolio.NewHandler(portfolioService)
 	alumniHandler := alumni.NewHandler(alumniService)
+	authHandler := authhandler.NewHandler(authService)
+
 
 	r := chi.NewRouter()
 
@@ -142,10 +148,12 @@ func main() {
 
 	// 4. API V1 Routes
 	r.Route("/v1", func(r chi.Router) {
-		// Public Auth (Keep stubs)
+		// Public Auth Routes
+		authHandler.RegisterRoutes(r)
 		r.Post("/auth/request-otp", func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(`{"msg": "OTP requested"}`))
 		})
+
 		
 		// Admin Routes
 		r.Route("/admin", func(r chi.Router) {

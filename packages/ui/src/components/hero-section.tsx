@@ -41,9 +41,9 @@ export const HeroSection = () => {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary mb-8"
+          className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-primary mb-12 backdrop-blur-md shadow-lg shadow-primary/5"
         >
-          <Sparkles className="h-4 w-4 fill-primary" />
+          <Sparkles className="h-4 w-4 fill-primary animate-pulse" />
           <span>Version 5.0 Vision is live</span>
           <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
         </motion.div>
@@ -52,18 +52,18 @@ export const HeroSection = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="max-w-4xl text-5xl font-extrabold tracking-tight text-foreground sm:text-8xl"
+          className="max-w-5xl text-6xl font-black tracking-tight text-slate-900 sm:text-8xl leading-[1.05]"
         >
-          The Operating System for <br />
-          <span className="relative inline-block mt-2">
-            <span className="relative z-10 bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+          The Operating System <br />
+          <span className="relative inline-block mt-4">
+            <span className="relative z-10 bg-gradient-to-r from-primary via-blue-600 to-indigo-600 bg-clip-text text-transparent">
               Modern Education
             </span>
             <motion.span 
               initial={{ width: 0 }}
               animate={{ width: "100%" }}
               transition={{ duration: 1, delay: 1 }}
-              className="absolute bottom-2 left-0 h-3 bg-primary/10 -z-0"
+              className="absolute -bottom-2 left-0 h-4 bg-primary/5 -z-0 rounded-full"
             />
           </span>
         </motion.h1>

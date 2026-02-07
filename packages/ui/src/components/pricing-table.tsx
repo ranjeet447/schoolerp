@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Container, Section } from './layout-foundation';
 import { Button } from './button';
 import { Check } from 'lucide-react';
@@ -66,87 +67,106 @@ export const PricingTable = () => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
 
   return (
-    <Section id="pricing" className="bg-background">
+    <Section id="pricing" className="bg-slate-50/50 relative overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none -z-10">
+        <div className="absolute top-[20%] right-[10%] w-[30%] h-[30%] bg-blue-500/5 blur-[100px] rounded-full" />
+        <div className="absolute bottom-[20%] left-[10%] w-[30%] h-[30%] bg-purple-500/5 blur-[100px] rounded-full" />
+      </div>
+
       <Container>
-        <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-5xl">
-            Simple, transparent pricing
+        <div className="text-center max-w-3xl mx-auto mb-20">
+          <h2 className="text-4xl font-black tracking-tight text-slate-900 sm:text-6xl mb-6">
+            Simple, honest <span className="text-primary italic">pricing</span>
           </h2>
-          <p className="mt-4 text-lg text-muted-foreground">
-            No hidden implementation fees. Cancel anytime.
+          <p className="mt-4 text-xl text-slate-600 font-medium">
+            No hidden implementation fees. No complex contracts. <br className="hidden sm:block" />
+            Empowering schools of all sizes.
           </p>
           
-          <div className="mt-8 flex justify-center">
-            <div className="flex items-center rounded-full border bg-muted p-1">
+          <div className="mt-12 flex justify-center">
+            <div className="flex items-center rounded-2xl border bg-white p-1.5 shadow-sm">
               <button
                 onClick={() => setBillingCycle('monthly')}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${billingCycle === 'monthly' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`rounded-xl px-8 py-2.5 text-sm font-black transition-all ${billingCycle === 'monthly' ? 'bg-primary shadow-lg shadow-primary/20 text-white' : 'text-slate-500 hover:text-slate-900'}`}
               >
                 Monthly
               </button>
               <button
                 onClick={() => setBillingCycle('annual')}
-                className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium transition-all ${billingCycle === 'annual' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`flex items-center gap-2 rounded-xl px-8 py-2.5 text-sm font-black transition-all ${billingCycle === 'annual' ? 'bg-primary shadow-lg shadow-primary/20 text-white' : 'text-slate-500 hover:text-slate-900'}`}
               >
-                Yearly <span className="text-xs text-primary font-bold hidden sm:inline">-20%</span>
+                Yearly <span className={`text-[10px] uppercase tracking-tighter px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-black ${billingCycle === 'annual' ? 'bg-white/20 text-white' : ''}`}>SAVE 20%</span>
               </button>
             </div>
           </div>
         </div>
 
-        <div className="mt-16 grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-4 pt-4">
           {PLANS.map((plan) => (
-            <div 
+            <motion.div 
               key={plan.name} 
-              className={`relative flex flex-col rounded-3xl border p-8 shadow-sm transition-all hover:shadow-md ${plan.highlight ? 'border-primary ring-1 ring-primary' : 'bg-card'}`}
+              whileHover={{ y: -8 }}
+              className={`relative flex flex-col rounded-[2.5rem] border-2 p-10 bg-white transition-all duration-500 ${plan.highlight ? 'border-primary shadow-2xl shadow-primary/10 relative z-10' : 'border-slate-100 shadow-xl shadow-slate-200/50 hover:border-slate-300'}`}
             >
               {plan.tag && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground">
+                <div className="absolute -top-5 left-1/2 -translate-x-1/2 rounded-full bg-primary px-5 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-lg shadow-primary/25">
                   {plan.tag}
                 </div>
               )}
               
-              <h3 className="text-xl font-semibold">{plan.name}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{plan.description}</p>
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight">{plan.name}</h3>
+              <p className="mt-3 text-sm text-slate-500 font-semibold leading-relaxed">{plan.description}</p>
               
-              <div className="mt-6 flex items-baseline gap-1">
+              <div className="mt-10 flex items-baseline gap-2">
                 {plan.price ? (
                   <>
-                    <span className="text-4xl font-bold">₹{(billingCycle === 'annual' ? (plan.price as number) * 0.8 : plan.price).toLocaleString()}</span>
-                    <span className="text-muted-foreground">/mo</span>
+                    <span className="text-5xl font-black tracking-tighter text-slate-900 italic">₹{Math.round(billingCycle === 'annual' ? (plan.price as number) * 0.8 : plan.price).toLocaleString()}</span>
+                    <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">/mo</span>
                   </>
                 ) : (
-                  <span className="text-4xl font-bold">Custom</span>
+                  <span className="text-5xl font-black tracking-tighter text-slate-900 italic">Global</span>
                 )}
               </div>
               
-              <ul className="mt-8 space-y-4 flex-1">
+              <div className="h-px bg-slate-100 w-full my-10" />
+
+              <ul className="space-y-5 flex-1">
                 {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-4 text-sm">
-                    <Check className="h-5 w-5 text-primary shrink-0" />
-                    <span className="text-muted-foreground group-hover:text-foreground transition-colors">{feature}</span>
+                  <li key={feature} className="flex items-start gap-4 text-sm group">
+                    <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-primary transition-colors">
+                      <Check className="h-3 w-3 text-primary group-hover:text-white transition-colors" />
+                    </div>
+                    <span className="text-slate-600 font-semibold group-hover:text-slate-900 transition-colors">{feature}</span>
                   </li>
                 ))}
               </ul>
 
               <Button 
                 variant={plan.highlight ? 'default' : 'outline'} 
-                className="mt-8 w-full rounded-2xl h-12 font-bold"
+                className={`mt-12 w-full rounded-2xl h-14 text-base font-black transition-all ${plan.highlight ? 'shadow-xl shadow-primary/20 hover:shadow-primary/40' : 'border-slate-200 text-slate-900 hover:bg-slate-50 hover:border-slate-900'}`}
                 onClick={() => window.location.href = plan.price ? '/book-demo' : '/contact'}
               >
-                {plan.price ? 'Start Free Trial' : 'Contact Sales'}
+                {plan.price ? 'Start Activation' : 'Speak to Experts'}
               </Button>
-            </div>
+            </motion.div>
           ))}
         </div>
 
-        <div className="mt-16 rounded-2xl border bg-muted/30 p-8 text-center">
-          <h4 className="text-lg font-semibold">Enterprise or Multi-branch Group?</h4>
-          <p className="mt-2 text-muted-foreground">We offer custom SLAs, white-label mobile apps, and dedicated migration engineers.</p>
-          <Button variant="link" className="mt-4 text-primary" onClick={() => window.location.href = '/contact'}>
-            Contact Sales &rarr;
-          </Button>
-        </div>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          className="mt-24 rounded-[3rem] border-2 border-dashed border-slate-200 bg-white/50 backdrop-blur-sm p-12 text-center group hover:border-primary/30 transition-colors"
+        >
+          <div className="max-w-2xl mx-auto">
+            <h4 className="text-2xl font-black text-slate-900 tracking-tight mb-4 group-hover:text-primary transition-colors">Enterprise or Multi-branch Group?</h4>
+            <p className="text-slate-600 font-semibold mb-8 line-height-relaxed">We offer custom SLAs, white-label mobile apps for Android & iOS, and dedicated migration engineers for zero-downtime implementation.</p>
+            <Button size="lg" variant="outline" className="rounded-2xl h-14 px-12 font-black border-slate-200 text-slate-900 hover:border-primary hover:text-primary transition-all" onClick={() => window.location.href = '/contact'}>
+              Request Executive Consultation &rarr;
+            </Button>
+          </div>
+        </motion.div>
       </Container>
     </Section>
   );
