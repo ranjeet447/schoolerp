@@ -3,7 +3,7 @@
 import { Badge } from "@schoolerp/ui"
 import { Card, CardContent, CardHeader, CardTitle } from "@schoolerp/ui"
 import { CheckCircle2, Circle, Clock, Map, Sparkles, Globe, Smartphone, Truck, ShoppingCart, Users } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "@schoolerp/ui"
 
 const ROADMAP = [
   {
