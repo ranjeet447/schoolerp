@@ -173,15 +173,17 @@ const DATA = {
   }
 };
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const data = DATA[params.slug as keyof typeof DATA];
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const data = DATA[slug as keyof typeof DATA];
   return {
     title: data ? `${data.title} - Case Study` : 'Case Study',
   };
 }
 
-export default function UseCaseDetailPage({ params }: { params: { slug: string } }) {
-  const data = DATA[params.slug as keyof typeof DATA];
+export default async function UseCaseDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const data = DATA[slug as keyof typeof DATA];
 
   if (!data) return <div>Case study not found</div>;
 
