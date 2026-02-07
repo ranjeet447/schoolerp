@@ -51,6 +51,10 @@ type Querier interface {
 	// See the License for the specific language governing permissions and
 	// limitations under the License.
 	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) (AuditLog, error)
+	CreateAuthor(ctx context.Context, arg CreateAuthorParams) (LibraryAuthor, error)
+	CreateBook(ctx context.Context, arg CreateBookParams) (LibraryBook, error)
+	CreateBookAuthor(ctx context.Context, arg CreateBookAuthorParams) error
+	CreateCategory(ctx context.Context, arg CreateCategoryParams) (LibraryCategory, error)
 	CreateClass(ctx context.Context, arg CreateClassParams) (Class, error)
 	CreateDriver(ctx context.Context, arg CreateDriverParams) (TransportDriver, error)
 	// Copyright 2026 Google LLC
@@ -147,6 +151,7 @@ type Querier interface {
 	GetApprovalRequest(ctx context.Context, id pgtype.UUID) (ApprovalRequest, error)
 	GetAttendanceEntries(ctx context.Context, sessionID pgtype.UUID) ([]GetAttendanceEntriesRow, error)
 	GetAttendanceSession(ctx context.Context, arg GetAttendanceSessionParams) (AttendanceSession, error)
+	GetBook(ctx context.Context, arg GetBookParams) (LibraryBook, error)
 	GetChildrenByParentUser(ctx context.Context, arg GetChildrenByParentUserParams) ([]GetChildrenByParentUserRow, error)
 	GetExam(ctx context.Context, arg GetExamParams) (Exam, error)
 	GetExamMarks(ctx context.Context, arg GetExamMarksParams) ([]GetExamMarksRow, error)
@@ -177,14 +182,19 @@ type Querier interface {
 	GetStudentFeeSummary(ctx context.Context, studentID pgtype.UUID) ([]GetStudentFeeSummaryRow, error)
 	GetStudentGuardians(ctx context.Context, studentID pgtype.UUID) ([]GetStudentGuardiansRow, error)
 	GetVehicle(ctx context.Context, arg GetVehicleParams) (TransportVehicle, error)
+	IssueBook(ctx context.Context, arg IssueBookParams) (LibraryIssue, error)
 	LinkStudentGuardian(ctx context.Context, arg LinkStudentGuardianParams) error
 	ListAcademicYears(ctx context.Context, tenantID pgtype.UUID) ([]AcademicYear, error)
 	ListAllocations(ctx context.Context, tenantID pgtype.UUID) ([]ListAllocationsRow, error)
+	ListAuthors(ctx context.Context, tenantID pgtype.UUID) ([]LibraryAuthor, error)
+	ListBooks(ctx context.Context, arg ListBooksParams) ([]LibraryBook, error)
+	ListCategories(ctx context.Context, tenantID pgtype.UUID) ([]LibraryCategory, error)
 	ListClasses(ctx context.Context, tenantID pgtype.UUID) ([]Class, error)
 	ListDrivers(ctx context.Context, tenantID pgtype.UUID) ([]TransportDriver, error)
 	ListExamSubjects(ctx context.Context, examID pgtype.UUID) ([]ListExamSubjectsRow, error)
 	ListExams(ctx context.Context, tenantID pgtype.UUID) ([]Exam, error)
 	ListFeeHeads(ctx context.Context, tenantID pgtype.UUID) ([]FeeHead, error)
+	ListIssues(ctx context.Context, arg ListIssuesParams) ([]ListIssuesRow, error)
 	ListLeaveRequests(ctx context.Context, arg ListLeaveRequestsParams) ([]ListLeaveRequestsRow, error)
 	ListNotices(ctx context.Context, tenantID pgtype.UUID) ([]ListNoticesRow, error)
 	// This is a bit simplified, in real prod you'd filter by scope.
@@ -201,7 +211,9 @@ type Querier interface {
 	ListSubjects(ctx context.Context, tenantID pgtype.UUID) ([]Subject, error)
 	ListVehicles(ctx context.Context, tenantID pgtype.UUID) ([]TransportVehicle, error)
 	PublishExam(ctx context.Context, arg PublishExamParams) (Exam, error)
+	ReturnBook(ctx context.Context, arg ReturnBookParams) (LibraryIssue, error)
 	UpdateApprovalStatus(ctx context.Context, arg UpdateApprovalStatusParams) (ApprovalRequest, error)
+	UpdateBookCopies(ctx context.Context, arg UpdateBookCopiesParams) error
 	UpdateLeaveStatus(ctx context.Context, arg UpdateLeaveStatusParams) (LeaveRequest, error)
 	UpdateOrCreatePolicy(ctx context.Context, arg UpdateOrCreatePolicyParams) (Policy, error)
 	UpdatePDFJobStatus(ctx context.Context, arg UpdatePDFJobStatusParams) (PdfJob, error)

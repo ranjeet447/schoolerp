@@ -287,6 +287,65 @@ type LeaveRequest struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type LibraryAuthor struct {
+	ID        pgtype.UUID        `json:"id"`
+	TenantID  pgtype.UUID        `json:"tenant_id"`
+	Name      string             `json:"name"`
+	Bio       pgtype.Text        `json:"bio"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type LibraryBook struct {
+	ID              pgtype.UUID        `json:"id"`
+	TenantID        pgtype.UUID        `json:"tenant_id"`
+	Title           string             `json:"title"`
+	Isbn            pgtype.Text        `json:"isbn"`
+	Publisher       pgtype.Text        `json:"publisher"`
+	PublishedYear   pgtype.Int4        `json:"published_year"`
+	CategoryID      pgtype.UUID        `json:"category_id"`
+	TotalCopies     int32              `json:"total_copies"`
+	AvailableCopies int32              `json:"available_copies"`
+	ShelfLocation   pgtype.Text        `json:"shelf_location"`
+	CoverImageUrl   pgtype.Text        `json:"cover_image_url"`
+	Price           pgtype.Numeric     `json:"price"`
+	Language        pgtype.Text        `json:"language"`
+	Status          string             `json:"status"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type LibraryBookAuthor struct {
+	BookID   pgtype.UUID `json:"book_id"`
+	AuthorID pgtype.UUID `json:"author_id"`
+}
+
+type LibraryCategory struct {
+	ID          pgtype.UUID        `json:"id"`
+	TenantID    pgtype.UUID        `json:"tenant_id"`
+	Name        string             `json:"name"`
+	ParentID    pgtype.UUID        `json:"parent_id"`
+	Description pgtype.Text        `json:"description"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type LibraryIssue struct {
+	ID         pgtype.UUID        `json:"id"`
+	TenantID   pgtype.UUID        `json:"tenant_id"`
+	BookID     pgtype.UUID        `json:"book_id"`
+	StudentID  pgtype.UUID        `json:"student_id"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	IssueDate  pgtype.Timestamptz `json:"issue_date"`
+	DueDate    pgtype.Timestamptz `json:"due_date"`
+	ReturnDate pgtype.Timestamptz `json:"return_date"`
+	FineAmount pgtype.Numeric     `json:"fine_amount"`
+	Status     string             `json:"status"`
+	Remarks    pgtype.Text        `json:"remarks"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Lock struct {
 	ID         pgtype.UUID        `json:"id"`
 	TenantID   pgtype.UUID        `json:"tenant_id"`
