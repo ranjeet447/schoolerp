@@ -76,3 +76,18 @@ LIMIT $2 OFFSET $3;
 
 -- name: GetIssue :one
 SELECT * FROM library_issues WHERE id = $1 AND tenant_id = $2;
+
+-- name: CreateDigitalAsset :one
+INSERT INTO library_digital_assets (
+    tenant_id, book_id, asset_type, title, url, file_size_bytes, access_level
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7
+) RETURNING *;
+
+-- name: ListDigitalAssets :many
+SELECT * FROM library_digital_assets
+WHERE book_id = $1 AND tenant_id = $2 AND is_active = TRUE
+ORDER BY created_at;
+
+-- name: DeleteDigitalAsset :exec
+UPDATE library_digital_assets SET is_active = FALSE WHERE id = $1;

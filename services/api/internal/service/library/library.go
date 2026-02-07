@@ -250,3 +250,43 @@ func (s *LibraryService) ListIssues(ctx context.Context, tenantID string, limit,
 		Offset:   offset,
 	})
 }
+
+// ==================== Digital Assets ====================
+
+type CreateDigitalAssetParams struct {
+	TenantID    string
+	BookID      string
+	AssetType   string // pdf, epub, link, video
+	Title       string
+	URL         string
+	FileSizeBytes int64
+	AccessLevel string
+}
+
+func (s *LibraryService) CreateDigitalAsset(ctx context.Context, p CreateDigitalAssetParams) (db.LibraryDigitalAsset, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(p.TenantID)
+	bID := pgtype.UUID{}
+	bID.Scan(p.BookID)
+
+	return s.q.CreateDigitalAsset(ctx, db.CreateDigitalAssetParams{
+		TenantID:      tID,
+		BookID:        bID,
+		AssetType:     p.AssetType,
+		Title:         p.Title,
+		Url:           p.URL,
+		FileSizeBytes: pgtype.Int8{Int64: p.FileSizeBytes, Valid: p.FileSizeBytes > 0},
+		AccessLevel:   p.AccessLevel,
+	})
+}
+
+func (s *LibraryService) ListDigitalAssets(ctx context.Context, tenantID, bookID string) ([]db.LibraryDigitalAsset, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	bID := pgtype.UUID{}
+	bID.Scan(bookID)
+	return s.q.ListDigitalAssets(ctx, db.ListDigitalAssetsParams{
+		BookID:   bID,
+		TenantID: tID,
+	})
+}

@@ -213,3 +213,94 @@ func (s *InventoryService) ListTransactions(ctx context.Context, tenantID string
 		Offset:   offset,
 	})
 }
+
+// ==================== Purchase Orders ====================
+
+type CreatePurchaseOrderParams struct {
+	TenantID   string
+	PONumber   string
+	SupplierID string
+	Notes      string
+	UserID     string
+}
+
+func (s *InventoryService) CreatePurchaseOrder(ctx context.Context, p CreatePurchaseOrderParams) (db.PurchaseOrder, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(p.TenantID)
+	sID := pgtype.UUID{}
+	if p.SupplierID != "" {
+		sID.Scan(p.SupplierID)
+	}
+	uID := pgtype.UUID{}
+	uID.Scan(p.UserID)
+
+	return s.q.CreatePurchaseOrder(ctx, db.CreatePurchaseOrderParams{
+		TenantID:   tID,
+		PoNumber:   p.PONumber,
+		SupplierID: sID,
+		Status:     "draft",
+		Notes:      pgtype.Text{String: p.Notes, Valid: p.Notes != ""},
+		CreatedBy:  uID,
+	})
+}
+
+func (s *InventoryService) ListPurchaseOrders(ctx context.Context, tenantID string, limit, offset int32) ([]db.ListPurchaseOrdersRow, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	return s.q.ListPurchaseOrders(ctx, db.ListPurchaseOrdersParams{
+		TenantID: tID,
+		Limit:    limit,
+		Offset:   offset,
+	})
+}
+
+func (s *InventoryService) ApprovePurchaseOrder(ctx context.Context, tenantID, poID, approverID string) (db.PurchaseOrder, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	pID := pgtype.UUID{}
+	pID.Scan(poID)
+	aID := pgtype.UUID{}
+	aID.Scan(approverID)
+
+	return s.q.UpdatePurchaseOrderStatus(ctx, db.UpdatePurchaseOrderStatusParams{
+		ID:         pID,
+		TenantID:   tID,
+		Status:     "approved",
+		ApprovedBy: aID,
+	})
+}
+
+func (s *InventoryService) ReceivePurchaseOrder(ctx context.Context, tenantID, poID, receiverID string) (db.PurchaseOrder, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	pID := pgtype.UUID{}
+	pID.Scan(poID)
+	uID := pgtype.UUID{}
+	uID.Scan(receiverID)
+
+	po, err := s.q.ReceivePurchaseOrder(ctx, db.ReceivePurchaseOrderParams{
+		ID:       pID,
+		TenantID: tID,
+	})
+	if err != nil {
+		return db.PurchaseOrder{}, err
+	}
+
+	// Auto-create inventory transactions for received items
+	items, _ := s.q.ListPurchaseOrderItems(ctx, pID)
+	for _, item := range items {
+		s.CreateTransaction(ctx, StockTransactionParams{
+			TenantID:      tenantID,
+			ItemID:        item.ItemID.String(),
+			Type:          "in",
+			Quantity:      int32(item.Quantity),
+			UnitPrice:     0, // TODO: convert Numeric
+			ReferenceID:   poID,
+			ReferenceType: "purchase_order",
+			Remarks:       "Received from PO",
+			UserID:        receiverID,
+		})
+	}
+
+	return po, nil
+}

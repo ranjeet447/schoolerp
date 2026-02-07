@@ -71,3 +71,61 @@ LEFT JOIN users u ON t.created_by = u.id
 WHERE t.tenant_id = $1
 ORDER BY t.created_at DESC
 LIMIT $2 OFFSET $3;
+
+-- ==================== Purchase Orders ====================
+
+-- name: CreatePurchaseOrder :one
+INSERT INTO purchase_orders (
+    tenant_id, po_number, supplier_id, status, notes, created_by
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING *;
+
+-- name: GetPurchaseOrder :one
+SELECT * FROM purchase_orders WHERE id = $1 AND tenant_id = $2;
+
+-- name: ListPurchaseOrders :many
+SELECT 
+    po.*,
+    s.name as supplier_name,
+    u.full_name as created_by_name
+FROM purchase_orders po
+LEFT JOIN inventory_suppliers s ON po.supplier_id = s.id
+LEFT JOIN users u ON po.created_by = u.id
+WHERE po.tenant_id = $1
+ORDER BY po.created_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: UpdatePurchaseOrderStatus :one
+UPDATE purchase_orders
+SET status = $3, approved_by = $4, approved_at = NOW(), updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2
+RETURNING *;
+
+-- name: ReceivePurchaseOrder :one
+UPDATE purchase_orders
+SET status = 'received', received_at = NOW(), updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2
+RETURNING *;
+
+-- name: CreatePurchaseOrderItem :one
+INSERT INTO purchase_order_items (
+    po_id, item_id, quantity, unit_price
+) VALUES (
+    $1, $2, $3, $4
+) RETURNING *;
+
+-- name: ListPurchaseOrderItems :many
+SELECT 
+    poi.*,
+    i.name as item_name,
+    i.sku as item_sku
+FROM purchase_order_items poi
+JOIN inventory_items i ON poi.item_id = i.id
+WHERE poi.po_id = $1
+ORDER BY poi.created_at;
+
+-- name: UpdatePOItemReceived :exec
+UPDATE purchase_order_items
+SET received_quantity = $2
+WHERE id = $1;
