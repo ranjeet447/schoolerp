@@ -87,10 +87,8 @@ export const HeroSection = () => {
           <Button size="lg" className="rounded-full px-10 text-lg shadow-xl shadow-primary/20 hover:scale-105 transition-transform" onClick={() => window.location.href = '/book-demo'}>
             Book a Demo
           </Button>
-          <Button size="lg" variant="outline" className="rounded-full px-10 text-lg hover:bg-primary/5 transition-colors" onClick={() => window.location.href = '/roadmap'}>
-            View Roadmap
-          </Button>
         </motion.div>
+
 
         {/* Abstract UI Mockup with Floating Elements */}
         <motion.div 

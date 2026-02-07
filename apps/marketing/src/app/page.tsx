@@ -3,11 +3,11 @@ import {
   FeatureGrid, 
   FeatureCarousel,
   FEATURES_DATA,
-  RoadmapSection,
   TestimonialSection, 
   FAQSection, 
   FinalCTA 
 } from '@schoolerp/ui';
+
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
