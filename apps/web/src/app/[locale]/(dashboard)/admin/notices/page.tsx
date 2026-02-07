@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { NoticeCard, TargetSelector, Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Textarea, Badge } from "@schoolerp/ui"
+import { apiClient } from "@/lib/api-client"
 
 const SCOPES = [
   { value: "all", label: "All School" },
@@ -17,26 +18,42 @@ export default function AdminNoticesPage() {
   const [scope, setScope] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const handleCreate = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetchNotices()
+  }, [])
+
+  const fetchNotices = async () => {
+    try {
+      const res = await apiClient("/admin/notices")
+      if (res.ok) {
+        const data = await res.json()
+        setNotices(data || [])
+      }
+    } catch (err) {
+      console.error("Failed to fetch notices", err)
+    }
+  }
+
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setTimeout(() => {
-      const newNotice = {
-        id: Math.random(),
-        title,
-        body,
-        author: "Principal",
-        date: new Date().toISOString().split("T")[0],
-        ackCount: 0,
-        showAckStatus: true
+    try {
+      const res = await apiClient("/admin/notices", {
+        method: "POST",
+        body: JSON.stringify({ title, body, scope })
+      })
+      if (res.ok) {
+        alert("Notice published successfully!")
+        fetchNotices()
+        setTitle("")
+        setBody("")
+        setScope("")
       }
-      setNotices([newNotice, ...notices])
-      setTitle("")
-      setBody("")
-      setScope("")
+    } catch (err) {
+      alert("Failed to publish notice")
+    } finally {
       setLoading(false)
-      alert("Notice published successfully!")
-    }, 1000)
+    }
   }
 
   return (

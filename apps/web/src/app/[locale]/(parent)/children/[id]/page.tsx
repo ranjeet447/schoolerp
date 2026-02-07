@@ -1,9 +1,7 @@
 import React from "react"
 import Link from "next/link"
-import { Button } from "@schoolerp/ui"
 import { ChevronLeft } from "lucide-react"
-import { StudentProfileCard } from "@/components/students/student-profile-card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button, Tabs, TabsContent, TabsList, TabsTrigger, StudentProfileCard } from "@schoolerp/ui"
 
 async function getStudent(id: string) {
   try {
@@ -22,8 +20,9 @@ async function getStudent(id: string) {
   }
 }
 
-export default async function ChildProfilePage({ params }: { params: { id: string } }) {
-  const student = await getStudent(params.id)
+export default async function ChildProfilePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const student = await getStudent(id)
 
   if (!student) {
     return (

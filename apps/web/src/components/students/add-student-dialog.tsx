@@ -10,9 +10,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+} from "@schoolerp/ui"
+import { Input } from "@schoolerp/ui"
+import { Label } from "@schoolerp/ui"
 import { Plus } from "lucide-react"
 
 export function AddStudentDialog() {

@@ -1,2 +1,1 @@
-import { Input } from "./dialog";
-export { Input };
+export * from "@schoolerp/ui"

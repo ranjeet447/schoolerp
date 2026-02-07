@@ -4,13 +4,24 @@ import { columns, Student } from '@/components/students/columns';
 import { AddStudentDialog } from '@/components/students/add-student-dialog';
 import { ImportStudentWizard } from '@/components/students/import-wizard';
 
+import { headers } from 'next/headers';
+
 async function getStudents(): Promise<Student[]> {
-  // In a real server component, we can call the service directly or fetch from API
-  // Since API is on standard port 8080
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/v1';
+  const headersList = await headers();
+  const host = headersList.get('host') || '';
+  
+  // Resolve Tenant from Hostname
+  const parts = host.split('.')
+  let tenant = 'default-tenant'
+  if (parts.length >= 2 && parts[0] !== 'www' && parts[0] !== 'localhost') {
+    tenant = parts[0]
+  }
+
   try {
-    const res = await fetch('http://localhost:8080/v1/admin/students?limit=100', {
+    const res = await fetch(`${API_URL}/admin/students?limit=100`, {
         headers: { 
-            'X-Tenant-ID': 'default-tenant' // Stub
+            'X-Tenant-ID': tenant
         },
         cache: 'no-store'
     });

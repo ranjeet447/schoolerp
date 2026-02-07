@@ -1,29 +1,48 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Badge } from "@schoolerp/ui"
 import { Calendar, Plus } from "lucide-react"
+import { apiClient } from "@/lib/api-client"
 
 export default function AdminExamsPage() {
-  const [exams, setExams] = useState<any[]>([
-    { id: "1", name: "Mid-Term Examination 2025", status: "conducting", start_date: "2025-06-15", end_date: "2025-06-25" },
-    { id: "2", name: "Final Term Examination 2025", status: "draft", start_date: "2025-11-01", end_date: "2025-11-15" }
-  ])
-
+  const [exams, setExams] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [newName, setNewName] = useState("")
 
-  const handleCreate = (e: React.FormEvent) => {
-    e.preventDefault()
-    const newExam = {
-      id: Math.random().toString(),
-      name: newName,
-      status: "draft",
-      start_date: "TBD",
-      end_date: "TBD"
+  useEffect(() => {
+    fetchExams()
+  }, [])
+
+  const fetchExams = async () => {
+    try {
+      const res = await apiClient("/admin/exams")
+      if (res.ok) {
+        const data = await res.json()
+        setExams(data || [])
+      }
+    } catch (err) {
+      console.error("Failed to fetch exams", err)
+    } finally {
+      setLoading(false)
     }
-    setExams([...exams, newExam])
-    setNewName("")
-    alert("Exam created successfully!")
+  }
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      const res = await apiClient("/admin/exams", {
+        method: "POST",
+        body: JSON.stringify({ name: newName })
+      })
+      if (res.ok) {
+        alert("Exam created successfully!")
+        fetchExams()
+        setNewName("")
+      }
+    } catch (err) {
+      alert("Failed to create exam")
+    }
   }
 
   return (

@@ -3,9 +3,9 @@
 import { useState } from "react"
 import { ReceiptCard } from "@schoolerp/ui"
 import { Button, Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@schoolerp/ui"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@schoolerp/ui"
+import { Label } from "@schoolerp/ui"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@schoolerp/ui"
 
 export default function AccountantPaymentsPage() {
   const [loading, setLoading] = useState(false)

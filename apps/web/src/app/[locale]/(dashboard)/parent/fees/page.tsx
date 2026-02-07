@@ -1,9 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ReceiptCard } from "@schoolerp/ui"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
+import { ReceiptCard, Card, CardContent, CardHeader, CardTitle, Progress } from "@schoolerp/ui"
 
 export default function ParentFeesPage() {
   const [receipts] = useState<any[]>([

@@ -8,6 +8,7 @@ import {
   useReactTable,
   getPaginationRowModel,
 } from "@tanstack/react-table"
+import {
   Button
 } from "@schoolerp/ui"
 import {
@@ -17,7 +18,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@schoolerp/ui"
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]

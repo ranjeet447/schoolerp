@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu" // Stub local UI or use shared
+} from "@schoolerp/ui" // Stub local UI or use shared
 
 // This type definition must match your API return type
 export type Student = {

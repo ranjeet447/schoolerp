@@ -1,16 +1,53 @@
 "use client"
 
-import { useState } from "react"
-import { FeePlanBuilder } from "@schoolerp/ui"
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Badge, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@schoolerp/ui"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState, useEffect } from "react"
+import { apiClient } from "@/lib/api-client"
+import { 
+  FeePlanBuilder, 
+  Button, 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle, 
+  Badge
+} from "@schoolerp/ui"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@schoolerp/ui"
 
 export default function AccountantFeesPage() {
   const [plans, setPlans] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const handleSavePlan = (plan: any) => {
-    setPlans([...plans, { ...plan, id: Math.random() }])
-    alert("Fee plan created successfully!")
+  useEffect(() => {
+    fetchPlans()
+  }, [])
+
+  const fetchPlans = async () => {
+    try {
+      const res = await apiClient("/admin/fees/plans")
+      if (res.ok) {
+        const data = await res.json()
+        setPlans(data || [])
+      }
+    } catch (err) {
+      console.error("Failed to fetch plans", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSavePlan = async (plan: any) => {
+    try {
+      const res = await apiClient("/admin/fees/plans", {
+        method: "POST",
+        body: JSON.stringify(plan)
+      })
+      if (res.ok) {
+        alert("Fee plan created successfully!")
+        fetchPlans()
+      }
+    } catch (err) {
+      alert("Failed to save plan")
+    }
   }
 
   return (

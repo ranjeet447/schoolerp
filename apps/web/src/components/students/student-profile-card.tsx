@@ -1,7 +1,7 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@schoolerp/ui"
+import { Badge } from "@schoolerp/ui"
 import { User, Calendar, Hash, MapPin, GraduationCap } from "lucide-react"
 
 interface StudentProfileCardProps {

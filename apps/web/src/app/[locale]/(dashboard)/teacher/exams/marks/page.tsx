@@ -1,9 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { MarksGrid } from "@schoolerp/ui"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { MarksGrid, Card, CardContent, CardHeader, CardTitle, CardDescription, Button } from "@schoolerp/ui"
 import { Save } from "lucide-react"
 
 export default function TeacherMarksPage() {

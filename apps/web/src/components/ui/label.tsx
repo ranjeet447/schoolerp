@@ -1,2 +1,1 @@
-import { Label } from "./dialog";
-export { Label };
+export * from "@schoolerp/ui"

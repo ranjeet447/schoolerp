@@ -1,32 +1,44 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { AttendanceGrid, AttendanceStatus } from "@schoolerp/ui"
-import { Button } from "@/components/ui/button" // Assuming standard shadcn path in apps/web
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { AttendanceGrid, AttendanceStatus, Button, Card, CardContent, CardHeader, CardTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@schoolerp/ui"
+import { apiClient } from "@/lib/api-client"
 
 export default function TeacherAttendancePage() {
   const [classSectionID, setClassSectionID] = useState("")
   const [date, setDate] = useState(new Date().toISOString().split("T")[0])
   const [students, setStudents] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-
-  // Mock fetching students for the selected class
+  const [session, setSession] = useState<any>(null)
+  
+  // Fetch students/session for the selected class
   useEffect(() => {
     if (classSectionID) {
-      setLoading(true)
-      // In a real app, this would be an API call
-      setTimeout(() => {
-        setStudents([
-          { id: "1", name: "Aarav Sharma", rollNumber: "1", status: "present", remarks: "" },
-          { id: "2", name: "Ishani Roy", rollNumber: "2", status: "present", remarks: "" },
-          { id: "3", name: "Vihaan Gupta", rollNumber: "3", status: "present", remarks: "" },
-        ])
-        setLoading(false)
-      }, 500)
+      fetchSession()
     }
-  }, [classSectionID])
+  }, [classSectionID, date])
+
+  const fetchSession = async () => {
+    setLoading(true)
+    try {
+      const res = await apiClient(`/attendance/sessions?class_section_id=${classSectionID}&date=${date}`)
+      if (res.ok) {
+        const data = await res.json()
+        setSession(data.session)
+        setStudents(data.entries.map((e: any) => ({
+          id: e.student_id,
+          name: e.student_name,
+          rollNumber: e.roll_number,
+          status: e.status,
+          remarks: e.remarks || ""
+        })))
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleStatusChange = (studentId: string, status: AttendanceStatus) => {
     setStudents(prev => prev.map(s => s.id === studentId ? { ...s, status } : s))
@@ -37,8 +49,29 @@ export default function TeacherAttendancePage() {
   }
 
   const handleSubmit = async () => {
-    // API call to /v1/teacher/attendance/mark
-    alert("Attendance submitted successfully!")
+    setLoading(true)
+    try {
+      const res = await apiClient("/attendance/mark", {
+        method: "POST",
+        body: JSON.stringify({
+          class_section_id: classSectionID,
+          date,
+          entries: students.map(s => ({
+            student_id: s.id,
+            status: s.status,
+            remarks: s.remarks
+          }))
+        })
+      })
+      if (res.ok) {
+        alert("Attendance submitted successfully!")
+        fetchSession()
+      }
+    } catch (err) {
+      alert("Failed to submit attendance")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

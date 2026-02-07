@@ -1,8 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@schoolerp/ui";
+import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from "@schoolerp/ui";
 import { User, ChevronRight } from "lucide-react";
 
 async function getMyChildren() {
