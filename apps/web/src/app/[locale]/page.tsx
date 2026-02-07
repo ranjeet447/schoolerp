@@ -28,6 +28,11 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-4 text-sm font-medium text-slate-500">
             <span>Release 1.0</span>
+            <Link href="/auth">
+              <Button variant="outline" size="sm" className="font-bold border-blue-200 text-blue-600 hover:bg-blue-50">
+                Sign In
+              </Button>
+            </Link>
           </div>
         </div>
       </nav>
@@ -68,7 +73,7 @@ export default function Home() {
                   System Settings
                 </li>
               </ul>
-              <Link href="/en/students" className="block w-full">
+              <Link href="/students" className="block w-full">
                 <Button className="w-full h-12 text-base font-semibold gap-2 group shadow-md hover:shadow-lg">
                   Enter Admin <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
@@ -100,7 +105,7 @@ export default function Home() {
                   Class Management
                 </li>
               </ul>
-              <Link href="/en/teacher/attendance" className="block w-full">
+              <Link href="/teacher/attendance" className="block w-full">
                 <Button variant="outline" className="w-full h-12 text-base font-semibold gap-2 group border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-500 shadow-sm">
                   Enter Teacher <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
@@ -132,7 +137,7 @@ export default function Home() {
                   School Notifications
                 </li>
               </ul>
-              <Link href="/en/parent/fees" className="block w-full">
+              <Link href="/parent/fees" className="block w-full">
                 <Button variant="outline" className="w-full h-12 text-base font-semibold gap-2 group border-purple-200 text-purple-700 hover:bg-purple-50 hover:border-purple-500 shadow-sm">
                   Enter Parent <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
