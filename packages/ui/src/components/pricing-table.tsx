@@ -188,6 +188,26 @@ export const PricingTable = () => {
           ))}
         </div>
 
+        <div className="mt-20 max-w-5xl mx-auto">
+          <h3 className="text-3xl font-black text-center mb-10">Usage Add-ons</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              { name: "Messaging Top-ups", desc: "WhatsApp & SMS wallet recharges.", price: "Pay-as-you-go" },
+              { name: "Biometric / RFID", desc: "Device integration pack.", price: "₹5,000 / year" },
+              { name: "Vehicle Tracking", desc: "GPS integration per bus.", price: "₹500 / mo" },
+              { name: "Tally Export", desc: "Automated ledger mapping.", price: "₹10,000 / year" },
+              { name: "Online Tests", desc: "Question bank & auto-grading.", price: "₹20 / student / year" },
+              { name: "White-label App", desc: "Custom branded Play Store app.", price: "₹25,000 / year" },
+            ].map((addon) => (
+               <div key={addon.name} className="flex flex-col p-6 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors">
+                 <h4 className="font-bold text-lg">{addon.name}</h4>
+                 <p className="text-sm text-muted-foreground mt-1 mb-4 flex-1">{addon.desc}</p>
+                 <div className="text-primary font-black text-sm uppercase tracking-wider">{addon.price}</div>
+               </div>
+            ))}
+          </div>
+        </div>
+
         <motion.div 
           initial={{ opacity: 0, scale: 0.98 }}
           whileInView={{ opacity: 1, scale: 1 }}
