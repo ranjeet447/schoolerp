@@ -30,6 +30,20 @@ const CASE_STUDIES = [
     school: 'Saraswati Vidya Mandir',
     impact: '100% Staff Adoption',
     description: 'Staff were uncomfortable with English-only UI. Our Marathi localization enabled full digital transformation.'
+  },
+  {
+    slug: 'safety-overhaul',
+    title: 'Securing the Campus for St. Mary’s',
+    school: 'St. Mary’s Co-Ed, Pune',
+    impact: 'Zero Incidents',
+    description: 'Manual gate passes left students vulnerable. We implemented QR-based visitor management and real-time bus tracking.'
+  },
+  {
+    slug: 'parent-trust',
+    title: 'Rebuilding Parent Trust with Transparency',
+    school: 'Greenwood High, Bangalore',
+    impact: '4.8/5 App Rating',
+    description: 'Parents felt disconnected from their child’s progress. Our parent app bridged the gap with instant updates.'
   }
 ];
 

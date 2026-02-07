@@ -42,13 +42,13 @@ export const FeatureTabs = () => {
         </motion.div>
 
         <Tabs defaultValue="academics" value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="flex justify-center mb-16 overflow-x-auto pb-4 scrollbar-hide">
-            <TabsList className="h-auto p-1.5 bg-muted/30 backdrop-blur-xl rounded-full border border-white/10 shadow-inner">
+          <div className="flex w-full overflow-x-auto mb-16 pb-4 scrollbar-hide">
+            <TabsList className="mx-auto w-max h-auto p-1.5 bg-muted/30 backdrop-blur-xl rounded-full border border-white/10 shadow-inner">
               {CATEGORIES.map((category) => (
                 <TabsTrigger 
                   key={category.id} 
                   value={category.id}
-                  className="rounded-full px-8 py-3.5 text-xs font-black uppercase tracking-widest transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2xl data-[state=active]:shadow-primary/30"
+                  className="rounded-full px-4 md:px-8 py-2.5 md:py-3.5 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2xl data-[state=active]:shadow-primary/30 whitespace-nowrap"
                 >
                   {category.label}
                 </TabsTrigger>

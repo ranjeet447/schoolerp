@@ -101,21 +101,21 @@ export const HeroSection = () => {
               <div className="h-3 w-3 rounded-full bg-green-500/50" />
             </div>
           </div>
-          <div className="p-8 md:p-12">
-            <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
-              <div className="space-y-4 rounded-3xl border border-white/5 bg-white/5 p-6 shadow-2xl">
+          <div className="p-6 sm:p-8 md:p-12">
+            <div className="grid grid-cols-1 gap-6 sm:gap-8 sm:grid-cols-3">
+              <div className="space-y-4 rounded-3xl border border-white/5 bg-white/5 p-4 sm:p-6 shadow-2xl">
                 <div className="h-4 w-24 rounded-full bg-primary/20" />
                 <div className="flex items-end gap-2 pt-2">
-                  <div className="text-4xl font-black text-primary italic">₹72.4L</div>
+                  <div className="text-3xl sm:text-4xl font-black text-primary italic">₹72.4L</div>
                 </div>
                 <div className="h-32 w-full rounded-2xl bg-gradient-to-br from-primary/20 to-transparent border border-white/10" />
               </div>
-              <div className="col-span-2 space-y-4 rounded-3xl border border-white/5 bg-white/5 p-6 shadow-2xl">
-                <div className="flex justify-between items-center px-2">
-                  <div className="h-4 w-48 rounded-full bg-white/10" />
-                  <div className="h-4 w-16 rounded-full bg-white/10" />
+              <div className="col-span-1 sm:col-span-2 space-y-4 rounded-3xl border border-white/5 bg-white/5 p-4 sm:p-6 shadow-2xl">
+                <div className="flex justify-between items-center px-1 sm:px-2">
+                  <div className="h-4 w-32 sm:w-48 rounded-full bg-white/10" />
+                  <div className="h-4 w-12 sm:w-16 rounded-full bg-white/10" />
                 </div>
-                <div className="grid grid-cols-4 gap-4 pt-4">
+                <div className="grid grid-cols-4 gap-2 sm:gap-4 pt-4">
                   {[...Array(4)].map((_, i) => (
                     <div key={i} className="space-y-2">
                       <motion.div 

@@ -10,6 +10,9 @@ const USE_CASES = [
   { slug: "teacher-workload", title: "Teachers & Coordinators", description: "Effortless attendance, homework sharing, lesson planning, and marks entry.", icon: "GraduationCap", stats: "Save 10hrs/week", category: "Teacher" },
   { slug: "parent-engagement", title: "Parents & Students", description: "Real-time results, fee tracking, automated notices, and transport alerts.", icon: "Users", stats: "90% adoption", category: "Parent" },
   { slug: "safety-operations", title: "Operations & Safety", description: "Visitor gate-pass, real-time transport tracking, and automated emergency alerts.", icon: "Shield", stats: "Instant alerts", category: "Operations" },
+  { slug: "small-private-school", title: "Small Private Schools", description: "Affordable, all-in-one management for growing institutions.", icon: "Building", stats: "Save 20hrs/week", category: "Principal" },
+  { slug: "multi-branch-group", title: "Multi-branch Institutions", description: "Centralized control and consolidated reporting for school chains.", icon: "Globe", stats: "Unified Dashboard", category: "Management" },
+  { slug: "regional-language", title: "Vernacular Medium Schools", description: "Complete ERP interface available in Hindi, Marathi, and Tamil.", icon: "Users", stats: "10+ Languages", category: "Teacher" },
 ];
 
 export function UseCasesClient() {
@@ -42,7 +45,7 @@ export function UseCasesClient() {
             </p>
             
             <div className="flex flex-wrap justify-center gap-2">
-              {["All","Principal","Accountant","Teacher","Parent","Operations"].map((seg) => (
+              {["All","Principal","Accountant","Teacher","Parent","Operations","Management"].map((seg) => (
                 <button
                   key={seg}
                   onClick={() => setSegment(seg)}

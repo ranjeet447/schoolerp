@@ -25,11 +25,11 @@ const TableMockup = ({ color }: { color: string }) => (
         className="flex items-center text-xs"
       >
         <div className="w-1/2 flex items-center gap-2">
-          <div className={cn("h-6 w-6 rounded-full", color.replace('bg-', 'bg-opacity-20 bg-'))} />
-          <div className="h-2 w-20 rounded bg-muted" />
+          <div className={cn("h-6 w-6 shrink-0 rounded-full", color.replace('bg-', 'bg-opacity-20 bg-'))} />
+          <div className="h-2 w-12 sm:w-20 rounded bg-muted" />
         </div>
         <div className="w-1/4">
-          <div className={cn("h-4 w-12 rounded-full", color)} />
+          <div className={cn("h-4 w-8 sm:w-12 rounded-full", color)} />
         </div>
         <div className="w-1/4 text-right flex justify-end">
           <div className="h-2 w-8 rounded bg-muted" />

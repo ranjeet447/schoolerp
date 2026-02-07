@@ -60,7 +60,7 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
 
             <div className="relative group">
               <div className="absolute -inset-4 bg-primary/20 blur-[100px] rounded-full group-hover:bg-primary/30 transition-colors" />
-              <div className="relative aspect-video rounded-3xl border bg-card shadow-2xl overflow-hidden flex flex-col">
+              <div className="relative h-auto min-h-[500px] md:aspect-video md:h-auto rounded-3xl border bg-card shadow-2xl overflow-hidden flex flex-col">
                 <div className="flex items-center gap-2 border-b bg-muted/50 px-4 py-3">
                   <div className="flex gap-1.5">
                     <div className="h-2.5 w-2.5 rounded-full bg-red-400" />
