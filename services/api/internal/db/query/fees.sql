@@ -3,6 +3,23 @@ INSERT INTO fee_heads (tenant_id, name, type)
 VALUES ($1, $2, $3)
 RETURNING *;
 
+-- name: CreatePaymentOrder :one
+INSERT INTO payment_orders (
+    tenant_id, student_id, amount, mode, status, external_ref
+) VALUES (
+    $1, $2, $3, $4, 'pending', $5
+) RETURNING *;
+
+-- name: UpdatePaymentOrderStatus :one
+UPDATE payment_orders
+SET status = $3, external_ref = $4
+WHERE id = $1 AND tenant_id = $2
+RETURNING *;
+
+-- name: GetPaymentOrder :one
+SELECT * FROM payment_orders
+WHERE id = $1 AND tenant_id = $2;
+
 -- name: ListFeeHeads :many
 SELECT * FROM fee_heads WHERE tenant_id = $1;
 

@@ -26,6 +26,8 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	})
 	r.Route("/payments", func(r chi.Router) {
 		r.Post("/offline", h.IssueReceipt)
+		r.Post("/online", h.CreateOnlineOrder)
+		r.Post("/razorpay-webhook", h.HandleWebhook)
 	})
 	r.Route("/receipts", func(r chi.Router) {
 		r.Post("/{id}/cancel", h.CancelReceipt)
@@ -179,4 +181,41 @@ func (h *Handler) ListReceipts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	json.NewEncoder(w).Encode(receipts)
+}
+
+func (h *Handler) CreateOnlineOrder(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		StudentID string `json:"student_id"`
+		Amount    int64  `json:"amount"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	order, err := h.svc.CreateOnlineOrder(r.Context(), middleware.GetTenantID(r.Context()), req.StudentID, req.Amount)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(order)
+}
+
+func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
+	// 1. Get Signature
+	signature := r.Header.Get("X-Razorpay-Signature")
+	
+	// 2. Read Body
+	// (Simplified for demo)
+	var body []byte
+	// r.Body.Read(body)...
+
+	err := h.svc.ProcessPaymentWebhook(r.Context(), middleware.GetTenantID(r.Context()), body, signature)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
