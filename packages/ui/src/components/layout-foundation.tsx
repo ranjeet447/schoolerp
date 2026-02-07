@@ -49,8 +49,9 @@ export const Section = ({
   return (
     <section 
       className={cn(
-        spacing === 'default' && "py-24 sm:py-32",
-        spacing === 'large' && "py-32 sm:py-48",
+        spacing === 'default' && "py-16 sm:py-24", // Reduced from 24/32
+        spacing === 'large' && "py-20 sm:py-32",   // Reduced from 32/48
+        spacing === 'none' && "py-0",
         className
       )}
       {...props}
@@ -59,3 +60,4 @@ export const Section = ({
     </section>
   );
 };
+
