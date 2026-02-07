@@ -22,12 +22,12 @@ const ROADMAP = [
     ]
   },
   {
-    status: "In Progress",
+    status: "Released",
     title: "Release 2: Advanced Logistics",
-    icon: Circle,
-    color: "text-blue-600",
-    bg: "bg-blue-50",
-    borderColor: "border-blue-100",
+    icon: CheckCircle2,
+    color: "text-green-600",
+    bg: "bg-green-50",
+    borderColor: "border-green-100",
     features: [
       { name: "Transport & Live GPS Tracking", icon: Truck },
       { name: "Library & Digital Media Center", icon: BookOpen },
@@ -36,14 +36,14 @@ const ROADMAP = [
     ]
   },
   {
-    status: "Planned",
+    status: "Released",
     title: "Release 3: Ecosystem Expansion",
-    icon: Clock,
-    color: "text-purple-600",
-    bg: "bg-purple-50",
-    borderColor: "border-purple-100",
+    icon: CheckCircle2,
+    color: "text-green-600",
+    bg: "bg-green-50",
+    borderColor: "border-green-100",
     features: [
-      { name: "Mobile App (iOS & Android)", icon: Smartphone },
+      { name: "Mobile App (iOS & Android)", icon: Smartphone, pending: true },
       { name: "HRMS & Automated Payroll", icon: Users },
       { name: "Portfolio Dashboards for Groups", icon: Sparkles },
       { name: "Alumni & Placement Portal", icon: Globe }

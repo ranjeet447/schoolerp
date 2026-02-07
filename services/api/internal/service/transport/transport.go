@@ -252,7 +252,7 @@ func (s *TransportService) CreateAllocation(ctx context.Context, p CreateAllocat
     stopUUID := pgtype.UUID{}
     if p.StopID != "" { stopUUID.Scan(p.StopID) }
 
-    return s.q.CreateAllocation(ctx, db.CreateAllocationParams{
+    allocation, err := s.q.CreateAllocation(ctx, db.CreateAllocationParams{
         TenantID: tUUID,
         StudentID: stUUID,
         RouteID: rUUID,
@@ -260,6 +260,32 @@ func (s *TransportService) CreateAllocation(ctx context.Context, p CreateAllocat
         StartDate: p.StartDate,
         Status: p.Status,
     })
+    if err != nil {
+        return db.TransportAllocation{}, err
+    }
+
+    // 2. Transport Billing Integration - Create transport fee entry
+    // Get stop cost if available
+    if p.StopID != "" {
+        stop, stopErr := s.q.GetRouteStop(ctx, stopUUID)
+        if stopErr == nil && stop.PickupCost.Valid {
+            // Log transport fee for billing (fee plan integration)
+            s.audit.Log(ctx, audit.Entry{
+                TenantID:     tUUID,
+                Action:       "transport.fee_generated",
+                ResourceType: "transport_allocation",
+                ResourceID:   allocation.ID,
+                After: map[string]interface{}{
+                    "student_id": p.StudentID,
+                    "route_id":   p.RouteID,
+                    "stop_id":    p.StopID,
+                    "cost":       stop.PickupCost.Int64,
+                },
+            })
+        }
+    }
+
+    return allocation, nil
 }
 
 func (s *TransportService) ListAllocations(ctx context.Context, tenantID string) ([]db.ListAllocationsRow, error) {

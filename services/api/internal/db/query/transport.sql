@@ -73,3 +73,7 @@ WHERE id = $1 AND tenant_id = $2;
 -- name: CountRouteAllocations :one
 SELECT COUNT(*) FROM transport_allocations
 WHERE route_id = $1 AND tenant_id = $2 AND status = 'active';
+
+-- name: GetRouteStop :one
+SELECT * FROM transport_route_stops
+WHERE id = $1;

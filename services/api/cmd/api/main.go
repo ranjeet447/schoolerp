@@ -34,22 +34,28 @@ import (
 	"github.com/schoolerp/api/internal/foundation/policy"
 	"github.com/schoolerp/api/internal/foundation/quota"
 	"github.com/schoolerp/api/internal/handler/admission"
+	"github.com/schoolerp/api/internal/handler/alumni"
 	"github.com/schoolerp/api/internal/handler/attendance"
 	"github.com/schoolerp/api/internal/handler/exams"
 	"github.com/schoolerp/api/internal/handler/finance"
+	"github.com/schoolerp/api/internal/handler/hrms"
 	"github.com/schoolerp/api/internal/handler/inventory"
 	"github.com/schoolerp/api/internal/handler/library"
 	"github.com/schoolerp/api/internal/handler/notices"
+	"github.com/schoolerp/api/internal/handler/portfolio"
 	"github.com/schoolerp/api/internal/handler/sis"
 	"github.com/schoolerp/api/internal/handler/transport"
 	"github.com/schoolerp/api/internal/middleware"
 	admissionservice "github.com/schoolerp/api/internal/service/admission"
+	alumniservice "github.com/schoolerp/api/internal/service/alumni"
 	attendservice "github.com/schoolerp/api/internal/service/attendance"
 	examservice "github.com/schoolerp/api/internal/service/exams"
 	financeservice "github.com/schoolerp/api/internal/service/finance"
+	hrmsservice "github.com/schoolerp/api/internal/service/hrms"
 	inventoryservice "github.com/schoolerp/api/internal/service/inventory"
 	libraryservice "github.com/schoolerp/api/internal/service/library"
 	noticeservice "github.com/schoolerp/api/internal/service/notices"
+	portfolioservice "github.com/schoolerp/api/internal/service/portfolio"
 	sisservice "github.com/schoolerp/api/internal/service/sis"
 	transportservice "github.com/schoolerp/api/internal/service/transport"
 )
@@ -92,6 +98,9 @@ func main() {
 	libraryService := libraryservice.NewLibraryService(querier, auditLogger)
 	inventoryService := inventoryservice.NewInventoryService(querier, auditLogger)
 	admissionService := admissionservice.NewAdmissionService(querier, auditLogger)
+	hrmsService := hrmsservice.NewService(querier, auditLogger)
+	portfolioService := portfolioservice.NewService(querier)
+	alumniService := alumniservice.NewService(querier)
 	
 	// Initialize Handlers
 	studentHandler := sis.NewHandler(studentService)
@@ -103,6 +112,9 @@ func main() {
 	libraryHandler := library.NewHandler(libraryService)
 	inventoryHandler := inventory.NewHandler(inventoryService)
 	admissionHandler := admission.NewHandler(admissionService)
+	hrmsHandler := hrms.NewHandler(hrmsService)
+	portfolioHandler := portfolio.NewHandler(portfolioService)
+	alumniHandler := alumni.NewHandler(alumniService)
 
 	r := chi.NewRouter()
 
@@ -141,12 +153,14 @@ func main() {
 			attendanceHandler.RegisterRoutes(r)
 			financeHandler.RegisterRoutes(r)
 			noticeHandler.RegisterRoutes(r)
-			noticeHandler.RegisterRoutes(r)
 			examHandler.RegisterRoutes(r)
 			transportHandler.RegisterRoutes(r)
 			libraryHandler.RegisterRoutes(r)
 			inventoryHandler.RegisterRoutes(r)
 			admissionHandler.RegisterRoutes(r)
+			hrmsHandler.RegisterRoutes(r)
+			portfolioHandler.RegisterRoutes(r)
+			alumniHandler.RegisterRoutes(r)
 			
 			// Growth/Other stubs maintained for now
 			r.Get("/demo-bookings", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(`[]`)) })
