@@ -112,7 +112,7 @@ export const PricingTable = () => {
               key={plan.name} 
               whileHover={{ y: -12 }}
               className={cn(
-                "group relative flex flex-col rounded-[3rem] border p-12 transition-all duration-500",
+                "group relative flex flex-col rounded-[3rem] border p-6 xl:p-8 transition-all duration-500",
                 plan.highlight 
                   ? "border-primary bg-slate-900 text-white shadow-[0_32px_80px_-16px_rgba(139,92,246,0.3)] z-10" 
                   : "border-white/10 bg-card/60 backdrop-blur-3xl shadow-sm hover:border-primary/20 hover:shadow-2xl hover:shadow-primary/5"
@@ -137,14 +137,14 @@ export const PricingTable = () => {
                 {plan.price ? (
                   <>
                     <span className={cn(
-                      "text-6xl font-black tracking-tighter italic",
+                      "text-4xl xl:text-5xl font-black tracking-tighter italic",
                       plan.highlight ? "text-white" : "text-foreground"
                     )}>₹{Math.round(billingCycle === 'annual' ? (plan.price as number) * 0.8 : plan.price).toLocaleString()}</span>
                     <span className="text-muted-foreground font-black uppercase text-[9px] tracking-[0.2em] mb-2">/mo</span>
                   </>
                 ) : (
                   <span className={cn(
-                    "text-5xl font-black tracking-tighter italic uppercase",
+                    "text-4xl xl:text-5xl font-black tracking-tighter italic uppercase",
                     plan.highlight ? "text-white" : "text-foreground"
                   )}>Global</span>
                 )}
