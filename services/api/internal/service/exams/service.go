@@ -1,0 +1,195 @@
+package exams
+
+import (
+	"context"
+	"fmt"
+	"math"
+	"math/big"
+
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/schoolerp/api/internal/db"
+	"github.com/schoolerp/api/internal/foundation/audit"
+)
+
+type Service struct {
+	q     db.Querier
+	audit *audit.Logger
+}
+
+func NewService(q db.Querier, audit *audit.Logger) *Service {
+	return &Service{q: q, audit: audit}
+}
+
+type CreateExamParams struct {
+	TenantID string
+	AYID     string
+	Name     string
+	Start    pgtype.Date
+	End      pgtype.Date
+}
+
+func (s *Service) CreateExam(ctx context.Context, p CreateExamParams) (db.Exam, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(p.TenantID)
+
+	ayUUID := pgtype.UUID{}
+	ayUUID.Scan(p.AYID)
+
+	return s.q.CreateExam(ctx, db.CreateExamParams{
+		TenantID:       tUUID,
+		AcademicYearID: ayUUID,
+		Name:           p.Name,
+		StartDate:      p.Start,
+		EndDate:        p.End,
+	})
+}
+
+func (s *Service) AddSubject(ctx context.Context, examID, subjectID string, maxMarks int32, date pgtype.Date) error {
+	eUUID := pgtype.UUID{}
+	eUUID.Scan(examID)
+
+	sUUID := pgtype.UUID{}
+	sUUID.Scan(subjectID)
+
+	return s.q.AddExamSubject(ctx, db.AddExamSubjectParams{
+		ExamID:    eUUID,
+		SubjectID: sUUID,
+		MaxMarks:  maxMarks,
+		ExamDate:  date,
+	})
+}
+
+func (s *Service) GetExam(ctx context.Context, tenantID, id string) (db.Exam, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+
+	eUUID := pgtype.UUID{}
+	eUUID.Scan(id)
+
+	return s.q.GetExam(ctx, db.GetExamParams{
+		ID:       eUUID,
+		TenantID: tUUID,
+	})
+}
+
+func (s *Service) ListExams(ctx context.Context, tenantID string) ([]db.Exam, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	return s.q.ListExams(ctx, tUUID)
+}
+
+func (s *Service) ListSubjects(ctx context.Context, examID string) ([]db.ListExamSubjectsRow, error) {
+	eUUID := pgtype.UUID{}
+	eUUID.Scan(examID)
+	return s.q.ListExamSubjects(ctx, eUUID)
+}
+
+func (s *Service) GetExamMarks(ctx context.Context, tenantID, examID, subjectID string) ([]db.GetExamMarksRow, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+
+	eUUID := pgtype.UUID{}
+	eUUID.Scan(examID)
+
+	sUUID := pgtype.UUID{}
+	sUUID.Scan(subjectID)
+
+	return s.q.GetExamMarks(ctx, db.GetExamMarksParams{
+		ExamID:    eUUID,
+		SubjectID: sUUID,
+		TenantID:  tUUID,
+	})
+}
+
+type UpsertMarksParams struct {
+	TenantID  string
+	ExamID    string
+	SubjectID string
+	StudentID string
+	Marks     float64
+	UserID    string
+	RequestID string
+	IP        string
+}
+
+func (s *Service) UpsertMarks(ctx context.Context, p UpsertMarksParams) error {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(p.TenantID)
+
+	eUUID := pgtype.UUID{}
+	eUUID.Scan(p.ExamID)
+
+	// Policy Check: Check exam status
+	exam, err := s.q.GetExam(ctx, db.GetExamParams{ID: eUUID, TenantID: tUUID})
+	if err != nil {
+		return err
+	}
+	if exam.Status.String == "published" {
+		return fmt.Errorf("exam marks are locked and cannot be edited after publication")
+	}
+
+	sUUID := pgtype.UUID{}
+	sUUID.Scan(p.SubjectID)
+
+	stUUID := pgtype.UUID{}
+	stUUID.Scan(p.StudentID)
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(p.UserID)
+
+	// Convert float64 to pgtype.Numeric
+	numericMarks := pgtype.Numeric{Valid: true}
+	if !math.IsNaN(p.Marks) {
+		numericMarks.Int = big.NewInt(int64(p.Marks * 100))
+		numericMarks.Exp = -2
+	}
+
+	err = s.q.UpsertMarks(ctx, db.UpsertMarksParams{
+		ExamID:        eUUID,
+		SubjectID:     sUUID,
+		StudentID:     stUUID,
+		MarksObtained: numericMarks,
+		EnteredBy:     uUUID,
+	})
+	if err != nil {
+		return err
+	}
+
+	s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    p.RequestID,
+		Action:       "upsert_marks",
+		ResourceType: "exam",
+		ResourceID:   eUUID,
+		IPAddress:    p.IP,
+	})
+
+	return nil
+}
+
+func (s *Service) PublishExam(ctx context.Context, tenantID, id string) (db.Exam, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+
+	eUUID := pgtype.UUID{}
+	eUUID.Scan(id)
+
+	return s.q.PublishExam(ctx, db.PublishExamParams{
+		ID:       eUUID,
+		TenantID: tUUID,
+	})
+}
+
+func (s *Service) GetExamResultsForStudent(ctx context.Context, tenantID, studentID string) ([]db.GetExamResultsForStudentRow, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+
+	stUUID := pgtype.UUID{}
+	stUUID.Scan(studentID)
+
+	return s.q.GetExamResultsForStudent(ctx, db.GetExamResultsForStudentParams{
+		StudentID: stUUID,
+		TenantID:  tUUID,
+	})
+}
