@@ -10,23 +10,23 @@ import { cn } from '../lib/utils';
 import { FEATURES_DATA } from '../data/features';
 
 const BENTO_PATTERN = [
-  "md:col-span-2 md:row-span-1",
-  "md:col-span-1 md:row-span-1",
-  "md:col-span-1 md:row-span-2",
   "md:col-span-1 md:row-span-1",
   "md:col-span-1 md:row-span-1",
-  "md:col-span-2 md:row-span-1",
-  "md:col-span-1 md:row-span-2",
-  "md:col-span-2 md:row-span-1",
+  "md:col-span-1 md:row-span-1",
+  "md:col-span-2 md:row-span-1", // Highlights key features
   "md:col-span-1 md:row-span-1",
   "md:col-span-1 md:row-span-1",
-  "md:col-span-2 md:row-span-1",
+  "md:col-span-2 md:row-span-1", // Highlights key features
+  "md:col-span-1 md:row-span-1",
+  "md:col-span-1 md:row-span-1",
+  "md:col-span-1 md:row-span-1",
 ];
 
 const FEATURES = FEATURES_DATA.map((f, i) => ({
   ...f,
   className: BENTO_PATTERN[i % BENTO_PATTERN.length]
 }));
+
 
 const containerVariants = {
   hidden: { opacity: 0 },
