@@ -37,7 +37,7 @@ Release 2 expands the SchoolERP foundation with specialized modules for school o
     - Recording and tracking processing fees.
 
 ### 5. HRMS & Payroll
-- **Status**: Complete
+- **Status**: Moved to Phase 3 (In Progress)
 - **Features**:
     - Employee lifecycle management.
     - Salary structure configuration (Basic, HRA, DA, Allowances).
@@ -45,7 +45,7 @@ Release 2 expands the SchoolERP foundation with specialized modules for school o
     - Generate and view payslips.
 
 ### 6. Alumni & Career
-- **Status**: Complete
+- **Status**: Moved to Phase 3 (In Progress)
 - **Features**:
     - Alumni database with batch/year tracking.
     - Placement drive management.

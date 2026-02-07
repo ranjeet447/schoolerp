@@ -821,7 +821,10 @@ All tenant data tables MUST include tenant_id; tables with branch scoping includ
 
 ## 17. Packaging and Commercial Model
 
-### 17.1 Core Plans
+> **Note:** The pricing and packaging models described below (v4.4) are **outdated**. 
+> Please refer to the **[Canonical Pricing Doc](../product/pricing.md)** for the latest Base Plans + Plugins model.
+
+### 17.1 Core Plans (Legacy Reference)
 
 | Plan | Target | Price (Indicative) | Key Limits | Support Model |
 |------|--------|-------------------|------------|---------------|
@@ -867,6 +870,9 @@ White-labeling increases operational overhead (domain, branding, store releases)
 ---
 
 ## 18. Implementation Roadmap
+
+> **Note:** The specific roadmap phasing detail below is kept as a historical tech implementation reference. 
+> Please refer to the **[Canonical Roadmap Doc](../product/roadmap.md)** for current product statuses and AI strategy.
 
 ### 18.1 Release Phasing (Solo-dev friendly)
 
