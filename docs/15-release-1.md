@@ -41,7 +41,6 @@ Release 1 establishes the production-grade foundation for the School ERP SaaS, c
 - **Unit/Integration**: Go-side testing for policy enforcement and financial logic.
 - **Component**: Storybook visual regression and documented states.
 - **E2E**: Playwright smoke tests for "Admin Setup -> Teacher Mark -> Parent View" happy paths across all modules.
-## Next Steps
-For future scope and Phase 2 implementation details, refer to:
 - [Roadmap Summary](./16-roadmap-summary.md)
+- [Phase 2 & Beyond Documentation](./24-release-2.md)
 - [Phase 2 PRD Enhancements](./prd/)
