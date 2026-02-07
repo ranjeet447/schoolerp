@@ -5,7 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/book-demo/', '/admin/', '/api/'],
+      disallow: ['/admin/', '/api/'],
     },
     sitemap: 'https://schoolerp.com/sitemap.xml',
   };

@@ -1,33 +1,69 @@
 import React from 'react';
 import { Container, Section } from './layout-foundation';
-import { ArrowRight, Building, Users, Globe } from 'lucide-react';
+import { ArrowRight, Building, Users, Globe, GraduationCap, Wallet, Shield } from 'lucide-react';
 import Link from 'next/link';
 
-const USE_CASES = [
+export type UseCaseItem = {
+  slug: string;
+  title: string;
+  description: string;
+  icon: any;
+  stats: string;
+  category?: string;
+};
+
+const DEFAULT_USE_CASES: UseCaseItem[] = [
   {
     slug: 'small-private-school',
     title: 'Small Private Schools',
     description: 'Affordable, all-in-one management for schools with < 500 students.',
     icon: Building,
-    stats: 'Save 20hrs/week'
+    stats: 'Save 20hrs/week',
+    category: 'Principal'
   },
   {
     slug: 'multi-branch-group',
     title: 'Multi-branch Institutions',
     description: 'Centralized control and consolidated reporting for school chains.',
     icon: Globe,
-    stats: 'Unified Dashboard'
+    stats: 'Unified Dashboard',
+    category: 'Management'
   },
   {
     slug: 'regional-language',
     title: 'Vernacular Medium Schools',
     description: 'Complete ERP interface available in Hindi, Marathi, and Tamil.',
     icon: Users,
-    stats: '10+ Languages'
+    stats: '10+ Languages',
+    category: 'Teacher'
+  },
+  {
+    slug: 'accounting-ledger',
+    title: 'Accountants & Finance Teams',
+    description: 'Compliance-grade receipts, settlement tracking, and ledger exports to Tally.',
+    icon: Wallet,
+    stats: '98% on-time fees',
+    category: 'Accountant'
+  },
+  {
+    slug: 'safety-operations',
+    title: 'Operations & Safety',
+    description: 'Visitor gate-pass, transport tracking, and automated alerts for incidents.',
+    icon: Shield,
+    stats: 'Instant alerts',
+    category: 'Operations'
+  },
+  {
+    slug: 'teacher-workload',
+    title: 'Teachers & Coordinators',
+    description: 'Attendance, homework, lesson planning, and marks entry in one place.',
+    icon: GraduationCap,
+    stats: 'Reduce paperwork',
+    category: 'Teacher'
   }
 ];
 
-export const UseCaseGrid = () => {
+export const UseCaseGrid = ({ cases = DEFAULT_USE_CASES }: { cases?: UseCaseItem[] }) => {
   return (
     <Section className="bg-background">
       <Container>
@@ -41,7 +77,7 @@ export const UseCaseGrid = () => {
         </div>
 
         <div className="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-3">
-          {USE_CASES.map((useCase) => (
+          {cases.map((useCase) => (
             <Link 
               key={useCase.slug} 
               href={`/use-cases/${useCase.slug}`}
@@ -51,9 +87,16 @@ export const UseCaseGrid = () => {
                 <useCase.icon className="h-6 w-6" />
               </div>
               
-              <h3 className="text-xl font-bold text-foreground">
-                {useCase.title}
-              </h3>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-xl font-bold text-foreground">
+                  {useCase.title}
+                </h3>
+                {useCase.category && (
+                  <span className="rounded-full bg-muted px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {useCase.category}
+                  </span>
+                )}
+              </div>
               
               <p className="mt-4 flex-1 text-muted-foreground">
                 {useCase.description}

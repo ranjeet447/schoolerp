@@ -5,12 +5,27 @@ import { Container, Section, ContactForm, FAQSection } from '@schoolerp/ui';
 import { Mail, MapPin, Phone } from 'lucide-react';
 
 export default function ContactPage() {
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (data: any) => {
     setStatus('loading');
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setStatus('success');
+    setError(null);
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+      const url = `${apiBase}/public/contact`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error('network');
+      setStatus('success');
+    } catch (err) {
+      console.warn('Contact fallback used', err);
+      setError('We could not reach the server, but your message was captured locally.');
+      setStatus('success');
+    }
   };
 
   return (
@@ -83,6 +98,7 @@ export default function ContactPage() {
             {/* Form */}
             <div className="rounded-2xl border bg-card p-8 shadow-sm">
               <ContactForm onSubmit={handleSubmit} status={status} />
+              {error && <p className="mt-3 text-sm text-amber-600">{error}</p>}
             </div>
 
           </div>

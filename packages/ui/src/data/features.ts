@@ -2,6 +2,7 @@
 
 
 export type FeatureCategory = 'academics' | 'finance' | 'safety' | 'communication' | 'platform';
+export type FeatureStage = 'live' | 'beta' | 'planned';
 
 export interface FeatureItem {
   id: string;
@@ -12,6 +13,7 @@ export interface FeatureItem {
   icon: string;
   color: string;
   category: FeatureCategory;
+  stage?: FeatureStage;
   benefits: string[];
   mockUI: {
     title: string;
@@ -29,6 +31,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     icon: "GraduationCap",
     color: "bg-purple-500",
     category: "academics",
+    stage: "live",
     benefits: [
       "Customizable Gradebook Schemas",
       "Automated Hall Ticket Generation",
@@ -49,6 +52,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     icon: "Wallet",
     color: "bg-emerald-500",
     category: "finance",
+    stage: "beta",
     benefits: [
       "Sequential Receipt Compliance",
       "Auto-Reconciliation via Gateway",
@@ -69,6 +73,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     icon: "ShieldCheck",
     color: "bg-orange-500",
     category: "safety",
+    stage: "beta",
     benefits: [
       "QR-Based Secure Gate Pass",
       "Visitor Photo & ID Verification",
@@ -89,6 +94,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     icon: "Zap",
     color: "bg-yellow-500",
     category: "platform",
+    stage: "planned",
     benefits: [
       "Drag-and-Drop Logic Builder",
       "Custom SMS & Email Templates",
@@ -169,6 +175,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     icon: "ClipboardList",
     color: "bg-blue-600",
     category: "academics",
+    stage: "planned",
     benefits: [
       "Photo-Based Submissions",
       "Automated Due Reminders",
@@ -189,6 +196,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     icon: "CalendarDays",
     color: "bg-cyan-500",
     category: "academics",
+    stage: "planned",
     benefits: [
       "Weekly Topic Planning",
       "Syllabus Lag Alerts",
@@ -209,6 +217,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     icon: "MessagesSquare",
     color: "bg-pink-500",
     category: "communication",
+    stage: "planned",
     benefits: [
       "Instant PTM Slot Booking",
       "Moderated Two-Way Chat",
@@ -229,6 +238,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     icon: "Fingerprint",
     color: "bg-slate-700",
     category: "safety",
+    stage: "planned",
     benefits: [
       "TOTP/SMS Authenticator",
       "Role-Level Customization",
@@ -249,6 +259,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     icon: "Truck",
     color: "bg-rose-500",
     category: "safety",
+    stage: "beta",
     benefits: [
       "Live GPS Bus Tracking",
       "Route Optimization Engine",
@@ -269,6 +280,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     icon: "BookOpen",
     color: "bg-amber-500",
     category: "academics",
+    stage: "beta",
     benefits: [
       "Digital Asset Support (PDF/Video)",
       "Automated Issue & Return Logs",
@@ -289,6 +301,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     icon: "ShoppingCart",
     color: "bg-sky-500",
     category: "finance",
+    stage: "beta",
     benefits: [
       "Purchase Order Workflow",
       "Multi-Godown Stock Tracking",
@@ -309,6 +322,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     icon: "Users",
     color: "bg-violet-500",
     category: "finance",
+    stage: "planned",
     benefits: [
       "Biometric Attendance Link",
       "Automated Payslip Engine",
@@ -329,6 +343,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     icon: "Sparkles",
     color: "bg-fuchsia-500",
     category: "platform",
+    stage: "planned",
     benefits: [
       "Cross-Campus Data Views",
       "Financial Health Aggregators",
@@ -349,6 +364,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     icon: "Globe",
     color: "bg-blue-500",
     category: "academics",
+    stage: "planned",
     benefits: [
       "Alumni Directory Portal",
       "Placement Drive Coordination",
@@ -361,4 +377,3 @@ export const FEATURES_DATA: FeatureItem[] = [
     }
   }
 ];
-

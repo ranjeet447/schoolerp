@@ -11,7 +11,7 @@ interface IntegrationCardProps {
   category: string;
   description: string;
   logoUrl?: string;
-  status: 'active' | 'coming_soon';
+  status?: 'active' | 'beta' | 'planned';
   slug: string;
 }
 
@@ -41,9 +41,9 @@ export const IntegrationCard = ({
             </Badge>
           </div>
         </div>
-        {status === 'coming_soon' && (
-          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-            Soon
+        {status && (
+          <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">
+            Available
           </Badge>
         )}
       </CardHeader>

@@ -9,7 +9,12 @@ export async function generateStaticParams() {
   return [
     { slug: 'small-private-school' },
     { slug: 'multi-branch-group' },
-    { slug: 'regional-language' }
+    { slug: 'regional-language' },
+    { slug: 'accounting-ledger' },
+    { slug: 'principal-ops' },
+    { slug: 'parent-engagement' },
+    { slug: 'teacher-workload' },
+    { slug: 'safety-operations' }
   ];
 }
 
@@ -69,6 +74,101 @@ const DATA = {
       'Full Hindi and Marathi UI localization',
       'Voice-based data entry features',
       'Multilingual report card generation'
+    ]
+  },
+  'accounting-ledger': {
+    title: 'Finance teams reconcile in hours, not days',
+    category: 'Accountants & Finance',
+    stats: [
+      { label: 'On-time fees', value: '98%' },
+      { label: 'Settlement issues', value: '-70%' },
+      { label: 'Ledger prep', value: 'Same day' }
+    ],
+    challenges: [
+      'Manual receipt sequencing errors',
+      'Late gateway settlement insights',
+      'Tally import failures'
+    ],
+    solutions: [
+      'Compliance-grade receipt series with cancellation audit',
+      'Settlement dashboard with mismatch alerts',
+      'Tally-ready exports with ledger mapping'
+    ]
+  },
+  'principal-ops': {
+    title: 'Principals get a live cockpit for every branch',
+    category: 'Principals & Management',
+    stats: [
+      { label: 'Branch visibility', value: '100%' },
+      { label: 'Audit time', value: '-80%' },
+      { label: 'Decisions', value: 'Data-first' }
+    ],
+    challenges: [
+      'Fragmented data across campuses',
+      'No policy enforcement visibility',
+      'Delayed reporting'
+    ],
+    solutions: [
+      'Portfolio dashboards with cross-campus filters',
+      'Policy/lock enforcement logs',
+      'Scheduled executive summaries'
+    ]
+  },
+  'parent-engagement': {
+    title: 'Parents get clarity without phone calls',
+    category: 'Parents & Students',
+    stats: [
+      { label: 'App adoption', value: '80%+' },
+      { label: 'Support calls', value: '-60%' },
+      { label: 'Homework visibility', value: 'Real time' }
+    ],
+    challenges: [
+      'Parents miss fee reminders',
+      'Homework instructions scattered',
+      'No secure channel for queries'
+    ],
+    solutions: [
+      'WhatsApp/app push for fees and notices',
+      'Homework + lesson plans with reminders',
+      'Planned moderated chat & PTM slots'
+    ]
+  },
+  'teacher-workload': {
+    title: 'Teachers cut paperwork, focus on teaching',
+    category: 'Teachers & Coordinators',
+    stats: [
+      { label: 'Paperwork', value: '-12hrs/mo' },
+      { label: 'Attendance time', value: '-50%' },
+      { label: 'Marks errors', value: '-40%' }
+    ],
+    challenges: [
+      'Repeated entry across sheets',
+      'Late lesson planning reviews',
+      'No standard gradebook schemas'
+    ],
+    solutions: [
+      'One-click attendance and bulk marks entry',
+      'Lesson planning with coordinator review',
+      'Board-aligned gradebook templates'
+    ]
+  },
+  'safety-operations': {
+    title: 'Ops teams secure the campus perimeter',
+    category: 'Operations & Safety',
+    stats: [
+      { label: 'Checkout accuracy', value: 'QR-based' },
+      { label: 'Incident alerts', value: 'Instant' },
+      { label: 'Visitor logs', value: '100% digital' }
+    ],
+    challenges: [
+      'Paper visitor registers',
+      'No pickup authorization trace',
+      'Slow emergency broadcasts'
+    ],
+    solutions: [
+      'QR gate-pass and visitor badges',
+      'Verified guardian pickup lists',
+      'Broadcast templates with fallback channels'
     ]
   }
 };

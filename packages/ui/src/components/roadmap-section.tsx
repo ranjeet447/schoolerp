@@ -10,7 +10,7 @@ const PHASES = [
   {
     status: "Released",
     title: "Phase 1: Academic & Financial Core",
-    description: "The complete foundation for modern school operations. Audit-grade controls for trust and scale.",
+    description: "SIS, attendance, leaves, fee receipts, exams, report cards, multilingual UI.",
     features: [
       "Student Information System (SIS)",
       "Daily Attendance & Leave Management",
@@ -25,7 +25,7 @@ const PHASES = [
   {
     status: "Released",
     title: "Phase 2: Logistics & Operations",
-    description: "Extending the ERP into physical campus management with live tracking and automation.",
+    description: "Transport, inventory, library, admissions portal, procurement, assets.",
     features: [
       "Live GPS Transport & Routes",
       "Digital Media Center & Library",
@@ -40,7 +40,7 @@ const PHASES = [
   {
     status: "Released",
     title: "Phase 3: Ecosystem & Automation",
-    description: "Next-gen intelligence for elite institutions. Parent apps and no-code automation.",
+    description: "Automation Studio, moderated chat/PTM, portfolio analytics, native apps.",
     features: [
       "Portfolio Dashboards for Groups",
       "HRMS & Automated Payroll",

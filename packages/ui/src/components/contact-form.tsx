@@ -31,6 +31,15 @@ export const ContactForm = ({ onSubmit, status = 'idle' }: ContactFormProps) => 
     );
   }
 
+  if (status === 'error') {
+    return (
+      <div className="rounded-lg bg-red-50 p-8 text-center ring-1 ring-red-500/20">
+        <h3 className="text-lg font-semibold text-red-900">Something went wrong</h3>
+        <p className="mt-2 text-red-700">Please try again or email us at hello@schoolerp.com.</p>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2">

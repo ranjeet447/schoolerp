@@ -12,10 +12,12 @@ function cn(...inputs: ClassValue[]) {
 }
 
 const NAV_LINKS = [
-  { label: 'Features', href: '/#features' },
+  { label: 'Features', href: '/features' },
+  { label: 'Use Cases', href: '/use-cases' },
   { label: 'Pricing', href: '/pricing' },
+  { label: 'Integrations', href: '/integrations' },
   { label: 'Roadmap', href: '/roadmap' },
-  { label: 'Case Studies', href: '/case-studies' },
+  { label: 'Security', href: '/security' },
 ];
 
 export const Navbar = () => {

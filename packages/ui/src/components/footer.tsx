@@ -6,8 +6,10 @@ const FOOTER_LINKS = [
   {
     title: 'Product',
     links: [
-      { label: 'Features', href: '/#features' },
+      { label: 'Features', href: '/features' },
+      { label: 'Use Cases', href: '/use-cases' },
       { label: 'Pricing', href: '/pricing' },
+      { label: 'Integrations', href: '/integrations' },
       { label: 'Roadmap', href: '/roadmap' },
       { label: 'Security', href: '/security' },
     ],

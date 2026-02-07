@@ -2,17 +2,11 @@
 
 import React, { useState } from 'react';
 import { IntegrationCard } from '@schoolerp/ui';
-
-const INTEGRATIONS = [
-  { name: 'Razorpay', category: 'Payments', description: 'Universal payments for Indian schools.', status: 'active', slug: 'razorpay' },
-  { name: 'WhatsApp Business', category: 'Messaging', description: 'Direct parent communication via WhatsApp.', status: 'active', slug: 'whatsapp' },
-  { name: 'Traccar GPS', category: 'Transport', description: 'Real-time school bus tracking integration.', status: 'active', slug: 'traccar' },
-  { name: 'Tally Prime', category: 'Accounting', description: 'One-click financial accounting sync.', status: 'coming_soon', slug: 'tally' },
-] as const;
+import { INTEGRATIONS } from './data';
 
 export default function IntegrationsPage() {
   const [category, setCategory] = useState<string>('All');
-  const categories = ['All', 'Payments', 'Messaging', 'Transport', 'Accounting'];
+  const categories = ['All', 'Payments', 'Messaging', 'Transport', 'Accounting', 'Identity', 'Communication'];
 
   const filtered = category === 'All' 
     ? INTEGRATIONS 
@@ -45,7 +39,7 @@ export default function IntegrationsPage() {
 
       <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map(integration => (
-          <IntegrationCard key={integration.slug} {...integration} />
+          <IntegrationCard key={integration.slug} {...integration} status="active" />
         ))}
       </div>
     </div>
