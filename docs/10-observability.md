@@ -26,3 +26,8 @@ Specific metrics for the AI Suite:
 - **Latency**: Measure `LLM_Time_To_First_Token` and `Total_Generation_Time`.
 - **Feedback Loop**: Monitor "Thumbs Up/Down" rate on AI Helpdesk answers.
 - **Guardrail Trips**: Log frequency of "I cannot answer that" fallbacks (indicates gaps in KB or prompt attacks).
+
+## 6. AI Traces & Safety Logging (Addendum)
+- **Trace Propagation:** AI queries carry an  linking the parent/teacher prompt to internal tool-use and final completion.
+- **PII Redaction Audit:** Logs in non-secure environments must show redacted tokens (e.g., ) to verify masking is active.
+- **Feedback Loops:** Logging of "Thumb Up/Down" reactions from parents to evaluate RAG answer quality.

@@ -1,8 +1,9 @@
 
 
 
-export type FeatureCategory = 'academics' | 'finance' | 'safety' | 'communication' | 'platform';
+export type FeatureCategory = 'academics' | 'finance' | 'safety' | 'communication' | 'platform' | 'ai';
 export type FeatureStage = 'live' | 'beta' | 'planned';
+export type FeatureTier = 'core' | 'addon' | 'enterprise';
 
 export interface FeatureItem {
   id: string;
@@ -14,6 +15,7 @@ export interface FeatureItem {
   color: string;
   category: FeatureCategory;
   stage?: FeatureStage;
+  tier: FeatureTier;
   benefits: string[];
   mockUI: {
     title: string;
@@ -32,6 +34,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     color: "bg-purple-500",
     category: "academics",
     stage: "live",
+    tier: "core",
     benefits: [
       "Customizable Gradebook Schemas",
       "Automated Hall Ticket Generation",
@@ -53,6 +56,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     color: "bg-emerald-500",
     category: "finance",
     stage: "beta",
+    tier: "core",
     benefits: [
       "Sequential Receipt Compliance",
       "Auto-Reconciliation via Gateway",
@@ -74,6 +78,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     color: "bg-orange-500",
     category: "safety",
     stage: "beta",
+    tier: "core",
     benefits: [
       "QR-Based Secure Gate Pass",
       "Visitor Photo & ID Verification",
@@ -95,6 +100,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     color: "bg-yellow-500",
     category: "platform",
     stage: "planned",
+    tier: "core",
     benefits: [
       "Drag-and-Drop Logic Builder",
       "Custom SMS & Email Templates",
@@ -115,6 +121,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     icon: "Bell",
     color: "bg-indigo-500",
     category: "communication",
+    tier: "core",
     benefits: [
       "Absence Auto-Alerts",
       "Payment Success Receipts",
@@ -135,6 +142,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     icon: "Megaphone",
     color: "bg-teal-500",
     category: "communication",
+    tier: "core",
     benefits: [
       "Role-Based Targeting",
       "Read Receipt Tracking",
@@ -155,6 +163,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     icon: "FileWarning",
     color: "bg-red-500",
     category: "platform",
+    tier: "core",
     benefits: [
       "Behavioral Incident Logs",
       "Severity-Based Notifications",
@@ -176,6 +185,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     color: "bg-blue-600",
     category: "academics",
     stage: "planned",
+    tier: "core",
     benefits: [
       "Photo-Based Submissions",
       "Automated Due Reminders",
@@ -197,6 +207,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     color: "bg-cyan-500",
     category: "academics",
     stage: "planned",
+    tier: "core",
     benefits: [
       "Weekly Topic Planning",
       "Syllabus Lag Alerts",
@@ -218,6 +229,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     color: "bg-pink-500",
     category: "communication",
     stage: "planned",
+    tier: "core",
     benefits: [
       "Instant PTM Slot Booking",
       "Moderated Two-Way Chat",
@@ -239,6 +251,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     color: "bg-slate-700",
     category: "safety",
     stage: "planned",
+    tier: "enterprise",
     benefits: [
       "TOTP/SMS Authenticator",
       "Role-Level Customization",
@@ -260,6 +273,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     color: "bg-rose-500",
     category: "safety",
     stage: "beta",
+    tier: "core",
     benefits: [
       "Live GPS Bus Tracking",
       "Route Optimization Engine",
@@ -281,6 +295,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     color: "bg-amber-500",
     category: "academics",
     stage: "beta",
+    tier: "core",
     benefits: [
       "Digital Asset Support (PDF/Video)",
       "Automated Issue & Return Logs",
@@ -302,6 +317,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     color: "bg-sky-500",
     category: "finance",
     stage: "beta",
+    tier: "core",
     benefits: [
       "Purchase Order Workflow",
       "Multi-Godown Stock Tracking",
@@ -323,6 +339,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     color: "bg-violet-500",
     category: "finance",
     stage: "planned",
+    tier: "enterprise",
     benefits: [
       "Biometric Attendance Link",
       "Automated Payslip Engine",
@@ -344,6 +361,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     color: "bg-fuchsia-500",
     category: "platform",
     stage: "planned",
+    tier: "enterprise",
     benefits: [
       "Cross-Campus Data Views",
       "Financial Health Aggregators",
@@ -365,6 +383,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     color: "bg-blue-500",
     category: "academics",
     stage: "planned",
+    tier: "core",
     benefits: [
       "Alumni Directory Portal",
       "Placement Drive Coordination",
@@ -373,6 +392,94 @@ export const FEATURES_DATA: FeatureItem[] = [
     ],
     mockUI: {
       title: "Alumni Connector",
+      type: "list"
+    }
+  },
+  {
+    id: "ai-copilot",
+    slug: "teacher-copilot",
+    title: "Teacher Copilot (AI Assist)",
+    description: "AI-driven drafting of lesson plans, worksheets, and quizzes with teacher-in-the-loop controls.",
+    longDescription: "Automate administrative paperwork. Teachers can generate draft syllabi and assignments grounded in their own curriculum records. Note: Subjective answers require teacher final say.",
+    icon: "BrainCircuit",
+    color: "bg-violet-600",
+    category: "ai",
+    stage: "beta",
+    tier: "addon",
+    benefits: [
+      "Draft Lesson Plans in Seconds",
+      "Teacher-in-the-loop Verification",
+      "Grounded in ERP Academic Data",
+      "Assisted Subjective Rubrics"
+    ],
+    mockUI: {
+      title: "AI Draft Interface",
+      type: "nodes"
+    }
+  },
+  {
+    id: "ai-helpdesk",
+    slug: "parent-helpdesk",
+    title: "AI Parent Helpdesk",
+    description: "24/7 multilingual automated assistant grounded in your school's official records.",
+    longDescription: "Reduce front-desk load by 80%. Our AI bot answers parent queries about fees, holidays, and homework instantly via WhatsApp and Web Chat.",
+    icon: "MessageCircle",
+    color: "bg-blue-500",
+    category: "ai",
+    stage: "beta",
+    tier: "addon",
+    benefits: [
+      "24/7 WhatsApp & Web Chat",
+      "Hindi/English Multilingual",
+      "Grounded in ERP Records",
+      "Billed via Communication Wallet"
+    ],
+    mockUI: {
+      title: "AI Support Chat",
+      type: "list"
+    }
+  },
+  {
+    id: "ai-finance",
+    slug: "fee-intelligence",
+    title: "Fee Intelligence",
+    description: "Predictive delay-risk flags and optimized reminder cadence for your finance team.",
+    longDescription: "Stay ahead of cashflow gaps. Our AI analyzes payment velocity to flag students likely to delay, suggesting the optimal time to send reminders.",
+    icon: "TrendingUp",
+    color: "bg-emerald-600",
+    category: "ai",
+    stage: "beta",
+    tier: "addon",
+    benefits: [
+      "Explainable Risk Flags",
+      "Predictive Cashflow Trends",
+      "Automated Reminder Cadence",
+      "Explainable Decision Logic"
+    ],
+    mockUI: {
+      title: "Risk Analysis Dashboard",
+      type: "chart"
+    }
+  },
+  {
+    id: "ai-insights",
+    slug: "smart-insights",
+    title: "Advanced AI Insights",
+    description: "Constraint-based timetable optimization and systemic anomaly alerts.",
+    longDescription: "Enterprise-grade intelligence for management. Solve complex timetabling constraints and detect anomalies in attendance or transport instantly.",
+    icon: "Activity",
+    color: "bg-fuchsia-600",
+    category: "ai",
+    stage: "planned",
+    tier: "enterprise",
+    benefits: [
+      "Constraint Timetable Solver",
+      "Attendance Anomaly Alerts",
+      "Transport Deviation Logs",
+      "Remedial Study Suggestions"
+    ],
+    mockUI: {
+      title: "Anomaly Alert Feed",
       type: "list"
     }
   }

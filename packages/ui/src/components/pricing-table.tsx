@@ -184,18 +184,24 @@ export const PricingTable = () => {
                 </p>
                 
                 <div className="mt-auto">
-                  <div className="text-3xl font-black tracking-tighter text-foreground">
+                  <div className="text-3xl font-black tracking-tighter text-foreground mb-4">
                     {plan.pricing}
                   </div>
+                  {plan.billingNotes && (
+                    <p className="text-[10px] font-bold text-violet-500/80 uppercase tracking-tighter leading-tight bg-violet-500/5 p-2 rounded-lg border border-violet-500/10">
+                      {plan.billingNotes}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
           </div>
           
-          <div className="text-center mt-8">
-            <a href="/use-cases/ai-suite" className="text-sm font-bold text-violet-500 hover:text-violet-400 underline underline-offset-4 transition-colors">
-              Read about the Rules & Safety Guardrails →
-            </a>
+          <div className="text-center mt-12">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-violet-500/10 bg-violet-500/5 text-xs font-bold text-violet-500">
+              <span className="h-2 w-2 rounded-full bg-violet-500 animate-pulse" />
+              AI is disabled by default for all tenants. Enable securely via Admin Dashboard.
+            </div>
           </div>
         </div>
 

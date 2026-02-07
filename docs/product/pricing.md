@@ -109,3 +109,22 @@ To keep base plan prices sustainable, the following are **strictly pass-through*
 
 > **Change Log:**
 > - **v2.0 (Feb 2026):** Updated to "Base Plans + Plugins" model. Separated vendor-cost features (SMS, Gateway, GPS) into plugins.
+
+## 4. AI Add-ons Packaging (Addendum)
+Practical AI features are packaged as optional monthly or yearly add-ons:
+
+- **AI Add-ons v1 (P2 Bundle):** Includes Teacher Copilot, Parent Helpdesk, Fee Intelligence, and Voice Notes.
+  - *Pricing Note:* Subject to WhatsApp Business API conversation charges and LLM usage quotas.
+- **AI Premium (P3 Bundle):** Includes Timetable Optimizer and Advanced Insights.
+- **Enterprise AI:** Custom-quoted items like Facial Auth and Subjective Grading Assistance.
+
+## 5. AI Billing & Gating Logic (Addendum)
+To ensure cost transparency and tenant control, all AI features follow these strict billing rules:
+
+1. **Disabled by Default:** Every new school starts with AI **DISABLED** at the infrastructure level. No AI API calls are made unless explicitly configured.
+2. **Paid Activation:** AI is only enabled once the school purchases an "AI Add-on" plan.
+3. **Admin Opt-in:** Access is controlled via a global kill-switch in the Admin Dashboard. Admin must explicitly enable modules after purchase.
+4. **Metered Usage:** 
+   - LLM usage (tokens) and Transcription minutes (Voice Notes) are metered.
+   - WhatsApp-based AI Chat flows are subject to Meta's conversation-based pricing.
+   - Schools can set "Monthly Budget Caps" to prevent unexpected usage spikes.

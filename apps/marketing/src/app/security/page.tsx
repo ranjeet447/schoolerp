@@ -1,7 +1,7 @@
 import React from 'react';
 import { Container, Section, FinalCTA } from '@schoolerp/ui';
 import { Metadata } from 'next';
-import { ShieldCheck, Lock, EyeOff, Server, Terminal, FileCheck } from 'lucide-react';
+import { ShieldCheck, Lock, EyeOff, Server, Terminal, FileCheck, CheckCircle2 } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'Security & Compliance - School ERP',
@@ -15,8 +15,8 @@ const SECURITY_FEATURES = [
     icon: Lock
   },
   {
-    title: "SOC2 Compliance",
-    description: "Our infrastructure and processes are built to meet SOC2 Type II standards.",
+    title: "Audit-Ready Infrastructure",
+    description: "Our processes and infrastructure are designed to meet SOC2/ISO-aligned controls.",
     icon: FileCheck
   },
   {
@@ -58,7 +58,7 @@ export default function SecurityPage() {
           </h1>
           <p className="text-xl text-muted-foreground font-medium mx-auto max-w-2xl leading-relaxed">
             We treat your school's data with the same rigor as a financial institution. <br />
-            ISO 27001 certified processes and SOC2 Type II compliant infrastructure.
+            Security controls designed to meet SOC2 Type II and ISO 27001 standards.
           </p>
         </div>
       </div>
@@ -79,14 +79,38 @@ export default function SecurityPage() {
             ))}
           </div>
 
-          <div className="mt-24 rounded-[2rem] border bg-muted/30 p-12 text-center">
-            <h2 className="text-3xl font-bold">Have a security inquiry?</h2>
-            <p className="mt-4 text-lg text-muted-foreground">
-              Our security team is ready to provide penetration test reports and architecture diagrams for your IT audits.
-            </p>
-            <a href="mailto:security@schoolerp.com" className="mt-8 inline-block text-xl font-bold text-primary hover:underline">
-              security@schoolerp.com &rarr;
-            </a>
+          <div className="mt-24 grid gap-12 md:grid-cols-2">
+            <div className="space-y-6">
+              <h2 className="text-3xl font-bold">AI Safety & Cost Controls</h2>
+              <p className="text-lg text-muted-foreground leading-relaxed">
+                Our Practical AI add-ons are designed for maximum safety and predictability. 
+                We implement strict boundaries to protect school data and manage costs.
+              </p>
+              <ul className="space-y-4">
+                {[
+                  "Grounding in ERP records only (No hallucinations)",
+                  "Automatic PII redaction before processing",
+                  "Admin kill-switch & usage budget caps",
+                  "Full audit logs for every AI interaction",
+                  "RBAC-gated access (DISABLED by default)"
+                ].map((item) => (
+                  <li key={item} className="flex items-center gap-3 font-medium">
+                    <CheckCircle2 className="h-5 w-5 text-primary" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-[2rem] border bg-muted/30 p-12 text-center flex flex-col justify-center">
+              <h2 className="text-3xl font-bold">Audit-Ready Controls</h2>
+              <p className="mt-4 text-lg text-muted-foreground">
+                Our infrastructure is designed to meet SOC2/ISO-aligned controls. 
+                We provide full architecture diagrams for school IT audits.
+              </p>
+              <a href="mailto:security@schoolerp.com" className="mt-8 inline-block text-xl font-bold text-primary hover:underline">
+                security@schoolerp.com &rarr;
+              </a>
+            </div>
           </div>
         </Container>
       </Section>

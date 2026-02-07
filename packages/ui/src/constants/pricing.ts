@@ -138,18 +138,21 @@ export const PLUGINS = [
 export const AI_SUITE_PLANS = [
   {
     name: "AI Suite v1",
-    description: "Parent Helpdesk, Lesson Drafter, Fee Intelligence.",
-    pricing: "₹9,999/year"
+    description: "Teacher Copilot, Parent Helpdesk, Fee Intelligence, Voice Notes.",
+    pricing: "₹9,999/year",
+    billingNotes: "Metered LLM usage (tokens) & transcription mins apply. AI is disabled by default."
   },
   {
     name: "AI Premium",
-    description: "Timetable Optimizer, Insights & Anomalies, Remedial Recs.",
-    pricing: "₹19,999/year"
+    description: "Timetable Optimizer, Advanced Insights & Anomaly Alerts.",
+    pricing: "₹19,999/year",
+    billingNotes: "Advanced compute add-on. Subject to usage caps."
   },
   {
     name: "Enterprise AI",
-    description: "Face Auth, Grading Assistant, Admissions Scoring.",
-    pricing: "Custom Quote"
+    description: "Face Auth Integration, Admissions Lead Scoring.",
+    pricing: "Custom Quote",
+    billingNotes: "Requires separate consent audit & compliance setup."
   }
 ];
 
@@ -160,6 +163,10 @@ export const ONBOARDING_FEES = [
 ];
 
 export const FAQS = [
+  {
+    question: "How is AI billed and managed?",
+    answer: "AI features are optional paid add-ons and are DISABLED by default for all tenants. Once purchased, administrators must explicitly enable modules in the dashboard. Usage is metered based on tokens (LLM consumption) and processed via your pre-paid communication wallet."
+  },
   {
     question: "Are SMS/WhatsApp included?",
     answer: "No. You pay a platform fee for the integration, and then purchase top-up credits for actual usage (messages sent)."

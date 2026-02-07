@@ -17,7 +17,7 @@ export const INTEGRATIONS: IntegrationItem[] = [
   { name: 'Google Workspace', category: 'Identity', description: 'SSO and calendar sync for staff.', status: 'planned', slug: 'google-workspace' },
   { name: 'Microsoft Teams/Meet', category: 'Communication', description: 'Link classes and PTMs directly to meeting links.', status: 'planned', slug: 'teams-meet' },
   { name: 'Biometric/RFID', category: 'Hardware', description: 'Automated staff and student attendance.', status: 'planned', slug: 'biometric-rfid' },
-  { name: 'Online Tests', category: 'Assessment', description: 'Question bank and automated grading.', status: 'planned', slug: 'online-tests' },
+  { name: 'Online Tests', category: 'Assessment', description: 'Objective auto-evaluation (MCQ) + assisted evaluation for subjective answers (teacher final).', status: 'planned', slug: 'online-tests' },
   { name: 'Alumni Module', category: 'Community', description: 'Directory, events, and donation drives.', status: 'planned', slug: 'alumni-module' },
   { name: 'MapmyIndia', category: 'Transport', description: 'Indian mapping services for transport tracking.', status: 'planned', slug: 'mapmyindia' },
 ];

@@ -14,31 +14,11 @@ export async function generateStaticParams() {
     { slug: 'principal-ops' },
     { slug: 'parent-engagement' },
     { slug: 'teacher-workload' },
-    { slug: 'safety-operations' },
-    { slug: 'ai-suite' }
+    { slug: 'safety-operations' }
   ];
 }
 
 const DATA = {
-  'ai-suite': {
-    title: 'AI Suite: Intelligence with Guardrails',
-    category: 'Artificial Intelligence',
-    stats: [
-      { label: 'Response Time', value: '< 2 sec' },
-      { label: 'Teacher Admin', value: '-40%' },
-      { label: 'Fee Recovery', value: '+20%' }
-    ],
-    challenges: [
-      'Front desk overwhelmed by repetitive parent queries',
-      'Teachers spending hours on lesson planning',
-      'Late fee collection due to lack of predictive signals'
-    ],
-    solutions: [
-      '24/7 AI Parent Helpdesk (WhatsApp/Web) grounded in school records',
-      'Teacher Assistant for instant lesson plans & quizzes',
-      'Predictive Fee Intelligence to flag at-risk accounts'
-    ]
-  },
   'small-private-school': {
     title: 'How Little Angels Academy Saved 20hrs/Week',
     category: 'Small Private Schools',

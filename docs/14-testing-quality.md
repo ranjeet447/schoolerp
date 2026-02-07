@@ -40,3 +40,10 @@ No PR is merged unless:
 - All unit tests pass.
 - Playwright smoke suite passes.
 - Storybook build completes successfully.
+
+## 7. AI Testing Strategy (Addendum)
+To ensure AI safety and reliability, we implement:
+- **Prompt Regression Tests:** Unit tests for prompt templates to ensure mustache variables populate correctly.
+- **RAG Retrieval Tests (Grounding):** Verifying that the Helpdesk bot only cites records within its context window.
+- **Adversarial (Red-Teaming):** Automated attempts to bypass PII redaction or RBAC via prompt injection.
+- **Teacher-in-the-loop Validation:** Sanity checks on AI-generated short-answer questions for curriculum alignment.

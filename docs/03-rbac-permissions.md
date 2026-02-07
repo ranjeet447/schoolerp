@@ -50,3 +50,10 @@ Tenants can define custom roles by selecting a subset of platform permissions.
 
 ## Immutable Audit Trail
 Any access denial is logged. Any permission change is logged in the `audit_logs` table with `before/after` states.
+
+## 5. AI Capabilities & Permissions (Addendum)
+New granular permissions for AI features:
+- `ai.teacher.assist`: Grant access to Copilot for lesson/quiz drafting.
+- `ai.parent.helpdesk`: Grant search-only access to Helpdesk bot via public channels.
+- `ai.finance.intel`: Grant read-only access to predictive risk dashboards.
+- `ai.admin.config`: Toggle specific AI modules and set token usage budgets.

@@ -77,3 +77,22 @@ We prioritize **explainable, low-cost intelligence** first. Heavier AI features 
 
 > **Change Log:**
 > - **v2.0 (Feb 2026):** Consolidated roadmap. Marked Phase 1 & 2 as RELEASED. Shifted Phase 3 to "Automation". Split AI into Practical vs Plugin.
+
+## 4. Practical AI (Addendum)
+Following the new positioning, we focus on optional AI Add-ons that enhance human productivity without replacing oversight.
+
+### P2: AI Add-ons v1 (In Progress)
+- **A1: Teacher Copilot:** Grounded generation of lesson plans, worksheets, and quizzes.
+- **A2: Parent Helpdesk:** 24/7 multilingual Support bot (WhatsApp/Web) grounded in ERP records.
+- **A3: Fee Intelligence:** Explainable delay-risk flags and optimized reminder cadence.
+- **A4: Voice Notes:** Voice-to-text integration for quick remarks and staff notes.
+
+### P3: AI Premium (Planned)
+- **A5: Timetable Optimizer:** Constraint-based solver for complex scheduling.
+- **A6: Insights & Anomaly Alerts:** Proactive detection of attendance and financial deviations.
+- **A7: Remedial Recommendations:** Topic-level study suggestions based on exam performance.
+
+### Enterprise / Integration Ready
+- **A8: Assisted Subjective Grading:** Rubric-based suggestions for teacher final say.
+- **A9: Facial Recognition Attendance:** Opt-in compliance-ready integration.
+- **A10: Admissions Lead Scoring:** Explainable scoring for applicant pipeline.

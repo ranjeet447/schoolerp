@@ -22,8 +22,14 @@ export default function FeaturesPage() {
           <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl">All the rails your school needs.</h1>
           <p className="mx-auto max-w-3xl text-lg text-muted-foreground">
             One operating system for academics, finance, safety, operations, communication, and automation. 
-            Every module is ready for your rollout.
+            Core modules are production-ready; advanced add-ons roll out in phases.
           </p>
+
+          <div className="flex justify-center gap-6 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-primary" /> Core Module</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-orange-500" /> Paid Add-on</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-slate-700" /> Enterprise</span>
+          </div>
 
           <div className="mt-10 grid grid-cols-1 gap-4 text-left sm:grid-cols-3">
             {[
@@ -46,7 +52,7 @@ export default function FeaturesPage() {
             key={feature.id} 
             title={feature.title}
             description={feature.longDescription}
-            badge={feature.category.toUpperCase()}
+            badge={`${feature.category.toUpperCase()} • ${feature.tier.toUpperCase()}`}
             benefits={feature.benefits}
             imageSide={i % 2 === 0 ? 'right' : 'left'}
           />
