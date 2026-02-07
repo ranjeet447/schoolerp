@@ -106,15 +106,15 @@ export const PricingTable = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 xl:grid-cols-4 pt-10">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4 pt-10 px-4 md:px-0">
           {PLANS.map((plan) => (
             <motion.div 
               key={plan.name} 
               whileHover={{ y: -12 }}
               className={cn(
-                "group relative flex flex-col rounded-[3rem] border p-6 xl:p-8 transition-all duration-500",
+                "group relative flex flex-col rounded-[2rem] border p-6 transition-all duration-500",
                 plan.highlight 
-                  ? "border-primary bg-slate-900 text-white shadow-[0_32px_80px_-16px_rgba(139,92,246,0.3)] z-10" 
+                  ? "border-primary bg-slate-900 text-white shadow-[0_32px_80px_-16px_rgba(139,92,246,0.3)] z-10 scale-105" 
                   : "border-white/10 bg-card/60 backdrop-blur-3xl shadow-sm hover:border-primary/20 hover:shadow-2xl hover:shadow-primary/5"
               )}
             >
