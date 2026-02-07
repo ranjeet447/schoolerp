@@ -16,9 +16,8 @@ export default function middleware(request: any) {
   }
 
   const response = createMiddleware({
-    locales: ['en', 'hi'],
-    defaultLocale: 'en',
-    localePrefix: 'as-needed'
+    locales: ['en'],
+    defaultLocale: 'en'
   })(request);
 
   if (tenant) {

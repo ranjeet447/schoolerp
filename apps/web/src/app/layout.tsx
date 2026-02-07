@@ -11,14 +11,14 @@ export const metadata: Metadata = {
   description: "Enterprise School Management Operating System",
 };
 
+import { getLocale } from 'next-intl/server';
+
 export default async function RootLayout({
   children,
-  params,
 }: {
   children: React.ReactNode;
-  params: Promise<{ locale: string }>;
 }) {
-  const { locale } = await params;
+  const locale = await getLocale();
   return (
     <html lang={locale}>
       <body className={inter.className}>
