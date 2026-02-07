@@ -102,6 +102,9 @@ type Querier interface {
 	// limitations under the License.
 	CreateFile(ctx context.Context, arg CreateFileParams) (File, error)
 	CreateGuardian(ctx context.Context, arg CreateGuardianParams) (Guardian, error)
+	CreateInventoryCategory(ctx context.Context, arg CreateInventoryCategoryParams) (InventoryCategory, error)
+	CreateInventoryItem(ctx context.Context, arg CreateInventoryItemParams) (InventoryItem, error)
+	CreateInventoryTransaction(ctx context.Context, arg CreateInventoryTransactionParams) (InventoryTransaction, error)
 	CreateLeaveRequest(ctx context.Context, arg CreateLeaveRequestParams) (LeaveRequest, error)
 	// Locks
 	CreateLock(ctx context.Context, arg CreateLockParams) (Lock, error)
@@ -141,6 +144,7 @@ type Querier interface {
 	// limitations under the License.
 	CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error)
 	CreateSubject(ctx context.Context, arg CreateSubjectParams) (Subject, error)
+	CreateSupplier(ctx context.Context, arg CreateSupplierParams) (InventorySupplier, error)
 	CreateVehicle(ctx context.Context, arg CreateVehicleParams) (TransportVehicle, error)
 	DeleteAttendanceEntries(ctx context.Context, sessionID pgtype.UUID) error
 	DeleteLock(ctx context.Context, arg DeleteLockParams) error
@@ -157,6 +161,7 @@ type Querier interface {
 	GetExamMarks(ctx context.Context, arg GetExamMarksParams) ([]GetExamMarksRow, error)
 	GetExamResultsForStudent(ctx context.Context, arg GetExamResultsForStudentParams) ([]GetExamResultsForStudentRow, error)
 	GetFile(ctx context.Context, arg GetFileParams) (File, error)
+	GetInventoryItem(ctx context.Context, arg GetInventoryItemParams) (InventoryItem, error)
 	GetNextReceiptNumber(ctx context.Context, arg GetNextReceiptNumberParams) (interface{}, error)
 	GetNotice(ctx context.Context, arg GetNoticeParams) (Notice, error)
 	GetNoticeAcks(ctx context.Context, noticeID pgtype.UUID) ([]GetNoticeAcksRow, error)
@@ -194,6 +199,9 @@ type Querier interface {
 	ListExamSubjects(ctx context.Context, examID pgtype.UUID) ([]ListExamSubjectsRow, error)
 	ListExams(ctx context.Context, tenantID pgtype.UUID) ([]Exam, error)
 	ListFeeHeads(ctx context.Context, tenantID pgtype.UUID) ([]FeeHead, error)
+	ListInventoryCategories(ctx context.Context, tenantID pgtype.UUID) ([]InventoryCategory, error)
+	ListInventoryItems(ctx context.Context, arg ListInventoryItemsParams) ([]ListInventoryItemsRow, error)
+	ListInventoryTransactions(ctx context.Context, arg ListInventoryTransactionsParams) ([]ListInventoryTransactionsRow, error)
 	ListIssues(ctx context.Context, arg ListIssuesParams) ([]ListIssuesRow, error)
 	ListLeaveRequests(ctx context.Context, arg ListLeaveRequestsParams) ([]ListLeaveRequestsRow, error)
 	ListNotices(ctx context.Context, tenantID pgtype.UUID) ([]ListNoticesRow, error)
@@ -209,6 +217,7 @@ type Querier interface {
 	ListStudentReceipts(ctx context.Context, arg ListStudentReceiptsParams) ([]Receipt, error)
 	ListStudents(ctx context.Context, arg ListStudentsParams) ([]ListStudentsRow, error)
 	ListSubjects(ctx context.Context, tenantID pgtype.UUID) ([]Subject, error)
+	ListSuppliers(ctx context.Context, tenantID pgtype.UUID) ([]InventorySupplier, error)
 	ListVehicles(ctx context.Context, tenantID pgtype.UUID) ([]TransportVehicle, error)
 	PublishExam(ctx context.Context, arg PublishExamParams) (Exam, error)
 	ReturnBook(ctx context.Context, arg ReturnBookParams) (LibraryIssue, error)
@@ -221,6 +230,7 @@ type Querier interface {
 	UpdateStudent(ctx context.Context, arg UpdateStudentParams) (Student, error)
 	UpdateVehicle(ctx context.Context, arg UpdateVehicleParams) (TransportVehicle, error)
 	UpsertMarks(ctx context.Context, arg UpsertMarksParams) error
+	UpsertStock(ctx context.Context, arg UpsertStockParams) error
 }
 
 var _ Querier = (*Queries)(nil)

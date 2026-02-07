@@ -256,6 +256,66 @@ type Integration struct {
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
+type InventoryCategory struct {
+	ID          pgtype.UUID        `json:"id"`
+	TenantID    pgtype.UUID        `json:"tenant_id"`
+	Name        string             `json:"name"`
+	Type        string             `json:"type"`
+	Description pgtype.Text        `json:"description"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type InventoryItem struct {
+	ID           pgtype.UUID        `json:"id"`
+	TenantID     pgtype.UUID        `json:"tenant_id"`
+	CategoryID   pgtype.UUID        `json:"category_id"`
+	Name         string             `json:"name"`
+	Sku          pgtype.Text        `json:"sku"`
+	Description  pgtype.Text        `json:"description"`
+	Unit         pgtype.Text        `json:"unit"`
+	ReorderLevel pgtype.Int4        `json:"reorder_level"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type InventoryStock struct {
+	ID        pgtype.UUID        `json:"id"`
+	TenantID  pgtype.UUID        `json:"tenant_id"`
+	ItemID    pgtype.UUID        `json:"item_id"`
+	Quantity  int32              `json:"quantity"`
+	Location  pgtype.Text        `json:"location"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type InventorySupplier struct {
+	ID            pgtype.UUID        `json:"id"`
+	TenantID      pgtype.UUID        `json:"tenant_id"`
+	Name          string             `json:"name"`
+	ContactPerson pgtype.Text        `json:"contact_person"`
+	Phone         pgtype.Text        `json:"phone"`
+	Email         pgtype.Text        `json:"email"`
+	Address       pgtype.Text        `json:"address"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type InventoryTransaction struct {
+	ID            pgtype.UUID        `json:"id"`
+	TenantID      pgtype.UUID        `json:"tenant_id"`
+	ItemID        pgtype.UUID        `json:"item_id"`
+	Type          string             `json:"type"`
+	Quantity      int32              `json:"quantity"`
+	UnitPrice     pgtype.Numeric     `json:"unit_price"`
+	SupplierID    pgtype.UUID        `json:"supplier_id"`
+	ReferenceID   pgtype.UUID        `json:"reference_id"`
+	ReferenceType pgtype.Text        `json:"reference_type"`
+	Remarks       pgtype.Text        `json:"remarks"`
+	CreatedBy     pgtype.UUID        `json:"created_by"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
 type Lead struct {
 	ID           pgtype.UUID        `json:"id"`
 	Name         string             `json:"name"`
