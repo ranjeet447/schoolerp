@@ -367,11 +367,16 @@ func (s *StudentService) ListAcademicStructure(ctx context.Context, tenantID str
 	tUUID.Scan(tenantID)
 	
 	classes, err := s.q.ListClasses(ctx, tUUID)
-	if err != nil { return nil, nil, err }
+	if err != nil {
+		return nil, nil, err
+	}
 	
-	// Flatten for simple API response or keeping it separate. 
-	// For now, hander will handle it.
-	return classes, nil, nil 
+	sections, err := s.q.ListSectionsByTenant(ctx, tUUID)
+	if err != nil {
+		return classes, nil, nil // Partial success or error? 
+	}
+	
+	return classes, sections, nil 
 }
 
 // Student Import logic

@@ -266,6 +266,7 @@ type Querier interface {
 	ListSalaryStructures(ctx context.Context, tenantID pgtype.UUID) ([]SalaryStructure, error)
 	ListSchoolGroups(ctx context.Context, ownerUserID pgtype.UUID) ([]SchoolGroup, error)
 	ListSectionsByClass(ctx context.Context, classID pgtype.UUID) ([]Section, error)
+	ListSectionsByTenant(ctx context.Context, tenantID pgtype.UUID) ([]Section, error)
 	ListStudentReceipts(ctx context.Context, arg ListStudentReceiptsParams) ([]Receipt, error)
 	ListStudents(ctx context.Context, arg ListStudentsParams) ([]ListStudentsRow, error)
 	ListSubjects(ctx context.Context, tenantID pgtype.UUID) ([]Subject, error)

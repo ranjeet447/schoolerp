@@ -193,3 +193,44 @@ func (s *AdmissionService) RecordFeePayment(ctx context.Context, tenantID, appID
 
 	return nil
 }
+func (s *AdmissionService) UpdateApplicationStatus(ctx context.Context, tenantID, id, status, userID, ip string) error {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	aID := pgtype.UUID{}
+	aID.Scan(id)
+	uID := pgtype.UUID{}
+	uID.Scan(userID)
+
+	err := s.q.UpdateApplicationStatus(ctx, db.UpdateApplicationStatusParams{
+		ID:       aID,
+		TenantID: tID,
+		Status:   status,
+	})
+	if err != nil {
+		return err
+	}
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tID,
+		UserID:       uID,
+		Action:       "UPDATE_APPLICATION_STATUS",
+		ResourceType: "admission_application",
+		ResourceID:   aID,
+		After:        map[string]interface{}{"status": status},
+		IPAddress:    ip,
+	})
+
+	return nil
+}
+
+func (s *AdmissionService) GetApplication(ctx context.Context, tenantID, id string) (db.AdmissionApplication, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	aID := pgtype.UUID{}
+	aID.Scan(id)
+
+	return s.q.GetApplication(ctx, db.GetApplicationParams{
+		ID:       aID,
+		TenantID: tID,
+	})
+}

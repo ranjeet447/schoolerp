@@ -577,6 +577,39 @@ func (q *Queries) ListSectionsByClass(ctx context.Context, classID pgtype.UUID) 
 	return items, nil
 }
 
+const listSectionsByTenant = `-- name: ListSectionsByTenant :many
+SELECT id, tenant_id, class_id, name, capacity, created_at FROM sections
+WHERE tenant_id = $1
+ORDER BY class_id, name
+`
+
+func (q *Queries) ListSectionsByTenant(ctx context.Context, tenantID pgtype.UUID) ([]Section, error) {
+	rows, err := q.db.Query(ctx, listSectionsByTenant, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Section
+	for rows.Next() {
+		var i Section
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.ClassID,
+			&i.Name,
+			&i.Capacity,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStudents = `-- name: ListStudents :many
 SELECT s.id, s.full_name, s.admission_number, s.status, s.section_id, sec.name as section_name, c.name as class_name
 FROM students s

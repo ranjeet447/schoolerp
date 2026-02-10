@@ -108,6 +108,11 @@ SELECT * FROM sections
 WHERE class_id = $1
 ORDER BY name;
 
+-- name: ListSectionsByTenant :many
+SELECT * FROM sections
+WHERE tenant_id = $1
+ORDER BY class_id, name;
+
 -- name: CreateSubject :one
 INSERT INTO subjects (
     tenant_id, name, code, type
