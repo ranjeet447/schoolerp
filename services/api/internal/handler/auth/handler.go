@@ -19,6 +19,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/schoolerp/api/internal/middleware"
 	"github.com/schoolerp/api/internal/service/auth"
 )
 
@@ -32,7 +33,103 @@ func NewHandler(svc *auth.Service) *Handler {
 
 func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/auth/login", h.Login)
+	r.Post("/auth/mfa/setup", h.SetupMFA)
+	r.Post("/auth/mfa/enable", h.EnableMFA)
+	r.Post("/auth/mfa/validate", h.ValidateMFA)
 }
+
+// ... Login ...
+
+// MFA Handlers
+
+func (h *Handler) SetupMFA(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	
+	// We need email for AccountName in TOTP
+	// Ideally we fetch user from DB or claims.
+	// For now, let's pass a placeholder or fetch it.
+	// Simplest: "SchoolERP User"
+	
+	config, err := h.svc.MFA.GenerateSecret(r.Context(), userID, "SchoolERP User")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"secret": config.Secret,
+		"qr_code": config.QRCode, // Client can display this
+	})
+}
+
+type enableMFARequest struct {
+	Code string `json:"code"`
+}
+
+func (h *Handler) EnableMFA(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req enableMFARequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	err := h.svc.MFA.EnableMFA(r.Context(), userID, req.Code)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"success": true}`))
+}
+
+type validateMFARequest struct {
+	Code string `json:"code"`
+	// If validating during login, maybe we don't have userID in context yet?
+	// But usually MFA is step 2. We might have a temporary token or session.
+	// For now, assume userID is in context (e.g. "pre-auth" token or similar).
+}
+
+func (h *Handler) ValidateMFA(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req validateMFARequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	valid, err := h.svc.MFA.ValidateMFA(r.Context(), userID, req.Code)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if !valid {
+		http.Error(w, "Invalid code", http.StatusUnauthorized)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"valid": true}`))
+}
+
+
 
 type loginRequest struct {
 	Email    string `json:"email"`
@@ -84,3 +181,5 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		Data:    result,
 	})
 }
+
+

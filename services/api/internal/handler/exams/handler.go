@@ -59,9 +59,12 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	exam, err := h.svc.CreateExam(r.Context(), examservice.CreateExamParams{
-		TenantID: middleware.GetTenantID(r.Context()),
-		AYID:     req.AYID,
-		Name:     req.Name,
+		TenantID:  middleware.GetTenantID(r.Context()),
+		AYID:      req.AYID,
+		Name:      req.Name,
+		UserID:    middleware.GetUserID(r.Context()),
+		RequestID: middleware.GetReqID(r.Context()),
+		IP:        r.RemoteAddr,
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -144,7 +147,8 @@ func (h *Handler) UpsertMarks(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	exam, err := h.svc.PublishExam(r.Context(), middleware.GetTenantID(r.Context()), id)
+	exam, err := h.svc.PublishExam(r.Context(), middleware.GetTenantID(r.Context()), id,
+		middleware.GetUserID(r.Context()), middleware.GetReqID(r.Context()), r.RemoteAddr)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

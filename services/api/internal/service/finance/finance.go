@@ -20,15 +20,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/schoolerp/api/internal/db"
 	"github.com/schoolerp/api/internal/foundation/audit"
+	"github.com/schoolerp/api/internal/foundation/locks"
+	"github.com/schoolerp/api/internal/foundation/policy"
 )
 
 type Service struct {
-	q     db.Querier
-	audit *audit.Logger
+	q      db.Querier
+	audit  *audit.Logger
+	policy *policy.Evaluator
+	locks  *locks.Service
 }
 
-func NewService(q db.Querier, audit *audit.Logger) *Service {
-	return &Service{q: q, audit: audit}
+func NewService(q db.Querier, audit *audit.Logger, poly *policy.Evaluator, lks *locks.Service) *Service {
+	return &Service{q: q, audit: audit, policy: poly, locks: lks}
 }
 
 func (s *Service) CreateFeeHead(ctx context.Context, tenantID, name, headType string) (db.FeeHead, error) {

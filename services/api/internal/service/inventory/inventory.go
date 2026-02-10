@@ -37,6 +37,20 @@ func (s *InventoryService) CreateCategory(ctx context.Context, tenantID, name, i
 		return db.InventoryCategory{}, fmt.Errorf("failed to create category: %w", err)
 	}
 
+	uID := pgtype.UUID{}
+	uID.Scan(userID)
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tID,
+		UserID:       uID,
+		RequestID:    reqID,
+		Action:       "inventory.create_category",
+		ResourceType: "inventory_category",
+		ResourceID:   cat.ID,
+		After:        cat,
+		IPAddress:    ip,
+	})
+
 	return cat, nil
 }
 
@@ -48,7 +62,7 @@ func (s *InventoryService) ListCategories(ctx context.Context, tenantID string) 
 
 // Supplier Management
 
-func (s *InventoryService) CreateSupplier(ctx context.Context, tenantID, name, contact, phone, email, address string) (db.InventorySupplier, error) {
+func (s *InventoryService) CreateSupplier(ctx context.Context, tenantID, name, contact, phone, email, address, userID, reqID, ip string) (db.InventorySupplier, error) {
 	tID := pgtype.UUID{}
 	tID.Scan(tenantID)
 
@@ -63,6 +77,20 @@ func (s *InventoryService) CreateSupplier(ctx context.Context, tenantID, name, c
 	if err != nil {
 		return db.InventorySupplier{}, fmt.Errorf("failed to create supplier: %w", err)
 	}
+
+	uID := pgtype.UUID{}
+	uID.Scan(userID)
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tID,
+		UserID:       uID,
+		RequestID:    reqID,
+		Action:       "inventory.create_supplier",
+		ResourceType: "inventory_supplier",
+		ResourceID:   supplier.ID,
+		After:        supplier,
+		IPAddress:    ip,
+	})
 
 	return supplier, nil
 }
@@ -94,14 +122,17 @@ func (s *InventoryService) CreateItem(ctx context.Context, tenantID, catID, name
 		return db.InventoryItem{}, fmt.Errorf("failed to create item: %w", err)
 	}
 
+	uID := pgtype.UUID{}
+	uID.Scan(userID)
+
 	_ = s.audit.Log(ctx, audit.Entry{
 		TenantID:     tID,
-		UserID:       pgtype.UUID{}, // TODO: parse userID
+		UserID:       uID,
 		RequestID:    reqID,
-		Action:       "CREATE_ITEM",
+		Action:       "inventory.create_item",
 		ResourceType: "inventory_item",
 		ResourceID:   item.ID,
-		After:        map[string]interface{}{"name": name, "sku": sku},
+		After:        item,
 		IPAddress:    ip,
 	})
 
@@ -222,6 +253,8 @@ type CreatePurchaseOrderParams struct {
 	SupplierID string
 	Notes      string
 	UserID     string
+	RequestID  string
+	IP         string
 }
 
 func (s *InventoryService) CreatePurchaseOrder(ctx context.Context, p CreatePurchaseOrderParams) (db.PurchaseOrder, error) {
@@ -234,7 +267,7 @@ func (s *InventoryService) CreatePurchaseOrder(ctx context.Context, p CreatePurc
 	uID := pgtype.UUID{}
 	uID.Scan(p.UserID)
 
-	return s.q.CreatePurchaseOrder(ctx, db.CreatePurchaseOrderParams{
+	po, err := s.q.CreatePurchaseOrder(ctx, db.CreatePurchaseOrderParams{
 		TenantID:   tID,
 		PoNumber:   p.PONumber,
 		SupplierID: sID,
@@ -242,6 +275,22 @@ func (s *InventoryService) CreatePurchaseOrder(ctx context.Context, p CreatePurc
 		Notes:      pgtype.Text{String: p.Notes, Valid: p.Notes != ""},
 		CreatedBy:  uID,
 	})
+	if err != nil {
+		return db.PurchaseOrder{}, err
+	}
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tID,
+		UserID:       uID,
+		RequestID:    p.RequestID,
+		Action:       "inventory.create_po",
+		ResourceType: "purchase_order",
+		ResourceID:   po.ID,
+		After:        po,
+		IPAddress:    p.IP,
+	})
+
+	return po, nil
 }
 
 func (s *InventoryService) ListPurchaseOrders(ctx context.Context, tenantID string, limit, offset int32) ([]db.ListPurchaseOrdersRow, error) {
@@ -254,7 +303,7 @@ func (s *InventoryService) ListPurchaseOrders(ctx context.Context, tenantID stri
 	})
 }
 
-func (s *InventoryService) ApprovePurchaseOrder(ctx context.Context, tenantID, poID, approverID string) (db.PurchaseOrder, error) {
+func (s *InventoryService) ApprovePurchaseOrder(ctx context.Context, tenantID, poID, approverID, reqID, ip string) (db.PurchaseOrder, error) {
 	tID := pgtype.UUID{}
 	tID.Scan(tenantID)
 	pID := pgtype.UUID{}
@@ -262,15 +311,31 @@ func (s *InventoryService) ApprovePurchaseOrder(ctx context.Context, tenantID, p
 	aID := pgtype.UUID{}
 	aID.Scan(approverID)
 
-	return s.q.UpdatePurchaseOrderStatus(ctx, db.UpdatePurchaseOrderStatusParams{
+	po, err := s.q.UpdatePurchaseOrderStatus(ctx, db.UpdatePurchaseOrderStatusParams{
 		ID:         pID,
 		TenantID:   tID,
 		Status:     "approved",
 		ApprovedBy: aID,
 	})
+	if err != nil {
+		return db.PurchaseOrder{}, err
+	}
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tID,
+		UserID:       aID,
+		RequestID:    reqID,
+		Action:       "inventory.approve_po",
+		ResourceType: "purchase_order",
+		ResourceID:   po.ID,
+		After:        po,
+		IPAddress:    ip,
+	})
+
+	return po, nil
 }
 
-func (s *InventoryService) ReceivePurchaseOrder(ctx context.Context, tenantID, poID, receiverID string) (db.PurchaseOrder, error) {
+func (s *InventoryService) ReceivePurchaseOrder(ctx context.Context, tenantID, poID, receiverID, reqID, ip string) (db.PurchaseOrder, error) {
 	tID := pgtype.UUID{}
 	tID.Scan(tenantID)
 	pID := pgtype.UUID{}
@@ -299,8 +364,21 @@ func (s *InventoryService) ReceivePurchaseOrder(ctx context.Context, tenantID, p
 			ReferenceType: "purchase_order",
 			Remarks:       "Received from PO",
 			UserID:        receiverID,
+			RequestID:     reqID,
+			IP:            ip,
 		})
 	}
+	
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tID,
+		UserID:       uID,
+		RequestID:    reqID,
+		Action:       "inventory.receive_po",
+		ResourceType: "purchase_order",
+		ResourceID:   po.ID,
+		After:        po,
+		IPAddress:    ip,
+	})
 
 	return po, nil
 }

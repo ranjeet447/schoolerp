@@ -75,6 +75,19 @@ func (s *Service) CreateNotice(ctx context.Context, p CreateNoticeParams) (db.No
 		IPAddress:    p.IP,
 	})
 
+	// 5. Outbox Event for Notifications
+	payload, _ := json.Marshal(map[string]interface{}{
+		"notice_id": notice.ID,
+		"title":     notice.Title,
+		"scope":     p.Scope,
+		"created_by": p.CreatedBy,
+	})
+	_, _ = s.q.CreateOutboxEvent(ctx, db.CreateOutboxEventParams{
+		TenantID:  tUUID,
+		EventType: "notice.published",
+		Payload:   payload,
+	})
+
 	return notice, nil
 }
 

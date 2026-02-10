@@ -26,7 +26,9 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/schoolerp/worker/internal/db"
+	"github.com/schoolerp/worker/internal/notification"
 	"github.com/schoolerp/worker/internal/service/pdf"
+	"github.com/schoolerp/worker/internal/worker"
 )
 
 func main() {
@@ -53,6 +55,8 @@ func main() {
 
 	querier := db.New(pool)
 	pdfSvc := pdf.NewProcessor(querier)
+	notifSvc := &notification.StubAdapter{}
+	notifConsumer := worker.NewConsumer(querier, notifSvc)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -90,6 +94,9 @@ func main() {
 			}
 		}
 	}()
+
+	// Start Notification Consumer
+	go notifConsumer.Start(ctx)
 
 	<-stop
 	log.Info().Msg("Shutting down worker...")

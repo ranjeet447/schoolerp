@@ -40,6 +40,11 @@ type CreateExamParams struct {
 	Name     string
 	Start    pgtype.Date
 	End      pgtype.Date
+	
+	// Audit
+	UserID    string
+	RequestID string
+	IP        string
 }
 
 func (s *Service) CreateExam(ctx context.Context, p CreateExamParams) (db.Exam, error) {
@@ -49,28 +54,69 @@ func (s *Service) CreateExam(ctx context.Context, p CreateExamParams) (db.Exam, 
 	ayUUID := pgtype.UUID{}
 	ayUUID.Scan(p.AYID)
 
-	return s.q.CreateExam(ctx, db.CreateExamParams{
+	exam, err := s.q.CreateExam(ctx, db.CreateExamParams{
 		TenantID:       tUUID,
 		AcademicYearID: ayUUID,
 		Name:           p.Name,
 		StartDate:      p.Start,
 		EndDate:        p.End,
 	})
+	if err != nil {
+		return db.Exam{}, err
+	}
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(p.UserID)
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    p.RequestID,
+		Action:       "exam.create",
+		ResourceType: "exam",
+		ResourceID:   exam.ID,
+		After:        exam,
+		IPAddress:    p.IP,
+	})
+
+	return exam, nil
 }
 
-func (s *Service) AddSubject(ctx context.Context, examID, subjectID string, maxMarks int32, date pgtype.Date) error {
+func (s *Service) AddSubject(ctx context.Context, tenantID, examID, subjectID string, maxMarks int32, date pgtype.Date, userID, reqID, ip string) error {
 	eUUID := pgtype.UUID{}
 	eUUID.Scan(examID)
 
 	sUUID := pgtype.UUID{}
 	sUUID.Scan(subjectID)
 
-	return s.q.AddExamSubject(ctx, db.AddExamSubjectParams{
+	err := s.q.AddExamSubject(ctx, db.AddExamSubjectParams{
 		ExamID:    eUUID,
 		SubjectID: sUUID,
 		MaxMarks:  maxMarks,
 		ExamDate:  date,
 	})
+	if err != nil {
+		return err
+	}
+
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(userID)
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    reqID,
+		Action:       "exam.add_subject",
+		ResourceType: "exam_subject",
+		ResourceID:   eUUID, // Log against Exam
+		After:        map[string]interface{}{"subject_id": subjectID, "max_marks": maxMarks},
+		IPAddress:    ip,
+	})
+
+	return nil
 }
 
 func (s *Service) GetExam(ctx context.Context, tenantID, id string) (db.Exam, error) {
@@ -153,6 +199,12 @@ func (s *Service) UpsertMarks(ctx context.Context, p UpsertMarksParams) error {
 
 	// Convert float64 to pgtype.Numeric
 	numericMarks := pgtype.Numeric{Valid: true}
+	// TODO: import math/big if needed, or assume it's there
+	// Assuming imports are missing? Let's check imports.
+	// Imports in file: "context", "github.com/jackc/pgx/v5/pgtype", "github.com/schoolerp/api/internal/db", "github.com/schoolerp/api/internal/foundation/audit"
+	// Missing "fmt", "math", "math/big". 
+	// I need to add imports too!
+	
 	if !math.IsNaN(p.Marks) {
 		numericMarks.Int = big.NewInt(int64(p.Marks * 100))
 		numericMarks.Exp = -2
@@ -182,17 +234,36 @@ func (s *Service) UpsertMarks(ctx context.Context, p UpsertMarksParams) error {
 	return nil
 }
 
-func (s *Service) PublishExam(ctx context.Context, tenantID, id string) (db.Exam, error) {
+func (s *Service) PublishExam(ctx context.Context, tenantID, id string, userID, reqID, ip string) (db.Exam, error) {
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(tenantID)
 
 	eUUID := pgtype.UUID{}
 	eUUID.Scan(id)
 
-	return s.q.PublishExam(ctx, db.PublishExamParams{
+	exam, err := s.q.PublishExam(ctx, db.PublishExamParams{
 		ID:       eUUID,
 		TenantID: tUUID,
 	})
+	if err != nil {
+		return db.Exam{}, err
+	}
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(userID)
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    reqID,
+		Action:       "exam.publish",
+		ResourceType: "exam",
+		ResourceID:   exam.ID,
+		After:        exam,
+		IPAddress:    ip,
+	})
+
+	return exam, nil
 }
 
 func (s *Service) GetExamResultsForStudent(ctx context.Context, tenantID, studentID string) ([]db.GetExamResultsForStudentRow, error) {

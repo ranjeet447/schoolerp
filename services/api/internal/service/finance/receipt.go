@@ -21,6 +21,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/schoolerp/api/internal/db"
 	"github.com/schoolerp/api/internal/foundation/audit"
+	"github.com/schoolerp/api/internal/foundation/policy"
 )
 
 type IssueReceiptParams struct {
@@ -89,6 +90,28 @@ func (s *Service) IssueReceipt(ctx context.Context, p IssueReceiptParams) (db.Re
 }
 
 func (s *Service) CancelReceipt(ctx context.Context, tenantID, receiptID, userID, reason string, requestID, ip string) (db.Receipt, error) {
+	// 0. Policy Check
+	decision, err := s.policy.Evaluate(ctx, policy.Context{
+		TenantID: tenantID,
+		Module:   "finance",
+		Action:   "cancel_receipt",
+		Role:     "accountant", // In real implementation, pass actual role
+	})
+	if err != nil {
+		return db.Receipt{}, err
+	}
+	if !decision.Allowed {
+		return db.Receipt{}, fmt.Errorf("action denied: %s", decision.DenialReason)
+	}
+
+	// 1. Acquire Lock
+	lockResource := fmt.Sprintf("receipt:%s", receiptID)
+	_, err = s.locks.Lock(ctx, tenantID, "finance", &lockResource, userID, "Cancelling Receipt")
+	if err != nil {
+		return db.Receipt{}, fmt.Errorf("could not acquire lock: %w", err)
+	}
+	defer s.locks.Unlock(ctx, tenantID, "finance", &lockResource)
+
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(tenantID)
 

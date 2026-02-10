@@ -160,7 +160,8 @@ func (h *Handler) CreateClass(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	class, err := h.svc.CreateClass(r.Context(), tenantID, req.Name, req.Level)
+	class, err := h.svc.CreateClass(r.Context(), tenantID, req.Name, req.Level,
+		middleware.GetUserID(r.Context()), middleware.GetReqID(r.Context()), r.RemoteAddr)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

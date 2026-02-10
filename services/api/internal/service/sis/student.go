@@ -245,6 +245,11 @@ type CreateGuardianParams struct {
 	Address   string
 	Relation  string
 	IsPrimary bool
+	
+	// Audit
+	UserID    string
+	RequestID string
+	IP        string
 }
 
 func (s *StudentService) AddGuardian(ctx context.Context, p CreateGuardianParams) (db.Guardian, error) {
@@ -272,31 +277,89 @@ func (s *StudentService) AddGuardian(ctx context.Context, p CreateGuardianParams
 		IsPrimary:  pgtype.Bool{Bool: p.IsPrimary, Valid: true},
 	})
 	
-	return guardian, err
+	if err != nil {
+		return guardian, err
+	}
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(p.UserID)
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    p.RequestID,
+		Action:       "student.add_guardian",
+		ResourceType: "guardian",
+		ResourceID:   guardian.ID,
+		After:        guardian,
+		IPAddress:    p.IP,
+	})
+	
+	return guardian, nil
 }
 
 // Academic Structure (Wrappers)
 
-func (s *StudentService) CreateClass(ctx context.Context, tenantID string, name string, level int32) (db.Class, error) {
+func (s *StudentService) CreateClass(ctx context.Context, tenantID string, name string, level int32, userID, reqID, ip string) (db.Class, error) {
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(tenantID)
-	return s.q.CreateClass(ctx, db.CreateClassParams{
+	
+	class, err := s.q.CreateClass(ctx, db.CreateClassParams{
 		TenantID: tUUID,
 		Name:     name,
 		Level:    pgtype.Int4{Int32: level, Valid: true},
 	})
+	if err != nil {
+		return db.Class{}, err
+	}
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(userID)
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    reqID,
+		Action:       "academic.create_class",
+		ResourceType: "class",
+		ResourceID:   class.ID,
+		After:        class,
+		IPAddress:    ip,
+	})
+
+	return class, nil
 }
 
-func (s *StudentService) CreateSection(ctx context.Context, tenantID string, classID string, name string) (db.Section, error) {
+func (s *StudentService) CreateSection(ctx context.Context, tenantID string, classID string, name string, userID, reqID, ip string) (db.Section, error) {
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(tenantID)
 	cUUID := pgtype.UUID{}
 	cUUID.Scan(classID)
-	return s.q.CreateSection(ctx, db.CreateSectionParams{
+	
+	section, err := s.q.CreateSection(ctx, db.CreateSectionParams{
 		TenantID: tUUID,
 		ClassID:  cUUID,
 		Name:     name,
 	})
+	if err != nil {
+		return db.Section{}, err
+	}
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(userID)
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    reqID,
+		Action:       "academic.create_section",
+		ResourceType: "section",
+		ResourceID:   section.ID,
+		After:        section,
+		IPAddress:    ip,
+	})
+
+	return section, nil
 }
 
 func (s *StudentService) ListAcademicStructure(ctx context.Context, tenantID string) ([]db.Class, []db.Section, error) {

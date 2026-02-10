@@ -17,6 +17,7 @@ type Querier interface {
 	AssignPlanToStudent(ctx context.Context, arg AssignPlanToStudentParams) (StudentFeePlan, error)
 	BatchUpsertAttendanceEntries(ctx context.Context, arg []BatchUpsertAttendanceEntriesParams) (int64, error)
 	CancelReceipt(ctx context.Context, arg CancelReceiptParams) (Receipt, error)
+	CheckIPAllowlist(ctx context.Context, arg CheckIPAllowlistParams) (bool, error)
 	CheckLock(ctx context.Context, arg CheckLockParams) (bool, error)
 	CountRouteAllocations(ctx context.Context, arg CountRouteAllocationsParams) (int64, error)
 	CountStudents(ctx context.Context, tenantID pgtype.UUID) (int64, error)
@@ -109,6 +110,7 @@ type Querier interface {
 	// limitations under the License.
 	CreateFile(ctx context.Context, arg CreateFileParams) (File, error)
 	CreateGuardian(ctx context.Context, arg CreateGuardianParams) (Guardian, error)
+	CreateIPAllowlist(ctx context.Context, arg CreateIPAllowlistParams) (IpAllowlist, error)
 	CreateInventoryCategory(ctx context.Context, arg CreateInventoryCategoryParams) (InventoryCategory, error)
 	CreateInventoryItem(ctx context.Context, arg CreateInventoryItemParams) (InventoryItem, error)
 	CreateInventoryTransaction(ctx context.Context, arg CreateInventoryTransactionParams) (InventoryTransaction, error)
@@ -129,6 +131,7 @@ type Querier interface {
 	// See the License for the specific language governing permissions and
 	// limitations under the License.
 	CreateNotice(ctx context.Context, arg CreateNoticeParams) (Notice, error)
+	CreateOutboxEvent(ctx context.Context, arg CreateOutboxEventParams) (Outbox, error)
 	CreatePDFJob(ctx context.Context, arg CreatePDFJobParams) (PdfJob, error)
 	CreatePaymentOrder(ctx context.Context, arg CreatePaymentOrderParams) (PaymentOrder, error)
 	CreatePayrollRun(ctx context.Context, arg CreatePayrollRunParams) (PayrollRun, error)
@@ -164,6 +167,7 @@ type Querier interface {
 	CreateVehicle(ctx context.Context, arg CreateVehicleParams) (TransportVehicle, error)
 	DeleteAttendanceEntries(ctx context.Context, sessionID pgtype.UUID) error
 	DeleteDigitalAsset(ctx context.Context, id pgtype.UUID) error
+	DeleteIPAllowlist(ctx context.Context, arg DeleteIPAllowlistParams) error
 	DeleteLock(ctx context.Context, arg DeleteLockParams) error
 	DeleteNotice(ctx context.Context, arg DeleteNoticeParams) error
 	DeleteStudent(ctx context.Context, arg DeleteStudentParams) error
@@ -187,12 +191,14 @@ type Querier interface {
 	GetGroupAnalytics(ctx context.Context, groupID pgtype.UUID) (GetGroupAnalyticsRow, error)
 	GetInventoryItem(ctx context.Context, arg GetInventoryItemParams) (InventoryItem, error)
 	GetIssue(ctx context.Context, arg GetIssueParams) (LibraryIssue, error)
+	GetMFASecret(ctx context.Context, userID pgtype.UUID) (MfaSecret, error)
 	GetNextReceiptNumber(ctx context.Context, arg GetNextReceiptNumberParams) (interface{}, error)
 	GetNotice(ctx context.Context, arg GetNoticeParams) (Notice, error)
 	GetNoticeAcks(ctx context.Context, noticeID pgtype.UUID) ([]GetNoticeAcksRow, error)
 	GetPDFTemplate(ctx context.Context, arg GetPDFTemplateParams) (PdfTemplate, error)
 	GetPaymentOrder(ctx context.Context, arg GetPaymentOrderParams) (PaymentOrder, error)
 	GetPayrollRun(ctx context.Context, arg GetPayrollRunParams) (PayrollRun, error)
+	GetPendingOutboxEvents(ctx context.Context, limitCount int32) ([]Outbox, error)
 	GetPlacementDrive(ctx context.Context, arg GetPlacementDriveParams) (PlacementDrife, error)
 	// Copyright 2026 Google LLC
 	//
@@ -237,6 +243,7 @@ type Querier interface {
 	ListExams(ctx context.Context, tenantID pgtype.UUID) ([]Exam, error)
 	ListFeeHeads(ctx context.Context, tenantID pgtype.UUID) ([]FeeHead, error)
 	ListGroupMembers(ctx context.Context, groupID pgtype.UUID) ([]ListGroupMembersRow, error)
+	ListIPAllowlists(ctx context.Context, tenantID pgtype.UUID) ([]IpAllowlist, error)
 	ListInventoryCategories(ctx context.Context, tenantID pgtype.UUID) ([]InventoryCategory, error)
 	ListInventoryItems(ctx context.Context, arg ListInventoryItemsParams) ([]ListInventoryItemsRow, error)
 	ListInventoryTransactions(ctx context.Context, arg ListInventoryTransactionsParams) ([]ListInventoryTransactionsRow, error)
@@ -268,6 +275,7 @@ type Querier interface {
 	ReceivePurchaseOrder(ctx context.Context, arg ReceivePurchaseOrderParams) (PurchaseOrder, error)
 	RemoveGroupMember(ctx context.Context, arg RemoveGroupMemberParams) error
 	ReturnBook(ctx context.Context, arg ReturnBookParams) (LibraryIssue, error)
+	SetMFAEnabled(ctx context.Context, arg SetMFAEnabledParams) error
 	UpdateAlumni(ctx context.Context, arg UpdateAlumniParams) (Alumni, error)
 	UpdateApplicationFee(ctx context.Context, arg UpdateApplicationFeeParams) error
 	UpdateApplicationStatus(ctx context.Context, arg UpdateApplicationStatusParams) error
@@ -277,6 +285,7 @@ type Querier interface {
 	UpdateEnquiryStatus(ctx context.Context, arg UpdateEnquiryStatusParams) error
 	UpdateLeaveStatus(ctx context.Context, arg UpdateLeaveStatusParams) (LeaveRequest, error)
 	UpdateOrCreatePolicy(ctx context.Context, arg UpdateOrCreatePolicyParams) (Policy, error)
+	UpdateOutboxEventStatus(ctx context.Context, arg UpdateOutboxEventStatusParams) error
 	UpdatePDFJobStatus(ctx context.Context, arg UpdatePDFJobStatusParams) (PdfJob, error)
 	UpdatePOItemReceived(ctx context.Context, arg UpdatePOItemReceivedParams) error
 	UpdatePaymentOrderStatus(ctx context.Context, arg UpdatePaymentOrderStatusParams) (PaymentOrder, error)
@@ -286,6 +295,7 @@ type Querier interface {
 	UpdatePurchaseOrderStatus(ctx context.Context, arg UpdatePurchaseOrderStatusParams) (PurchaseOrder, error)
 	UpdateStudent(ctx context.Context, arg UpdateStudentParams) (Student, error)
 	UpdateVehicle(ctx context.Context, arg UpdateVehicleParams) (TransportVehicle, error)
+	UpsertMFASecret(ctx context.Context, arg UpsertMFASecretParams) error
 	UpsertMarks(ctx context.Context, arg UpsertMarksParams) error
 	UpsertStock(ctx context.Context, arg UpsertStockParams) error
 }

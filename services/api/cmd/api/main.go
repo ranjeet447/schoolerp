@@ -91,14 +91,14 @@ func main() {
 	// Initialize Foundations
 	auditLogger := audit.NewLogger(querier)
 	policyEval := policy.NewEvaluator(querier)
-	_ = locks.NewService(querier)
+	locksSvc := locks.NewService(querier)
 	approvalSvc := approvals.NewService(querier)
 	quotaSvc := quota.NewService(querier)
 
 	// Initialize Services
 	studentService := sisservice.NewStudentService(querier, auditLogger, quotaSvc)
-	attendanceService := attendservice.NewService(querier, auditLogger, policyEval, approvalSvc)
-	financeService := financeservice.NewService(querier, auditLogger)
+	attendanceService := attendservice.NewService(querier, auditLogger, policyEval, approvalSvc, locksSvc)
+	financeService := financeservice.NewService(querier, auditLogger, policyEval, locksSvc)
 	noticeService := noticeservice.NewService(querier, auditLogger)
 	examService := examservice.NewService(querier, auditLogger)
 	transportService := transportservice.NewTransportService(querier, auditLogger)
@@ -145,6 +145,7 @@ func main() {
 	r.Use(middleware.TenantResolver)       // Resolve tenant from header/subdomain
 	r.Use(middleware.AuthResolver)         // Parse JWT and set user context
 	r.Use(middleware.LocaleResolver)       // Detect language from Accept-Language
+	r.Use(middleware.IPGuard(authService.IPGuard)) // Enforce IP allowlists
 
 	// 3. Health Endpoint
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -162,8 +163,10 @@ func main() {
 		})
 
 		
+
 		// Admin Routes
 		r.Route("/admin", func(r chi.Router) {
+			r.Use(middleware.RoleGuard("super_admin", "tenant_admin"))
 			studentHandler.RegisterRoutes(r)
 			attendanceHandler.RegisterRoutes(r)
 			financeHandler.RegisterRoutes(r)
@@ -185,6 +188,7 @@ func main() {
 
 		// Teacher Routes
 		r.Route("/teacher", func(r chi.Router) {
+			r.Use(middleware.RoleGuard("teacher", "tenant_admin", "super_admin")) // Allow admins to view teacher routes too
 			attendanceHandler.RegisterRoutes(r)
 			noticeHandler.RegisterRoutes(r)
 			examHandler.RegisterRoutes(r)
@@ -192,6 +196,7 @@ func main() {
 
 		// Parent Routes
 		r.Route("/parent", func(r chi.Router) {
+			r.Use(middleware.RoleGuard("parent"))
 			studentHandler.RegisterParentRoutes(r)
 			attendanceHandler.RegisterParentRoutes(r)
 			financeHandler.RegisterParentRoutes(r)

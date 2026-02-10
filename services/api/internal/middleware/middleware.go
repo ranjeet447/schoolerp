@@ -16,6 +16,7 @@ package middleware
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -30,6 +31,7 @@ type contextKey string
 const (
 	TenantIDKey contextKey = "tenant_id"
 	UserIDKey   contextKey = "user_id"
+	RoleKey     contextKey = "role"
 	LocaleKey   contextKey = "locale"
 )
 
@@ -49,6 +51,14 @@ func GetTenantID(ctx context.Context) string {
 // GetUserID returns the user ID from the context
 func GetUserID(ctx context.Context) string {
 	if val, ok := ctx.Value(UserIDKey).(string); ok {
+		return val
+	}
+	return ""
+}
+
+// GetRole returns the user role from the context
+func GetRole(ctx context.Context) string {
+	if val, ok := ctx.Value(RoleKey).(string); ok {
 		return val
 	}
 	return ""
@@ -101,9 +111,10 @@ func AuthResolver(next http.Handler) http.Handler {
 		// 2. Extract Bearer Token
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-			// For Release 1 development, we allow fallback for non-sensitive paths if needed, 
-			// but for Absolute Zero we'll be strict on /admin and /teacher
-			if strings.HasPrefix(r.URL.Path, "/v1/admin") || strings.HasPrefix(r.URL.Path, "/v1/teacher") {
+			// Strict auth for protected routes
+			if strings.HasPrefix(r.URL.Path, "/v1/admin") || 
+			   strings.HasPrefix(r.URL.Path, "/v1/teacher") || 
+			   strings.HasPrefix(r.URL.Path, "/v1/parent") {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
@@ -125,14 +136,50 @@ func AuthResolver(next http.Handler) http.Handler {
 
 		// 4. Extract Claims
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
-			userID, _ := claims["sub"].(string)
-			ctx := context.WithValue(r.Context(), UserIDKey, userID)
+			ctx := r.Context()
+			
+			if userID, ok := claims["sub"].(string); ok {
+				ctx = context.WithValue(ctx, UserIDKey, userID)
+			}
+			if role, ok := claims["role"].(string); ok {
+				ctx = context.WithValue(ctx, RoleKey, role)
+			}
+			if tenantID, ok := claims["tenant_id"].(string); ok {
+				ctx = context.WithValue(ctx, TenantIDKey, tenantID)
+			}
+			
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
 
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	})
+}
+
+// RoleGuard enforces that the authenticated user has one of the allowed roles
+func RoleGuard(allowedRoles ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			userRole := GetRole(r.Context())
+			
+			// If no role found (unauthenticated or public), deny
+			if userRole == "" {
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+			
+			// Check if userRole is in allowedRoles
+			for _, role := range allowedRoles {
+				if role == userRole {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+			
+			// Provide slightly more detail for debugging, but generically 403
+			http.Error(w, "Forbidden: Insufficient Permissions", http.StatusForbidden)
+		})
+	}
 }
 
 // LocaleResolver extracts the locale from the Accept-Language header
@@ -152,4 +199,62 @@ func LocaleResolver(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), LocaleKey, locale)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// IPChecker interface to avoid cyclic import or tight coupling with auth service
+type IPChecker interface {
+	CheckIPAccess(ctx context.Context, tenantID, roleName, ipStr string) (bool, error)
+}
+
+// IPGuard enforces IP allowlists
+func IPGuard(checker IPChecker) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			tenantID := GetTenantID(r.Context())
+			role := GetRole(r.Context())
+			
+			// If no tenant (e.g. system admin or public?), maybe skip?
+			// If no role, skip? 
+			// Usually IP allowlists are for specific scenarios.
+			// Let's assume if tenant AND role are present, we check.
+			if tenantID == "" || role == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			
+			// Extract IP
+			// Attempt to use X-Forwarded-For or RemoteAddr
+			ip := r.Header.Get("X-Forwarded-For")
+			if ip != "" {
+				// XFF can be comma separated list, take first
+				if idx := strings.Index(ip, ","); idx != -1 {
+					ip = ip[:idx]
+				}
+			} else {
+				ip = r.RemoteAddr
+			}
+			
+			// Remove port if present
+			host, _, err := net.SplitHostPort(ip)
+			if err == nil {
+				ip = host
+			}
+
+			allowed, err := checker.CheckIPAccess(r.Context(), tenantID, role, ip)
+			if err != nil {
+				// Log error? 
+				// For security, fail open or closed? 
+				// Fail closed usually.
+				http.Error(w, "Forbidden (IP Check Failed)", http.StatusForbidden)
+				return
+			}
+			
+			if !allowed {
+				http.Error(w, "Forbidden: IP Not Allowed", http.StatusForbidden)
+				return
+			}
+			
+			next.ServeHTTP(w, r)
+		})
+	}
 }

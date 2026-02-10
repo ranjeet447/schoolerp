@@ -5,6 +5,8 @@
 package db
 
 import (
+	"net/netip"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -386,6 +388,16 @@ type InventoryTransaction struct {
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }
 
+type IpAllowlist struct {
+	ID          pgtype.UUID        `json:"id"`
+	TenantID    pgtype.UUID        `json:"tenant_id"`
+	RoleName    string             `json:"role_name"`
+	CidrBlock   netip.Prefix       `json:"cidr_block"`
+	Description pgtype.Text        `json:"description"`
+	CreatedBy   pgtype.UUID        `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
 type Lead struct {
 	ID           pgtype.UUID        `json:"id"`
 	Name         string             `json:"name"`
@@ -523,6 +535,15 @@ type MarksEntry struct {
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }
 
+type MfaSecret struct {
+	UserID      pgtype.UUID        `json:"user_id"`
+	Secret      string             `json:"secret"`
+	BackupCodes []string           `json:"backup_codes"`
+	Enabled     pgtype.Bool        `json:"enabled"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Notice struct {
 	ID        pgtype.UUID        `json:"id"`
 	TenantID  pgtype.UUID        `json:"tenant_id"`
@@ -550,6 +571,18 @@ type NotificationTemplate struct {
 	Subject   pgtype.Text        `json:"subject"`
 	Body      string             `json:"body"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type Outbox struct {
+	ID           pgtype.UUID        `json:"id"`
+	TenantID     pgtype.UUID        `json:"tenant_id"`
+	EventType    string             `json:"event_type"`
+	Payload      []byte             `json:"payload"`
+	Status       string             `json:"status"`
+	RetryCount   pgtype.Int4        `json:"retry_count"`
+	ErrorMessage pgtype.Text        `json:"error_message"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	ProcessedAt  pgtype.Timestamptz `json:"processed_at"`
 }
 
 type OutboxEvent struct {

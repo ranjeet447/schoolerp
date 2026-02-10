@@ -97,6 +97,16 @@ func (s *Service) ProcessPaymentWebhook(ctx context.Context, tenantID string, bo
 		// 3. Update Order Status
 		// 4. Issue Receipt automatically
 		log.Printf("[Webhook] Payment success for order: %s", event.Payload.Order.Entity.ID)
+
+		// 5. Outbox Event
+		tUUID := pgtype.UUID{}
+		tUUID.Scan(tenantID)
+		payload, _ := json.Marshal(event.Payload)
+		_, _ = s.q.CreateOutboxEvent(ctx, db.CreateOutboxEventParams{
+			TenantID:  tUUID,
+			EventType: "fee.paid",
+			Payload:   payload,
+		})
 	}
 
 	return nil

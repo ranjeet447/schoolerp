@@ -35,10 +35,16 @@ var (
 
 type Service struct {
 	queries *db.Queries
+	MFA     *MFAService
+	IPGuard *IPGuard
 }
 
 func NewService(queries *db.Queries) *Service {
-	return &Service{queries: queries}
+	return &Service{
+		queries: queries,
+		MFA:     NewMFAService(queries),
+		IPGuard: NewIPGuard(queries),
+	}
 }
 
 // LoginResult contains the JWT token and user info after successful auth

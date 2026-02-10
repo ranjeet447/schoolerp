@@ -95,6 +95,7 @@ func (h *Handler) CreateSupplier(w http.ResponseWriter, r *http.Request) {
 	supplier, err := h.svc.CreateSupplier(ctx, 
 		middleware.GetTenantID(ctx), 
 		req.Name, req.ContactPerson, req.Phone, req.Email, req.Address,
+		middleware.GetUserID(ctx), middleware.GetReqID(ctx), r.RemoteAddr,
 	)
 
 	if err != nil {
