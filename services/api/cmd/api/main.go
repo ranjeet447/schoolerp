@@ -37,6 +37,7 @@ import (
 	"github.com/schoolerp/api/internal/foundation/locks"
 	"github.com/schoolerp/api/internal/foundation/policy"
 	"github.com/schoolerp/api/internal/foundation/quota"
+	academic "github.com/schoolerp/api/internal/handler/academics"
 	"github.com/schoolerp/api/internal/handler/admission"
 	"github.com/schoolerp/api/internal/handler/alumni"
 	"github.com/schoolerp/api/internal/handler/attendance"
@@ -53,6 +54,7 @@ import (
 	"github.com/schoolerp/api/internal/handler/sis"
 	"github.com/schoolerp/api/internal/handler/transport"
 	"github.com/schoolerp/api/internal/middleware"
+	academicservice "github.com/schoolerp/api/internal/service/academics"
 	admissionservice "github.com/schoolerp/api/internal/service/admission"
 	alumniservice "github.com/schoolerp/api/internal/service/alumni"
 	attendservice "github.com/schoolerp/api/internal/service/attendance"
@@ -143,6 +145,7 @@ func main() {
 	authService := authservice.NewService(querier)
 	rolesService := rolesservice.NewService(querier)
 	notificationService := notificationservice.NewService(querier)
+	academicService := academicservice.NewService(querier, auditLogger)
 	
 	// Initialize Handlers
 	studentHandler := sis.NewHandler(studentService)
@@ -151,6 +154,7 @@ func main() {
 	noticeHandler := notices.NewHandler(noticeService)
 	notificationHandler := notification.NewHandler(notificationService)
 	examHandler := exams.NewHandler(examService)
+	academicHandler := academic.NewHandler(academicService)
 	transportHandler := transport.NewHandler(transportService)
 	libraryHandler := library.NewHandler(libraryService)
 	inventoryHandler := inventory.NewHandler(inventoryService)
@@ -222,6 +226,7 @@ func main() {
 			noticeHandler.RegisterRoutes(r)
 			notificationHandler.RegisterRoutes(r)
 			examHandler.RegisterRoutes(r)
+			academicHandler.RegisterRoutes(r)
 			transportHandler.RegisterRoutes(r)
 			libraryHandler.RegisterRoutes(r)
 			inventoryHandler.RegisterRoutes(r)
@@ -242,6 +247,7 @@ func main() {
 			attendanceHandler.RegisterRoutes(r)
 			noticeHandler.RegisterRoutes(r)
 			examHandler.RegisterRoutes(r)
+			academicHandler.RegisterRoutes(r)
 		})
 
 		// Parent Routes
@@ -252,6 +258,7 @@ func main() {
 			financeHandler.RegisterParentRoutes(r)
 			noticeHandler.RegisterParentRoutes(r)
 			examHandler.RegisterParentRoutes(r)
+			academicHandler.RegisterStudentRoutes(r)
 		})
 	})
 
