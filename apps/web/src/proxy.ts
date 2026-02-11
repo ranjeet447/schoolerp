@@ -1,29 +1,24 @@
 import { NextResponse } from 'next/server';
-import createMiddleware from 'next-intl/middleware';
 
-const intlMiddleware = createMiddleware({
-  locales: ['en', 'hi'],
-  defaultLocale: 'en',
-  localePrefix: 'never'
-});
-
-export function proxy(request: any) {
+export default function proxy(request: any) {
   const hostname = request.headers.get('host') || '';
   const parts = hostname.split('.');
   let tenant = '';
 
   if (parts.length >= 2) {
-    if (parts[0] !== 'www' && parts[0] !== 'localhost') {
+    if (parts[0] !== 'www' && parts[0] !== 'localhost' && !parts[0].includes('vercel')) {
       tenant = parts[0];
     }
   }
 
-  // Use intlMiddleware to handle locale cookies/headers
-  const response = intlMiddleware(request);
+  const response = NextResponse.next();
 
   if (tenant) {
     response.headers.set('X-Tenant-ID', tenant);
   }
+
+  // Diagnostic header to verify proxy inclusion
+  response.headers.set('X-Proxy-Active', 'true');
 
   return response;
 }
