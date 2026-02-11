@@ -181,14 +181,22 @@ func (s *InventoryService) CreateTransaction(ctx context.Context, p StockTransac
 	}
 
 	// 1. Create Transaction Record
+	price := pgtype.Numeric{}
+	price.Scan(fmt.Sprintf("%.2f", p.UnitPrice))
+
+	refID := pgtype.UUID{}
+	if p.ReferenceID != "" {
+		refID.Scan(p.ReferenceID)
+	}
+
 	txn, err := s.q.CreateInventoryTransaction(ctx, db.CreateInventoryTransactionParams{
 		TenantID:      tID,
 		ItemID:        iID,
 		Type:          p.Type,
 		Quantity:      p.Quantity,
-		UnitPrice:     pgtype.Numeric{Int: nil, Valid: false}, // TODO: Handle numeric
+		UnitPrice:     price,
 		SupplierID:    sID,
-		ReferenceID:   pgtype.UUID{}, // TODO: Handle ref ID
+		ReferenceID:   refID,
 		ReferenceType: pgtype.Text{String: p.ReferenceType, Valid: p.ReferenceType != ""},
 		Remarks:       pgtype.Text{String: p.Remarks, Valid: p.Remarks != ""},
 		CreatedBy:     uID,
@@ -201,6 +209,11 @@ func (s *InventoryService) CreateTransaction(ctx context.Context, p StockTransac
 	// Calculate delta: 'in' adds, 'out' subtracts
 	delta := p.Quantity
 	if p.Type == "out" {
+		// Check availability for OUT transactions
+		stock, sErr := s.q.GetStock(ctx, db.GetStockParams{ItemID: iID, TenantID: tID})
+		if sErr == nil && stock.Quantity < p.Quantity {
+			return db.InventoryTransaction{}, fmt.Errorf("insufficient stock: available %d, requested %d", stock.Quantity, p.Quantity)
+		}
 		delta = -p.Quantity
 	}
 	
@@ -354,12 +367,13 @@ func (s *InventoryService) ReceivePurchaseOrder(ctx context.Context, tenantID, p
 	// Auto-create inventory transactions for received items
 	items, _ := s.q.ListPurchaseOrderItems(ctx, pID)
 	for _, item := range items {
+		uPrice, _ := item.UnitPrice.Float64Value()
 		s.CreateTransaction(ctx, StockTransactionParams{
 			TenantID:      tenantID,
 			ItemID:        item.ItemID.String(),
 			Type:          "in",
 			Quantity:      int32(item.Quantity),
-			UnitPrice:     0, // TODO: convert Numeric
+			UnitPrice:     uPrice.Float64,
 			ReferenceID:   poID,
 			ReferenceType: "purchase_order",
 			Remarks:       "Received from PO",

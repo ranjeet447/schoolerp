@@ -53,6 +53,15 @@ DO UPDATE SET
     quantity = inventory_stocks.quantity + $4,
     updated_at = NOW();
 
+-- name: GetStock :one
+SELECT 
+    item_id,
+    tenant_id,
+    COALESCE(SUM(quantity), 0)::INTEGER as quantity
+FROM inventory_stocks
+WHERE item_id = $1 AND tenant_id = $2
+GROUP BY item_id, tenant_id;
+
 -- name: CreateInventoryTransaction :one
 INSERT INTO inventory_transactions (
     tenant_id, item_id, type, quantity, unit_price, supplier_id, reference_id, reference_type, remarks, created_by

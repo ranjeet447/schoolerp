@@ -322,6 +322,34 @@ func (q *Queries) GetPurchaseOrder(ctx context.Context, arg GetPurchaseOrderPara
 	return i, err
 }
 
+const getStock = `-- name: GetStock :one
+SELECT 
+    item_id,
+    tenant_id,
+    COALESCE(SUM(quantity), 0)::INTEGER as quantity
+FROM inventory_stocks
+WHERE item_id = $1 AND tenant_id = $2
+GROUP BY item_id, tenant_id
+`
+
+type GetStockParams struct {
+	ItemID   pgtype.UUID `json:"item_id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+}
+
+type GetStockRow struct {
+	ItemID   pgtype.UUID `json:"item_id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+	Quantity int32       `json:"quantity"`
+}
+
+func (q *Queries) GetStock(ctx context.Context, arg GetStockParams) (GetStockRow, error) {
+	row := q.db.QueryRow(ctx, getStock, arg.ItemID, arg.TenantID)
+	var i GetStockRow
+	err := row.Scan(&i.ItemID, &i.TenantID, &i.Quantity)
+	return i, err
+}
+
 const listInventoryCategories = `-- name: ListInventoryCategories :many
 SELECT id, tenant_id, name, type, description, created_at, updated_at FROM inventory_categories
 WHERE tenant_id = $1

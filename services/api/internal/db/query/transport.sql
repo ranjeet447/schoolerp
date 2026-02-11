@@ -77,3 +77,7 @@ WHERE route_id = $1 AND tenant_id = $2 AND status = 'active';
 -- name: GetRouteStop :one
 SELECT * FROM transport_route_stops
 WHERE id = $1;
+
+-- name: GetMaxStopSequence :one
+SELECT COALESCE(MAX(sequence_order), 0)::INTEGER FROM transport_route_stops
+WHERE route_id = $1;

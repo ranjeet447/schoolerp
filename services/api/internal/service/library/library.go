@@ -12,14 +12,16 @@ import (
 )
 
 type LibraryService struct {
-	q     db.Querier
-	audit *audit.Logger
+	q          db.Querier
+	audit      *audit.Logger
+	finePerDay float64
 }
 
 func NewLibraryService(q db.Querier, audit *audit.Logger) *LibraryService {
 	return &LibraryService{
-		q:     q,
-		audit: audit,
+		q:          q,
+		audit:      audit,
+		finePerDay: 1.0, // Default $1 per day, can be externalized to DB/Config
 	}
 }
 
@@ -42,14 +44,38 @@ type CreateBookParams struct {
 	IP              string
 }
 
+func (s *LibraryService) ISBNLookup(ctx context.Context, isbn string) (map[string]interface{}, error) {
+	// Stub: Simulate external API call (e.g., Google Books API)
+	if isbn == "" {
+		return nil, errors.New("invalid isbn")
+	}
+	return map[string]interface{}{
+		"title":     "Auto Cataloged: " + isbn,
+		"publisher": "Open Library Stub",
+		"year":      2024,
+	}, nil
+}
+
 func (s *LibraryService) CreateBook(ctx context.Context, p CreateBookParams) (db.LibraryBook, error) {
 	tenantUuid := pgtype.UUID{}
 	tenantUuid.Scan(p.TenantID)
+
+	// Auto-fill from ISBN if title/publisher missing
+	if p.Title == "" && p.ISBN != "" {
+		if data, err := s.ISBNLookup(ctx, p.ISBN); err == nil {
+			p.Title = data["title"].(string)
+			p.Publisher = data["publisher"].(string)
+			p.PublishedYear = int32(data["year"].(int))
+		}
+	}
 
 	catUuid := pgtype.UUID{}
 	if p.CategoryID != "" {
 		catUuid.Scan(p.CategoryID)
 	}
+
+	price := pgtype.Numeric{}
+	price.Scan(fmt.Sprintf("%.2f", p.Price))
 
 	book, err := s.q.CreateBook(ctx, db.CreateBookParams{
 		TenantID:        tenantUuid,
@@ -61,7 +87,7 @@ func (s *LibraryService) CreateBook(ctx context.Context, p CreateBookParams) (db
 		TotalCopies:     p.TotalCopies,
 		AvailableCopies: p.TotalCopies,
 		ShelfLocation:   pgtype.Text{String: p.ShelfLocation, Valid: p.ShelfLocation != ""},
-		Price:           pgtype.Numeric{Int: nil, Valid: false}, // Simplified numeric handling
+		Price:           price,
 		Language:        pgtype.Text{String: p.Language, Valid: p.Language != ""},
 		Status:          "active",
 	})
@@ -203,13 +229,13 @@ func (s *LibraryService) ReturnBook(ctx context.Context, p ReturnBookParams) (db
 		return issue, nil // Already returned
 	}
 
-	// 2. Calculate Fine: $1 per day overdue
+	// 2. Calculate Fine
 	var fineAmount float64 = 0.0
 	now := time.Now()
 	if issue.DueDate.Valid && now.After(issue.DueDate.Time) {
 		daysOverdue := int(now.Sub(issue.DueDate.Time).Hours() / 24)
 		if daysOverdue > 0 {
-			fineAmount = float64(daysOverdue) * 1.0 // $1 per day
+			fineAmount = float64(daysOverdue) * s.finePerDay
 		}
 	}
 

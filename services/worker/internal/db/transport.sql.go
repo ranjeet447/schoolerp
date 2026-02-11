@@ -236,6 +236,18 @@ func (q *Queries) DeleteVehicle(ctx context.Context, arg DeleteVehicleParams) er
 	return err
 }
 
+const getMaxStopSequence = `-- name: GetMaxStopSequence :one
+SELECT COALESCE(MAX(sequence_order), 0)::INTEGER FROM transport_route_stops
+WHERE route_id = $1
+`
+
+func (q *Queries) GetMaxStopSequence(ctx context.Context, routeID pgtype.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, getMaxStopSequence, routeID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const getRoute = `-- name: GetRoute :one
 SELECT id, tenant_id, name, vehicle_id, driver_id, description, is_active, created_at, updated_at FROM transport_routes
 WHERE id = $1 AND tenant_id = $2

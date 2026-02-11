@@ -202,11 +202,16 @@ func (s *TransportService) CreateRouteStop(ctx context.Context, p CreateStopPara
 	rUUID := pgtype.UUID{}
 	rUUID.Scan(p.RouteID)
 
+	// Auto-sequence if order is 0
+	if p.SequenceOrder == 0 {
+		max, _ := s.q.GetMaxStopSequence(ctx, rUUID)
+		p.SequenceOrder = max + 1
+	}
+
 	return s.q.CreateRouteStop(ctx, db.CreateRouteStopParams{
 		RouteID:       rUUID,
 		Name:          p.Name,
 		SequenceOrder: p.SequenceOrder,
-		// Assuming other fields are optional or have defaults for now based on sql content
 	})
 }
 
