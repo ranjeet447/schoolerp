@@ -219,7 +219,7 @@ export default function LoginPage() {
           </div>
 
           <div className="grid grid-cols-3 gap-4">
-            <button onClick={() => { setEmail('admin@school.edu.in'); }} className="p-4 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10 transition-all text-center group cursor-pointer backdrop-blur-md">
+            <button onClick={() => { setEmail('admin@school.edu'); }} className="p-4 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10 transition-all text-center group cursor-pointer backdrop-blur-md">
               <div className="h-10 w-10 bg-slate-800 text-indigo-400 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 group-hover:bg-indigo-500 group-hover:text-white transition-all duration-300">
                 <ShieldCheck className="h-6 w-6" />
               </div>

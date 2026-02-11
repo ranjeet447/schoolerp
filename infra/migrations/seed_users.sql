@@ -132,7 +132,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO users (id, email, phone, full_name, is_active)
 VALUES (
     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-    'admin@school.edu.in',
+    'admin@school.edu',
     '+919876543210',
     'Dr. Admin Kumar',
     TRUE
@@ -143,7 +143,7 @@ VALUES (
     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab',
     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
     'password',
-    'admin@school.edu.in',
+    'admin@school.edu',
     'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f'
 ) ON CONFLICT (provider, identifier) DO NOTHING;
 
@@ -151,7 +151,7 @@ VALUES (
 INSERT INTO users (id, email, phone, full_name, is_active)
 VALUES (
     'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-    'teacher@school.edu.in',
+    'teacher@school.edu',
     '+919876543211',
     'Ms. Priya Sharma',
     TRUE
@@ -162,7 +162,7 @@ VALUES (
     'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbc',
     'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
     'password',
-    'teacher@school.edu.in',
+    'teacher@school.edu',
     'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f'
 ) ON CONFLICT (provider, identifier) DO NOTHING;
 
@@ -170,7 +170,7 @@ VALUES (
 INSERT INTO users (id, email, phone, full_name, is_active)
 VALUES (
     'cccccccc-cccc-cccc-cccc-cccccccccccc',
-    'parent@school.edu.in',
+    'parent@school.edu',
     '+919876543212',
     'Mr. Rajesh Patel',
     TRUE
@@ -181,7 +181,7 @@ VALUES (
     'cccccccc-cccc-cccc-cccc-cccccccccccd',
     'cccccccc-cccc-cccc-cccc-cccccccccccc',
     'password',
-    'parent@school.edu.in',
+    'parent@school.edu',
     'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f'
 ) ON CONFLICT (provider, identifier) DO NOTHING;
 
@@ -189,7 +189,7 @@ VALUES (
 INSERT INTO users (id, email, phone, full_name, is_active)
 VALUES (
     'dddddddd-dddd-dddd-dddd-dddddddddddd',
-    'accountant@school.edu.in',
+    'accountant@school.edu',
     '+919876543213',
     'Mr. Finance Singh',
     TRUE
@@ -200,7 +200,7 @@ VALUES (
     'dddddddd-dddd-dddd-dddd-ddddddddddde',
     'dddddddd-dddd-dddd-dddd-dddddddddddd',
     'password',
-    'accountant@school.edu.in',
+    'accountant@school.edu',
     'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f'
 ) ON CONFLICT (provider, identifier) DO NOTHING;
 
@@ -267,7 +267,7 @@ COMMIT;
 -- ============================================
 -- | Email                  | Password    | Role        |
 -- |------------------------|-------------|-------------|
--- | admin@school.edu.in       | password123 | Tenant Admin|
--- | teacher@school.edu.in     | password123 | Teacher     |
--- | parent@school.edu.in      | password123 | Parent      |
--- | accountant@school.edu.in  | password123 | Accountant  |
+-- | admin@school.edu       | password123 | Tenant Admin|
+-- | teacher@school.edu     | password123 | Teacher     |
+-- | parent@school.edu      | password123 | Parent      |
+-- | accountant@school.edu  | password123 | Accountant  |
