@@ -106,3 +106,51 @@ SELECT EXISTS (
     WHERE tenant_id = $1 AND gateway_event_id = $2
 ) as processed;
 
+-- name: CreateReceiptSeries :one
+INSERT INTO receipt_series (tenant_id, branch_id, prefix, current_number, is_active)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: ListReceiptSeries :many
+SELECT * FROM receipt_series WHERE tenant_id = $1;
+
+-- name: UpdateReceiptSeries :one
+UPDATE receipt_series
+SET is_active = $3, updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2
+RETURNING *;
+
+-- name: UpsertLedgerMapping :one
+INSERT INTO tally_ledger_mappings (tenant_id, fee_head_id, tally_ledger_name)
+VALUES ($1, $2, $3)
+ON CONFLICT (tenant_id, fee_head_id) DO UPDATE
+SET tally_ledger_name = EXCLUDED.tally_ledger_name
+RETURNING *;
+
+-- name: ListLedgerMappings :many
+SELECT lm.*, fh.name as fee_head_name
+FROM tally_ledger_mappings lm
+JOIN fee_heads fh ON lm.fee_head_id = fh.id
+WHERE lm.tenant_id = $1;
+
+-- name: GetTallyExportData :many
+SELECT 
+    r.receipt_number,
+    r.amount_paid,
+    r.created_at,
+    r.payment_mode,
+    s.admission_number,
+    s.full_name as student_name,
+    tlm.tally_ledger_name
+FROM receipts r
+JOIN students s ON r.student_id = s.id
+LEFT JOIN student_fee_plans sfp ON s.id = sfp.student_id
+LEFT JOIN fee_plans fp ON sfp.plan_id = fp.id
+-- Simple mapping for demo: using the first head's mapping from the plan
+LEFT JOIN fee_plan_items fpi ON fp.id = fpi.plan_id
+LEFT JOIN tally_ledger_mappings tlm ON fpi.head_id = tlm.fee_head_id AND r.tenant_id = tlm.tenant_id
+WHERE r.tenant_id = $1 AND r.created_at BETWEEN $2 AND $3
+ORDER BY r.created_at ASC;
+
+
+

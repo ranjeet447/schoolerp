@@ -156,3 +156,34 @@ func (s *Service) ListStudentReceipts(ctx context.Context, tenantID, studentID s
 		TenantID:  tUUID,
 	})
 }
+func (s *Service) CreateRefund(ctx context.Context, tenantID, receiptID string, amount int64, reason string) (db.FeeRefund, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	rUUID := pgtype.UUID{}
+	rUUID.Scan(receiptID)
+
+	return s.q.CreateRefund(ctx, db.CreateRefundParams{
+		TenantID:  tUUID,
+		ReceiptID: rUUID,
+		Amount:    amount,
+		Reason:    pgtype.Text{String: reason, Valid: true},
+	})
+}
+
+func (s *Service) CreateReceiptSeries(ctx context.Context, tenantID, prefix string, startNo int32) (db.ReceiptSeries, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+
+	return s.q.CreateReceiptSeries(ctx, db.CreateReceiptSeriesParams{
+		TenantID:      tUUID,
+		Prefix:        prefix,
+		CurrentNumber: pgtype.Int4{Int32: startNo, Valid: true},
+		IsActive:      pgtype.Bool{Bool: true, Valid: true},
+	})
+}
+
+func (s *Service) ListReceiptSeries(ctx context.Context, tenantID string) ([]db.ReceiptSeries, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	return s.q.ListReceiptSeries(ctx, tUUID)
+}

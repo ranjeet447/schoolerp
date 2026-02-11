@@ -46,7 +46,10 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/razorpay-webhook", h.HandleWebhook)
 	})
 	r.Route("/receipts", func(r chi.Router) {
+		r.Get("/series", h.ListReceiptSeries)
+		r.Post("/series", h.CreateReceiptSeries)
 		r.Post("/{id}/cancel", h.CancelReceipt)
+		r.Post("/{id}/refund", h.CreateRefund)
 	})
 }
 
@@ -240,3 +243,50 @@ func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 }
+
+func (h *Handler) ListReceiptSeries(w http.ResponseWriter, r *http.Request) {
+	series, err := h.svc.ListReceiptSeries(r.Context(), middleware.GetTenantID(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(series)
+}
+
+func (h *Handler) CreateReceiptSeries(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Prefix  string `json:"prefix"`
+		StartNo int32  `json:"start_number"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	series, err := h.svc.CreateReceiptSeries(r.Context(), middleware.GetTenantID(r.Context()), req.Prefix, req.StartNo)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(series)
+}
+
+func (h *Handler) CreateRefund(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var req struct {
+		Amount int64  `json:"amount"`
+		Reason string `json:"reason"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	refund, err := h.svc.CreateRefund(r.Context(), middleware.GetTenantID(r.Context()), id, req.Amount, req.Reason)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(refund)
+}
+

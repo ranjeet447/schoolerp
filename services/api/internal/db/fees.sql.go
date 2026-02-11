@@ -281,6 +281,42 @@ func (q *Queries) CreateReceipt(ctx context.Context, arg CreateReceiptParams) (R
 	return i, err
 }
 
+const createReceiptSeries = `-- name: CreateReceiptSeries :one
+INSERT INTO receipt_series (tenant_id, branch_id, prefix, current_number, is_active)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, tenant_id, branch_id, prefix, current_number, is_active, created_at, updated_at
+`
+
+type CreateReceiptSeriesParams struct {
+	TenantID      pgtype.UUID `json:"tenant_id"`
+	BranchID      pgtype.UUID `json:"branch_id"`
+	Prefix        string      `json:"prefix"`
+	CurrentNumber pgtype.Int4 `json:"current_number"`
+	IsActive      pgtype.Bool `json:"is_active"`
+}
+
+func (q *Queries) CreateReceiptSeries(ctx context.Context, arg CreateReceiptSeriesParams) (ReceiptSeries, error) {
+	row := q.db.QueryRow(ctx, createReceiptSeries,
+		arg.TenantID,
+		arg.BranchID,
+		arg.Prefix,
+		arg.CurrentNumber,
+		arg.IsActive,
+	)
+	var i ReceiptSeries
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.BranchID,
+		&i.Prefix,
+		&i.CurrentNumber,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createRefund = `-- name: CreateRefund :one
 INSERT INTO fee_refunds (tenant_id, receipt_id, amount, reason)
 VALUES ($1, $2, $3, $4)
@@ -427,6 +463,70 @@ func (q *Queries) GetStudentFeeSummary(ctx context.Context, studentID pgtype.UUI
 	return items, nil
 }
 
+const getTallyExportData = `-- name: GetTallyExportData :many
+SELECT 
+    r.receipt_number,
+    r.amount_paid,
+    r.created_at,
+    r.payment_mode,
+    s.admission_number,
+    s.full_name as student_name,
+    tlm.tally_ledger_name
+FROM receipts r
+JOIN students s ON r.student_id = s.id
+LEFT JOIN student_fee_plans sfp ON s.id = sfp.student_id
+LEFT JOIN fee_plans fp ON sfp.plan_id = fp.id
+LEFT JOIN fee_plan_items fpi ON fp.id = fpi.plan_id
+LEFT JOIN tally_ledger_mappings tlm ON fpi.head_id = tlm.fee_head_id AND r.tenant_id = tlm.tenant_id
+WHERE r.tenant_id = $1 AND r.created_at BETWEEN $2 AND $3
+ORDER BY r.created_at ASC
+`
+
+type GetTallyExportDataParams struct {
+	TenantID    pgtype.UUID        `json:"tenant_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	CreatedAt_2 pgtype.Timestamptz `json:"created_at_2"`
+}
+
+type GetTallyExportDataRow struct {
+	ReceiptNumber   string             `json:"receipt_number"`
+	AmountPaid      int64              `json:"amount_paid"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	PaymentMode     string             `json:"payment_mode"`
+	AdmissionNumber string             `json:"admission_number"`
+	StudentName     string             `json:"student_name"`
+	TallyLedgerName pgtype.Text        `json:"tally_ledger_name"`
+}
+
+// Simple mapping for demo: using the first head's mapping from the plan
+func (q *Queries) GetTallyExportData(ctx context.Context, arg GetTallyExportDataParams) ([]GetTallyExportDataRow, error) {
+	rows, err := q.db.Query(ctx, getTallyExportData, arg.TenantID, arg.CreatedAt, arg.CreatedAt_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetTallyExportDataRow
+	for rows.Next() {
+		var i GetTallyExportDataRow
+		if err := rows.Scan(
+			&i.ReceiptNumber,
+			&i.AmountPaid,
+			&i.CreatedAt,
+			&i.PaymentMode,
+			&i.AdmissionNumber,
+			&i.StudentName,
+			&i.TallyLedgerName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFeeHeads = `-- name: ListFeeHeads :many
 SELECT id, tenant_id, name, type, created_at FROM fee_heads WHERE tenant_id = $1
 `
@@ -446,6 +546,82 @@ func (q *Queries) ListFeeHeads(ctx context.Context, tenantID pgtype.UUID) ([]Fee
 			&i.Name,
 			&i.Type,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLedgerMappings = `-- name: ListLedgerMappings :many
+SELECT lm.id, lm.tenant_id, lm.fee_head_id, lm.tally_ledger_name, lm.created_at, fh.name as fee_head_name
+FROM tally_ledger_mappings lm
+JOIN fee_heads fh ON lm.fee_head_id = fh.id
+WHERE lm.tenant_id = $1
+`
+
+type ListLedgerMappingsRow struct {
+	ID              pgtype.UUID        `json:"id"`
+	TenantID        pgtype.UUID        `json:"tenant_id"`
+	FeeHeadID       pgtype.UUID        `json:"fee_head_id"`
+	TallyLedgerName string             `json:"tally_ledger_name"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	FeeHeadName     string             `json:"fee_head_name"`
+}
+
+func (q *Queries) ListLedgerMappings(ctx context.Context, tenantID pgtype.UUID) ([]ListLedgerMappingsRow, error) {
+	rows, err := q.db.Query(ctx, listLedgerMappings, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLedgerMappingsRow
+	for rows.Next() {
+		var i ListLedgerMappingsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.FeeHeadID,
+			&i.TallyLedgerName,
+			&i.CreatedAt,
+			&i.FeeHeadName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReceiptSeries = `-- name: ListReceiptSeries :many
+SELECT id, tenant_id, branch_id, prefix, current_number, is_active, created_at, updated_at FROM receipt_series WHERE tenant_id = $1
+`
+
+func (q *Queries) ListReceiptSeries(ctx context.Context, tenantID pgtype.UUID) ([]ReceiptSeries, error) {
+	rows, err := q.db.Query(ctx, listReceiptSeries, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReceiptSeries
+	for rows.Next() {
+		var i ReceiptSeries
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.BranchID,
+			&i.Prefix,
+			&i.CurrentNumber,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -557,6 +733,62 @@ func (q *Queries) UpdatePaymentOrderStatus(ctx context.Context, arg UpdatePaymen
 		&i.Mode,
 		&i.Status,
 		&i.ExternalRef,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updateReceiptSeries = `-- name: UpdateReceiptSeries :one
+UPDATE receipt_series
+SET is_active = $3, updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2
+RETURNING id, tenant_id, branch_id, prefix, current_number, is_active, created_at, updated_at
+`
+
+type UpdateReceiptSeriesParams struct {
+	ID       pgtype.UUID `json:"id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+	IsActive pgtype.Bool `json:"is_active"`
+}
+
+func (q *Queries) UpdateReceiptSeries(ctx context.Context, arg UpdateReceiptSeriesParams) (ReceiptSeries, error) {
+	row := q.db.QueryRow(ctx, updateReceiptSeries, arg.ID, arg.TenantID, arg.IsActive)
+	var i ReceiptSeries
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.BranchID,
+		&i.Prefix,
+		&i.CurrentNumber,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertLedgerMapping = `-- name: UpsertLedgerMapping :one
+INSERT INTO tally_ledger_mappings (tenant_id, fee_head_id, tally_ledger_name)
+VALUES ($1, $2, $3)
+ON CONFLICT (tenant_id, fee_head_id) DO UPDATE
+SET tally_ledger_name = EXCLUDED.tally_ledger_name
+RETURNING id, tenant_id, fee_head_id, tally_ledger_name, created_at
+`
+
+type UpsertLedgerMappingParams struct {
+	TenantID        pgtype.UUID `json:"tenant_id"`
+	FeeHeadID       pgtype.UUID `json:"fee_head_id"`
+	TallyLedgerName string      `json:"tally_ledger_name"`
+}
+
+func (q *Queries) UpsertLedgerMapping(ctx context.Context, arg UpsertLedgerMappingParams) (TallyLedgerMapping, error) {
+	row := q.db.QueryRow(ctx, upsertLedgerMapping, arg.TenantID, arg.FeeHeadID, arg.TallyLedgerName)
+	var i TallyLedgerMapping
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.FeeHeadID,
+		&i.TallyLedgerName,
 		&i.CreatedAt,
 	)
 	return i, err

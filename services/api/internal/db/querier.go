@@ -143,6 +143,7 @@ type Querier interface {
 	CreatePurchaseOrder(ctx context.Context, arg CreatePurchaseOrderParams) (PurchaseOrder, error)
 	CreatePurchaseOrderItem(ctx context.Context, arg CreatePurchaseOrderItemParams) (PurchaseOrderItem, error)
 	CreateReceipt(ctx context.Context, arg CreateReceiptParams) (Receipt, error)
+	CreateReceiptSeries(ctx context.Context, arg CreateReceiptSeriesParams) (ReceiptSeries, error)
 	CreateRefund(ctx context.Context, arg CreateRefundParams) (FeeRefund, error)
 	CreateRoute(ctx context.Context, arg CreateRouteParams) (TransportRoute, error)
 	CreateRouteStop(ctx context.Context, arg CreateRouteStopParams) (TransportRouteStop, error)
@@ -224,6 +225,8 @@ type Querier interface {
 	GetStudent(ctx context.Context, arg GetStudentParams) (GetStudentRow, error)
 	GetStudentFeeSummary(ctx context.Context, studentID pgtype.UUID) ([]GetStudentFeeSummaryRow, error)
 	GetStudentGuardians(ctx context.Context, studentID pgtype.UUID) ([]GetStudentGuardiansRow, error)
+	// Simple mapping for demo: using the first head's mapping from the plan
+	GetTallyExportData(ctx context.Context, arg GetTallyExportDataParams) ([]GetTallyExportDataRow, error)
 	GetVehicle(ctx context.Context, arg GetVehicleParams) (TransportVehicle, error)
 	IssueBook(ctx context.Context, arg IssueBookParams) (LibraryIssue, error)
 	LinkStudentGuardian(ctx context.Context, arg LinkStudentGuardianParams) error
@@ -250,6 +253,7 @@ type Querier interface {
 	ListInventoryTransactions(ctx context.Context, arg ListInventoryTransactionsParams) ([]ListInventoryTransactionsRow, error)
 	ListIssues(ctx context.Context, arg ListIssuesParams) ([]ListIssuesRow, error)
 	ListLeaveRequests(ctx context.Context, arg ListLeaveRequestsParams) ([]ListLeaveRequestsRow, error)
+	ListLedgerMappings(ctx context.Context, tenantID pgtype.UUID) ([]ListLedgerMappingsRow, error)
 	ListNotices(ctx context.Context, tenantID pgtype.UUID) ([]ListNoticesRow, error)
 	// This is a bit simplified, in real prod you'd filter by scope.
 	// For now, we fetch all notices for the tenant.
@@ -263,6 +267,7 @@ type Querier interface {
 	ListPolicies(ctx context.Context, tenantID pgtype.UUID) ([]Policy, error)
 	ListPurchaseOrderItems(ctx context.Context, poID pgtype.UUID) ([]ListPurchaseOrderItemsRow, error)
 	ListPurchaseOrders(ctx context.Context, arg ListPurchaseOrdersParams) ([]ListPurchaseOrdersRow, error)
+	ListReceiptSeries(ctx context.Context, tenantID pgtype.UUID) ([]ReceiptSeries, error)
 	ListRouteStops(ctx context.Context, routeID pgtype.UUID) ([]TransportRouteStop, error)
 	ListRoutes(ctx context.Context, tenantID pgtype.UUID) ([]ListRoutesRow, error)
 	ListSalaryStructures(ctx context.Context, tenantID pgtype.UUID) ([]SalaryStructure, error)
@@ -297,8 +302,10 @@ type Querier interface {
 	UpdatePlacementApplicationStatus(ctx context.Context, arg UpdatePlacementApplicationStatusParams) (PlacementApplication, error)
 	UpdatePlacementDriveStatus(ctx context.Context, arg UpdatePlacementDriveStatusParams) (PlacementDrife, error)
 	UpdatePurchaseOrderStatus(ctx context.Context, arg UpdatePurchaseOrderStatusParams) (PurchaseOrder, error)
+	UpdateReceiptSeries(ctx context.Context, arg UpdateReceiptSeriesParams) (ReceiptSeries, error)
 	UpdateStudent(ctx context.Context, arg UpdateStudentParams) (Student, error)
 	UpdateVehicle(ctx context.Context, arg UpdateVehicleParams) (TransportVehicle, error)
+	UpsertLedgerMapping(ctx context.Context, arg UpsertLedgerMappingParams) (TallyLedgerMapping, error)
 	UpsertMFASecret(ctx context.Context, arg UpsertMFASecretParams) error
 	UpsertMarks(ctx context.Context, arg UpsertMarksParams) error
 	UpsertStock(ctx context.Context, arg UpsertStockParams) error

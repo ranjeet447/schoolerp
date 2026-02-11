@@ -927,6 +927,14 @@ type Subject struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type TallyLedgerMapping struct {
+	ID              pgtype.UUID        `json:"id"`
+	TenantID        pgtype.UUID        `json:"tenant_id"`
+	FeeHeadID       pgtype.UUID        `json:"fee_head_id"`
+	TallyLedgerName string             `json:"tally_ledger_name"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
 type Tenant struct {
 	ID        pgtype.UUID        `json:"id"`
 	Name      string             `json:"name"`
