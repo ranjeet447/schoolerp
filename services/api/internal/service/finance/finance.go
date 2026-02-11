@@ -25,14 +25,15 @@ import (
 )
 
 type Service struct {
-	q      db.Querier
-	audit  *audit.Logger
-	policy *policy.Evaluator
-	locks  *locks.Service
+	q       db.Querier
+	audit   *audit.Logger
+	policy  *policy.Evaluator
+	locks   *locks.Service
+	payment PaymentProvider
 }
 
-func NewService(q db.Querier, audit *audit.Logger, poly *policy.Evaluator, lks *locks.Service) *Service {
-	return &Service{q: q, audit: audit, policy: poly, locks: lks}
+func NewService(q db.Querier, audit *audit.Logger, poly *policy.Evaluator, lks *locks.Service, pay PaymentProvider) *Service {
+	return &Service{q: q, audit: audit, policy: poly, locks: lks, payment: pay}
 }
 
 func (s *Service) CreateFeeHead(ctx context.Context, tenantID, name, headType string) (db.FeeHead, error) {

@@ -127,7 +127,10 @@ func main() {
 	// Initialize Services
 	studentService := sisservice.NewStudentService(querier, auditLogger, quotaSvc)
 	attendanceService := attendservice.NewService(querier, auditLogger, policyEval, approvalSvc, locksSvc)
-	financeService := financeservice.NewService(querier, auditLogger, policyEval, locksSvc)
+	financeService := financeservice.NewService(querier, auditLogger, policyEval, locksSvc, &financeservice.RazorpayProvider{
+		KeyID:     os.Getenv("RAZORPAY_KEY_ID"),
+		KeySecret: os.Getenv("RAZORPAY_KEY_SECRET"),
+	})
 	noticeService := noticeservice.NewService(querier, auditLogger)
 	examService := examservice.NewService(querier, auditLogger)
 	transportService := transportservice.NewTransportService(querier, auditLogger)

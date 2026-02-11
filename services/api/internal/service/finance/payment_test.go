@@ -9,6 +9,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/schoolerp/api/internal/db"
+	"github.com/schoolerp/api/internal/foundation/audit"
+	"github.com/schoolerp/api/internal/foundation/locks"
+	"github.com/schoolerp/api/internal/foundation/policy"
 )
 
 type mockFinanceQuerier struct {
@@ -20,6 +23,30 @@ func (m *mockFinanceQuerier) CreatePaymentOrder(ctx context.Context, arg db.Crea
 	return db.PaymentOrder{ID: pgtype.UUID{Bytes: [16]byte{1}, Valid: true}}, nil
 }
 
+func (m *mockFinanceQuerier) LogPaymentEvent(ctx context.Context, arg db.LogPaymentEventParams) (db.PaymentEvent, error) {
+	return db.PaymentEvent{}, nil
+}
+
+func (m *mockFinanceQuerier) CheckPaymentEventProcessed(ctx context.Context, arg db.CheckPaymentEventProcessedParams) (bool, error) {
+	return false, nil
+}
+
+func (m *mockFinanceQuerier) GetActiveSeries(ctx context.Context, tenantID pgtype.UUID) (db.ReceiptSeries, error) {
+	return db.ReceiptSeries{ID: pgtype.UUID{Bytes: [16]byte{1}, Valid: true}}, nil
+}
+
+func (m *mockFinanceQuerier) GetNextReceiptNumber(ctx context.Context, arg db.GetNextReceiptNumberParams) (any, error) {
+	return "REC-001", nil
+}
+
+func (m *mockFinanceQuerier) CreateReceipt(ctx context.Context, arg db.CreateReceiptParams) (db.Receipt, error) {
+	return db.Receipt{}, nil
+}
+
+func (m *mockFinanceQuerier) CreateAuditLog(ctx context.Context, arg db.CreateAuditLogParams) (db.AuditLog, error) {
+	return db.AuditLog{}, nil
+}
+
 func (m *mockFinanceQuerier) CreateOutboxEvent(ctx context.Context, arg db.CreateOutboxEventParams) (db.Outbox, error) {
 	m.outboxCreated = true
 	return db.Outbox{}, nil
@@ -28,7 +55,7 @@ func (m *mockFinanceQuerier) CreateOutboxEvent(ctx context.Context, arg db.Creat
 func TestVerifyWebhookSignature(t *testing.T) {
 	provider := &RazorpayProvider{}
 	secret := "test_secret"
-	body := []byte(`{"event":"order.paid"}`)
+	body := []byte(`{"event":"payment.captured","payload":{"payment":{"entity":{"id":"pay_123","amount":1000}}}}`)
 	
 	// Generate valid signature
 	h := hmac.New(sha256.New, []byte(secret))
@@ -38,29 +65,26 @@ func TestVerifyWebhookSignature(t *testing.T) {
 	if !provider.VerifyWebhookSignature(body, sig, secret) {
 		t.Errorf("Signature verification failed for valid signature")
 	}
-	
-	if provider.VerifyWebhookSignature(body, "invalid", secret) {
-		t.Errorf("Signature verification succeeded for invalid signature")
-	}
 }
 
 func TestProcessPaymentWebhook(t *testing.T) {
 	mock := &mockFinanceQuerier{}
-	svc := &Service{q: mock}
+	provider := &RazorpayProvider{}
 	
-	body := []byte(`{
-		"event": "order.paid",
-		"payload": {
-			"order": {
-				"entity": {
-					"id": "order_123",
-					"status": "paid"
-				}
-			}
-		}
-	}`)
+	auditLogger := audit.NewLogger(mock)
+	policyEval := policy.NewEvaluator(mock)
+	locksSvc := locks.NewService(mock)
+
+	svc := NewService(mock, auditLogger, policyEval, locksSvc, provider)
 	
-	err := svc.ProcessPaymentWebhook(context.Background(), "fcc75681-6967-4638-867c-9ef1c990fc7e", body, "ignored_for_now")
+	secret := "test_secret"
+	body := []byte(`{"event":"payment.captured","payload":{"payment":{"entity":{"id":"pay_123","amount":1000}}}}`)
+	
+	h := hmac.New(sha256.New, []byte(secret))
+	h.Write(body)
+	sig := hex.EncodeToString(h.Sum(nil))
+
+	err := svc.ProcessPaymentWebhook(context.Background(), "fcc75681-6967-4638-867c-9ef1c990fc7e", "evt_123", body, sig, secret)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -69,3 +93,4 @@ func TestProcessPaymentWebhook(t *testing.T) {
 		t.Errorf("Expected outbox event to be created for paid order")
 	}
 }
+

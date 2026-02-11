@@ -16,7 +16,9 @@ package finance
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/schoolerp/api/internal/middleware"
@@ -217,15 +219,20 @@ func (h *Handler) CreateOnlineOrder(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
-	// 1. Get Signature
+	// 1. Get Signature & Event ID
 	signature := r.Header.Get("X-Razorpay-Signature")
+	eventID := r.Header.Get("X-Razorpay-Event-Id")
 	
 	// 2. Read Body
-	// (Simplified for demo)
-	var body []byte
-	// r.Body.Read(body)...
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "could not read body", http.StatusInternalServerError)
+		return
+	}
 
-	err := h.svc.ProcessPaymentWebhook(r.Context(), middleware.GetTenantID(r.Context()), body, signature)
+	// 3. Process Webhook (idempotent)
+	secret := os.Getenv("RAZORPAY_WEBHOOK_SECRET")
+	err = h.svc.ProcessPaymentWebhook(r.Context(), middleware.GetTenantID(r.Context()), eventID, body, signature, secret)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
