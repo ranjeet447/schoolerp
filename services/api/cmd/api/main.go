@@ -22,6 +22,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/getsentry/sentry-go"
+	sentryhttp "github.com/getsentry/sentry-go/http"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -77,6 +79,22 @@ func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	if os.Getenv("ENV") == "production" {
 		log.Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
+	}
+
+	// Sentry Initialization
+	sentryDSN := os.Getenv("SENTRY_DSN")
+	if sentryDSN != "" {
+		err := sentry.Init(sentry.ClientOptions{
+			Dsn:              sentryDSN,
+			Environment:      os.Getenv("ENV"),
+			TracesSampleRate: 1.0,
+		})
+		if err != nil {
+			log.Error().Err(err).Msg("Sentry initialization failed")
+		} else {
+			defer sentry.Flush(2 * time.Second)
+			log.Info().Msg("Sentry initialized")
+		}
 	}
 
 	// 1. Database Connection
@@ -147,6 +165,15 @@ func main() {
 	// 1. Standard Middlewares
 	r.Use(chimiddleware.RequestID)
 	r.Use(chimiddleware.RealIP)
+	
+	// Sentry middleware
+	if os.Getenv("SENTRY_DSN") != "" {
+		sentryHandler := sentryhttp.New(sentryhttp.Options{
+			Repanic: true,
+		})
+		r.Use(sentryHandler.Handle)
+	}
+
 	r.Use(chimiddleware.Logger)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.Timeout(60 * time.Second))
