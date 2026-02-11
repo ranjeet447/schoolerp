@@ -41,6 +41,13 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/{id}/subjects/{subjectId}/marks", h.UpsertMarks)
 		r.Post("/{id}/publish", h.Publish)
 	})
+	r.Route("/grading", func(r chi.Router) {
+		r.Post("/scales", h.UpsertScale)
+		r.Post("/weights", h.UpsertWeight)
+	})
+	r.Route("/aggregates", func(r chi.Router) {
+		r.Post("/calculate", h.CalculateAggregates)
+	})
 }
 
 func (h *Handler) RegisterParentRoutes(r chi.Router) {
@@ -165,3 +172,60 @@ func (h *Handler) GetResultsForStudent(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewEncoder(w).Encode(results)
 }
+
+func (h *Handler) UpsertScale(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Min   float64 `json:"min_percent"`
+		Max   float64 `json:"max_percent"`
+		Label string  `json:"grade_label"`
+		Point float64 `json:"grade_point"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	err := h.svc.UpsertGradingScale(r.Context(), middleware.GetTenantID(r.Context()), req.Min, req.Max, req.Label, req.Point)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) UpsertWeight(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		AYID     string  `json:"academic_year_id"`
+		Type     string  `json:"exam_type"`
+		Percentage float64 `json:"weight_percentage"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	err := h.svc.UpsertWeightageConfig(r.Context(), middleware.GetTenantID(r.Context()), req.AYID, req.Type, req.Percentage)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) CalculateAggregates(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		AYID string `json:"academic_year_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	err := h.svc.CalculateAggregates(r.Context(), middleware.GetTenantID(r.Context()), req.AYID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+

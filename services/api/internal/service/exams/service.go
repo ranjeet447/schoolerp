@@ -199,12 +199,6 @@ func (s *Service) UpsertMarks(ctx context.Context, p UpsertMarksParams) error {
 
 	// Convert float64 to pgtype.Numeric
 	numericMarks := pgtype.Numeric{Valid: true}
-	// TODO: import math/big if needed, or assume it's there
-	// Assuming imports are missing? Let's check imports.
-	// Imports in file: "context", "github.com/jackc/pgx/v5/pgtype", "github.com/schoolerp/api/internal/db", "github.com/schoolerp/api/internal/foundation/audit"
-	// Missing "fmt", "math", "math/big". 
-	// I need to add imports too!
-	
 	if !math.IsNaN(p.Marks) {
 		numericMarks.Int = big.NewInt(int64(p.Marks * 100))
 		numericMarks.Exp = -2
@@ -230,6 +224,128 @@ func (s *Service) UpsertMarks(ctx context.Context, p UpsertMarksParams) error {
 		ResourceID:   eUUID,
 		IPAddress:    p.IP,
 	})
+
+	return nil
+}
+
+func (s *Service) UpsertGradingScale(ctx context.Context, tenantID string, min, max float64, label string, point float64) error {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+
+	minNum := pgtype.Numeric{Int: big.NewInt(int64(min * 100)), Exp: -2, Valid: true}
+	maxNum := pgtype.Numeric{Int: big.NewInt(int64(max * 100)), Exp: -2, Valid: true}
+	pointNum := pgtype.Numeric{Int: big.NewInt(int64(point * 100)), Exp: -2, Valid: true}
+
+	_, err := s.q.UpsertGradingScale(ctx, db.UpsertGradingScaleParams{
+		TenantID:   tUUID,
+		MinPercent: minNum,
+		MaxPercent: maxNum,
+		GradeLabel: label,
+		GradePoint: pointNum,
+	})
+	return err
+}
+
+func (s *Service) UpsertWeightageConfig(ctx context.Context, tenantID, ayID, examType string, weight float64) error {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	ayUUID := pgtype.UUID{}
+	ayUUID.Scan(ayID)
+
+	weightNum := pgtype.Numeric{Int: big.NewInt(int64(weight * 100)), Exp: -2, Valid: true}
+
+	_, err := s.q.UpsertWeightageConfig(ctx, db.UpsertWeightageConfigParams{
+		TenantID:         tUUID,
+		AcademicYearID:   ayUUID,
+		ExamType:         examType,
+		WeightPercentage: weightNum,
+	})
+	return err
+}
+
+func (s *Service) CalculateAggregates(ctx context.Context, tenantID, ayID string) error {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	ayUUID := pgtype.UUID{}
+	ayUUID.Scan(ayID)
+
+	// 1. Fetch Weightage Config
+	weights, err := s.q.ListWeightageConfigs(ctx, db.ListWeightageConfigsParams{
+		TenantID:       tUUID,
+		AcademicYearID: ayUUID,
+	})
+	if err != nil {
+		return err
+	}
+	weightMap := make(map[string]float64)
+	for _, w := range weights {
+		val, _ := w.WeightPercentage.Float64Value()
+		weightMap[w.ExamType] = val.Float64 / 100.0
+	}
+
+	// 2. Fetch Grading Scales
+	scales, err := s.q.ListGradingScales(ctx, tUUID)
+	if err != nil {
+		return err
+	}
+
+	getGrade := func(percent float64) string {
+		for _, sc := range scales {
+			min, _ := sc.MinPercent.Float64Value()
+			max, _ := sc.MaxPercent.Float64Value()
+			if percent >= min.Float64 && percent <= max.Float64 {
+				return sc.GradeLabel
+			}
+		}
+		return ""
+	}
+
+	// 3. Fetch Marks
+	marks, err := s.q.GetMarksForAggregation(ctx, db.GetMarksForAggregationParams{
+		TenantID:       tUUID,
+		AcademicYearID: ayUUID,
+	})
+	if err != nil {
+		return err
+	}
+
+	// 4. Group marks by Student and Subject
+	type studentSubject struct {
+		studentID pgtype.UUID
+		subjectID pgtype.UUID
+	}
+	aggregates := make(map[studentSubject]float64)
+
+	for _, m := range marks {
+		key := studentSubject{studentID: m.StudentID, subjectID: m.SubjectID}
+		obtained, _ := m.MarksObtained.Float64Value()
+		weight := weightMap[m.ExamType]
+		if weight == 0 {
+			continue // Skip if no weight defined
+		}
+		
+		// percentage = (obtained / max) * 100
+		percent := (obtained.Float64 / float64(m.MaxMarks)) * 100.0
+		aggregates[key] += percent * weight
+	}
+
+	// 5. Upsert aggregates
+	for key, score := range aggregates {
+		grade := getGrade(score)
+		scoreNum := pgtype.Numeric{Int: big.NewInt(int64(score * 100)), Exp: -2, Valid: true}
+		
+		_, err = s.q.UpsertMarksAggregate(ctx, db.UpsertMarksAggregateParams{
+			TenantID:       tUUID,
+			StudentID:      key.studentID,
+			AcademicYearID: ayUUID,
+			SubjectID:      key.subjectID,
+			AggregateMarks: scoreNum,
+			GradeLabel:     pgtype.Text{String: grade, Valid: grade != ""},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to upsert aggregate for %s: %w", key.studentID, err)
+		}
+	}
 
 	return nil
 }
@@ -278,3 +394,4 @@ func (s *Service) GetExamResultsForStudent(ctx context.Context, tenantID, studen
 		TenantID:  tUUID,
 	})
 }
+
