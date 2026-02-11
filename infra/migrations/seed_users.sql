@@ -11,7 +11,7 @@ BEGIN;
 -- Demo International School (Standard)
 INSERT INTO tenants (id, name, subdomain, domain, config, is_active)
 VALUES (
-    'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d',
+    '96dce8ae-18b1-4d3c-8a09-11341b1d3a0f',
     'Demo International School',
     'demo',
     'demo.schoolerp.com',
@@ -22,7 +22,7 @@ VALUES (
 -- Elite Academy (White Labeled)
 INSERT INTO tenants (id, name, subdomain, domain, config, is_active)
 VALUES (
-    'e1e1e1e1-e1e1-e1e1-e1e1-e1e1e1e1e1e1',
+    '5482c5f8-86e7-4655-a9af-5235d61fe7a8',
     'Elite Academy',
     'elite',
     'elite.academy.com',
@@ -85,12 +85,12 @@ ON CONFLICT (code) DO NOTHING;
 -- 3. SEED ROLES (Platform-wide)
 -- ============================================
 INSERT INTO roles (id, tenant_id, name, code, description, is_system) VALUES
-('11111111-1111-1111-1111-111111111111', NULL, 'Super Admin', 'super_admin', 'Platform wide access', TRUE),
-('22222222-2222-2222-2222-222222222222', NULL, 'Tenant Admin', 'tenant_admin', 'School owner/administrator', TRUE),
-('33333333-3333-3333-3333-333333333333', NULL, 'Teacher', 'teacher', 'Academic staff', TRUE),
-('44444444-4444-4444-4444-444444444444', NULL, 'Accountant', 'accountant', 'Finance and fee collector', TRUE),
-('55555555-5555-5555-5555-555555555555', NULL, 'Parent', 'parent', 'Guardian view', TRUE),
-('66666666-6666-6666-6666-666666666666', NULL, 'Student', 'student', 'Student view', TRUE)
+('6fb79fd2-bb41-4d41-bac6-cfaca9dbf1ee', NULL, 'Super Admin', 'super_admin', 'Platform wide access', TRUE),
+('cf7410be-f1e3-49f4-bfa1-e4eccc941fdd', NULL, 'Tenant Admin', 'tenant_admin', 'School owner/administrator', TRUE),
+('7574705b-9e25-4583-adca-b7d3150c1213', NULL, 'Teacher', 'teacher', 'Academic staff', TRUE),
+('3842893d-9222-4dbe-885d-7c34293e9220', NULL, 'Accountant', 'accountant', 'Finance and fee collector', TRUE),
+('c615adfa-1393-4a8f-815a-e8f7ae1ac5d7', NULL, 'Parent', 'parent', 'Guardian view', TRUE),
+('6fb13f8c-dc6c-4b88-a153-99c98c0fe0dc', NULL, 'Student', 'student', 'Student view', TRUE)
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================
@@ -131,8 +131,8 @@ ON CONFLICT DO NOTHING;
 -- Admin User
 INSERT INTO users (id, email, phone, full_name, is_active)
 VALUES (
-    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-    'admin@school.edu',
+    'bffda29e-b791-4dd0-8a10-532c7b487d97',
+    'admin@school.edu.in',
     '+919876543210',
     'Dr. Admin Kumar',
     TRUE
@@ -140,18 +140,18 @@ VALUES (
 
 INSERT INTO user_identities (id, user_id, provider, identifier, credential)
 VALUES (
-    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab',
-    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    '11ea3c55-2e78-49de-861b-e5fd78eb7363',
+    'bffda29e-b791-4dd0-8a10-532c7b487d97',
     'password',
-    'admin@school.edu',
+    'admin@school.edu.in',
     'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f'
 ) ON CONFLICT (provider, identifier) DO NOTHING;
 
 -- Teacher User
 INSERT INTO users (id, email, phone, full_name, is_active)
 VALUES (
-    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-    'teacher@school.edu',
+    '595fa4b0-62fe-4b7c-a8c4-c0696228b952',
+    'teacher@school.edu.in',
     '+919876543211',
     'Ms. Priya Sharma',
     TRUE
@@ -159,18 +159,18 @@ VALUES (
 
 INSERT INTO user_identities (id, user_id, provider, identifier, credential)
 VALUES (
-    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbc',
-    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    '1e8093f7-1cdf-4ca9-80c5-4f6b932b63ce',
+    '595fa4b0-62fe-4b7c-a8c4-c0696228b952',
     'password',
-    'teacher@school.edu',
+    'teacher@school.edu.in',
     'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f'
 ) ON CONFLICT (provider, identifier) DO NOTHING;
 
 -- Parent User
 INSERT INTO users (id, email, phone, full_name, is_active)
 VALUES (
-    'cccccccc-cccc-cccc-cccc-cccccccccccc',
-    'parent@school.edu',
+    '5b0b28fd-af68-4046-9d8a-bd615612a3c1',
+    'parent@school.edu.in',
     '+919876543212',
     'Mr. Rajesh Patel',
     TRUE
@@ -178,18 +178,18 @@ VALUES (
 
 INSERT INTO user_identities (id, user_id, provider, identifier, credential)
 VALUES (
-    'cccccccc-cccc-cccc-cccc-cccccccccccd',
-    'cccccccc-cccc-cccc-cccc-cccccccccccc',
+    'd1df5d08-2d2c-4bf2-b433-2248df8eb49b',
+    '5b0b28fd-af68-4046-9d8a-bd615612a3c1',
     'password',
-    'parent@school.edu',
+    'parent@school.edu.in',
     'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f'
 ) ON CONFLICT (provider, identifier) DO NOTHING;
 
 -- Accountant User
 INSERT INTO users (id, email, phone, full_name, is_active)
 VALUES (
-    'dddddddd-dddd-dddd-dddd-dddddddddddd',
-    'accountant@school.edu',
+    '6541a882-63f4-4ad2-9345-a01cd56ee4b1',
+    'accountant@school.edu.in',
     '+919876543213',
     'Mr. Finance Singh',
     TRUE
@@ -197,10 +197,10 @@ VALUES (
 
 INSERT INTO user_identities (id, user_id, provider, identifier, credential)
 VALUES (
-    'dddddddd-dddd-dddd-dddd-ddddddddddde',
-    'dddddddd-dddd-dddd-dddd-dddddddddddd',
+    '6a90848b-deeb-4a33-b27e-363a3e47f9a0',
+    '6541a882-63f4-4ad2-9345-a01cd56ee4b1',
     'password',
-    'accountant@school.edu',
+    'accountant@school.edu.in',
     'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f'
 ) ON CONFLICT (provider, identifier) DO NOTHING;
 
@@ -210,7 +210,7 @@ VALUES (
 -- Elite Admin
 INSERT INTO users (id, email, phone, full_name, is_active)
 VALUES (
-    'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+    '8900e5b5-e907-4eab-a1aa-17d9f89d39a4',
     'admin@elite.academy',
     '+919876543333',
     'Elite Director',
@@ -219,8 +219,8 @@ VALUES (
 
 INSERT INTO user_identities (id, user_id, provider, identifier, credential)
 VALUES (
-    'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeef',
-    'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+    '79acb6c0-e483-415e-a8ea-0590699e8e13',
+    '8900e5b5-e907-4eab-a1aa-17d9f89d39a4',
     'password',
     'admin@elite.academy',
     'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f'
@@ -229,7 +229,7 @@ VALUES (
 -- Elite Teacher
 INSERT INTO users (id, email, phone, full_name, is_active)
 VALUES (
-    'ffffffff-ffff-ffff-ffff-ffffffffffff',
+    'd5495d0f-d0cb-46f5-ad3f-88b0cc6fc127',
     'teacher@elite.academy',
     '+919876543334',
     'Elite Professor',
@@ -238,8 +238,8 @@ VALUES (
 
 INSERT INTO user_identities (id, user_id, provider, identifier, credential)
 VALUES (
-    'ffffffff-ffff-ffff-ffff-fffffffffffa',
-    'ffffffff-ffff-ffff-ffff-ffffffffffff',
+    '7ac97399-3572-416e-b02f-38018fb5a338',
+    'd5495d0f-d0cb-46f5-ad3f-88b0cc6fc127',
     'password',
     'teacher@elite.academy',
     'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f'
@@ -249,14 +249,14 @@ VALUES (
 INSERT INTO role_assignments (tenant_id, user_id, role_id, scope_type)
 VALUES 
     -- Demo Portal
-    ((SELECT id FROM tenants WHERE subdomain = 'demo'), 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'tenant'),
-    ((SELECT id FROM tenants WHERE subdomain = 'demo'), 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '33333333-3333-3333-3333-333333333333', 'tenant'),
-    ((SELECT id FROM tenants WHERE subdomain = 'demo'), 'cccccccc-cccc-cccc-cccc-cccccccccccc', '55555555-5555-5555-5555-555555555555', 'tenant'),
-    ((SELECT id FROM tenants WHERE subdomain = 'demo'), 'dddddddd-dddd-dddd-dddd-dddddddddddd', '44444444-4444-4444-4444-444444444444', 'tenant'),
+    ((SELECT id FROM tenants WHERE subdomain = 'demo'), 'bffda29e-b791-4dd0-8a10-532c7b487d97', 'cf7410be-f1e3-49f4-bfa1-e4eccc941fdd', 'tenant'),
+    ((SELECT id FROM tenants WHERE subdomain = 'demo'), '595fa4b0-62fe-4b7c-a8c4-c0696228b952', '7574705b-9e25-4583-adca-b7d3150c1213', 'tenant'),
+    ((SELECT id FROM tenants WHERE subdomain = 'demo'), '5b0b28fd-af68-4046-9d8a-bd615612a3c1', 'c615adfa-1393-4a8f-815a-e8f7ae1ac5d7', 'tenant'),
+    ((SELECT id FROM tenants WHERE subdomain = 'demo'), '6541a882-63f4-4ad2-9345-a01cd56ee4b1', '3842893d-9222-4dbe-885d-7c34293e9220', 'tenant'),
     
     -- Elite Portal
-    ((SELECT id FROM tenants WHERE subdomain = 'elite'), 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '22222222-2222-2222-2222-222222222222', 'tenant'),
-    ((SELECT id FROM tenants WHERE subdomain = 'elite'), 'ffffffff-ffff-ffff-ffff-ffffffffffff', '33333333-3333-3333-3333-333333333333', 'tenant')
+    ((SELECT id FROM tenants WHERE subdomain = 'elite'), '8900e5b5-e907-4eab-a1aa-17d9f89d39a4', 'cf7410be-f1e3-49f4-bfa1-e4eccc941fdd', 'tenant'),
+    ((SELECT id FROM tenants WHERE subdomain = 'elite'), 'd5495d0f-d0cb-46f5-ad3f-88b0cc6fc127', '7574705b-9e25-4583-adca-b7d3150c1213', 'tenant')
 ON CONFLICT DO NOTHING;
 
 
@@ -267,7 +267,7 @@ COMMIT;
 -- ============================================
 -- | Email                  | Password    | Role        |
 -- |------------------------|-------------|-------------|
--- | admin@school.edu       | password123 | Tenant Admin|
--- | teacher@school.edu     | password123 | Teacher     |
--- | parent@school.edu      | password123 | Parent      |
--- | accountant@school.edu  | password123 | Accountant  |
+-- | admin@school.edu.in    | password123 | Tenant Admin|
+-- | teacher@school.edu.in  | password123 | Teacher     |
+-- | parent@school.edu.in   | password123 | Parent      |
+-- | accountant@school.edu.in| password123 | Accountant  |
