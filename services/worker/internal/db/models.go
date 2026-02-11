@@ -243,6 +243,7 @@ type Exam struct {
 	EndDate        pgtype.Date        `json:"end_date"`
 	Status         pgtype.Text        `json:"status"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	Type           string             `json:"type"`
 }
 
 type ExamSubject struct {
@@ -250,6 +251,15 @@ type ExamSubject struct {
 	SubjectID pgtype.UUID `json:"subject_id"`
 	MaxMarks  int32       `json:"max_marks"`
 	ExamDate  pgtype.Date `json:"exam_date"`
+}
+
+type ExamWeightageConfig struct {
+	ID               pgtype.UUID        `json:"id"`
+	TenantID         pgtype.UUID        `json:"tenant_id"`
+	AcademicYearID   pgtype.UUID        `json:"academic_year_id"`
+	ExamType         string             `json:"exam_type"`
+	WeightPercentage pgtype.Numeric     `json:"weight_percentage"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
 type FeeHead struct {
@@ -301,6 +311,16 @@ type File struct {
 	UploadedBy pgtype.UUID        `json:"uploaded_by"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type GradingScale struct {
+	ID         pgtype.UUID        `json:"id"`
+	TenantID   pgtype.UUID        `json:"tenant_id"`
+	MinPercent pgtype.Numeric     `json:"min_percent"`
+	MaxPercent pgtype.Numeric     `json:"max_percent"`
+	GradeLabel string             `json:"grade_label"`
+	GradePoint pgtype.Numeric     `json:"grade_point"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
 type Guardian struct {
@@ -523,6 +543,17 @@ type MarketingPdfJob struct {
 	Error     pgtype.Text        `json:"error"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type MarksAggregate struct {
+	ID             pgtype.UUID        `json:"id"`
+	TenantID       pgtype.UUID        `json:"tenant_id"`
+	StudentID      pgtype.UUID        `json:"student_id"`
+	AcademicYearID pgtype.UUID        `json:"academic_year_id"`
+	SubjectID      pgtype.UUID        `json:"subject_id"`
+	AggregateMarks pgtype.Numeric     `json:"aggregate_marks"`
+	GradeLabel     pgtype.Text        `json:"grade_label"`
+	CalculatedAt   pgtype.Timestamptz `json:"calculated_at"`
 }
 
 type MarksEntry struct {

@@ -194,6 +194,7 @@ type Querier interface {
 	GetInventoryItem(ctx context.Context, arg GetInventoryItemParams) (InventoryItem, error)
 	GetIssue(ctx context.Context, arg GetIssueParams) (LibraryIssue, error)
 	GetMFASecret(ctx context.Context, userID pgtype.UUID) (MfaSecret, error)
+	GetMarksForAggregation(ctx context.Context, arg GetMarksForAggregationParams) ([]GetMarksForAggregationRow, error)
 	GetNextReceiptNumber(ctx context.Context, arg GetNextReceiptNumberParams) (interface{}, error)
 	GetNotice(ctx context.Context, arg GetNoticeParams) (Notice, error)
 	GetNoticeAcks(ctx context.Context, noticeID pgtype.UUID) ([]GetNoticeAcksRow, error)
@@ -246,6 +247,7 @@ type Querier interface {
 	ListExamSubjects(ctx context.Context, examID pgtype.UUID) ([]ListExamSubjectsRow, error)
 	ListExams(ctx context.Context, tenantID pgtype.UUID) ([]Exam, error)
 	ListFeeHeads(ctx context.Context, tenantID pgtype.UUID) ([]FeeHead, error)
+	ListGradingScales(ctx context.Context, tenantID pgtype.UUID) ([]GradingScale, error)
 	ListGroupMembers(ctx context.Context, groupID pgtype.UUID) ([]ListGroupMembersRow, error)
 	ListIPAllowlists(ctx context.Context, tenantID pgtype.UUID) ([]IpAllowlist, error)
 	ListInventoryCategories(ctx context.Context, tenantID pgtype.UUID) ([]InventoryCategory, error)
@@ -279,6 +281,7 @@ type Querier interface {
 	ListSubjects(ctx context.Context, tenantID pgtype.UUID) ([]Subject, error)
 	ListSuppliers(ctx context.Context, tenantID pgtype.UUID) ([]InventorySupplier, error)
 	ListVehicles(ctx context.Context, tenantID pgtype.UUID) ([]TransportVehicle, error)
+	ListWeightageConfigs(ctx context.Context, arg ListWeightageConfigsParams) ([]ExamWeightageConfig, error)
 	LogPaymentEvent(ctx context.Context, arg LogPaymentEventParams) (PaymentEvent, error)
 	PublishExam(ctx context.Context, arg PublishExamParams) (Exam, error)
 	ReceivePurchaseOrder(ctx context.Context, arg ReceivePurchaseOrderParams) (PurchaseOrder, error)
@@ -305,10 +308,13 @@ type Querier interface {
 	UpdateReceiptSeries(ctx context.Context, arg UpdateReceiptSeriesParams) (ReceiptSeries, error)
 	UpdateStudent(ctx context.Context, arg UpdateStudentParams) (Student, error)
 	UpdateVehicle(ctx context.Context, arg UpdateVehicleParams) (TransportVehicle, error)
+	UpsertGradingScale(ctx context.Context, arg UpsertGradingScaleParams) (GradingScale, error)
 	UpsertLedgerMapping(ctx context.Context, arg UpsertLedgerMappingParams) (TallyLedgerMapping, error)
 	UpsertMFASecret(ctx context.Context, arg UpsertMFASecretParams) error
 	UpsertMarks(ctx context.Context, arg UpsertMarksParams) error
+	UpsertMarksAggregate(ctx context.Context, arg UpsertMarksAggregateParams) (MarksAggregate, error)
 	UpsertStock(ctx context.Context, arg UpsertStockParams) error
+	UpsertWeightageConfig(ctx context.Context, arg UpsertWeightageConfigParams) (ExamWeightageConfig, error)
 }
 
 var _ Querier = (*Queries)(nil)

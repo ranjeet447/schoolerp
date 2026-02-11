@@ -42,7 +42,7 @@ INSERT INTO exams (
     tenant_id, academic_year_id, name, start_date, end_date
 ) VALUES (
     $1, $2, $3, $4, $5
-) RETURNING id, tenant_id, academic_year_id, name, start_date, end_date, status, created_at
+) RETURNING id, tenant_id, academic_year_id, name, start_date, end_date, status, created_at, type
 `
 
 type CreateExamParams struct {
@@ -84,12 +84,13 @@ func (q *Queries) CreateExam(ctx context.Context, arg CreateExamParams) (Exam, e
 		&i.EndDate,
 		&i.Status,
 		&i.CreatedAt,
+		&i.Type,
 	)
 	return i, err
 }
 
 const getExam = `-- name: GetExam :one
-SELECT id, tenant_id, academic_year_id, name, start_date, end_date, status, created_at FROM exams WHERE id = $1 AND tenant_id = $2
+SELECT id, tenant_id, academic_year_id, name, start_date, end_date, status, created_at, type FROM exams WHERE id = $1 AND tenant_id = $2
 `
 
 type GetExamParams struct {
@@ -109,6 +110,7 @@ func (q *Queries) GetExam(ctx context.Context, arg GetExamParams) (Exam, error) 
 		&i.EndDate,
 		&i.Status,
 		&i.CreatedAt,
+		&i.Type,
 	)
 	return i, err
 }
@@ -213,6 +215,58 @@ func (q *Queries) GetExamResultsForStudent(ctx context.Context, arg GetExamResul
 	return items, nil
 }
 
+const getMarksForAggregation = `-- name: GetMarksForAggregation :many
+SELECT 
+    me.student_id,
+    me.subject_id,
+    me.marks_obtained,
+    es.max_marks,
+    e.type as exam_type
+FROM marks_entries me
+JOIN exams e ON me.exam_id = e.id
+JOIN exam_subjects es ON me.exam_id = es.exam_id AND me.subject_id = es.subject_id
+WHERE e.tenant_id = $1 AND e.academic_year_id = $2 AND e.status = 'published'
+`
+
+type GetMarksForAggregationParams struct {
+	TenantID       pgtype.UUID `json:"tenant_id"`
+	AcademicYearID pgtype.UUID `json:"academic_year_id"`
+}
+
+type GetMarksForAggregationRow struct {
+	StudentID     pgtype.UUID    `json:"student_id"`
+	SubjectID     pgtype.UUID    `json:"subject_id"`
+	MarksObtained pgtype.Numeric `json:"marks_obtained"`
+	MaxMarks      int32          `json:"max_marks"`
+	ExamType      string         `json:"exam_type"`
+}
+
+func (q *Queries) GetMarksForAggregation(ctx context.Context, arg GetMarksForAggregationParams) ([]GetMarksForAggregationRow, error) {
+	rows, err := q.db.Query(ctx, getMarksForAggregation, arg.TenantID, arg.AcademicYearID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetMarksForAggregationRow
+	for rows.Next() {
+		var i GetMarksForAggregationRow
+		if err := rows.Scan(
+			&i.StudentID,
+			&i.SubjectID,
+			&i.MarksObtained,
+			&i.MaxMarks,
+			&i.ExamType,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listExamSubjects = `-- name: ListExamSubjects :many
 SELECT es.exam_id, es.subject_id, es.max_marks, es.exam_date, s.name as subject_name
 FROM exam_subjects es
@@ -255,7 +309,7 @@ func (q *Queries) ListExamSubjects(ctx context.Context, examID pgtype.UUID) ([]L
 }
 
 const listExams = `-- name: ListExams :many
-SELECT id, tenant_id, academic_year_id, name, start_date, end_date, status, created_at FROM exams WHERE tenant_id = $1 ORDER BY created_at DESC
+SELECT id, tenant_id, academic_year_id, name, start_date, end_date, status, created_at, type FROM exams WHERE tenant_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListExams(ctx context.Context, tenantID pgtype.UUID) ([]Exam, error) {
@@ -276,6 +330,75 @@ func (q *Queries) ListExams(ctx context.Context, tenantID pgtype.UUID) ([]Exam, 
 			&i.EndDate,
 			&i.Status,
 			&i.CreatedAt,
+			&i.Type,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGradingScales = `-- name: ListGradingScales :many
+SELECT id, tenant_id, min_percent, max_percent, grade_label, grade_point, created_at FROM grading_scales WHERE tenant_id = $1 ORDER BY min_percent DESC
+`
+
+func (q *Queries) ListGradingScales(ctx context.Context, tenantID pgtype.UUID) ([]GradingScale, error) {
+	rows, err := q.db.Query(ctx, listGradingScales, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GradingScale
+	for rows.Next() {
+		var i GradingScale
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.MinPercent,
+			&i.MaxPercent,
+			&i.GradeLabel,
+			&i.GradePoint,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWeightageConfigs = `-- name: ListWeightageConfigs :many
+SELECT id, tenant_id, academic_year_id, exam_type, weight_percentage, created_at FROM exam_weightage_config WHERE tenant_id = $1 AND academic_year_id = $2
+`
+
+type ListWeightageConfigsParams struct {
+	TenantID       pgtype.UUID `json:"tenant_id"`
+	AcademicYearID pgtype.UUID `json:"academic_year_id"`
+}
+
+func (q *Queries) ListWeightageConfigs(ctx context.Context, arg ListWeightageConfigsParams) ([]ExamWeightageConfig, error) {
+	rows, err := q.db.Query(ctx, listWeightageConfigs, arg.TenantID, arg.AcademicYearID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ExamWeightageConfig
+	for rows.Next() {
+		var i ExamWeightageConfig
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.AcademicYearID,
+			&i.ExamType,
+			&i.WeightPercentage,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -291,7 +414,7 @@ const publishExam = `-- name: PublishExam :one
 UPDATE exams
 SET status = 'published'
 WHERE id = $1 AND tenant_id = $2
-RETURNING id, tenant_id, academic_year_id, name, start_date, end_date, status, created_at
+RETURNING id, tenant_id, academic_year_id, name, start_date, end_date, status, created_at, type
 `
 
 type PublishExamParams struct {
@@ -310,6 +433,46 @@ func (q *Queries) PublishExam(ctx context.Context, arg PublishExamParams) (Exam,
 		&i.StartDate,
 		&i.EndDate,
 		&i.Status,
+		&i.CreatedAt,
+		&i.Type,
+	)
+	return i, err
+}
+
+const upsertGradingScale = `-- name: UpsertGradingScale :one
+INSERT INTO grading_scales (tenant_id, min_percent, max_percent, grade_label, grade_point)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (tenant_id, grade_label) DO UPDATE
+SET min_percent = EXCLUDED.min_percent, 
+    max_percent = EXCLUDED.max_percent,
+    grade_point = EXCLUDED.grade_point
+RETURNING id, tenant_id, min_percent, max_percent, grade_label, grade_point, created_at
+`
+
+type UpsertGradingScaleParams struct {
+	TenantID   pgtype.UUID    `json:"tenant_id"`
+	MinPercent pgtype.Numeric `json:"min_percent"`
+	MaxPercent pgtype.Numeric `json:"max_percent"`
+	GradeLabel string         `json:"grade_label"`
+	GradePoint pgtype.Numeric `json:"grade_point"`
+}
+
+func (q *Queries) UpsertGradingScale(ctx context.Context, arg UpsertGradingScaleParams) (GradingScale, error) {
+	row := q.db.QueryRow(ctx, upsertGradingScale,
+		arg.TenantID,
+		arg.MinPercent,
+		arg.MaxPercent,
+		arg.GradeLabel,
+		arg.GradePoint,
+	)
+	var i GradingScale
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.MinPercent,
+		&i.MaxPercent,
+		&i.GradeLabel,
+		&i.GradePoint,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -342,4 +505,80 @@ func (q *Queries) UpsertMarks(ctx context.Context, arg UpsertMarksParams) error 
 		arg.EnteredBy,
 	)
 	return err
+}
+
+const upsertMarksAggregate = `-- name: UpsertMarksAggregate :one
+INSERT INTO marks_aggregates (tenant_id, student_id, academic_year_id, subject_id, aggregate_marks, grade_label)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (student_id, academic_year_id, subject_id) DO UPDATE
+SET aggregate_marks = EXCLUDED.aggregate_marks,
+    grade_label = EXCLUDED.grade_label,
+    calculated_at = NOW()
+RETURNING id, tenant_id, student_id, academic_year_id, subject_id, aggregate_marks, grade_label, calculated_at
+`
+
+type UpsertMarksAggregateParams struct {
+	TenantID       pgtype.UUID    `json:"tenant_id"`
+	StudentID      pgtype.UUID    `json:"student_id"`
+	AcademicYearID pgtype.UUID    `json:"academic_year_id"`
+	SubjectID      pgtype.UUID    `json:"subject_id"`
+	AggregateMarks pgtype.Numeric `json:"aggregate_marks"`
+	GradeLabel     pgtype.Text    `json:"grade_label"`
+}
+
+func (q *Queries) UpsertMarksAggregate(ctx context.Context, arg UpsertMarksAggregateParams) (MarksAggregate, error) {
+	row := q.db.QueryRow(ctx, upsertMarksAggregate,
+		arg.TenantID,
+		arg.StudentID,
+		arg.AcademicYearID,
+		arg.SubjectID,
+		arg.AggregateMarks,
+		arg.GradeLabel,
+	)
+	var i MarksAggregate
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.StudentID,
+		&i.AcademicYearID,
+		&i.SubjectID,
+		&i.AggregateMarks,
+		&i.GradeLabel,
+		&i.CalculatedAt,
+	)
+	return i, err
+}
+
+const upsertWeightageConfig = `-- name: UpsertWeightageConfig :one
+INSERT INTO exam_weightage_config (tenant_id, academic_year_id, exam_type, weight_percentage)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (tenant_id, academic_year_id, exam_type) DO UPDATE
+SET weight_percentage = EXCLUDED.weight_percentage
+RETURNING id, tenant_id, academic_year_id, exam_type, weight_percentage, created_at
+`
+
+type UpsertWeightageConfigParams struct {
+	TenantID         pgtype.UUID    `json:"tenant_id"`
+	AcademicYearID   pgtype.UUID    `json:"academic_year_id"`
+	ExamType         string         `json:"exam_type"`
+	WeightPercentage pgtype.Numeric `json:"weight_percentage"`
+}
+
+func (q *Queries) UpsertWeightageConfig(ctx context.Context, arg UpsertWeightageConfigParams) (ExamWeightageConfig, error) {
+	row := q.db.QueryRow(ctx, upsertWeightageConfig,
+		arg.TenantID,
+		arg.AcademicYearID,
+		arg.ExamType,
+		arg.WeightPercentage,
+	)
+	var i ExamWeightageConfig
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.AcademicYearID,
+		&i.ExamType,
+		&i.WeightPercentage,
+		&i.CreatedAt,
+	)
+	return i, err
 }
