@@ -23,7 +23,7 @@ func NewLocalProvider(baseDir, baseURL string) (*LocalProvider, error) {
 }
 
 func (p *LocalProvider) Upload(ctx context.Context, name string, r io.Reader) (FileInfo, error) {
-	id := uuid.New().String()
+	id := uuid.Must(uuid.NewV7()).String()
 	ext := filepath.Ext(name)
 	fileName := id + ext
 	filePath := filepath.Join(p.BaseDir, fileName)

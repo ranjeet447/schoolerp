@@ -213,7 +213,7 @@ func (s *Service) OnboardSchool(ctx context.Context, params OnboardSchoolParams)
 	qtx := s.q.WithTx(tx)
 
 	// 1. Create Tenant
-	tenantID := uuid.New()
+	tenantID := uuid.Must(uuid.NewV7())
 	var tid pgtype.UUID
 	tid.Scan(tenantID.String())
 
@@ -238,7 +238,7 @@ func (s *Service) OnboardSchool(ctx context.Context, params OnboardSchoolParams)
 	}
 
 	// 2. Create Admin User
-	userID := uuid.New()
+	userID := uuid.Must(uuid.NewV7())
 	var uid pgtype.UUID
 	uid.Scan(userID.String())
 
@@ -254,7 +254,7 @@ func (s *Service) OnboardSchool(ctx context.Context, params OnboardSchoolParams)
 	}
 
 	// 3. Create Password Identity
-	identityID := uuid.New()
+	identityID := uuid.Must(uuid.NewV7())
 	var iid pgtype.UUID
 	iid.Scan(identityID.String())
 

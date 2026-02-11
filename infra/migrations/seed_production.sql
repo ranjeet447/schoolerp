@@ -1,5 +1,5 @@
 -- SchoolERP Comprehensive Cleanup & Re-Seed
--- EXHAUSTIVELY USING UNIQUE, PROPER UUIDS FROM USER LIST
+-- EXHAUSTIVELY USING UNIQUE, PROPER UUID v7 FROM USER LIST
 -- Password for all users: "password123" (SHA256: ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f)
 
 BEGIN;
@@ -12,81 +12,81 @@ TRUNCATE
     CASCADE;
 
 -- 2. TENANTS
--- Platform Management (id 1)
+-- Platform Management (Line 1)
 INSERT INTO tenants (id, name, subdomain, domain, config, is_active) VALUES
-('6ce0c3c1-e2e1-480e-b3ba-f2fc24683e4a', 'Platform Management', 'system', 'system.schoolerp.com', '{"is_system": true}', TRUE);
+('019c4d42-49ca-7e0a-b047-86336ebac7ae', 'Platform Management', 'system', 'system.schoolerp.com', '{"is_system": true}', TRUE);
 
--- Demo School (id 2)
+-- Demo School (Line 2)
 INSERT INTO tenants (id, name, subdomain, domain, config, is_active) VALUES
-('528b652b-91aa-498e-b3b5-eab9560b11e5', 'Demo International School', 'demo', 'demo.schoolerp.com', '{"white_label": false}', TRUE);
+('019c4d42-49ca-7efe-b28e-6feeebc4cd13', 'Demo International School', 'demo', 'demo.schoolerp.com', '{"white_label": false}', TRUE);
 
--- Elite Academy (id 3)
+-- Elite Academy (Line 3)
 INSERT INTO tenants (id, name, subdomain, domain, config, is_active) VALUES
-('b12f5935-76e6-4821-9940-2dd711080a86', 'Elite Academy', 'elite', 'elite.academy.com', '{"white_label": true}', TRUE);
+('019c4d42-49ca-7861-9293-59cbaaea5d14', 'Elite Academy', 'elite', 'elite.academy.com', '{"white_label": true}', TRUE);
 
--- 3. PERMISSIONS (id 11-18)
+-- 3. PERMISSIONS (Lines 11-18)
 INSERT INTO permissions (id, code, module, description) VALUES
-('1aed3003-f825-45fe-99d2-287d12b0b889', 'dashboard:view', 'core', 'Access dashboard'),
-('7b1fa784-41f9-43fd-b660-dd2fd7167344', 'sis:read', 'sis', 'View students'),
-('b8825ab5-e5f6-4975-b217-eb3707952de5', 'sis:write', 'sis', 'Edit students'),
-('4e10c54d-339b-4e28-b62e-2665e8ee5255', 'fees:read', 'fees', 'View fees'),
-('d6ec4fcf-ffbc-4b48-b293-0caf60f96272', 'fees:collect', 'fees', 'Collect fees'),
-('e30d0645-f58b-4fbb-b7e3-a92fc9b41b88', 'attendance:read', 'attendance', 'View attendance'),
-('fee67808-e8b5-4bd6-b28e-9ade116d43d3', 'attendance:write', 'attendance', 'Mark attendance'),
-('9af87a43-3066-4dfd-b6ad-295dfdaf726b', 'tenant:manage', 'settings', 'Manage school');
+('019c4d42-49ca-74cf-ad4c-647cbcf6c99b', 'dashboard:view', 'core', 'Access dashboard'),
+('019c4d42-49ca-7319-9ad6-e9491c672bd3', 'sis:read', 'sis', 'View students'),
+('019c4d42-49ca-7c6c-af4c-f966bf0e59df', 'sis:write', 'sis', 'Edit students'),
+('019c4d42-49ca-773d-aea7-34deb37577e1', 'fees:read', 'fees', 'View fees'),
+('019c4d42-49ca-761c-aaf8-24e6628c030a', 'fees:collect', 'fees', 'Collect fees'),
+('019c4d42-49ca-7f83-b4a1-7408a5b65f0e', 'attendance:read', 'attendance', 'View attendance'),
+('019c4d42-49ca-70a7-994c-fc86e052d584', 'attendance:write', 'attendance', 'Mark attendance'),
+('019c4d42-49ca-799b-a6bf-971a1e1321f1', 'tenant:manage', 'settings', 'Manage school');
 
--- 4. ROLES (id 21-26)
+-- 4. ROLES (Lines 21-26)
 INSERT INTO roles (id, tenant_id, name, code, is_system) VALUES
-('ad093559-c5b3-43bc-b23f-a2e0ff5249df', NULL, 'Super Admin', 'super_admin', TRUE),
-('ec350dec-1c09-40e0-a9f2-b3a2943731bf', NULL, 'Tenant Admin', 'tenant_admin', TRUE),
-('0bd964a3-beff-43c6-9293-c1943e390e26', NULL, 'Teacher', 'teacher', TRUE),
-('2f3be4c5-d554-4ef3-b1de-150bfb17ad7d', NULL, 'Accountant', 'accountant', TRUE),
-('c837c446-6a7d-4a04-90a8-ca7bcbfd56d4', NULL, 'Parent', 'parent', TRUE),
-('3c7e8a06-88d8-40a6-a982-5a19309a670b', NULL, 'Student', 'student', TRUE);
+('019c4d42-49ca-7166-9de9-5e97220dc819', NULL, 'Super Admin', 'super_admin', TRUE),
+('019c4d42-49ca-744e-8547-8071d51aef0d', NULL, 'Tenant Admin', 'tenant_admin', TRUE),
+('019c4d42-49ca-7279-8903-5dd40619d787', NULL, 'Teacher', 'teacher', TRUE),
+('019c4d42-49ca-7b7a-a200-b3ee92384e98', NULL, 'Accountant', 'accountant', TRUE),
+('019c4d42-49ca-7daf-983a-209e52e1371f', NULL, 'Parent', 'parent', TRUE),
+('019c4d42-49ca-7f3f-95ce-50b223320178', NULL, 'Student', 'student', TRUE);
 
--- Map permissions
+-- Map permissions (Tenant Admin gets all)
 INSERT INTO role_permissions (role_id, permission_id) 
-SELECT 'ec350dec-1c09-40e0-a9f2-b3a2943731bf', id FROM permissions;
+SELECT '019c4d42-49ca-744e-8547-8071d51aef0d', id FROM permissions;
 
--- 5. USERS (id 31-35)
+-- 5. USERS (Lines 31-34)
 -- SaaS Admin
 INSERT INTO users (id, email, phone, full_name, is_active) 
-VALUES ('703c80e6-d9bf-4155-bd18-88fa29bae2ac', 'saas_admin@schoolerp.com', '+919999999999', 'System Administrator', TRUE);
+VALUES ('019c4d42-49ca-767c-b3bd-b1a7faf5ad04', 'saas_admin@schoolerp.com', '+919999999999', 'System Administrator', TRUE);
 
 -- Demo Admin
 INSERT INTO users (id, email, phone, full_name, is_active) 
-VALUES ('46739cd1-26a0-40d1-b719-fe4290d16e71', 'admin@demo.school', '+919876543210', 'Demo Admin', TRUE);
+VALUES ('019c4d42-49ca-70b0-a772-e58913e13446', 'admin@demo.school', '+919876543210', 'Demo Admin', TRUE);
 
 -- Demo Teacher
 INSERT INTO users (id, email, phone, full_name, is_active) 
-VALUES ('87d5a0ac-3293-4bb3-8aa0-fdf2e1a0b2d6', 'teacher@demo.school', '+919876543211', 'Demo Teacher', TRUE);
+VALUES ('019c4d42-49ca-765c-a638-deef0366aff8', 'teacher@demo.school', '+919876543211', 'Demo Teacher', TRUE);
 
 -- Elite Admin
 INSERT INTO users (id, email, phone, full_name, is_active) 
-VALUES ('1d04e2c3-7ff9-437d-b59c-c10726eade93', 'admin@elite.academy', '+919876543333', 'Elite Admin', TRUE);
+VALUES ('019c4d42-49ca-7351-a604-7d7bc4b46f54', 'admin@elite.academy', '+919876543333', 'Elite Admin', TRUE);
 
--- 6. IDENTITIES (id 41-45)
+-- 6. IDENTITIES (Lines 41-44)
 INSERT INTO user_identities (id, user_id, provider, identifier, credential) VALUES
-('b80f3356-c4a8-461c-99e8-b3e0cec92804', '703c80e6-d9bf-4155-bd18-88fa29bae2ac', 'password', 'saas_admin@schoolerp.com', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f'),
-('5f86dc2f-54fc-4a2f-97cd-3d0bb2512ff3', '46739cd1-26a0-40d1-b719-fe4290d16e71', 'password', 'admin@demo.school', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f'),
-('7bf3b769-4dd6-4a13-9088-444742a76b6d', '87d5a0ac-3293-4bb3-8aa0-fdf2e1a0b2d6', 'password', 'teacher@demo.school', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f'),
-('f8ff616e-f0c0-4a4a-8afe-53031e4aacc3', '1d04e2c3-7ff9-437d-b59c-c10726eade93', 'password', 'admin@elite.academy', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f');
+('019c4d42-49ca-7593-ad83-721b9b43bc23', '019c4d42-49ca-767c-b3bd-b1a7faf5ad04', 'password', 'saas_admin@schoolerp.com', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f'),
+('019c4d42-49ca-7fe1-bc66-a780c450ccff', '019c4d42-49ca-70b0-a772-e58913e13446', 'password', 'admin@demo.school', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f'),
+('019c4d42-49ca-7c90-8765-83d01b1de50a', '019c4d42-49ca-765c-a638-deef0366aff8', 'password', 'teacher@demo.school', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f'),
+('019c4d42-49ca-788c-b6c0-615844439267', '019c4d42-49ca-7351-a604-7d7bc4b46f54', 'password', 'admin@elite.academy', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f');
 
--- 7. ASSIGNMENTS (id 51-55)
+-- 7. ASSIGNMENTS (Lines 51-54)
 -- SaaS Admin (Assigned to Platform Tenant)
 INSERT INTO role_assignments (id, tenant_id, user_id, role_id, scope_type) 
-VALUES ('483a784a-cf62-477b-b9b6-e408d7e779ab', '6ce0c3c1-e2e1-480e-b3ba-f2fc24683e4a', '703c80e6-d9bf-4155-bd18-88fa29bae2ac', 'ad093559-c5b3-43bc-b23f-a2e0ff5249df', 'platform');
+VALUES ('019c4d42-49ca-73e1-be64-56377f64b05b', '019c4d42-49ca-7e0a-b047-86336ebac7ae', '019c4d42-49ca-767c-b3bd-b1a7faf5ad04', '019c4d42-49ca-7166-9de9-5e97220dc819', 'platform');
 
 -- Demo Admin
 INSERT INTO role_assignments (id, tenant_id, user_id, role_id, scope_type) 
-VALUES ('9bb357ff-dcae-4ad1-99df-908b121b68bb', '528b652b-91aa-498e-b3b5-eab9560b11e5', '46739cd1-26a0-40d1-b719-fe4290d16e71', 'ec350dec-1c09-40e0-a9f2-b3a2943731bf', 'tenant');
+VALUES ('019c4d42-49ca-79d3-9605-35dd2d160a39', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', '019c4d42-49ca-70b0-a772-e58913e13446', '019c4d42-49ca-744e-8547-8071d51aef0d', 'tenant');
 
 -- Demo Teacher
 INSERT INTO role_assignments (id, tenant_id, user_id, role_id, scope_type) 
-VALUES ('f6599a2b-32e5-42b6-a2ed-52a5aadaf0fa', '528b652b-91aa-498e-b3b5-eab9560b11e5', '87d5a0ac-3293-4bb3-8aa0-fdf2e1a0b2d6', '0bd964a3-beff-43c6-9293-c1943e390e26', 'tenant');
+VALUES ('019c4d42-49ca-7442-b328-d20c9de8a543', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', '019c4d42-49ca-765c-a638-deef0366aff8', '019c4d42-49ca-7279-8903-5dd40619d787', 'tenant');
 
 -- Elite Admin
 INSERT INTO role_assignments (id, tenant_id, user_id, role_id, scope_type) 
-VALUES ('7741d805-db70-4d86-909a-4defa944d843', 'b12f5935-76e6-4821-9940-2dd711080a86', '1d04e2c3-7ff9-437d-b59c-c10726eade93', 'ec350dec-1c09-40e0-a9f2-b3a2943731bf', 'tenant');
+VALUES ('019c4d42-49ca-723c-b274-f345b99eb12a', '019c4d42-49ca-7861-9293-59cbaaea5d14', '019c4d42-49ca-7351-a604-7d7bc4b46f54', '019c4d42-49ca-744e-8547-8071d51aef0d', 'tenant');
 
 COMMIT;

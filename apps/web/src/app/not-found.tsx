@@ -1,5 +1,6 @@
-import { Link } from "next/link";
-import { ErrorState, Button } from "@schoolerp/ui";
+"use client";
+
+import { ErrorState } from "@schoolerp/ui";
 
 export default function NotFound() {
   return (

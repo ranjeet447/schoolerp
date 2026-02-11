@@ -99,7 +99,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 		"permissions": roleAssignment.Permissions,
 		"iat":         time.Now().Unix(),
 		"exp":         expiresAt.Unix(),
-		"jti":         uuid.New().String(),
+		"jti":         uuid.Must(uuid.NewV7()).String(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

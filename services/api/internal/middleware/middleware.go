@@ -69,7 +69,7 @@ func RequestIDPropagation(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reqID := middleware.GetReqID(r.Context())
 		if reqID == "" {
-			reqID = uuid.New().String()
+			reqID = uuid.Must(uuid.NewV7()).String()
 		}
 		
 		// Set on response header
