@@ -4,6 +4,7 @@ import "@schoolerp/ui/styles.css";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/components/auth-provider";
+import { OfflineDetector } from "@/components/offline-detector";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -24,7 +25,9 @@ export default async function RootLayout({
     <html lang={locale}>
       <body className={inter.className}>
         <AuthProvider>
-          {children}
+          <OfflineDetector>
+            {children}
+          </OfflineDetector>
           <Toaster />
         </AuthProvider>
       </body>

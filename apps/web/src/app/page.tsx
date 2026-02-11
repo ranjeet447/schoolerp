@@ -11,7 +11,7 @@ export default function Home() {
   useLayoutEffect(() => {
     const user = RBACService.getCurrentUser();
     if (!user || !user.role) {
-      router.replace('/auth');
+      router.replace('/auth/login');
     } else {
       const redirect = RBACService.getDashboardPath(user.role);
       router.replace(redirect);

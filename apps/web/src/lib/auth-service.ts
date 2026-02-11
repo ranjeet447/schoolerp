@@ -34,7 +34,7 @@ class AuthServiceClass {
       case 'student':
         return '/student/dashboard';
       default:
-        return '/auth';
+        return '/auth/login';
     }
   }
 
@@ -138,7 +138,7 @@ class AuthServiceClass {
   logout(): void {
     if (typeof window === 'undefined') return;
     localStorage.clear(); // Clear all auth data
-    window.location.href = '/auth';
+    window.location.href = '/auth/login';
   }
 }
 

@@ -56,14 +56,6 @@ export default function LoginPage() {
       </div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <Link 
-          href="/auth"
-          className="inline-flex items-center text-slate-400 hover:text-white transition-colors mb-8 text-sm group"
-        >
-          <ChevronLeft className="h-4 w-4 mr-1 group-hover:-translate-x-1 transition-transform" />
-          Back to Selection
-        </Link>
-        
         <div className="flex justify-center mb-6">
           <div className="h-16 w-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center p-3 backdrop-blur-xl shadow-2xl">
             <ShieldCheck className="h-10 w-10 text-indigo-400" />
