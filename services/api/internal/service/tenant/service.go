@@ -3,17 +3,22 @@ package tenant
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/schoolerp/api/internal/db"
+	"github.com/schoolerp/api/internal/service/auth"
 )
 
 type Service struct {
-	q db.Querier
+	q  *db.Queries
+	db *pgxpool.Pool
 }
 
-func NewService(q db.Querier) *Service {
-	return &Service{q: q}
+func NewService(q *db.Queries, pool *pgxpool.Pool) *Service {
+	return &Service{q: q, db: pool}
 }
 
 type TenantConfig struct {
@@ -175,4 +180,117 @@ func (s *Service) UpdatePluginConfig(ctx context.Context, tenantID string, plugi
 		Config: configBytes,
 	})
 	return err
+}
+
+type OnboardSchoolParams struct {
+	Name         string `json:"name"`
+	Subdomain    string `json:"subdomain"`
+	Domain       string `json:"domain"`
+	AdminName    string `json:"admin_name"`
+	AdminEmail   string `json:"admin_email"`
+	AdminPhone   string `json:"admin_phone"`
+	Password     string `json:"password"`
+}
+
+func (s *Service) OnboardSchool(ctx context.Context, params OnboardSchoolParams) (string, error) {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback(ctx)
+
+	qtx := s.q.WithTx(tx)
+
+	// 1. Create Tenant
+	tenantID := uuid.New()
+	var tid pgtype.UUID
+	tid.Scan(tenantID.String())
+
+	config := map[string]interface{}{
+		"white_label": false,
+		"branding": map[string]string{
+			"primary_color": "#4f46e5",
+		},
+	}
+	configBytes, _ := json.Marshal(config)
+
+	_, err = qtx.CreateTenant(ctx, db.CreateTenantParams{
+		ID:        tid,
+		Name:      params.Name,
+		Subdomain: params.Subdomain,
+		Domain:    pgtype.Text{String: params.Domain, Valid: params.Domain != ""},
+		Config:    configBytes,
+		IsActive:  pgtype.Bool{Bool: true, Valid: true},
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to create tenant: %w", err)
+	}
+
+	// 2. Create Admin User
+	userID := uuid.New()
+	var uid pgtype.UUID
+	uid.Scan(userID.String())
+
+	_, err = qtx.CreateUser(ctx, db.CreateUserParams{
+		ID:       uid,
+		Email:    pgtype.Text{String: params.AdminEmail, Valid: true},
+		Phone:    pgtype.Text{String: params.AdminPhone, Valid: params.AdminPhone != ""},
+		FullName: params.AdminName,
+		IsActive: pgtype.Bool{Bool: true, Valid: true},
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to create admin user: %w", err)
+	}
+
+	// 3. Create Password Identity
+	identityID := uuid.New()
+	var iid pgtype.UUID
+	iid.Scan(identityID.String())
+
+	_, err = qtx.CreateUserIdentity(ctx, db.CreateUserIdentityParams{
+		ID:         iid,
+		UserID:     uid,
+		Provider:   "password",
+		Identifier: params.AdminEmail,
+		Credential: pgtype.Text{String: auth.HashPasswordForSeed(params.Password), Valid: true},
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to create user identity: %w", err)
+	}
+
+	// 4. Assign Tenant Admin Role
+	// Note: We need the system role ID for 'tenant_admin'
+	// For simplicity, we'll look it up by code
+	roles, err := qtx.ListRolesByTenant(ctx, tid)
+	if err != nil {
+		return "", fmt.Errorf("failed to list roles: %w", err)
+	}
+    
+    var adminRoleID pgtype.UUID
+    for _, r := range roles {
+        if r.Code == "tenant_admin" {
+            adminRoleID = r.ID
+            break
+        }
+    }
+
+    if adminRoleID.Valid == false {
+        return "", fmt.Errorf("tenant_admin role not found")
+    }
+
+	err = qtx.AssignRoleToUser(ctx, db.AssignRoleToUserParams{
+		TenantID:  tid,
+		UserID:    uid,
+		RoleID:    adminRoleID,
+		ScopeType: "tenant",
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to assign role: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return "", err
+	}
+
+	return tenantID.String(), nil
 }

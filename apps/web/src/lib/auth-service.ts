@@ -90,8 +90,14 @@ class AuthServiceClass {
   hasPermission(permission: string): boolean {
     if (typeof window === 'undefined') return false;
 
-    // Admins have all permissions
+    // Admins have wide permissions
     const role = localStorage.getItem('user_role');
+
+    // Platform level permissions are STRICTLY for super_admin
+    if (permission.startsWith('platform:')) {
+      return role === 'super_admin';
+    }
+
     if (role === 'super_admin' || role === 'tenant_admin') return true;
 
     const permsRaw = localStorage.getItem('user_permissions');

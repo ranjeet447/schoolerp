@@ -11,3 +11,8 @@ UPDATE tenants
 SET config = $2, updated_at = NOW()
 WHERE id = $1
 RETURNING *;
+
+-- name: CreateTenant :one
+INSERT INTO tenants (id, name, subdomain, domain, config, is_active)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;

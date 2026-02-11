@@ -110,3 +110,29 @@ func (h *Handler) UpdatePluginConfig(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
+
+func (h *Handler) OnboardSchool(w http.ResponseWriter, r *http.Request) {
+	var params tenant.OnboardSchoolParams
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Basic Validation
+	if params.Name == "" || params.Subdomain == "" || params.AdminEmail == "" || params.Password == "" {
+		http.Error(w, "Missing required onboarding fields", http.StatusBadRequest)
+		return
+	}
+
+	tenantID, err := h.service.OnboardSchool(r.Context(), params)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":    "created",
+		"tenant_id": tenantID,
+	})
+}

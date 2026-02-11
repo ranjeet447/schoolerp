@@ -33,33 +33,9 @@ type Querier interface {
 	CreateApplication(ctx context.Context, arg CreateApplicationParams) (AdmissionApplication, error)
 	// Approvals
 	CreateApprovalRequest(ctx context.Context, arg CreateApprovalRequestParams) (ApprovalRequest, error)
-	// Copyright 2026 Google LLC
-	//
-	// Licensed under the Apache License, Version 2.0 (the "License");
-	// you may not use this file except in compliance with the License.
-	// You may obtain a copy of the License at
-	//
-	//     http://www.apache.org/licenses/LICENSE-2.0
-	//
-	// Unless required by applicable law or agreed to in writing, software
-	// distributed under the License is distributed on an "AS IS" BASIS,
-	// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	// See the License for the specific language governing permissions and
-	// limitations under the License.
+	
 	CreateAttendanceSession(ctx context.Context, arg CreateAttendanceSessionParams) (AttendanceSession, error)
-	// Copyright 2026 Google LLC
-	//
-	// Licensed under the Apache License, Version 2.0 (the "License");
-	// you may not use this file except in compliance with the License.
-	// You may obtain a copy of the License at
-	//
-	//     http://www.apache.org/licenses/LICENSE-2.0
-	//
-	// Unless required by applicable law or agreed to in writing, software
-	// distributed under the License is distributed on an "AS IS" BASIS,
-	// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	// See the License for the specific language governing permissions and
-	// limitations under the License.
+	
 	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) (AuditLog, error)
 	CreateAuthor(ctx context.Context, arg CreateAuthorParams) (LibraryAuthor, error)
 	CreateBook(ctx context.Context, arg CreateBookParams) (LibraryBook, error)
@@ -74,49 +50,13 @@ type Querier interface {
 	CreateEmergencyBroadcast(ctx context.Context, arg CreateEmergencyBroadcastParams) (EmergencyBroadcast, error)
 	CreateEmployee(ctx context.Context, arg CreateEmployeeParams) (Employee, error)
 	CreateEnquiry(ctx context.Context, arg CreateEnquiryParams) (AdmissionEnquiry, error)
-	// Copyright 2026 Google LLC
-	//
-	// Licensed under the Apache License, Version 2.0 (the "License");
-	// you may not use this file except in compliance with the License.
-	// You may obtain a copy of the License at
-	//
-	//     http://www.apache.org/licenses/LICENSE-2.0
-	//
-	// Unless required by applicable law or agreed to in writing, software
-	// distributed under the License is distributed on an "AS IS" BASIS,
-	// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	// See the License for the specific language governing permissions and
-	// limitations under the License.
+	
 	CreateExam(ctx context.Context, arg CreateExamParams) (Exam, error)
-	// Copyright 2026 Google LLC
-	//
-	// Licensed under the Apache License, Version 2.0 (the "License");
-	// you may not use this file except in compliance with the License.
-	// You may obtain a copy of the License at
-	//
-	//     http://www.apache.org/licenses/LICENSE-2.0
-	//
-	// Unless required by applicable law or agreed to in writing, software
-	// distributed under the License is distributed on an "AS IS" BASIS,
-	// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	// See the License for the specific language governing permissions and
-	// limitations under the License.
+	
 	CreateFeeHead(ctx context.Context, arg CreateFeeHeadParams) (FeeHead, error)
 	CreateFeePlan(ctx context.Context, arg CreateFeePlanParams) (FeePlan, error)
 	CreateFeePlanItem(ctx context.Context, arg CreateFeePlanItemParams) (FeePlanItem, error)
-	// Copyright 2026 Google LLC
-	//
-	// Licensed under the Apache License, Version 2.0 (the "License");
-	// you may not use this file except in compliance with the License.
-	// You may obtain a copy of the License at
-	//
-	//     http://www.apache.org/licenses/LICENSE-2.0
-	//
-	// Unless required by applicable law or agreed to in writing, software
-	// distributed under the License is distributed on an "AS IS" BASIS,
-	// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	// See the License for the specific language governing permissions and
-	// limitations under the License.
+	
 	CreateFile(ctx context.Context, arg CreateFileParams) (File, error)
 	CreateGuardian(ctx context.Context, arg CreateGuardianParams) (Guardian, error)
 	// homework.sql
@@ -128,19 +68,7 @@ type Querier interface {
 	CreateLeaveRequest(ctx context.Context, arg CreateLeaveRequestParams) (LeaveRequest, error)
 	// Locks
 	CreateLock(ctx context.Context, arg CreateLockParams) (Lock, error)
-	// Copyright 2026 Google LLC
-	//
-	// Licensed under the Apache License, Version 2.0 (the "License");
-	// you may not use this file except in compliance with the License.
-	// You may obtain a copy of the License at
-	//
-	//     http://www.apache.org/licenses/LICENSE-2.0
-	//
-	// Unless required by applicable law or agreed to in writing, software
-	// distributed under the License is distributed on an "AS IS" BASIS,
-	// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	// See the License for the specific language governing permissions and
-	// limitations under the License.
+	
 	CreateNotice(ctx context.Context, arg CreateNoticeParams) (Notice, error)
 	CreateOutboxEvent(ctx context.Context, arg CreateOutboxEventParams) (Outbox, error)
 	CreatePDFJob(ctx context.Context, arg CreatePDFJobParams) (PdfJob, error)
@@ -163,22 +91,13 @@ type Querier interface {
 	CreateSalaryStructure(ctx context.Context, arg CreateSalaryStructureParams) (SalaryStructure, error)
 	CreateSchoolGroup(ctx context.Context, arg CreateSchoolGroupParams) (SchoolGroup, error)
 	CreateSection(ctx context.Context, arg CreateSectionParams) (Section, error)
-	// Copyright 2026 Google LLC
-	//
-	// Licensed under the Apache License, Version 2.0 (the "License");
-	// you may not use this file except in compliance with the License.
-	// You may obtain a copy of the License at
-	//
-	//     http://www.apache.org/licenses/LICENSE-2.0
-	//
-	// Unless required by applicable law or agreed to in writing, software
-	// distributed under the License is distributed on an "AS IS" BASIS,
-	// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	// See the License for the specific language governing permissions and
-	// limitations under the License.
+	
 	CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error)
 	CreateSubject(ctx context.Context, arg CreateSubjectParams) (Subject, error)
 	CreateSupplier(ctx context.Context, arg CreateSupplierParams) (InventorySupplier, error)
+	CreateTenant(ctx context.Context, arg CreateTenantParams) (Tenant, error)
+	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	CreateUserIdentity(ctx context.Context, arg CreateUserIdentityParams) (UserIdentity, error)
 	CreateVehicle(ctx context.Context, arg CreateVehicleParams) (TransportVehicle, error)
 	CreateVisitor(ctx context.Context, arg CreateVisitorParams) (Visitor, error)
 	CreateVisitorLog(ctx context.Context, arg CreateVisitorLogParams) (VisitorLog, error)
@@ -233,19 +152,7 @@ type Querier interface {
 	GetPendingAdjustments(ctx context.Context, arg GetPendingAdjustmentsParams) ([]PayrollAdjustment, error)
 	GetPendingOutboxEvents(ctx context.Context, limitCount int32) ([]Outbox, error)
 	GetPlacementDrive(ctx context.Context, arg GetPlacementDriveParams) (PlacementDrife, error)
-	// Copyright 2026 Google LLC
-	//
-	// Licensed under the Apache License, Version 2.0 (the "License");
-	// you may not use this file except in compliance with the License.
-	// You may obtain a copy of the License at
-	//
-	//     http://www.apache.org/licenses/LICENSE-2.0
-	//
-	// Unless required by applicable law or agreed to in writing, software
-	// distributed under the License is distributed on an "AS IS" BASIS,
-	// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	// See the License for the specific language governing permissions and
-	// limitations under the License.
+	
 	// foundation.sql
 	// Policies
 	GetPolicy(ctx context.Context, arg GetPolicyParams) (Policy, error)
@@ -260,6 +167,8 @@ type Querier interface {
 	GetStudentsMissingSubmissionForHomework(ctx context.Context, id pgtype.UUID) ([]GetStudentsMissingSubmissionForHomeworkRow, error)
 	// Simple mapping for demo: using the first head's mapping from the plan
 	GetTallyExportData(ctx context.Context, arg GetTallyExportDataParams) ([]GetTallyExportDataRow, error)
+	GetTenantByID(ctx context.Context, id pgtype.UUID) (Tenant, error)
+	GetTenantBySubdomain(ctx context.Context, subdomain string) (Tenant, error)
 	GetVehicle(ctx context.Context, arg GetVehicleParams) (TransportVehicle, error)
 	GetVisitorByPhone(ctx context.Context, arg GetVisitorByPhoneParams) (Visitor, error)
 	GradeSubmission(ctx context.Context, arg GradeSubmissionParams) (HomeworkSubmission, error)
@@ -358,14 +267,9 @@ type Querier interface {
 	UpdateReceiptSeries(ctx context.Context, arg UpdateReceiptSeriesParams) (ReceiptSeries, error)
 	UpdateRoute(ctx context.Context, arg UpdateRouteParams) (TransportRoute, error)
 	UpdateStudent(ctx context.Context, arg UpdateStudentParams) (Student, error)
+	UpdateTenantConfig(ctx context.Context, arg UpdateTenantConfigParams) (Tenant, error)
 	UpdateVehicle(ctx context.Context, arg UpdateVehicleParams) (TransportVehicle, error)
 	UpsertChatModerationSettings(ctx context.Context, arg UpsertChatModerationSettingsParams) (ChatModerationSetting, error)
-	
-	// Tenants
-	GetTenantBySubdomain(ctx context.Context, subdomain string) (Tenant, error)
-	GetTenantByID(ctx context.Context, id pgtype.UUID) (Tenant, error)
-	UpdateTenantConfig(ctx context.Context, arg UpdateTenantConfigParams) (Tenant, error)
-
 	UpsertGradingScale(ctx context.Context, arg UpsertGradingScaleParams) (GradingScale, error)
 	UpsertLedgerMapping(ctx context.Context, arg UpsertLedgerMappingParams) (TallyLedgerMapping, error)
 	UpsertLessonPlan(ctx context.Context, arg UpsertLessonPlanParams) (LessonPlan, error)

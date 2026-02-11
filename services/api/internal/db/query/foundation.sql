@@ -1,19 +1,3 @@
--- Copyright 2026 Google LLC
---
--- Licensed under the Apache License, Version 2.0 (the "License");
--- you may not use this file except in compliance with the License.
--- You may obtain a copy of the License at
---
---     http://www.apache.org/licenses/LICENSE-2.0
---
--- Unless required by applicable law or agreed to in writing, software
--- distributed under the License is distributed on an "AS IS" BASIS,
--- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
--- See the License for the specific language governing permissions and
--- limitations under the License.
-
--- foundation.sql
-
 -- Policies
 -- name: GetPolicy :one
 SELECT * FROM policies
@@ -65,3 +49,13 @@ RETURNING *;
 -- name: ListPendingApprovals :many
 SELECT * FROM approval_requests
 WHERE tenant_id = $1 AND status = 'pending';
+
+-- name: CreateUser :one
+INSERT INTO users (id, email, phone, full_name, is_active)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: CreateUserIdentity :one
+INSERT INTO user_identities (id, user_id, provider, identifier, credential)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;

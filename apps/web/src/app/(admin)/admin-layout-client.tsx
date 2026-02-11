@@ -13,7 +13,8 @@ import {
   Menu,
   LogOut,
   User,
-  Shield
+  Shield,
+  School
 } from 'lucide-react';
 import { Button } from '@schoolerp/ui';
 import { RBACService } from '@/lib/auth-service';
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { href: '/admin/notices', label: 'Notices', icon: FileText, permission: 'notices:read' },
   { href: '/admin/settings/users', label: 'User Management', icon: Users, permission: 'tenant:users:manage' },
   { href: '/admin/settings/roles', label: 'Roles & Permissions', icon: Shield, permission: 'tenant:roles:manage' },
+  { href: '/admin/settings/onboarding', label: 'School Onboarding', icon: School, permission: 'platform:manage' },
   { href: '/admin/settings', label: 'Settings', icon: Settings, permission: 'tenant:settings:view' },
 ];
 

@@ -1,17 +1,3 @@
-// Copyright 2026 Google LLC
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package main
 
 import (
@@ -164,7 +150,7 @@ func main() {
 	rolesService := rolesservice.NewService(querier)
 	notificationService := notificationservice.NewService(querier)
 	academicService := academicservice.NewService(querier, auditLogger)
-	tenantService := tenantservice.NewService(querier)
+	tenantService := tenantservice.NewService(querier, pool)
 	
 	// File Service
 	fsDir := os.Getenv("UPLOAD_DIR")
@@ -287,6 +273,7 @@ func main() {
 			r.Post("/tenants/config", tenantHandler.UpdateConfig)
 			r.Get("/tenants/plugins", tenantHandler.ListPlugins)
 			r.Post("/tenants/plugins/{id}", tenantHandler.UpdatePluginConfig)
+			r.Post("/tenants/onboard", tenantHandler.OnboardSchool)
 			
 			// Growth/Other stubs maintained for now
 			r.Get("/demo-bookings", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(`[]`)) })
