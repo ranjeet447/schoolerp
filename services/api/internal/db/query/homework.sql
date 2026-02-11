@@ -74,3 +74,16 @@ LEFT JOIN homework_submissions hs ON h.id = hs.homework_id AND hs.student_id = s
 WHERE st.id = $1 AND h.tenant_id = $2
 ORDER BY h.due_date ASC;
 
+-- name: GetHomeworkDueSoon :many
+SELECT * FROM homework
+WHERE due_date BETWEEN NOW() AND NOW() + INTERVAL '4 hours'
+AND submission_allowed = TRUE;
+
+-- name: GetStudentsMissingSubmissionForHomework :many
+SELECT st.id as student_id, st.full_name
+FROM students st
+JOIN homework h ON st.section_id = h.class_section_id
+LEFT JOIN homework_submissions hs ON h.id = hs.homework_id AND st.id = hs.student_id
+WHERE h.id = $1 AND hs.id IS NULL;
+
+

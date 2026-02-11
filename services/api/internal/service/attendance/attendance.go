@@ -194,3 +194,23 @@ func (s *Service) GetSession(ctx context.Context, tenantID, classSectionID strin
 	entries, err := s.q.GetAttendanceEntries(ctx, session.ID)
 	return session, entries, err
 }
+
+func (s *Service) ListPolicies(ctx context.Context, tenantID string) ([]db.Policy, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	return s.q.ListPolicies(ctx, tUUID)
+}
+
+func (s *Service) UpdatePolicy(ctx context.Context, tenantID, module, action string, logic json.RawMessage, active bool) (db.Policy, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+
+	return s.q.UpdateOrCreatePolicy(ctx, db.UpdateOrCreatePolicyParams{
+		TenantID: tUUID,
+		Module:   module,
+		Action:   action,
+		Logic:    logic,
+		IsActive: pgtype.Bool{Bool: active, Valid: true},
+	})
+}
+

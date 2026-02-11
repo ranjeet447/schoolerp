@@ -194,6 +194,7 @@ type Querier interface {
 	GetFile(ctx context.Context, arg GetFileParams) (File, error)
 	GetGroupAnalytics(ctx context.Context, groupID pgtype.UUID) (GetGroupAnalyticsRow, error)
 	GetHomework(ctx context.Context, arg GetHomeworkParams) (Homework, error)
+	GetHomeworkDueSoon(ctx context.Context) ([]Homework, error)
 	// This searches homework for the section the student is currently in
 	GetHomeworkForStudent(ctx context.Context, arg GetHomeworkForStudentParams) ([]GetHomeworkForStudentRow, error)
 	GetInventoryItem(ctx context.Context, arg GetInventoryItemParams) (InventoryItem, error)
@@ -231,6 +232,7 @@ type Querier interface {
 	GetStudent(ctx context.Context, arg GetStudentParams) (GetStudentRow, error)
 	GetStudentFeeSummary(ctx context.Context, studentID pgtype.UUID) ([]GetStudentFeeSummaryRow, error)
 	GetStudentGuardians(ctx context.Context, studentID pgtype.UUID) ([]GetStudentGuardiansRow, error)
+	GetStudentsMissingSubmissionForHomework(ctx context.Context, id pgtype.UUID) ([]GetStudentsMissingSubmissionForHomeworkRow, error)
 	// Simple mapping for demo: using the first head's mapping from the plan
 	GetTallyExportData(ctx context.Context, arg GetTallyExportDataParams) ([]GetTallyExportDataRow, error)
 	GetVehicle(ctx context.Context, arg GetVehicleParams) (TransportVehicle, error)

@@ -91,6 +91,45 @@ func (q *Queries) GetHomework(ctx context.Context, arg GetHomeworkParams) (Homew
 	return i, err
 }
 
+const getHomeworkDueSoon = `-- name: GetHomeworkDueSoon :many
+SELECT id, tenant_id, subject_id, class_section_id, teacher_id, title, description, due_date, submission_allowed, attachments, created_at, updated_at FROM homework
+WHERE due_date BETWEEN NOW() AND NOW() + INTERVAL '4 hours'
+AND submission_allowed = TRUE
+`
+
+func (q *Queries) GetHomeworkDueSoon(ctx context.Context) ([]Homework, error) {
+	rows, err := q.db.Query(ctx, getHomeworkDueSoon)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Homework
+	for rows.Next() {
+		var i Homework
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.SubjectID,
+			&i.ClassSectionID,
+			&i.TeacherID,
+			&i.Title,
+			&i.Description,
+			&i.DueDate,
+			&i.SubmissionAllowed,
+			&i.Attachments,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getHomeworkForStudent = `-- name: GetHomeworkForStudent :many
 SELECT h.id, h.tenant_id, h.subject_id, h.class_section_id, h.teacher_id, h.title, h.description, h.due_date, h.submission_allowed, h.attachments, h.created_at, h.updated_at, s.name as subject_name, hs.status as submission_status
 FROM homework h
@@ -149,6 +188,39 @@ func (q *Queries) GetHomeworkForStudent(ctx context.Context, arg GetHomeworkForS
 			&i.SubjectName,
 			&i.SubmissionStatus,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getStudentsMissingSubmissionForHomework = `-- name: GetStudentsMissingSubmissionForHomework :many
+SELECT st.id as student_id, st.full_name
+FROM students st
+JOIN homework h ON st.section_id = h.class_section_id
+LEFT JOIN homework_submissions hs ON h.id = hs.homework_id AND st.id = hs.student_id
+WHERE h.id = $1 AND hs.id IS NULL
+`
+
+type GetStudentsMissingSubmissionForHomeworkRow struct {
+	StudentID pgtype.UUID `json:"student_id"`
+	FullName  string      `json:"full_name"`
+}
+
+func (q *Queries) GetStudentsMissingSubmissionForHomework(ctx context.Context, id pgtype.UUID) ([]GetStudentsMissingSubmissionForHomeworkRow, error) {
+	rows, err := q.db.Query(ctx, getStudentsMissingSubmissionForHomework, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetStudentsMissingSubmissionForHomeworkRow
+	for rows.Next() {
+		var i GetStudentsMissingSubmissionForHomeworkRow
+		if err := rows.Scan(&i.StudentID, &i.FullName); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

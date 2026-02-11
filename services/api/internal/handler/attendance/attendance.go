@@ -36,6 +36,8 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Route("/attendance", func(r chi.Router) {
 		r.Get("/sessions", h.GetSession)
 		r.Post("/mark", h.MarkAttendance)
+		r.Get("/policies", h.ListPolicies)
+		r.Post("/policies", h.UpdatePolicy)
 	})
 	r.Route("/leaves", func(r chi.Router) {
 		r.Get("/", h.ListLeaves)
@@ -165,3 +167,35 @@ func (h *Handler) RejectLeave(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(leave)
 }
+
+func (h *Handler) ListPolicies(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	policies, err := h.svc.ListPolicies(r.Context(), tenantID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(policies)
+}
+
+func (h *Handler) UpdatePolicy(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Module   string          `json:"module"`
+		Action   string          `json:"action"`
+		Logic    json.RawMessage `json:"logic"`
+		IsActive bool            `json:"is_active"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	tenantID := middleware.GetTenantID(r.Context())
+	policy, err := h.svc.UpdatePolicy(r.Context(), tenantID, req.Module, req.Action, req.Logic, req.IsActive)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(policy)
+}
+
