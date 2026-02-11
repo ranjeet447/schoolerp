@@ -21,5 +21,49 @@
     "dob": "जन्म तिथि",
     "status": "स्थिति",
     "addStudent": "छात्र जोड़ें"
+  },
+  "Admissions": {
+    "title": "प्रवेश",
+    "enquiries": "पूछताछ",
+    "applications": "आवेदन",
+    "newApplication": "नया आवेदन",
+    "fees": "प्रवेश शुल्क"
+  },
+  "HRMS": {
+    "employees": "कर्मचारी",
+    "payroll": "पेरोल",
+    "payslips": "पेस्लिप",
+    "onboarding": "ऑनबोर्डिंग",
+    "adjustments": "समायोजन"
+  },
+  "Inventory": {
+    "stock": "स्टॉक",
+    "transactions": "लेन-देन",
+    "purchaseOrders": "खरीद आदेश",
+    "suppliers": "आपूर्तिकर्ता"
+  },
+  "Library": {
+    "books": "पुस्तकें",
+    "issueReturn": "जारी/वापसी",
+    "fines": "जुर्माना",
+    "catalog": "कैटलॉग"
+  },
+  "Transport": {
+    "routes": "रूट",
+    "vehicles": "वाहन",
+    "drivers": "ड्राइवर",
+    "allocations": "आवंटन"
+  },
+  "Safety": {
+    "discipline": "अनुशासन",
+    "visitors": "आगंतुक",
+    "pickups": "पिकअप प्राधिकरण",
+    "broadcasts": "आपातकालीन प्रसारण"
+  },
+  "Communication": {
+    "ptm": "पीटीएम शेड्यूलिंग",
+    "chat": "मॉडरेट चैट",
+    "notices": "सूचनाएं",
+    "messages": "संदेश"
   }
 }

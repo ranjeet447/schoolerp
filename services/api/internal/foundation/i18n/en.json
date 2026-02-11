@@ -1,0 +1,14 @@
+{
+  "error.unauthorized": "Unauthorized access. Please login.",
+  "error.forbidden": "Forbidden: You do not have permission to perform this action.",
+  "error.internal": "An internal server error occurred.",
+  "error.not_found": "The requested resource was not found.",
+  "error.invalid_input": "Invalid input provided: %s",
+  "success.created": "Successfully created.",
+  "success.updated": "Successfully updated.",
+  "success.deleted": "Successfully deleted.",
+  "safety.broadcast_sent": "Emergency broadcast initiated by %s",
+  "inventory.insufficient_stock": "Insufficient stock: available %d, requested %d",
+  "library.fine_calculated": "Overdue fine of $%.2f calculated",
+  "payroll.approvals_pending": "Payroll adjustment pending approval"
+}

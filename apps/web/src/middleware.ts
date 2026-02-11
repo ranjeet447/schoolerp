@@ -16,7 +16,7 @@ export default function middleware(request: any) {
   }
 
   const response = createMiddleware({
-    locales: ['en'],
+    locales: ['en', 'hi'],
     defaultLocale: 'en'
   })(request);
 

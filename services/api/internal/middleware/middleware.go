@@ -233,11 +233,19 @@ func LocaleResolver(next http.Handler) http.Handler {
 		locale := "en"
 		lang := r.Header.Get("Accept-Language")
 		
-		// Very simple prefix matching for demo/Release 1
-		if len(lang) >= 2 {
-			prefix := lang[:2]
-			if prefix == "hi" {
-				locale = "hi"
+		// Handle complex Accept-Language headers (e.g., "en-US,en;q=0.9,hi;q=0.8")
+		if lang != "" {
+			parts := strings.Split(lang, ",")
+			for _, part := range parts {
+				tag := strings.TrimSpace(strings.Split(part, ";")[0])
+				if strings.HasPrefix(tag, "hi") {
+					locale = "hi"
+					break
+				}
+				if strings.HasPrefix(tag, "en") {
+					locale = "en"
+					break
+				}
 			}
 		}
 		

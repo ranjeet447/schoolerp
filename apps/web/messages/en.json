@@ -21,5 +21,49 @@
     "dob": "Date of Birth",
     "status": "Status",
     "addStudent": "Add Student"
+  },
+  "Admissions": {
+    "title": "Admissions",
+    "enquiries": "Enquiries",
+    "applications": "Applications",
+    "newApplication": "New Application",
+    "fees": "Admission Fees"
+  },
+  "HRMS": {
+    "employees": "Employees",
+    "payroll": "Payroll",
+    "payslips": "Payslips",
+    "onboarding": "Onboarding",
+    "adjustments": "Adjustments"
+  },
+  "Inventory": {
+    "stock": "Stock",
+    "transactions": "Transactions",
+    "purchaseOrders": "Purchase Orders",
+    "suppliers": "Suppliers"
+  },
+  "Library": {
+    "books": "Books",
+    "issueReturn": "Issue/Return",
+    "fines": "Fines",
+    "catalog": "Catalog"
+  },
+  "Transport": {
+    "routes": "Routes",
+    "vehicles": "Vehicles",
+    "drivers": "Drivers",
+    "allocations": "Allocations"
+  },
+  "Safety": {
+    "discipline": "Discipline",
+    "visitors": "Visitors",
+    "pickups": "Pickup Authorizations",
+    "broadcasts": "Emergency Broadcasts"
+  },
+  "Communication": {
+    "ptm": "PTM Scheduling",
+    "chat": "Moderated Chat",
+    "notices": "Notices",
+    "messages": "Messages"
   }
 }

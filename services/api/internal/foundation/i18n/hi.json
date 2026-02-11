@@ -1,0 +1,14 @@
+{
+  "error.unauthorized": "अनधिकृत पहुँच। कृपया लॉगिन करें।",
+  "error.forbidden": "वर्जित: आपको इस क्रिया को करने की अनुमति नहीं है।",
+  "error.internal": "एक आंतरिक सर्वर त्रुटि हुई।",
+  "error.not_found": "अनुरोधित संसाधन नहीं मिला।",
+  "error.invalid_input": "अमान्य इनपुट प्रदान किया गया: %s",
+  "success.created": "सफलतापूर्वक बनाया गया।",
+  "success.updated": "सफलतापूर्वक अपडेट किया गया।",
+  "success.deleted": "सफलतापूर्वक हटा दिया गया।",
+  "safety.broadcast_sent": "%s द्वारा आपातकालीन प्रसारण शुरू किया गया",
+  "inventory.insufficient_stock": "अपर्याप्त स्टॉक: उपलब्ध %d, अनुरोधित %d",
+  "library.fine_calculated": "$%.2f का विलंब शुल्क गणना किया गया",
+  "payroll.approvals_pending": "पेरोल समायोजन अनुमोदन के लिए लंबित है"
+}

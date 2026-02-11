@@ -34,6 +34,7 @@ import (
 	"github.com/schoolerp/api/internal/db"
 	"github.com/schoolerp/api/internal/foundation/approvals"
 	"github.com/schoolerp/api/internal/foundation/audit"
+	"github.com/schoolerp/api/internal/foundation/i18n"
 	"github.com/schoolerp/api/internal/foundation/locks"
 	"github.com/schoolerp/api/internal/foundation/policy"
 	"github.com/schoolerp/api/internal/foundation/quota"
@@ -129,6 +130,12 @@ func main() {
 	locksSvc := locks.NewService(querier)
 	approvalSvc := approvals.NewService(querier)
 	quotaSvc := quota.NewService(querier)
+
+	// Initialize i18n
+	translator := i18n.GetTranslator()
+	if err := translator.LoadFromDir("internal/foundation/i18n"); err != nil {
+		log.Warn().Err(err).Msg("Failed to load i18n translations, falling back to keys")
+	}
 
 	// Initialize Services
 	studentService := sisservice.NewStudentService(querier, auditLogger, quotaSvc)
