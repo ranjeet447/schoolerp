@@ -81,3 +81,40 @@ JOIN payroll_runs pr ON p.payroll_run_id = pr.id
 WHERE p.employee_id = $1
 ORDER BY pr.year DESC, pr.month DESC
 LIMIT $2 OFFSET $3;
+-- name: GetEmployeeSalaryInfo :one
+SELECT 
+    e.*,
+    ss.basic,
+    ss.hra,
+    ss.da,
+    ss.other_allowances,
+    ss.deductions
+FROM employees e
+JOIN salary_structures ss ON e.salary_structure_id = ss.id
+WHERE e.id = $1 AND e.tenant_id = $2;
+
+-- name: CreateAdjustment :one
+INSERT INTO payroll_adjustments (
+    tenant_id, employee_id, type, amount, description, status
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING *;
+
+-- name: GetPendingAdjustments :many
+SELECT * FROM payroll_adjustments
+WHERE tenant_id = $1 AND employee_id = $2 AND status = 'pending';
+
+-- name: GetApprovedAdjustmentsForRun :many
+-- Adjustments that are approved but not yet processed in a run
+SELECT * FROM payroll_adjustments
+WHERE tenant_id = $1 AND employee_id = $2 AND status = 'approved' AND payroll_run_id IS NULL;
+
+-- name: LinkAdjustmentToRun :exec
+UPDATE payroll_adjustments
+SET payroll_run_id = $3, status = 'processed', updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2;
+
+-- name: UpdateAdjustmentStatus :exec
+UPDATE payroll_adjustments
+SET status = $3, approved_by = $4, approved_at = NOW(), updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2;

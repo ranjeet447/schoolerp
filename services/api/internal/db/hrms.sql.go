@@ -11,6 +11,50 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createAdjustment = `-- name: CreateAdjustment :one
+INSERT INTO payroll_adjustments (
+    tenant_id, employee_id, type, amount, description, status
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING id, tenant_id, employee_id, payroll_run_id, type, amount, description, status, approved_by, approved_at, created_at, updated_at
+`
+
+type CreateAdjustmentParams struct {
+	TenantID    pgtype.UUID    `json:"tenant_id"`
+	EmployeeID  pgtype.UUID    `json:"employee_id"`
+	Type        string         `json:"type"`
+	Amount      pgtype.Numeric `json:"amount"`
+	Description pgtype.Text    `json:"description"`
+	Status      string         `json:"status"`
+}
+
+func (q *Queries) CreateAdjustment(ctx context.Context, arg CreateAdjustmentParams) (PayrollAdjustment, error) {
+	row := q.db.QueryRow(ctx, createAdjustment,
+		arg.TenantID,
+		arg.EmployeeID,
+		arg.Type,
+		arg.Amount,
+		arg.Description,
+		arg.Status,
+	)
+	var i PayrollAdjustment
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.EmployeeID,
+		&i.PayrollRunID,
+		&i.Type,
+		&i.Amount,
+		&i.Description,
+		&i.Status,
+		&i.ApprovedBy,
+		&i.ApprovedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createEmployee = `-- name: CreateEmployee :one
 INSERT INTO employees (
     tenant_id, employee_code, full_name, email, phone, department, designation, join_date, salary_structure_id, bank_details, status
@@ -193,6 +237,50 @@ func (q *Queries) CreateSalaryStructure(ctx context.Context, arg CreateSalaryStr
 	return i, err
 }
 
+const getApprovedAdjustmentsForRun = `-- name: GetApprovedAdjustmentsForRun :many
+SELECT id, tenant_id, employee_id, payroll_run_id, type, amount, description, status, approved_by, approved_at, created_at, updated_at FROM payroll_adjustments
+WHERE tenant_id = $1 AND employee_id = $2 AND status = 'approved' AND payroll_run_id IS NULL
+`
+
+type GetApprovedAdjustmentsForRunParams struct {
+	TenantID   pgtype.UUID `json:"tenant_id"`
+	EmployeeID pgtype.UUID `json:"employee_id"`
+}
+
+// Adjustments that are approved but not yet processed in a run
+func (q *Queries) GetApprovedAdjustmentsForRun(ctx context.Context, arg GetApprovedAdjustmentsForRunParams) ([]PayrollAdjustment, error) {
+	rows, err := q.db.Query(ctx, getApprovedAdjustmentsForRun, arg.TenantID, arg.EmployeeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PayrollAdjustment
+	for rows.Next() {
+		var i PayrollAdjustment
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.EmployeeID,
+			&i.PayrollRunID,
+			&i.Type,
+			&i.Amount,
+			&i.Description,
+			&i.Status,
+			&i.ApprovedBy,
+			&i.ApprovedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getEmployee = `-- name: GetEmployee :one
 SELECT id, tenant_id, user_id, employee_code, full_name, email, phone, department, designation, join_date, salary_structure_id, bank_details, status, created_at, updated_at FROM employees WHERE id = $1 AND tenant_id = $2
 `
@@ -289,6 +377,75 @@ func (q *Queries) GetEmployeePayslips(ctx context.Context, arg GetEmployeePaysli
 	return items, nil
 }
 
+const getEmployeeSalaryInfo = `-- name: GetEmployeeSalaryInfo :one
+SELECT 
+    e.id, e.tenant_id, e.user_id, e.employee_code, e.full_name, e.email, e.phone, e.department, e.designation, e.join_date, e.salary_structure_id, e.bank_details, e.status, e.created_at, e.updated_at,
+    ss.basic,
+    ss.hra,
+    ss.da,
+    ss.other_allowances,
+    ss.deductions
+FROM employees e
+JOIN salary_structures ss ON e.salary_structure_id = ss.id
+WHERE e.id = $1 AND e.tenant_id = $2
+`
+
+type GetEmployeeSalaryInfoParams struct {
+	ID       pgtype.UUID `json:"id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+}
+
+type GetEmployeeSalaryInfoRow struct {
+	ID                pgtype.UUID        `json:"id"`
+	TenantID          pgtype.UUID        `json:"tenant_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	EmployeeCode      string             `json:"employee_code"`
+	FullName          string             `json:"full_name"`
+	Email             pgtype.Text        `json:"email"`
+	Phone             pgtype.Text        `json:"phone"`
+	Department        pgtype.Text        `json:"department"`
+	Designation       pgtype.Text        `json:"designation"`
+	JoinDate          pgtype.Date        `json:"join_date"`
+	SalaryStructureID pgtype.UUID        `json:"salary_structure_id"`
+	BankDetails       []byte             `json:"bank_details"`
+	Status            string             `json:"status"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	Basic             pgtype.Numeric     `json:"basic"`
+	Hra               pgtype.Numeric     `json:"hra"`
+	Da                pgtype.Numeric     `json:"da"`
+	OtherAllowances   []byte             `json:"other_allowances"`
+	Deductions        []byte             `json:"deductions"`
+}
+
+func (q *Queries) GetEmployeeSalaryInfo(ctx context.Context, arg GetEmployeeSalaryInfoParams) (GetEmployeeSalaryInfoRow, error) {
+	row := q.db.QueryRow(ctx, getEmployeeSalaryInfo, arg.ID, arg.TenantID)
+	var i GetEmployeeSalaryInfoRow
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.UserID,
+		&i.EmployeeCode,
+		&i.FullName,
+		&i.Email,
+		&i.Phone,
+		&i.Department,
+		&i.Designation,
+		&i.JoinDate,
+		&i.SalaryStructureID,
+		&i.BankDetails,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Basic,
+		&i.Hra,
+		&i.Da,
+		&i.OtherAllowances,
+		&i.Deductions,
+	)
+	return i, err
+}
+
 const getPayrollRun = `-- name: GetPayrollRun :one
 SELECT id, tenant_id, month, year, status, run_by, run_at, created_at FROM payroll_runs WHERE id = $1 AND tenant_id = $2
 `
@@ -312,6 +469,66 @@ func (q *Queries) GetPayrollRun(ctx context.Context, arg GetPayrollRunParams) (P
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const getPendingAdjustments = `-- name: GetPendingAdjustments :many
+SELECT id, tenant_id, employee_id, payroll_run_id, type, amount, description, status, approved_by, approved_at, created_at, updated_at FROM payroll_adjustments
+WHERE tenant_id = $1 AND employee_id = $2 AND status = 'pending'
+`
+
+type GetPendingAdjustmentsParams struct {
+	TenantID   pgtype.UUID `json:"tenant_id"`
+	EmployeeID pgtype.UUID `json:"employee_id"`
+}
+
+func (q *Queries) GetPendingAdjustments(ctx context.Context, arg GetPendingAdjustmentsParams) ([]PayrollAdjustment, error) {
+	rows, err := q.db.Query(ctx, getPendingAdjustments, arg.TenantID, arg.EmployeeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PayrollAdjustment
+	for rows.Next() {
+		var i PayrollAdjustment
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.EmployeeID,
+			&i.PayrollRunID,
+			&i.Type,
+			&i.Amount,
+			&i.Description,
+			&i.Status,
+			&i.ApprovedBy,
+			&i.ApprovedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const linkAdjustmentToRun = `-- name: LinkAdjustmentToRun :exec
+UPDATE payroll_adjustments
+SET payroll_run_id = $3, status = 'processed', updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2
+`
+
+type LinkAdjustmentToRunParams struct {
+	ID           pgtype.UUID `json:"id"`
+	TenantID     pgtype.UUID `json:"tenant_id"`
+	PayrollRunID pgtype.UUID `json:"payroll_run_id"`
+}
+
+func (q *Queries) LinkAdjustmentToRun(ctx context.Context, arg LinkAdjustmentToRunParams) error {
+	_, err := q.db.Exec(ctx, linkAdjustmentToRun, arg.ID, arg.TenantID, arg.PayrollRunID)
+	return err
 }
 
 const listEmployees = `-- name: ListEmployees :many
@@ -497,6 +714,29 @@ func (q *Queries) ListSalaryStructures(ctx context.Context, tenantID pgtype.UUID
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateAdjustmentStatus = `-- name: UpdateAdjustmentStatus :exec
+UPDATE payroll_adjustments
+SET status = $3, approved_by = $4, approved_at = NOW(), updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2
+`
+
+type UpdateAdjustmentStatusParams struct {
+	ID         pgtype.UUID `json:"id"`
+	TenantID   pgtype.UUID `json:"tenant_id"`
+	Status     string      `json:"status"`
+	ApprovedBy pgtype.UUID `json:"approved_by"`
+}
+
+func (q *Queries) UpdateAdjustmentStatus(ctx context.Context, arg UpdateAdjustmentStatusParams) error {
+	_, err := q.db.Exec(ctx, updateAdjustmentStatus,
+		arg.ID,
+		arg.TenantID,
+		arg.Status,
+		arg.ApprovedBy,
+	)
+	return err
 }
 
 const updateEmployee = `-- name: UpdateEmployee :one

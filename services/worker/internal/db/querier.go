@@ -24,6 +24,7 @@ type Querier interface {
 	CountStudents(ctx context.Context, tenantID pgtype.UUID) (int64, error)
 	// Academic Structure
 	CreateAcademicYear(ctx context.Context, arg CreateAcademicYearParams) (AcademicYear, error)
+	CreateAdjustment(ctx context.Context, arg CreateAdjustmentParams) (PayrollAdjustment, error)
 	CreateAllocation(ctx context.Context, arg CreateAllocationParams) (TransportAllocation, error)
 	CreateAlumni(ctx context.Context, arg CreateAlumniParams) (Alumni, error)
 	CreateApplication(ctx context.Context, arg CreateApplicationParams) (AdmissionApplication, error)
@@ -181,12 +182,15 @@ type Querier interface {
 	GetAlumniApplications(ctx context.Context, alumniID pgtype.UUID) ([]GetAlumniApplicationsRow, error)
 	GetApplication(ctx context.Context, arg GetApplicationParams) (GetApplicationRow, error)
 	GetApprovalRequest(ctx context.Context, id pgtype.UUID) (ApprovalRequest, error)
+	// Adjustments that are approved but not yet processed in a run
+	GetApprovedAdjustmentsForRun(ctx context.Context, arg GetApprovedAdjustmentsForRunParams) ([]PayrollAdjustment, error)
 	GetAttendanceEntries(ctx context.Context, sessionID pgtype.UUID) ([]GetAttendanceEntriesRow, error)
 	GetAttendanceSession(ctx context.Context, arg GetAttendanceSessionParams) (AttendanceSession, error)
 	GetBook(ctx context.Context, arg GetBookParams) (LibraryBook, error)
 	GetChildrenByParentUser(ctx context.Context, arg GetChildrenByParentUserParams) ([]GetChildrenByParentUserRow, error)
 	GetEmployee(ctx context.Context, arg GetEmployeeParams) (Employee, error)
 	GetEmployeePayslips(ctx context.Context, arg GetEmployeePayslipsParams) ([]GetEmployeePayslipsRow, error)
+	GetEmployeeSalaryInfo(ctx context.Context, arg GetEmployeeSalaryInfoParams) (GetEmployeeSalaryInfoRow, error)
 	GetEnquiry(ctx context.Context, arg GetEnquiryParams) (AdmissionEnquiry, error)
 	GetExam(ctx context.Context, arg GetExamParams) (Exam, error)
 	GetExamMarks(ctx context.Context, arg GetExamMarksParams) ([]GetExamMarksRow, error)
@@ -207,6 +211,7 @@ type Querier interface {
 	GetPDFTemplate(ctx context.Context, arg GetPDFTemplateParams) (PdfTemplate, error)
 	GetPaymentOrder(ctx context.Context, arg GetPaymentOrderParams) (PaymentOrder, error)
 	GetPayrollRun(ctx context.Context, arg GetPayrollRunParams) (PayrollRun, error)
+	GetPendingAdjustments(ctx context.Context, arg GetPendingAdjustmentsParams) ([]PayrollAdjustment, error)
 	GetPendingOutboxEvents(ctx context.Context, limitCount int32) ([]Outbox, error)
 	GetPlacementDrive(ctx context.Context, arg GetPlacementDriveParams) (PlacementDrife, error)
 	// Copyright 2026 Google LLC
@@ -238,6 +243,7 @@ type Querier interface {
 	GetVehicle(ctx context.Context, arg GetVehicleParams) (TransportVehicle, error)
 	GradeSubmission(ctx context.Context, arg GradeSubmissionParams) (HomeworkSubmission, error)
 	IssueBook(ctx context.Context, arg IssueBookParams) (LibraryIssue, error)
+	LinkAdjustmentToRun(ctx context.Context, arg LinkAdjustmentToRunParams) error
 	LinkStudentGuardian(ctx context.Context, arg LinkStudentGuardianParams) error
 	ListAcademicYears(ctx context.Context, tenantID pgtype.UUID) ([]AcademicYear, error)
 	ListAllocations(ctx context.Context, tenantID pgtype.UUID) ([]ListAllocationsRow, error)
@@ -300,6 +306,7 @@ type Querier interface {
 	ReturnBook(ctx context.Context, arg ReturnBookParams) (LibraryIssue, error)
 	SetMFAEnabled(ctx context.Context, arg SetMFAEnabledParams) error
 	SubmitHomework(ctx context.Context, arg SubmitHomeworkParams) (HomeworkSubmission, error)
+	UpdateAdjustmentStatus(ctx context.Context, arg UpdateAdjustmentStatusParams) error
 	UpdateAlumni(ctx context.Context, arg UpdateAlumniParams) (Alumni, error)
 	UpdateApplicationDocuments(ctx context.Context, arg UpdateApplicationDocumentsParams) error
 	UpdateApplicationFee(ctx context.Context, arg UpdateApplicationFeeParams) error

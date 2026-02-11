@@ -703,6 +703,21 @@ type PaymentOrder struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
+type PayrollAdjustment struct {
+	ID           pgtype.UUID        `json:"id"`
+	TenantID     pgtype.UUID        `json:"tenant_id"`
+	EmployeeID   pgtype.UUID        `json:"employee_id"`
+	PayrollRunID pgtype.UUID        `json:"payroll_run_id"`
+	Type         string             `json:"type"`
+	Amount       pgtype.Numeric     `json:"amount"`
+	Description  pgtype.Text        `json:"description"`
+	Status       string             `json:"status"`
+	ApprovedBy   pgtype.UUID        `json:"approved_by"`
+	ApprovedAt   pgtype.Timestamptz `json:"approved_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
 type PayrollRun struct {
 	ID        pgtype.UUID        `json:"id"`
 	TenantID  pgtype.UUID        `json:"tenant_id"`
