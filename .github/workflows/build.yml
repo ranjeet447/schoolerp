@@ -49,3 +49,23 @@ jobs:
       
       - name: Run Web Lint
         run: pnpm --filter @schoolerp/web lint
+
+  e2e-smoke:
+    name: E2E Smoke Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright Browsers
+        run: pnpm --filter @schoolerp/web exec playwright install --with-deps
+      - name: Run E2E Smoke Tests
+        run: pnpm --filter @schoolerp/web test:e2e
+
