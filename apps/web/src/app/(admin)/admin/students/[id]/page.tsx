@@ -4,8 +4,9 @@ import { ChevronLeft } from "lucide-react"
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger, StudentProfileCard } from "@schoolerp/ui"
 
 async function getStudent(id: string) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/v1';
   try {
-    const res = await fetch(`http://localhost:8080/v1/admin/students/${id}`, {
+    const res = await fetch(`${API_URL}/admin/students/${id}`, {
       headers: {
         "X-Tenant-ID": "default-tenant", // Stub
       },

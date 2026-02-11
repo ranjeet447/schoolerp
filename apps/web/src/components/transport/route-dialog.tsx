@@ -7,6 +7,7 @@ import {
 } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
 import { Route, Vehicle, Driver } from "@/types/transport"
+import { toast } from "sonner"
 
 interface RouteDialogProps {
   open: boolean
@@ -70,20 +71,25 @@ export function RouteDialog({ open, onOpenChange, onSuccess, route }: RouteDialo
     setLoading(true)
 
     try {
-      const res = await apiClient("/transport/routes", {
-        method: "POST", // assuming Create for now
+      const url = route 
+        ? `/transport/routes/${route.id}` 
+        : "/transport/routes"
+        
+      const res = await apiClient(url, {
+        method: route ? "PUT" : "POST",
         body: JSON.stringify(formData)
       })
 
       if (res.ok) {
+        toast.success(route ? "Route updated" : "Route created")
         onSuccess()
         onOpenChange(false)
       } else {
-        alert("Failed to save route")
+        toast.error("Failed to save route")
       }
     } catch (error) {
       console.error(error)
-      alert("An error occurred")
+      toast.error("An error occurred")
     } finally {
       setLoading(false)
     }

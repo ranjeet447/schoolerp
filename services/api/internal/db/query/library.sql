@@ -34,6 +34,13 @@ INSERT INTO library_books (
 -- name: CreateBookAuthor :exec
 INSERT INTO library_book_authors (book_id, author_id) VALUES ($1, $2);
 
+-- name: UpdateBook :one
+UPDATE library_books
+SET title = $3, isbn = $4, publisher = $5, published_year = $6, category_id = $7,
+    total_copies = $8, shelf_location = $9, price = $10, language = $11, updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2
+RETURNING *;
+
 -- name: GetBook :one
 SELECT * FROM library_books WHERE id = $1 AND tenant_id = $2;
 

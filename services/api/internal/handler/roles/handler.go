@@ -40,6 +40,8 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Put("/roles/{id}", h.Update)
 	r.Delete("/roles/{id}", h.Delete)
 	r.Get("/permissions", h.ListPermissions)
+	r.Get("/roles/users", h.ListUsers)
+	r.Post("/roles/assign", h.AssignRole)
 }
 
 // List returns all roles for the current tenant
@@ -210,6 +212,67 @@ func (h *Handler) ListPermissions(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(perms)
+}
+
+// ListUsers returns all users with their roles
+func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
+	tenantIDStr := middleware.GetTenantID(r.Context())
+	tenantID, err := parseUUID(tenantIDStr)
+	if err != nil {
+		http.Error(w, "invalid tenant id", http.StatusBadRequest)
+		return
+	}
+
+	users, err := h.svc.ListUsers(r.Context(), tenantID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(users)
+}
+
+type assignRoleRequest struct {
+	UserID string `json:"user_id"`
+	RoleID string `json:"role_id"`
+}
+
+// AssignRole assigns a role to a user
+func (h *Handler) AssignRole(w http.ResponseWriter, r *http.Request) {
+	tenantIDStr := middleware.GetTenantID(r.Context())
+	tenantID, err := parseUUID(tenantIDStr)
+	if err != nil {
+		http.Error(w, "invalid tenant id", http.StatusBadRequest)
+		return
+	}
+
+	var req assignRoleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	userUUID, err := parseUUID(req.UserID)
+	if err != nil {
+		http.Error(w, "invalid user id", http.StatusBadRequest)
+		return
+	}
+
+	roleUUID, err := parseUUID(req.RoleID)
+	if err != nil {
+		http.Error(w, "invalid role id", http.StatusBadRequest)
+		return
+	}
+
+	err = h.svc.AssignRoleToUser(r.Context(), tenantID, userUUID, roleUUID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"success": true}`))
 }
 
 func parseUUID(s string) (pgtype.UUID, error) {

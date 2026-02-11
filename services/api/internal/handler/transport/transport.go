@@ -30,6 +30,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 
     // Routes
     r.Post("/transport/routes", h.CreateRoute)
+    r.Put("/transport/routes/{id}", h.UpdateRoute)
     r.Get("/transport/routes", h.ListRoutes)
     r.Post("/transport/routes/{id}/stops", h.CreateRouteStop)
     r.Get("/transport/routes/{id}/stops", h.ListRouteStops)
@@ -176,6 +177,33 @@ func (h *Handler) CreateRoute(w http.ResponseWriter, r *http.Request) {
         return
     }
     respondJSON(w, http.StatusCreated, route)
+}
+
+func (h *Handler) UpdateRoute(w http.ResponseWriter, r *http.Request) {
+    ctx := r.Context()
+    routeID := chi.URLParam(r, "id")
+    var req createRouteReq
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, "invalid body", http.StatusBadRequest)
+        return
+    }
+
+    route, err := h.svc.UpdateRoute(ctx, middleware.GetTenantID(ctx), routeID, transport.CreateRouteParams{
+        TenantID:    middleware.GetTenantID(ctx),
+        Name:        req.Name,
+        VehicleID:   req.VehicleID,
+        DriverID:    req.DriverID,
+        Description: req.Description,
+        UserID:      middleware.GetUserID(ctx),
+        RequestID:   middleware.GetReqID(ctx),
+        IP:          r.RemoteAddr,
+    })
+
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    respondJSON(w, http.StatusOK, route)
 }
 
 func (h *Handler) ListRoutes(w http.ResponseWriter, r *http.Request) {

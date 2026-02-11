@@ -4,33 +4,29 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { 
   LayoutDashboard, 
-  Users, 
-  CalendarCheck, 
   Banknote, 
+  FileText,
   Settings,
   Menu,
-  GraduationCap,
   LogOut,
   User,
-  MessageSquare,
-  FileText
+  CreditCard,
+  PieChart
 } from 'lucide-react';
 import { Button } from '@schoolerp/ui';
 import { RBACService } from '@/lib/auth-service';
 import { usePathname } from 'next/navigation';
 
 const NAV_ITEMS = [
-  { href: '/parent/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
-  { href: '/parent/children', label: 'My Children', icon: Users, permission: 'sis:read' },
-  { href: '/parent/attendance', label: 'Attendance', icon: CalendarCheck, permission: 'attendance:read' },
-  { href: '/parent/fees', label: 'Fees & Payments', icon: Banknote, permission: 'fees:read' },
-  { href: '/parent/results', label: 'Exam Results', icon: GraduationCap, permission: 'exams:read' },
-  { href: '/parent/notices', label: 'Notices', icon: FileText, permission: 'notices:read' },
-  { href: '/parent/leaves', label: 'Leave Requests', icon: MessageSquare, permission: 'attendance:write' },
-  { href: '/parent/settings', label: 'Settings', icon: Settings },
+  { href: '/accountant/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
+  { href: '/accountant/fees', label: 'Fee Collection', icon: Banknote, permission: 'fees:collect' },
+  { href: '/accountant/expenses', label: 'Expenses', icon: CreditCard, permission: 'finance:write' },
+  { href: '/accountant/reports', label: 'Financial Reports', icon: PieChart, permission: 'finance:read' },
+  { href: '/accountant/notices', label: 'Notices', icon: FileText, permission: 'notices:read' },
+  { href: '/accountant/settings', label: 'Settings', icon: Settings },
 ];
 
-export default function ParentLayout({
+export default function AccountantLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -47,13 +43,13 @@ export default function ParentLayout({
   );
 
   return (
-    <div className="flex h-screen bg-rose-50/30">
+    <div className="flex h-screen bg-amber-50/20">
       {/* Sidebar */}
-      <aside className="w-64 border-r border-rose-100 bg-white hidden md:flex md:flex-col">
-        <div className="flex h-16 items-center border-b border-rose-100 px-6">
-          <Link href="/parent/dashboard" className="flex items-center gap-2 font-bold text-xl text-rose-600">
-            <GraduationCap className="h-6 w-6" />
-            <span>Parent<span className="text-slate-900">Portal</span></span>
+      <aside className="w-64 border-r border-amber-100 bg-white hidden md:flex md:flex-col">
+        <div className="flex h-16 items-center border-b border-amber-100 px-6">
+          <Link href="/accountant/dashboard" className="flex items-center gap-2 font-bold text-xl text-amber-600">
+            <Banknote className="h-6 w-6" />
+            <span>Accountant<span className="text-slate-900">Pro</span></span>
           </Link>
         </div>
         <nav className="flex-1 overflow-y-auto py-4">
@@ -64,7 +60,7 @@ export default function ParentLayout({
                   href={item.href}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     pathname === item.href 
-                      ? 'bg-rose-50 text-rose-600' 
+                      ? 'bg-amber-50 text-amber-600' 
                       : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                   }`}
                 >
@@ -76,10 +72,10 @@ export default function ParentLayout({
           </ul>
         </nav>
         
-        <div className="border-t border-rose-100 p-4">
+        <div className="border-t border-amber-100 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-rose-100 flex items-center justify-center text-xs font-bold text-rose-600 border border-rose-200">
+              <div className="h-9 w-9 rounded-full bg-amber-100 flex items-center justify-center text-xs font-bold text-amber-600 border border-amber-200">
                 {user?.name?.[0] || <User className="h-4 w-4" />}
               </div>
               <div className="overflow-hidden">
@@ -89,7 +85,7 @@ export default function ParentLayout({
             </div>
             <button 
               onClick={() => RBACService.logout()}
-              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+              className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
               title="Logout"
             >
               <LogOut className="h-4 w-4" />
@@ -100,7 +96,7 @@ export default function ParentLayout({
 
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 items-center justify-between border-b border-rose-100 bg-white px-6">
+        <header className="flex h-16 items-center justify-between border-b border-amber-100 bg-white px-6">
           <Button variant="ghost" size="icon" className="md:hidden text-slate-600">
             <Menu className="h-5 w-5" />
           </Button>
@@ -108,7 +104,7 @@ export default function ParentLayout({
             <span className="text-sm text-slate-400 font-medium">Demo International School</span>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-6 bg-white">
           {children}
         </main>
       </div>

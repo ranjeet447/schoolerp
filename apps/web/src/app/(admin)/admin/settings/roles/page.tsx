@@ -47,6 +47,7 @@ function groupPermissionsByModule(permissions: Permission[]): Record<string, Per
     return acc;
   }, {} as Record<string, Permission[]>);
 }
+ import { apiClient } from '@/lib/api-client';
 
 export default function RolesSettingsPage() {
   const [roles, setRoles] = useState<Role[]>([]);
@@ -62,21 +63,11 @@ export default function RolesSettingsPage() {
   const [formDescription, setFormDescription] = useState('');
   const [formPermissions, setFormPermissions] = useState<string[]>([]);
 
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('auth_token');
-    const tenantId = localStorage.getItem('tenant_id');
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'X-Tenant-ID': tenantId || '',
-    };
-  };
-
   const fetchData = async () => {
     try {
       const [rolesRes, permsRes] = await Promise.all([
-        fetch(`${API_URL}/admin/roles`, { headers: getAuthHeaders() }),
-        fetch(`${API_URL}/admin/permissions`, { headers: getAuthHeaders() }),
+        apiClient('/admin/roles'),
+        apiClient('/admin/permissions'),
       ]);
 
       if (rolesRes.ok) {
@@ -131,8 +122,8 @@ export default function RolesSettingsPage() {
 
     try {
       const url = editingRole 
-        ? `${API_URL}/admin/roles/${editingRole.id}`
-        : `${API_URL}/admin/roles`;
+        ? `/admin/roles/${editingRole.id}`
+        : `/admin/roles`;
       
       const method = editingRole ? 'PUT' : 'POST';
       
@@ -140,9 +131,8 @@ export default function RolesSettingsPage() {
         ? { name: formName, description: formDescription, permissions: formPermissions }
         : { name: formName, code: formCode, description: formDescription, permissions: formPermissions };
 
-      const res = await fetch(url, {
+      const res = await apiClient(url, {
         method,
-        headers: getAuthHeaders(),
         body: JSON.stringify(body),
       });
 
@@ -161,9 +151,8 @@ export default function RolesSettingsPage() {
 
   const handleDelete = async (roleId: string) => {
     try {
-      const res = await fetch(`${API_URL}/admin/roles/${roleId}`, {
+      const res = await apiClient(`/admin/roles/${roleId}`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
       });
 
       if (res.ok) {

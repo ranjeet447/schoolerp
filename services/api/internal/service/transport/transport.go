@@ -188,6 +188,46 @@ func (s *TransportService) ListRoutes(ctx context.Context, tenantID string) ([]d
 	tUUID.Scan(tenantID)
 	return s.q.ListRoutes(ctx, tUUID)
 }
+func (s *TransportService) UpdateRoute(ctx context.Context, tenantID, routeID string, p CreateRouteParams) (db.TransportRoute, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	rUUID := pgtype.UUID{}
+	rUUID.Scan(routeID)
+
+	vUUID := pgtype.UUID{}
+	if p.VehicleID != "" { vUUID.Scan(p.VehicleID) }
+
+	dUUID := pgtype.UUID{}
+	if p.DriverID != "" { dUUID.Scan(p.DriverID) }
+
+	route, err := s.q.UpdateRoute(ctx, db.UpdateRouteParams{
+		ID:          rUUID,
+		TenantID:    tUUID,
+		Name:        p.Name,
+		VehicleID:   vUUID,
+		DriverID:    dUUID,
+		Description: pgtype.Text{String: p.Description, Valid: p.Description != ""},
+	})
+	if err != nil {
+		return db.TransportRoute{}, err
+	}
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(p.UserID)
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    p.RequestID,
+		Action:       "route.update",
+		ResourceType: "transport_route",
+		ResourceID:   route.ID,
+		After:        route,
+		IPAddress:    p.IP,
+	})
+
+	return route, nil
+}
 
 // Stops
 

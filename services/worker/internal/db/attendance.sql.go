@@ -186,6 +186,44 @@ func (q *Queries) GetAttendanceSession(ctx context.Context, arg GetAttendanceSes
 	return i, err
 }
 
+const getDailyAttendanceStats = `-- name: GetDailyAttendanceStats :one
+SELECT 
+    (SELECT COUNT(*) FROM students st WHERE st.tenant_id = $1 AND st.status = 'active') as total_students,
+    COUNT(CASE WHEN ae.status = 'present' THEN 1 END) as present_count,
+    COUNT(CASE WHEN ae.status = 'absent' THEN 1 END) as absent_count,
+    COUNT(CASE WHEN ae.status = 'late' THEN 1 END) as late_count,
+    COUNT(CASE WHEN ae.status = 'excused' THEN 1 END) as excused_count
+FROM attendance_entries ae
+JOIN attendance_sessions s ON ae.session_id = s.id
+WHERE s.tenant_id = $1 AND s.date = $2
+`
+
+type GetDailyAttendanceStatsParams struct {
+	TenantID pgtype.UUID `json:"tenant_id"`
+	Date     pgtype.Date `json:"date"`
+}
+
+type GetDailyAttendanceStatsRow struct {
+	TotalStudents int64 `json:"total_students"`
+	PresentCount  int64 `json:"present_count"`
+	AbsentCount   int64 `json:"absent_count"`
+	LateCount     int64 `json:"late_count"`
+	ExcusedCount  int64 `json:"excused_count"`
+}
+
+func (q *Queries) GetDailyAttendanceStats(ctx context.Context, arg GetDailyAttendanceStatsParams) (GetDailyAttendanceStatsRow, error) {
+	row := q.db.QueryRow(ctx, getDailyAttendanceStats, arg.TenantID, arg.Date)
+	var i GetDailyAttendanceStatsRow
+	err := row.Scan(
+		&i.TotalStudents,
+		&i.PresentCount,
+		&i.AbsentCount,
+		&i.LateCount,
+		&i.ExcusedCount,
+	)
+	return i, err
+}
+
 const listLeaveRequests = `-- name: ListLeaveRequests :many
 SELECT lr.id, lr.tenant_id, lr.student_id, lr.from_date, lr.to_date, lr.reason, lr.status, lr.decided_by, lr.decided_at, lr.created_at, s.full_name, s.admission_number
 FROM leave_requests lr
@@ -235,6 +273,48 @@ func (q *Queries) ListLeaveRequests(ctx context.Context, arg ListLeaveRequestsPa
 			&i.CreatedAt,
 			&i.FullName,
 			&i.AdmissionNumber,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLeaves = `-- name: ListLeaves :many
+SELECT id, tenant_id, student_id, from_date, to_date, reason, status, decided_by, decided_at, created_at FROM leave_requests
+WHERE tenant_id = $1 AND ($2::text = '' OR status = $2)
+ORDER BY created_at DESC
+`
+
+type ListLeavesParams struct {
+	TenantID pgtype.UUID `json:"tenant_id"`
+	Column2  string      `json:"column_2"`
+}
+
+func (q *Queries) ListLeaves(ctx context.Context, arg ListLeavesParams) ([]LeaveRequest, error) {
+	rows, err := q.db.Query(ctx, listLeaves, arg.TenantID, arg.Column2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LeaveRequest
+	for rows.Next() {
+		var i LeaveRequest
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.StudentID,
+			&i.FromDate,
+			&i.ToDate,
+			&i.Reason,
+			&i.Status,
+			&i.DecidedBy,
+			&i.DecidedAt,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

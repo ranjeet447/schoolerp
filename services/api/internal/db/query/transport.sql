@@ -37,6 +37,12 @@ INSERT INTO transport_routes (tenant_id, name, vehicle_id, driver_id, descriptio
 VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
+-- name: UpdateRoute :one
+UPDATE transport_routes
+SET name = $3, vehicle_id = $4, driver_id = $5, description = $6, updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2
+RETURNING *;
+
 -- name: ListRoutes :many
 SELECT tr.*, tv.registration_number as vehicle_number, td.full_name as driver_name
 FROM transport_routes tr

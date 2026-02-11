@@ -5,8 +5,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, 
   Button, Input, Label, Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@schoolerp/ui"
-import { FileText, Upload, Trash2 } from "lucide-react"
+import { FileText, Upload, Trash2, Loader2 } from "lucide-react"
 import { AdmissionApplication } from "@/types/admission"
+import { toast } from "sonner"
 
 interface ApplicationDocumentsDialogProps {
   application: AdmissionApplication | null
@@ -18,25 +19,68 @@ interface ApplicationDocumentsDialogProps {
 export function ApplicationDocumentsDialog({ application, open, onOpenChange, onSuccess }: ApplicationDocumentsDialogProps) {
   const [loading, setLoading] = useState(false)
   const [newDoc, setNewDoc] = useState({ name: "", type: "ID Proof" })
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   
-  // Mocking the documents from application.documents or local state for now
-  const [docs, setDocs] = useState<any[]>(application?.documents || [
-    { name: "Birth Certificate.pdf", type: "Certificate", date: "2024-02-07" }
-  ])
+  const [docs, setDocs] = useState<any[]>(application?.documents || [])
 
-  const handleUpload = () => {
-    if (!newDoc.name) return
+  const handleUpload = async () => {
+    if (!selectedFile || !newDoc.type) {
+        toast.error("Please select a file and document type")
+        return
+    }
+
     setLoading(true)
-    // Simulate API call to store mock document in JSONB
-    setTimeout(() => {
-        setDocs([...docs, { ...newDoc, date: new Date().toISOString().split('T')[0] }])
-        setNewDoc({ name: "", type: "ID Proof" })
+    const formData = new FormData()
+    formData.append("file", selectedFile)
+
+    try {
+        // 1. Upload file to storage
+        const uploadRes = await fetch("/api/v1/files/upload", {
+            method: "POST",
+            body: formData,
+            headers: {
+                "X-Tenant-ID": application?.tenant_id || "",
+            }
+        })
+
+        if (!uploadRes.ok) throw new Error("Upload failed")
+        const uploadData = await uploadRes.json()
+
+        // 2. Attach to application
+        const attachRes = await fetch(`/api/v1/admin/admissions/applications/${application?.id}/documents`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Tenant-ID": application?.tenant_id || "",
+            },
+            body: JSON.stringify({
+                type: newDoc.type,
+                url: uploadData.url
+            })
+        })
+
+        if (!attachRes.ok) throw new Error("Failed to attach document")
+
+        toast.success("Document uploaded successfully")
+        setDocs([...docs, { 
+            type: newDoc.type, 
+            url: uploadData.url,
+            attached_at: new Date().toISOString()
+        }])
+        setSelectedFile(null)
+        setNewDoc({ ...newDoc, name: "" })
+        onSuccess()
+    } catch (error: any) {
+        toast.error(error.message || "An error occurred during upload")
+    } finally {
         setLoading(false)
-    }, 500)
+    }
   }
 
   const removeDoc = (index: number) => {
+    // In a real app, call a DELETE endpoint
     setDocs(docs.filter((_, i) => i !== index))
+    toast.info("Document removed from view (not deleted from server)")
   }
 
   return (
@@ -49,23 +93,30 @@ export function ApplicationDocumentsDialog({ application, open, onOpenChange, on
         <div className="space-y-6 py-4">
           <div className="grid grid-cols-3 gap-4 p-4 border rounded-lg bg-slate-50">
             <div className="space-y-2">
-              <Label>Document Name</Label>
-              <Input 
-                placeholder="e.g. Passport Copy" 
-                value={newDoc.name}
-                onChange={(e) => setNewDoc({...newDoc, name: e.target.value})}
-              />
-            </div>
-            <div className="space-y-2">
               <Label>Type</Label>
-              <Input 
+              <select 
+                className="w-full p-2 border rounded-md bg-white text-sm"
                 value={newDoc.type}
                 onChange={(e) => setNewDoc({...newDoc, type: e.target.value})}
+              >
+                <option>ID Proof</option>
+                <option>Birth Certificate</option>
+                <option>Previous Report Card</option>
+                <option>Transfer Certificate</option>
+                <option>Others</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Select File</Label>
+              <Input 
+                type="file" 
+                className="bg-white"
+                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
               />
             </div>
             <div className="flex items-end">
-              <Button onClick={handleUpload} disabled={loading} className="w-full gap-2">
-                <Upload className="w-4 h-4" />
+              <Button onClick={handleUpload} disabled={loading || !selectedFile} className="w-full gap-2">
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                 Upload
               </Button>
             </div>
@@ -75,8 +126,8 @@ export function ApplicationDocumentsDialog({ application, open, onOpenChange, on
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Document</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>View</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead className="text-right">Action</TableHead>
                 </TableRow>
@@ -94,11 +145,17 @@ export function ApplicationDocumentsDialog({ application, open, onOpenChange, on
                             <TableCell className="font-medium">
                                 <div className="flex items-center gap-2">
                                     <FileText className="w-4 h-4 text-blue-500" />
-                                    {doc.name}
+                                    {doc.type}
                                 </div>
                             </TableCell>
-                            <TableCell>{doc.type}</TableCell>
-                            <TableCell className="text-xs text-muted-foreground">{doc.date}</TableCell>
+                            <TableCell>
+                                <a href={doc.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-sm">
+                                    View File
+                                </a>
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                                {doc.attached_at ? new Date(doc.attached_at).toLocaleDateString() : 'N/A'}
+                            </TableCell>
                             <TableCell className="text-right">
                                 <Button variant="ghost" size="sm" onClick={() => removeDoc(idx)}>
                                     <Trash2 className="w-4 h-4 text-destructive" />
@@ -114,7 +171,6 @@ export function ApplicationDocumentsDialog({ application, open, onOpenChange, on
 
         <div className="flex justify-end gap-3 mt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-          <Button onClick={() => onOpenChange(false)}>Save Changes</Button>
         </div>
       </DialogContent>
     </Dialog>

@@ -203,6 +203,7 @@ type Querier interface {
 	GetChatHistory(ctx context.Context, arg GetChatHistoryParams) ([]GetChatHistoryRow, error)
 	GetChatModerationSettings(ctx context.Context, tenantID pgtype.UUID) (ChatModerationSetting, error)
 	GetChildrenByParentUser(ctx context.Context, arg GetChildrenByParentUserParams) ([]GetChildrenByParentUserRow, error)
+	GetDailyAttendanceStats(ctx context.Context, arg GetDailyAttendanceStatsParams) (GetDailyAttendanceStatsRow, error)
 	GetDisciplineIncident(ctx context.Context, arg GetDisciplineIncidentParams) (DisciplineIncident, error)
 	GetEmployee(ctx context.Context, arg GetEmployeeParams) (Employee, error)
 	GetEmployeePayslips(ctx context.Context, arg GetEmployeePayslipsParams) ([]GetEmployeePayslipsRow, error)
@@ -292,6 +293,7 @@ type Querier interface {
 	ListInventoryTransactions(ctx context.Context, arg ListInventoryTransactionsParams) ([]ListInventoryTransactionsRow, error)
 	ListIssues(ctx context.Context, arg ListIssuesParams) ([]ListIssuesRow, error)
 	ListLeaveRequests(ctx context.Context, arg ListLeaveRequestsParams) ([]ListLeaveRequestsRow, error)
+	ListLeaves(ctx context.Context, arg ListLeavesParams) ([]LeaveRequest, error)
 	ListLedgerMappings(ctx context.Context, tenantID pgtype.UUID) ([]ListLedgerMappingsRow, error)
 	ListLessonPlans(ctx context.Context, arg ListLessonPlansParams) ([]LessonPlan, error)
 	ListNotices(ctx context.Context, tenantID pgtype.UUID) ([]ListNoticesRow, error)
@@ -338,6 +340,7 @@ type Querier interface {
 	UpdateApplicationFee(ctx context.Context, arg UpdateApplicationFeeParams) error
 	UpdateApplicationStatus(ctx context.Context, arg UpdateApplicationStatusParams) error
 	UpdateApprovalStatus(ctx context.Context, arg UpdateApprovalStatusParams) (ApprovalRequest, error)
+	UpdateBook(ctx context.Context, arg UpdateBookParams) (LibraryBook, error)
 	UpdateBookCopies(ctx context.Context, arg UpdateBookCopiesParams) error
 	UpdateDisciplineIncident(ctx context.Context, arg UpdateDisciplineIncidentParams) (DisciplineIncident, error)
 	UpdateEmployee(ctx context.Context, arg UpdateEmployeeParams) (Employee, error)
@@ -353,6 +356,7 @@ type Querier interface {
 	UpdatePlacementDriveStatus(ctx context.Context, arg UpdatePlacementDriveStatusParams) (PlacementDrife, error)
 	UpdatePurchaseOrderStatus(ctx context.Context, arg UpdatePurchaseOrderStatusParams) (PurchaseOrder, error)
 	UpdateReceiptSeries(ctx context.Context, arg UpdateReceiptSeriesParams) (ReceiptSeries, error)
+	UpdateRoute(ctx context.Context, arg UpdateRouteParams) (TransportRoute, error)
 	UpdateStudent(ctx context.Context, arg UpdateStudentParams) (Student, error)
 	UpdateVehicle(ctx context.Context, arg UpdateVehicleParams) (TransportVehicle, error)
 	UpsertChatModerationSettings(ctx context.Context, arg UpsertChatModerationSettingsParams) (ChatModerationSetting, error)

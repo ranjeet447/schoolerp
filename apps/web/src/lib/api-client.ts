@@ -3,13 +3,16 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/v1"
 
 export async function apiClient(path: string, options: RequestInit = {}) {
-  // 1. Resolve Tenant from Hostname
-  const hostname = typeof window !== "undefined" ? window.location.hostname : ""
-  const parts = hostname.split(".")
+  // 1. Resolve Tenant from Hostname or LocalStorage
   let tenant = "default-tenant"
-
-  if (parts.length >= 2 && parts[0] !== "www" && parts[0] !== "localhost") {
-    tenant = parts[0]
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname
+    const parts = hostname.split(".")
+    if (parts.length >= 2 && parts[0] !== "www" && parts[0] !== "localhost") {
+      tenant = parts[0]
+    } else {
+      tenant = localStorage.getItem("tenant_id") || "default-tenant"
+    }
   }
 
   // 2. Get Auth Token

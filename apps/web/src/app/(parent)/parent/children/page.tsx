@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from "@school
 import { User, ChevronRight } from "lucide-react";
 
 async function getMyChildren() {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/v1';
   try {
-    const res = await fetch(`http://localhost:8080/v1/parent/me/children`, {
+    const res = await fetch(`${API_URL}/parent/me/children`, {
       headers: {
         "X-Tenant-ID": "default-tenant", // Stub
         "X-User-ID": "parent-user-id", // Stub

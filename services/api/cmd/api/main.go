@@ -34,6 +34,7 @@ import (
 	"github.com/schoolerp/api/internal/db"
 	"github.com/schoolerp/api/internal/foundation/approvals"
 	"github.com/schoolerp/api/internal/foundation/audit"
+	"github.com/schoolerp/api/internal/foundation/filestore"
 	"github.com/schoolerp/api/internal/foundation/i18n"
 	"github.com/schoolerp/api/internal/foundation/locks"
 	"github.com/schoolerp/api/internal/foundation/policy"
@@ -45,6 +46,7 @@ import (
 	authhandler "github.com/schoolerp/api/internal/handler/auth"
 	"github.com/schoolerp/api/internal/handler/communication"
 	"github.com/schoolerp/api/internal/handler/exams"
+	"github.com/schoolerp/api/internal/handler/files"
 	"github.com/schoolerp/api/internal/handler/finance"
 	"github.com/schoolerp/api/internal/handler/hrms"
 	"github.com/schoolerp/api/internal/handler/inventory"
@@ -64,6 +66,7 @@ import (
 	authservice "github.com/schoolerp/api/internal/service/auth"
 	commservice "github.com/schoolerp/api/internal/service/communication"
 	examservice "github.com/schoolerp/api/internal/service/exams"
+	fileservice "github.com/schoolerp/api/internal/service/files"
 	financeservice "github.com/schoolerp/api/internal/service/finance"
 	hrmsservice "github.com/schoolerp/api/internal/service/hrms"
 	inventoryservice "github.com/schoolerp/api/internal/service/inventory"
@@ -160,6 +163,15 @@ func main() {
 	notificationService := notificationservice.NewService(querier)
 	academicService := academicservice.NewService(querier, auditLogger)
 	
+	// File Service
+	fsDir := os.Getenv("UPLOAD_DIR")
+	if fsDir == "" { fsDir = "./uploads" }
+	fsURL := os.Getenv("UPLOAD_URL")
+	if fsURL == "" { fsURL = "/uploads" }
+	
+	store, _ := filestore.NewLocalProvider(fsDir, fsURL)
+	fileService := fileservice.NewFileService(querier, store)
+	
 	// Initialize Handlers
 	studentHandler := sis.NewHandler(studentService)
 	attendanceHandler := attendance.NewHandler(attendanceService)
@@ -179,6 +191,7 @@ func main() {
 	alumniHandler := alumni.NewHandler(alumniService)
 	authHandler := authhandler.NewHandler(authService)
 	rolesHandler := roleshandler.NewHandler(rolesService)
+	fileHandler := files.NewHandler(fileService)
 
 
 
@@ -221,6 +234,16 @@ func main() {
 	// Metrics endpoint
 	r.Handle("/metrics", promhttp.Handler())
 
+	// Static Assets (Uploads)
+	uploadDir := os.Getenv("UPLOAD_DIR")
+	if uploadDir == "" { uploadDir = "./uploads" }
+	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
+		os.MkdirAll(uploadDir, 0755)
+	}
+	
+	fs := http.FileServer(http.Dir(uploadDir))
+	r.Handle("/uploads/*", http.StripPrefix("/uploads/", fs))
+
 
 	// 4. API V1 Routes
 	r.Route("/v1", func(r chi.Router) {
@@ -229,6 +252,8 @@ func main() {
 		r.Post("/auth/request-otp", func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(`{"msg": "OTP requested"}`))
 		})
+
+		fileHandler.RegisterRoutes(r)
 
 		
 

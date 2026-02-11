@@ -7,6 +7,7 @@ import {
 } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
 import { Book } from "@/types/library"
+import { toast } from "sonner"
 
 interface BookDialogProps {
   open: boolean
@@ -75,20 +76,25 @@ export function BookDialog({ open, onOpenChange, onSuccess, book }: BookDialogPr
         price: parseFloat(formData.price) || 0
       }
 
-      const res = await apiClient("/library/books", {
-        method: "POST", // assuming Create for now
+      const url = book 
+        ? `/library/books/${book.id}` 
+        : "/library/books"
+
+      const res = await apiClient(url, {
+        method: book ? "PUT" : "POST",
         body: JSON.stringify(payload)
       })
 
       if (res.ok) {
+        toast.success(book ? "Book details updated" : "Book added to library")
         onSuccess()
         onOpenChange(false)
       } else {
-        alert("Failed to save book")
+        toast.error("Failed to save book")
       }
     } catch (error) {
       console.error(error)
-      alert("An error occurred")
+      toast.error("An error occurred")
     } finally {
       setLoading(false)
     }

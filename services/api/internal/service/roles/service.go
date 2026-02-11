@@ -58,6 +58,15 @@ type Permission struct {
 	Description string `json:"description"`
 }
 
+// UserRoleInfo represents a user with their role for the management UI
+type UserRoleInfo struct {
+	ID       string `json:"id"`
+	Email    string `json:"email"`
+	FullName string `json:"full_name"`
+	RoleCode string `json:"role_code"`
+	IsActive bool   `json:"is_active"`
+}
+
 // ListRoles returns all roles for a tenant (including system roles)
 func (s *Service) ListRoles(ctx context.Context, tenantID pgtype.UUID) ([]Role, error) {
 	dbRoles, err := s.queries.ListRolesByTenant(ctx, tenantID)
@@ -222,4 +231,24 @@ func (s *Service) AssignRoleToUser(ctx context.Context, tenantID, userID, roleID
 // RemoveRoleFromUser removes a role assignment from a user
 func (s *Service) RemoveRoleFromUser(ctx context.Context, tenantID, userID, roleID pgtype.UUID) error {
 	return s.queries.RemoveRoleFromUser(ctx, tenantID, userID, roleID)
+}
+
+// ListUsers returns all users for a tenant with their roles
+func (s *Service) ListUsers(ctx context.Context, tenantID pgtype.UUID) ([]UserRoleInfo, error) {
+	dbUsers, err := s.queries.ListUsersByTenant(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	users := make([]UserRoleInfo, len(dbUsers))
+	for i, u := range dbUsers {
+		users[i] = UserRoleInfo{
+			ID:       u.ID.String(),
+			Email:    u.Email.String,
+			FullName: u.FullName,
+			RoleCode: u.RoleCode,
+			IsActive: u.IsActive.Bool,
+		}
+	}
+	return users, nil
 }

@@ -596,6 +596,64 @@ func (q *Queries) ReturnBook(ctx context.Context, arg ReturnBookParams) (Library
 	return i, err
 }
 
+const updateBook = `-- name: UpdateBook :one
+UPDATE library_books
+SET title = $3, isbn = $4, publisher = $5, published_year = $6, category_id = $7,
+    total_copies = $8, shelf_location = $9, price = $10, language = $11, updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2
+RETURNING id, tenant_id, title, isbn, publisher, published_year, category_id, total_copies, available_copies, shelf_location, cover_image_url, price, language, status, created_at, updated_at
+`
+
+type UpdateBookParams struct {
+	ID            pgtype.UUID    `json:"id"`
+	TenantID      pgtype.UUID    `json:"tenant_id"`
+	Title         string         `json:"title"`
+	Isbn          pgtype.Text    `json:"isbn"`
+	Publisher     pgtype.Text    `json:"publisher"`
+	PublishedYear pgtype.Int4    `json:"published_year"`
+	CategoryID    pgtype.UUID    `json:"category_id"`
+	TotalCopies   int32          `json:"total_copies"`
+	ShelfLocation pgtype.Text    `json:"shelf_location"`
+	Price         pgtype.Numeric `json:"price"`
+	Language      pgtype.Text    `json:"language"`
+}
+
+func (q *Queries) UpdateBook(ctx context.Context, arg UpdateBookParams) (LibraryBook, error) {
+	row := q.db.QueryRow(ctx, updateBook,
+		arg.ID,
+		arg.TenantID,
+		arg.Title,
+		arg.Isbn,
+		arg.Publisher,
+		arg.PublishedYear,
+		arg.CategoryID,
+		arg.TotalCopies,
+		arg.ShelfLocation,
+		arg.Price,
+		arg.Language,
+	)
+	var i LibraryBook
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Title,
+		&i.Isbn,
+		&i.Publisher,
+		&i.PublishedYear,
+		&i.CategoryID,
+		&i.TotalCopies,
+		&i.AvailableCopies,
+		&i.ShelfLocation,
+		&i.CoverImageUrl,
+		&i.Price,
+		&i.Language,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateBookCopies = `-- name: UpdateBookCopies :exec
 UPDATE library_books 
 SET available_copies = available_copies + $2

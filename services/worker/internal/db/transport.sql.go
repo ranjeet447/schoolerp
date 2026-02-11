@@ -550,6 +550,46 @@ func (q *Queries) ListVehicles(ctx context.Context, tenantID pgtype.UUID) ([]Tra
 	return items, nil
 }
 
+const updateRoute = `-- name: UpdateRoute :one
+UPDATE transport_routes
+SET name = $3, vehicle_id = $4, driver_id = $5, description = $6, updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2
+RETURNING id, tenant_id, name, vehicle_id, driver_id, description, is_active, created_at, updated_at
+`
+
+type UpdateRouteParams struct {
+	ID          pgtype.UUID `json:"id"`
+	TenantID    pgtype.UUID `json:"tenant_id"`
+	Name        string      `json:"name"`
+	VehicleID   pgtype.UUID `json:"vehicle_id"`
+	DriverID    pgtype.UUID `json:"driver_id"`
+	Description pgtype.Text `json:"description"`
+}
+
+func (q *Queries) UpdateRoute(ctx context.Context, arg UpdateRouteParams) (TransportRoute, error) {
+	row := q.db.QueryRow(ctx, updateRoute,
+		arg.ID,
+		arg.TenantID,
+		arg.Name,
+		arg.VehicleID,
+		arg.DriverID,
+		arg.Description,
+	)
+	var i TransportRoute
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Name,
+		&i.VehicleID,
+		&i.DriverID,
+		&i.Description,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateVehicle = `-- name: UpdateVehicle :one
 UPDATE transport_vehicles
 SET registration_number = $3, capacity = $4, type = $5, status = $6, updated_at = NOW()

@@ -21,6 +21,7 @@ func NewHandler(svc *library.LibraryService) *Handler {
 func (h *Handler) RegisterRoutes(r chi.Router) {
 	// Books
 	r.Post("/library/books", h.CreateBook)
+	r.Put("/library/books/{id}", h.UpdateBook)
 	r.Get("/library/books", h.ListBooks)
 	
 	// Circulation
@@ -74,6 +75,39 @@ func (h *Handler) CreateBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondJSON(w, http.StatusCreated, book)
+}
+
+func (h *Handler) UpdateBook(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	bookID := chi.URLParam(r, "id")
+	var req createBookReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	book, err := h.svc.UpdateBook(ctx, middleware.GetTenantID(ctx), bookID, library.CreateBookParams{
+		TenantID:      middleware.GetTenantID(ctx),
+		Title:         req.Title,
+		ISBN:          req.ISBN,
+		Publisher:     req.Publisher,
+		PublishedYear: req.PublishedYear,
+		CategoryID:    req.CategoryID,
+		TotalCopies:   req.TotalCopies,
+		ShelfLocation: req.ShelfLocation,
+		Price:         req.Price,
+		Language:      req.Language,
+		AuthorID:      req.AuthorID,
+		UserID:        middleware.GetUserID(ctx),
+		RequestID:     middleware.GetReqID(ctx),
+		IP:            r.RemoteAddr,
+	})
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusOK, book)
 }
 
 func (h *Handler) ListBooks(w http.ResponseWriter, r *http.Request) {

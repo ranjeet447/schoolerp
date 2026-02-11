@@ -49,13 +49,14 @@ func NewService(queries *db.Queries) *Service {
 
 // LoginResult contains the JWT token and user info after successful auth
 type LoginResult struct {
-	Token     string    `json:"token"`
-	UserID    string    `json:"user_id"`
-	Email     string    `json:"email"`
-	FullName  string    `json:"full_name"`
-	Role      string    `json:"role"`
-	TenantID  string    `json:"tenant_id"`
-	ExpiresAt time.Time `json:"expires_at"`
+	Token       string    `json:"token"`
+	UserID      string    `json:"user_id"`
+	Email       string    `json:"email"`
+	FullName    string    `json:"full_name"`
+	Role        string    `json:"role"`
+	TenantID    string    `json:"tenant_id"`
+	Permissions []string  `json:"permissions"`
+	ExpiresAt   time.Time `json:"expires_at"`
 }
 
 // Login authenticates a user via email/password and returns a JWT
@@ -85,12 +86,13 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 		return nil, ErrInvalidCredentials
 	}
 
-	// 3. Get role assignment for this user
-	roleAssignment, err := s.queries.GetUserRoleAssignment(ctx, user.ID)
+	// 3. Get role and permissions for this user
+	roleAssignment, err := s.queries.GetUserRoleAssignmentWithPermissions(ctx, user.ID)
 	if err != nil {
 		// User has no role assigned - still allow login but with no role
-		roleAssignment = db.GetUserRoleAssignmentRow{
-			RoleCode: "user",
+		roleAssignment = db.GetUserRoleAssignmentWithPermissionsRow{
+			RoleCode:    "user",
+			Permissions: []string{},
 		}
 	}
 
@@ -103,14 +105,15 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 	}
 
 	claims := jwt.MapClaims{
-		"sub":       user.ID.String(),
-		"email":     user.Email.String,
-		"name":      user.FullName,
-		"role":      roleAssignment.RoleCode,
-		"tenant_id": roleAssignment.TenantID.String(),
-		"iat":       time.Now().Unix(),
-		"exp":       expiresAt.Unix(),
-		"jti":       uuid.New().String(),
+		"sub":         user.ID.String(),
+		"email":       user.Email.String,
+		"name":        user.FullName,
+		"role":        roleAssignment.RoleCode,
+		"tenant_id":   roleAssignment.TenantID.String(),
+		"permissions": roleAssignment.Permissions,
+		"iat":         time.Now().Unix(),
+		"exp":         expiresAt.Unix(),
+		"jti":         uuid.New().String(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -126,13 +129,14 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 	})
 
 	return &LoginResult{
-		Token:     tokenString,
-		UserID:    user.ID.String(),
-		Email:     user.Email.String,
-		FullName:  user.FullName,
-		Role:      roleAssignment.RoleCode,
-		TenantID:  roleAssignment.TenantID.String(),
-		ExpiresAt: expiresAt,
+		Token:       tokenString,
+		UserID:      user.ID.String(),
+		Email:       user.Email.String,
+		FullName:    user.FullName,
+		Role:        roleAssignment.RoleCode,
+		TenantID:    roleAssignment.TenantID.String(),
+		Permissions: roleAssignment.Permissions,
+		ExpiresAt:   expiresAt,
 	}, nil
 }
 

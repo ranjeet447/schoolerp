@@ -21,6 +21,9 @@ VALUES (
 -- 2. SEED PERMISSIONS
 -- ============================================
 INSERT INTO permissions (code, module, description) VALUES
+-- Core Module
+('dashboard:view', 'core', 'Access the administration dashboard'),
+
 -- SIS Module
 ('sis:read', 'sis', 'View student profiles'),
 ('sis:write', 'sis', 'Create/Edit student profiles'),
@@ -40,7 +43,9 @@ INSERT INTO permissions (code, module, description) VALUES
 ('finance:write', 'finance', 'Manage expenses and accounting'),
 
 -- Tenant Management
-('tenant:manage', 'tenant', 'Manage tenant settings and users'),
+('tenant:settings:view', 'settings', 'View school settings'),
+('tenant:roles:manage', 'settings', 'Manage roles and permissions'),
+('tenant:users:manage', 'settings', 'Manage staff accounts'),
 
 -- Exams Module
 ('exams:read', 'exams', 'View exam results'),
@@ -48,7 +53,19 @@ INSERT INTO permissions (code, module, description) VALUES
 
 -- Notices Module
 ('notices:read', 'notices', 'View notices'),
-('notices:write', 'notices', 'Create and publish notices')
+('notices:write', 'notices', 'Create and publish notices'),
+
+-- Transport Module
+('transport:read', 'transport', 'View routes and stops'),
+('transport:write', 'transport', 'Manage transport routes'),
+
+-- Library Module
+('library:read', 'library', 'View and search books'),
+('library:write', 'library', 'Manage library inventory and issues'),
+
+-- Inventory Module
+('inventory:read', 'inventory', 'View stock and items'),
+('inventory:write', 'inventory', 'Manage inventory and POs')
 ON CONFLICT (code) DO NOTHING;
 
 -- ============================================
@@ -69,9 +86,12 @@ ON CONFLICT (id) DO NOTHING;
 -- Tenant Admin: Full Access
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT '22222222-2222-2222-2222-222222222222', id FROM permissions
-WHERE code IN ('sis:read', 'sis:write', 'sis:delete', 'fees:read', 'fees:collect', 'fees:manage', 
-               'attendance:read', 'attendance:write', 'finance:read', 'finance:write', 'tenant:manage',
-               'exams:read', 'exams:write', 'notices:read', 'notices:write')
+WHERE code IN ('dashboard:view', 'sis:read', 'sis:write', 'sis:delete', 'fees:read', 'fees:collect', 'fees:manage', 
+               'attendance:read', 'attendance:write', 'finance:read', 'finance:write', 
+               'tenant:settings:view', 'tenant:roles:manage', 'tenant:users:manage',
+               'exams:read', 'exams:write', 'notices:read', 'notices:write',
+               'transport:read', 'transport:write', 'library:read', 'library:write',
+               'inventory:read', 'inventory:write')
 ON CONFLICT DO NOTHING;
 
 -- Teacher: Academic + Attendance

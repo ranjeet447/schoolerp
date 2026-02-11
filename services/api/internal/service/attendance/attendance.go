@@ -214,3 +214,13 @@ func (s *Service) UpdatePolicy(ctx context.Context, tenantID, module, action str
 	})
 }
 
+func (s *Service) GetDailyStats(ctx context.Context, tenantID string, date time.Time) (db.GetDailyAttendanceStatsRow, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+
+	return s.q.GetDailyAttendanceStats(ctx, db.GetDailyAttendanceStatsParams{
+		TenantID: tUUID,
+		Date:     pgtype.Date{Time: date, Valid: true},
+	})
+}
+
