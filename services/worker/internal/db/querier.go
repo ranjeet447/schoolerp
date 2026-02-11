@@ -253,6 +253,7 @@ type Querier interface {
 	// This is a bit simplified, in real prod you'd filter by scope.
 	// For now, we fetch all notices for the tenant.
 	ListNoticesForParent(ctx context.Context, arg ListNoticesForParentParams) ([]ListNoticesForParentRow, error)
+	ListOutboxEvents(ctx context.Context, arg ListOutboxEventsParams) ([]Outbox, error)
 	ListPayrollRuns(ctx context.Context, arg ListPayrollRunsParams) ([]PayrollRun, error)
 	ListPayslipsByRun(ctx context.Context, payrollRunID pgtype.UUID) ([]ListPayslipsByRunRow, error)
 	ListPendingApprovals(ctx context.Context, tenantID pgtype.UUID) ([]ApprovalRequest, error)

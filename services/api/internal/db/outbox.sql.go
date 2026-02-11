@@ -77,6 +77,49 @@ func (q *Queries) GetPendingOutboxEvents(ctx context.Context, limitCount int32) 
 	return items, nil
 }
 
+const listOutboxEvents = `-- name: ListOutboxEvents :many
+SELECT id, tenant_id, event_type, payload, status, retry_count, error_message, created_at, processed_at FROM outbox
+WHERE tenant_id = $1
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $2
+`
+
+type ListOutboxEventsParams struct {
+	TenantID    pgtype.UUID `json:"tenant_id"`
+	OffsetCount int32       `json:"offset_count"`
+	LimitCount  int32       `json:"limit_count"`
+}
+
+func (q *Queries) ListOutboxEvents(ctx context.Context, arg ListOutboxEventsParams) ([]Outbox, error) {
+	rows, err := q.db.Query(ctx, listOutboxEvents, arg.TenantID, arg.OffsetCount, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Outbox
+	for rows.Next() {
+		var i Outbox
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.EventType,
+			&i.Payload,
+			&i.Status,
+			&i.RetryCount,
+			&i.ErrorMessage,
+			&i.CreatedAt,
+			&i.ProcessedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateOutboxEventStatus = `-- name: UpdateOutboxEventStatus :exec
 UPDATE outbox
 SET status = $1,

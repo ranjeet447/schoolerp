@@ -43,6 +43,7 @@ import (
 	"github.com/schoolerp/api/internal/handler/inventory"
 	"github.com/schoolerp/api/internal/handler/library"
 	"github.com/schoolerp/api/internal/handler/notices"
+	"github.com/schoolerp/api/internal/handler/notification"
 	"github.com/schoolerp/api/internal/handler/portfolio"
 	roleshandler "github.com/schoolerp/api/internal/handler/roles"
 	"github.com/schoolerp/api/internal/handler/sis"
@@ -58,6 +59,7 @@ import (
 	inventoryservice "github.com/schoolerp/api/internal/service/inventory"
 	libraryservice "github.com/schoolerp/api/internal/service/library"
 	noticeservice "github.com/schoolerp/api/internal/service/notices"
+	notificationservice "github.com/schoolerp/api/internal/service/notification"
 	portfolioservice "github.com/schoolerp/api/internal/service/portfolio"
 	rolesservice "github.com/schoolerp/api/internal/service/roles"
 	sisservice "github.com/schoolerp/api/internal/service/sis"
@@ -110,12 +112,14 @@ func main() {
 	alumniService := alumniservice.NewService(querier)
 	authService := authservice.NewService(querier)
 	rolesService := rolesservice.NewService(querier)
+	notificationService := notificationservice.NewService(querier)
 	
 	// Initialize Handlers
 	studentHandler := sis.NewHandler(studentService)
 	attendanceHandler := attendance.NewHandler(attendanceService)
 	financeHandler := finance.NewHandler(financeService)
 	noticeHandler := notices.NewHandler(noticeService)
+	notificationHandler := notification.NewHandler(notificationService)
 	examHandler := exams.NewHandler(examService)
 	transportHandler := transport.NewHandler(transportService)
 	libraryHandler := library.NewHandler(libraryService)
@@ -171,6 +175,7 @@ func main() {
 			attendanceHandler.RegisterRoutes(r)
 			financeHandler.RegisterRoutes(r)
 			noticeHandler.RegisterRoutes(r)
+			notificationHandler.RegisterRoutes(r)
 			examHandler.RegisterRoutes(r)
 			transportHandler.RegisterRoutes(r)
 			libraryHandler.RegisterRoutes(r)
