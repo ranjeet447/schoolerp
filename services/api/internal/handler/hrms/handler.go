@@ -27,6 +27,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Get("/payroll-runs", h.ListPayrollRuns)
 		r.Post("/payroll-runs", h.CreatePayrollRun)
 		r.Post("/payroll-runs/{id}/execute", h.ExecutePayroll)
+		r.Post("/adjustments", h.CreateAdjustment)
 	})
 }
 
@@ -178,4 +179,29 @@ func (h *Handler) ExecutePayroll(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "completed"})
+}
+func (h *Handler) CreateAdjustment(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	userID := middleware.GetUserID(r.Context())
+
+	var req struct {
+		EmployeeID  string  `json:"employee_id"`
+		Type        string  `json:"type"`
+		Amount      float64 `json:"amount"`
+		Description string  `json:"description"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err := h.svc.AddAdjustment(r.Context(), tenantID, req.EmployeeID, userID, req.Type, req.Amount, req.Description)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{"status": "adjustment pending approval"})
 }

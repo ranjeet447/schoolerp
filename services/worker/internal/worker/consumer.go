@@ -117,6 +117,13 @@ func (c *Consumer) handleEvent(ctx context.Context, event db.Outbox) error {
 		title, _ := payload["title"].(string)
 		return c.notif.SendPush(ctx, "all_users", "New Notice: "+title, "Check the portal for details.")
 
+	case "payslip.generated":
+		var payload map[string]interface{}
+		json.Unmarshal(event.Payload, &payload)
+		log.Printf("[Worker] Generating PDF for payslip: %v", payload["payslip_id"])
+		// Stub: Generate PDF logic
+		return nil
+
 	default:
 		log.Printf("[Worker] Unknown event type: %s", event.EventType)
 	}
