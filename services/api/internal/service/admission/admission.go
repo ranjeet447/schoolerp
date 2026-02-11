@@ -9,17 +9,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/schoolerp/api/internal/db"
 	"github.com/schoolerp/api/internal/foundation/audit"
+	sisservice "github.com/schoolerp/api/internal/service/sis"
 )
 
 type AdmissionService struct {
-	q     db.Querier
-	audit *audit.Logger
+	q       db.Querier
+	audit   *audit.Logger
+	student *sisservice.StudentService
 }
 
-func NewAdmissionService(q db.Querier, audit *audit.Logger) *AdmissionService {
+func NewAdmissionService(q db.Querier, audit *audit.Logger, student *sisservice.StudentService) *AdmissionService {
 	return &AdmissionService{
-		q:     q,
-		audit: audit,
+		q:       q,
+		audit:   audit,
+		student: student,
 	}
 }
 
@@ -234,3 +237,43 @@ func (s *AdmissionService) GetApplication(ctx context.Context, tenantID, id stri
 		TenantID: tID,
 	})
 }
+
+func (s *AdmissionService) AcceptApplication(ctx context.Context, tenantID, id, classID, sectionID, userID, ip string) error {
+	app, err := s.GetApplication(ctx, tenantID, id)
+	if err != nil {
+		return err
+	}
+
+	if app.Status == "accepted" {
+		return fmt.Errorf("application already accepted")
+	}
+
+	// 1. Create Student record in SIS
+	// Extract details from application (assuming basic fields for now)
+	var formData map[string]interface{}
+	json.Unmarshal(app.FormData, &formData)
+
+	studentName, _ := formData["student_name"].(string)
+	if studentName == "" {
+		// Fallback to enquiry student name if present
+		// enquiry, _ := s.q.GetEnquiry(ctx, app.EnquiryID)
+		// studentName = enquiry.StudentName
+	}
+
+	_, err = s.student.CreateStudent(ctx, sisservice.CreateStudentParams{
+		TenantID:        tenantID,
+		AdmissionNumber: app.ApplicationNumber, // Use app number as initial admission number
+		FullName:        studentName,
+		SectionID:       sectionID,
+		Status:          "active",
+		UserID:          userID,
+		IP:              ip,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create student: %w", err)
+	}
+
+	// 2. Update Application Status
+	return s.UpdateApplicationStatus(ctx, tenantID, id, "accepted", userID, ip)
+}
+

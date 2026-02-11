@@ -91,6 +91,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		
 		r.Post("/applications", h.CreateApplication)
 		r.Get("/applications", h.ListApplications)
+		r.Get("/applications/{id}", h.GetApplication)
+		r.Put("/applications/{id}/status", h.UpdateApplicationStatus)
+		r.Post("/applications/{id}/accept", h.AcceptApplication)
 		r.Post("/applications/{id}/pay-fee", h.RecordFeePayment)
 	})
 }
@@ -229,6 +232,53 @@ func (h *Handler) RecordFeePayment(w http.ResponseWriter, r *http.Request) {
 	}
 	respondJSON(w, http.StatusOK, map[string]string{"message": "payment recorded"})
 }
+
+func (h *Handler) GetApplication(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	app, err := h.svc.GetApplication(r.Context(), middleware.GetTenantID(r.Context()), id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	respondJSON(w, http.StatusOK, app)
+}
+
+func (h *Handler) UpdateApplicationStatus(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var req updateStatusReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	err := h.svc.UpdateApplicationStatus(r.Context(), middleware.GetTenantID(r.Context()), id, req.Status, middleware.GetUserID(r.Context()), r.RemoteAddr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]string{"message": "status updated"})
+}
+
+func (h *Handler) AcceptApplication(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	type acceptReq struct {
+		ClassID   string `json:"class_id"`
+		SectionID string `json:"section_id"`
+	}
+	var req acceptReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	err := h.svc.AcceptApplication(r.Context(), middleware.GetTenantID(r.Context()), id, req.ClassID, req.SectionID, middleware.GetUserID(r.Context()), r.RemoteAddr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]string{"message": "application accepted and student created"})
+}
+
 
 func respondJSON(w http.ResponseWriter, status int, payload interface{}) {
 	w.Header().Set("Content-Type", "application/json")
