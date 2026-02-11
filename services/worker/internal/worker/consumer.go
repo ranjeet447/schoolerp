@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -35,9 +36,39 @@ func (c *Consumer) Start(ctx context.Context) {
 			return
 		case <-ticker.C:
 			c.processEvents(ctx)
+			c.processHomeworkReminders(ctx)
 		}
 	}
 }
+
+func (c *Consumer) processHomeworkReminders(ctx context.Context) {
+	// 1. Find homework due in ~4 hours
+	hws, err := c.q.GetHomeworkDueSoon(ctx)
+	if err != nil {
+		log.Printf("[Worker] error fetching due soon homework: %v", err)
+		return
+	}
+
+	for _, hw := range hws {
+		// 2. Find students who haven't submitted
+		students, err := c.q.GetStudentsMissingSubmissionForHomework(ctx, hw.ID)
+		if err != nil {
+			log.Printf("[Worker] error fetching missing submissions for homework %s: %v", hw.ID, err)
+			continue
+		}
+
+		for _, st := range students {
+			// 3. Send notification
+			// In a real app, we'd resolve parent contact and use a template
+			msg := fmt.Sprintf("Reminder: '%s' is due in less than 4 hours. Please submit your work.", hw.Title)
+			err = c.notif.SendPush(ctx, st.StudentID.String(), "Homework Reminder", msg)
+			if err != nil {
+				log.Printf("[Worker] error sending reminder to student %s: %v", st.StudentID, err)
+			}
+		}
+	}
+}
+
 
 func (c *Consumer) processEvents(ctx context.Context) {
 	events, err := c.q.GetPendingOutboxEvents(ctx, c.limit)
