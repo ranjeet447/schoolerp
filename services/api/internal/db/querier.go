@@ -179,7 +179,7 @@ type Querier interface {
 	GetActiveSeries(ctx context.Context, tenantID pgtype.UUID) (ReceiptSeries, error)
 	GetAlumni(ctx context.Context, arg GetAlumniParams) (Alumni, error)
 	GetAlumniApplications(ctx context.Context, alumniID pgtype.UUID) ([]GetAlumniApplicationsRow, error)
-	GetApplication(ctx context.Context, arg GetApplicationParams) (AdmissionApplication, error)
+	GetApplication(ctx context.Context, arg GetApplicationParams) (GetApplicationRow, error)
 	GetApprovalRequest(ctx context.Context, id pgtype.UUID) (ApprovalRequest, error)
 	GetAttendanceEntries(ctx context.Context, sessionID pgtype.UUID) ([]GetAttendanceEntriesRow, error)
 	GetAttendanceSession(ctx context.Context, arg GetAttendanceSessionParams) (AttendanceSession, error)
@@ -301,6 +301,7 @@ type Querier interface {
 	SetMFAEnabled(ctx context.Context, arg SetMFAEnabledParams) error
 	SubmitHomework(ctx context.Context, arg SubmitHomeworkParams) (HomeworkSubmission, error)
 	UpdateAlumni(ctx context.Context, arg UpdateAlumniParams) (Alumni, error)
+	UpdateApplicationDocuments(ctx context.Context, arg UpdateApplicationDocumentsParams) error
 	UpdateApplicationFee(ctx context.Context, arg UpdateApplicationFeeParams) error
 	UpdateApplicationStatus(ctx context.Context, arg UpdateApplicationStatusParams) error
 	UpdateApprovalStatus(ctx context.Context, arg UpdateApprovalStatusParams) (ApprovalRequest, error)

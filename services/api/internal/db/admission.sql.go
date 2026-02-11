@@ -110,7 +110,16 @@ func (q *Queries) CreateEnquiry(ctx context.Context, arg CreateEnquiryParams) (A
 }
 
 const getApplication = `-- name: GetApplication :one
-SELECT id, tenant_id, enquiry_id, application_number, status, form_data, documents, reviewed_by, created_at, updated_at, processing_fee_amount, processing_fee_status, payment_reference FROM admission_applications WHERE id = $1 AND tenant_id = $2
+SELECT 
+    a.id, a.tenant_id, a.enquiry_id, a.application_number, a.status, a.form_data, a.documents, a.reviewed_by, a.created_at, a.updated_at, a.processing_fee_amount, a.processing_fee_status, a.payment_reference,
+    e.parent_name,
+    e.student_name,
+    e.grade_interested,
+    e.email,
+    e.phone
+FROM admission_applications a
+LEFT JOIN admission_enquiries e ON a.enquiry_id = e.id
+WHERE a.id = $1 AND a.tenant_id = $2
 `
 
 type GetApplicationParams struct {
@@ -118,9 +127,30 @@ type GetApplicationParams struct {
 	TenantID pgtype.UUID `json:"tenant_id"`
 }
 
-func (q *Queries) GetApplication(ctx context.Context, arg GetApplicationParams) (AdmissionApplication, error) {
+type GetApplicationRow struct {
+	ID                  pgtype.UUID        `json:"id"`
+	TenantID            pgtype.UUID        `json:"tenant_id"`
+	EnquiryID           pgtype.UUID        `json:"enquiry_id"`
+	ApplicationNumber   string             `json:"application_number"`
+	Status              string             `json:"status"`
+	FormData            []byte             `json:"form_data"`
+	Documents           []byte             `json:"documents"`
+	ReviewedBy          pgtype.UUID        `json:"reviewed_by"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	ProcessingFeeAmount pgtype.Int8        `json:"processing_fee_amount"`
+	ProcessingFeeStatus pgtype.Text        `json:"processing_fee_status"`
+	PaymentReference    pgtype.Text        `json:"payment_reference"`
+	ParentName          pgtype.Text        `json:"parent_name"`
+	StudentName         pgtype.Text        `json:"student_name"`
+	GradeInterested     pgtype.Text        `json:"grade_interested"`
+	Email               pgtype.Text        `json:"email"`
+	Phone               pgtype.Text        `json:"phone"`
+}
+
+func (q *Queries) GetApplication(ctx context.Context, arg GetApplicationParams) (GetApplicationRow, error) {
 	row := q.db.QueryRow(ctx, getApplication, arg.ID, arg.TenantID)
-	var i AdmissionApplication
+	var i GetApplicationRow
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
@@ -135,6 +165,11 @@ func (q *Queries) GetApplication(ctx context.Context, arg GetApplicationParams) 
 		&i.ProcessingFeeAmount,
 		&i.ProcessingFeeStatus,
 		&i.PaymentReference,
+		&i.ParentName,
+		&i.StudentName,
+		&i.GradeInterested,
+		&i.Email,
+		&i.Phone,
 	)
 	return i, err
 }
@@ -178,14 +213,18 @@ SELECT
 FROM admission_applications a
 LEFT JOIN admission_enquiries e ON a.enquiry_id = e.id
 WHERE a.tenant_id = $1
+  AND ($4::TEXT IS NULL OR a.status = $4)
+  AND ($5::TEXT IS NULL OR e.academic_year = $5)
 ORDER BY a.created_at DESC
 LIMIT $2 OFFSET $3
 `
 
 type ListApplicationsParams struct {
-	TenantID pgtype.UUID `json:"tenant_id"`
-	Limit    int32       `json:"limit"`
-	Offset   int32       `json:"offset"`
+	TenantID     pgtype.UUID `json:"tenant_id"`
+	Limit        int32       `json:"limit"`
+	Offset       int32       `json:"offset"`
+	Status       pgtype.Text `json:"status"`
+	AcademicYear pgtype.Text `json:"academic_year"`
 }
 
 type ListApplicationsRow struct {
@@ -208,7 +247,13 @@ type ListApplicationsRow struct {
 }
 
 func (q *Queries) ListApplications(ctx context.Context, arg ListApplicationsParams) ([]ListApplicationsRow, error) {
-	rows, err := q.db.Query(ctx, listApplications, arg.TenantID, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, listApplications,
+		arg.TenantID,
+		arg.Limit,
+		arg.Offset,
+		arg.Status,
+		arg.AcademicYear,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -247,18 +292,28 @@ func (q *Queries) ListApplications(ctx context.Context, arg ListApplicationsPara
 const listEnquiries = `-- name: ListEnquiries :many
 SELECT id, tenant_id, parent_name, email, phone, student_name, grade_interested, academic_year, source, status, notes, created_at, updated_at FROM admission_enquiries
 WHERE tenant_id = $1
+  AND ($4::TEXT IS NULL OR status = $4)
+  AND ($5::TEXT IS NULL OR academic_year = $5)
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3
 `
 
 type ListEnquiriesParams struct {
-	TenantID pgtype.UUID `json:"tenant_id"`
-	Limit    int32       `json:"limit"`
-	Offset   int32       `json:"offset"`
+	TenantID     pgtype.UUID `json:"tenant_id"`
+	Limit        int32       `json:"limit"`
+	Offset       int32       `json:"offset"`
+	Status       pgtype.Text `json:"status"`
+	AcademicYear pgtype.Text `json:"academic_year"`
 }
 
 func (q *Queries) ListEnquiries(ctx context.Context, arg ListEnquiriesParams) ([]AdmissionEnquiry, error) {
-	rows, err := q.db.Query(ctx, listEnquiries, arg.TenantID, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, listEnquiries,
+		arg.TenantID,
+		arg.Limit,
+		arg.Offset,
+		arg.Status,
+		arg.AcademicYear,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -289,6 +344,23 @@ func (q *Queries) ListEnquiries(ctx context.Context, arg ListEnquiriesParams) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateApplicationDocuments = `-- name: UpdateApplicationDocuments :exec
+UPDATE admission_applications
+SET documents = $3, updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2
+`
+
+type UpdateApplicationDocumentsParams struct {
+	ID        pgtype.UUID `json:"id"`
+	TenantID  pgtype.UUID `json:"tenant_id"`
+	Documents []byte      `json:"documents"`
+}
+
+func (q *Queries) UpdateApplicationDocuments(ctx context.Context, arg UpdateApplicationDocumentsParams) error {
+	_, err := q.db.Exec(ctx, updateApplicationDocuments, arg.ID, arg.TenantID, arg.Documents)
+	return err
 }
 
 const updateApplicationFee = `-- name: UpdateApplicationFee :exec

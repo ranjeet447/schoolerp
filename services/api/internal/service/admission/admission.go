@@ -76,13 +76,15 @@ func (s *AdmissionService) SubmitEnquiry(ctx context.Context, p CreateEnquiryPar
 
 // Admin Operations
 
-func (s *AdmissionService) ListEnquiries(ctx context.Context, tenantID string, limit, offset int32) ([]db.AdmissionEnquiry, error) {
+func (s *AdmissionService) ListEnquiries(ctx context.Context, tenantID, status, academicYear string, limit, offset int32) ([]db.AdmissionEnquiry, error) {
 	tID := pgtype.UUID{}
 	tID.Scan(tenantID)
 	return s.q.ListEnquiries(ctx, db.ListEnquiriesParams{
-		TenantID: tID,
-		Limit:    limit,
-		Offset:   offset,
+		TenantID:     tID,
+		Limit:        limit,
+		Offset:       offset,
+		Status:       pgtype.Text{String: status, Valid: status != ""},
+		AcademicYear: pgtype.Text{String: academicYear, Valid: academicYear != ""},
 	})
 }
 
@@ -155,13 +157,15 @@ func (s *AdmissionService) CreateApplication(ctx context.Context, tenantID, enqu
 	return app, nil
 }
 
-func (s *AdmissionService) ListApplications(ctx context.Context, tenantID string, limit, offset int32) ([]db.ListApplicationsRow, error) {
+func (s *AdmissionService) ListApplications(ctx context.Context, tenantID, status, academicYear string, limit, offset int32) ([]db.ListApplicationsRow, error) {
 	tID := pgtype.UUID{}
 	tID.Scan(tenantID)
 	return s.q.ListApplications(ctx, db.ListApplicationsParams{
-		TenantID: tID,
-		Limit:    limit,
-		Offset:   offset,
+		TenantID:     tID,
+		Limit:        limit,
+		Offset:       offset,
+		Status:       pgtype.Text{String: status, Valid: status != ""},
+		AcademicYear: pgtype.Text{String: academicYear, Valid: academicYear != ""},
 	})
 }
 
@@ -204,10 +208,23 @@ func (s *AdmissionService) UpdateApplicationStatus(ctx context.Context, tenantID
 	uID := pgtype.UUID{}
 	uID.Scan(userID)
 
-	err := s.q.UpdateApplicationStatus(ctx, db.UpdateApplicationStatusParams{
+	// Workflow Guard
+	app, err := s.GetApplication(ctx, tenantID, id)
+	if err != nil {
+		return err
+	}
+
+	if status == "offered" || status == "admitted" {
+		if app.ProcessingFeeStatus.String != "paid" {
+			return fmt.Errorf("cannot move to %s: processing fee is not paid", status)
+		}
+	}
+
+	err = s.q.UpdateApplicationStatus(ctx, db.UpdateApplicationStatusParams{
 		ID:       aID,
 		TenantID: tID,
 		Status:   status,
+		ReviewedBy: uID,
 	})
 	if err != nil {
 		return err
@@ -226,7 +243,7 @@ func (s *AdmissionService) UpdateApplicationStatus(ctx context.Context, tenantID
 	return nil
 }
 
-func (s *AdmissionService) GetApplication(ctx context.Context, tenantID, id string) (db.AdmissionApplication, error) {
+func (s *AdmissionService) GetApplication(ctx context.Context, tenantID, id string) (db.GetApplicationRow, error) {
 	tID := pgtype.UUID{}
 	tID.Scan(tenantID)
 	aID := pgtype.UUID{}
@@ -236,6 +253,55 @@ func (s *AdmissionService) GetApplication(ctx context.Context, tenantID, id stri
 		ID:       aID,
 		TenantID: tID,
 	})
+}
+
+func (s *AdmissionService) AttachDocument(ctx context.Context, tenantID, id, docType, url, userID, ip string) error {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	aID := pgtype.UUID{}
+	aID.Scan(id)
+	uID := pgtype.UUID{}
+	uID.Scan(userID)
+
+	app, err := s.GetApplication(ctx, tenantID, id)
+	if err != nil {
+		return err
+	}
+
+	var documents []map[string]interface{}
+	if len(app.Documents) > 0 {
+		json.Unmarshal(app.Documents, &documents)
+	}
+
+	documents = append(documents, map[string]interface{}{
+		"type":        docType,
+		"url":         url,
+		"attached_at": time.Now().Format(time.RFC3339),
+		"attached_by": userID,
+	})
+
+	jsonBytes, _ := json.Marshal(documents)
+
+	err = s.q.UpdateApplicationDocuments(ctx, db.UpdateApplicationDocumentsParams{
+		ID:        aID,
+		TenantID:  tID,
+		Documents: jsonBytes,
+	})
+	if err != nil {
+		return err
+	}
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tID,
+		UserID:       uID,
+		Action:       "ATTACH_ADMISSION_DOC",
+		ResourceType: "admission_application",
+		ResourceID:   aID,
+		After:        map[string]interface{}{"type": docType, "url": url},
+		IPAddress:    ip,
+	})
+
+	return nil
 }
 
 func (s *AdmissionService) AcceptApplication(ctx context.Context, tenantID, id, classID, sectionID, userID, ip string) error {
@@ -249,20 +315,14 @@ func (s *AdmissionService) AcceptApplication(ctx context.Context, tenantID, id, 
 	}
 
 	// 1. Create Student record in SIS
-	// Extract details from application (assuming basic fields for now)
-	var formData map[string]interface{}
-	json.Unmarshal(app.FormData, &formData)
-
-	studentName, _ := formData["student_name"].(string)
+	studentName := app.StudentName.String
 	if studentName == "" {
-		// Fallback to enquiry student name if present
-		// enquiry, _ := s.q.GetEnquiry(ctx, app.EnquiryID)
-		// studentName = enquiry.StudentName
+		return fmt.Errorf("student name missing in application")
 	}
 
 	_, err = s.student.CreateStudent(ctx, sisservice.CreateStudentParams{
 		TenantID:        tenantID,
-		AdmissionNumber: app.ApplicationNumber, // Use app number as initial admission number
+		AdmissionNumber: app.ApplicationNumber,
 		FullName:        studentName,
 		SectionID:       sectionID,
 		Status:          "active",

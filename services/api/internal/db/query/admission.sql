@@ -8,6 +8,8 @@ INSERT INTO admission_enquiries (
 -- name: ListEnquiries :many
 SELECT * FROM admission_enquiries
 WHERE tenant_id = $1
+  AND (sqlc.narg('status')::TEXT IS NULL OR status = sqlc.narg('status'))
+  AND (sqlc.narg('academic_year')::TEXT IS NULL OR academic_year = sqlc.narg('academic_year'))
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3;
 
@@ -35,11 +37,22 @@ SELECT
 FROM admission_applications a
 LEFT JOIN admission_enquiries e ON a.enquiry_id = e.id
 WHERE a.tenant_id = $1
+  AND (sqlc.narg('status')::TEXT IS NULL OR a.status = sqlc.narg('status'))
+  AND (sqlc.narg('academic_year')::TEXT IS NULL OR e.academic_year = sqlc.narg('academic_year'))
 ORDER BY a.created_at DESC
 LIMIT $2 OFFSET $3;
 
 -- name: GetApplication :one
-SELECT * FROM admission_applications WHERE id = $1 AND tenant_id = $2;
+SELECT 
+    a.*,
+    e.parent_name,
+    e.student_name,
+    e.grade_interested,
+    e.email,
+    e.phone
+FROM admission_applications a
+LEFT JOIN admission_enquiries e ON a.enquiry_id = e.id
+WHERE a.id = $1 AND a.tenant_id = $2;
 
 -- name: UpdateApplicationStatus :exec
 UPDATE admission_applications 
@@ -52,4 +65,9 @@ SET processing_fee_amount = $3,
     processing_fee_status = $4, 
     payment_reference = $5, 
     updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2;
+
+-- name: UpdateApplicationDocuments :exec
+UPDATE admission_applications
+SET documents = $3, updated_at = NOW()
 WHERE id = $1 AND tenant_id = $2;
