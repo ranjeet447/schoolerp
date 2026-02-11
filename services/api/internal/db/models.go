@@ -216,6 +216,33 @@ type DemoType struct {
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }
 
+type DisciplineIncident struct {
+	ID               pgtype.UUID        `json:"id"`
+	TenantID         pgtype.UUID        `json:"tenant_id"`
+	StudentID        pgtype.UUID        `json:"student_id"`
+	ReporterID       pgtype.UUID        `json:"reporter_id"`
+	IncidentDate     pgtype.Timestamptz `json:"incident_date"`
+	Category         string             `json:"category"`
+	Title            string             `json:"title"`
+	Description      pgtype.Text        `json:"description"`
+	ActionTaken      pgtype.Text        `json:"action_taken"`
+	Status           string             `json:"status"`
+	ParentVisibility pgtype.Bool        `json:"parent_visibility"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type EmergencyBroadcast struct {
+	ID          pgtype.UUID        `json:"id"`
+	TenantID    pgtype.UUID        `json:"tenant_id"`
+	Message     string             `json:"message"`
+	Channel     string             `json:"channel"`
+	TargetRoles []string           `json:"target_roles"`
+	Status      string             `json:"status"`
+	CreatedBy   pgtype.UUID        `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
 type Employee struct {
 	ID                pgtype.UUID        `json:"id"`
 	TenantID          pgtype.UUID        `json:"tenant_id"`
@@ -772,6 +799,19 @@ type Permission struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
+type PickupAuthorization struct {
+	ID           pgtype.UUID        `json:"id"`
+	TenantID     pgtype.UUID        `json:"tenant_id"`
+	StudentID    pgtype.UUID        `json:"student_id"`
+	Name         string             `json:"name"`
+	Relationship string             `json:"relationship"`
+	Phone        string             `json:"phone"`
+	PhotoUrl     pgtype.Text        `json:"photo_url"`
+	IsActive     pgtype.Bool        `json:"is_active"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
 type PlacementApplication struct {
 	ID          pgtype.UUID        `json:"id"`
 	DriveID     pgtype.UUID        `json:"drive_id"`
@@ -1115,6 +1155,32 @@ type UserIdentity struct {
 	Credential pgtype.Text        `json:"credential"`
 	LastLogin  pgtype.Timestamptz `json:"last_login"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type Visitor struct {
+	ID        pgtype.UUID        `json:"id"`
+	TenantID  pgtype.UUID        `json:"tenant_id"`
+	FullName  string             `json:"full_name"`
+	Phone     string             `json:"phone"`
+	Email     pgtype.Text        `json:"email"`
+	IDType    pgtype.Text        `json:"id_type"`
+	IDNumber  pgtype.Text        `json:"id_number"`
+	PhotoUrl  pgtype.Text        `json:"photo_url"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type VisitorLog struct {
+	ID              pgtype.UUID        `json:"id"`
+	TenantID        pgtype.UUID        `json:"tenant_id"`
+	VisitorID       pgtype.UUID        `json:"visitor_id"`
+	Purpose         string             `json:"purpose"`
+	ContactPersonID pgtype.UUID        `json:"contact_person_id"`
+	CheckInAt       pgtype.Timestamptz `json:"check_in_at"`
+	CheckOutAt      pgtype.Timestamptz `json:"check_out_at"`
+	BadgeNumber     pgtype.Text        `json:"badge_number"`
+	Remarks         pgtype.Text        `json:"remarks"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }
 
 type Wallet struct {

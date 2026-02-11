@@ -51,6 +51,7 @@ import (
 	"github.com/schoolerp/api/internal/handler/notification"
 	"github.com/schoolerp/api/internal/handler/portfolio"
 	roleshandler "github.com/schoolerp/api/internal/handler/roles"
+	"github.com/schoolerp/api/internal/handler/safety"
 	"github.com/schoolerp/api/internal/handler/sis"
 	"github.com/schoolerp/api/internal/handler/transport"
 	"github.com/schoolerp/api/internal/middleware"
@@ -68,6 +69,7 @@ import (
 	notificationservice "github.com/schoolerp/api/internal/service/notification"
 	portfolioservice "github.com/schoolerp/api/internal/service/portfolio"
 	rolesservice "github.com/schoolerp/api/internal/service/roles"
+	safetyservice "github.com/schoolerp/api/internal/service/safety"
 	sisservice "github.com/schoolerp/api/internal/service/sis"
 	transportservice "github.com/schoolerp/api/internal/service/transport"
 )
@@ -140,6 +142,7 @@ func main() {
 	inventoryService := inventoryservice.NewInventoryService(querier, auditLogger)
 	admissionService := admissionservice.NewAdmissionService(querier, auditLogger, studentService)
 	hrmsService := hrmsservice.NewService(querier, auditLogger, approvalSvc)
+	safetyService := safetyservice.NewService(querier, auditLogger)
 	portfolioService := portfolioservice.NewService(querier)
 	alumniService := alumniservice.NewService(querier)
 	authService := authservice.NewService(querier)
@@ -160,6 +163,7 @@ func main() {
 	inventoryHandler := inventory.NewHandler(inventoryService)
 	admissionHandler := admission.NewHandler(admissionService)
 	hrmsHandler := hrms.NewHandler(hrmsService)
+	safetyHandler := safety.NewHandler(safetyService)
 	portfolioHandler := portfolio.NewHandler(portfolioService)
 	alumniHandler := alumni.NewHandler(alumniService)
 	authHandler := authhandler.NewHandler(authService)
@@ -232,6 +236,7 @@ func main() {
 			inventoryHandler.RegisterRoutes(r)
 			admissionHandler.RegisterRoutes(r)
 			hrmsHandler.RegisterRoutes(r)
+			safetyHandler.RegisterRoutes(r)
 			portfolioHandler.RegisterRoutes(r)
 			alumniHandler.RegisterRoutes(r)
 			rolesHandler.RegisterRoutes(r) // Role management endpoints
