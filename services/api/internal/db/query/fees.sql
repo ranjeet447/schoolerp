@@ -94,3 +94,15 @@ WHERE sfp.student_id = $1;
 SELECT * FROM receipts
 WHERE student_id = $1 AND tenant_id = $2
 ORDER BY created_at DESC;
+
+-- name: LogPaymentEvent :one
+INSERT INTO payment_events (tenant_id, gateway_event_id, event_type)
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: CheckPaymentEventProcessed :one
+SELECT EXISTS (
+    SELECT 1 FROM payment_events 
+    WHERE tenant_id = $1 AND gateway_event_id = $2
+) as processed;
+

@@ -19,6 +19,7 @@ type Querier interface {
 	CancelReceipt(ctx context.Context, arg CancelReceiptParams) (Receipt, error)
 	CheckIPAllowlist(ctx context.Context, arg CheckIPAllowlistParams) (bool, error)
 	CheckLock(ctx context.Context, arg CheckLockParams) (bool, error)
+	CheckPaymentEventProcessed(ctx context.Context, arg CheckPaymentEventProcessedParams) (bool, error)
 	CountRouteAllocations(ctx context.Context, arg CountRouteAllocationsParams) (int64, error)
 	CountStudents(ctx context.Context, tenantID pgtype.UUID) (int64, error)
 	// Academic Structure
@@ -273,6 +274,7 @@ type Querier interface {
 	ListSubjects(ctx context.Context, tenantID pgtype.UUID) ([]Subject, error)
 	ListSuppliers(ctx context.Context, tenantID pgtype.UUID) ([]InventorySupplier, error)
 	ListVehicles(ctx context.Context, tenantID pgtype.UUID) ([]TransportVehicle, error)
+	LogPaymentEvent(ctx context.Context, arg LogPaymentEventParams) (PaymentEvent, error)
 	PublishExam(ctx context.Context, arg PublishExamParams) (Exam, error)
 	ReceivePurchaseOrder(ctx context.Context, arg ReceivePurchaseOrderParams) (PurchaseOrder, error)
 	RemoveGroupMember(ctx context.Context, arg RemoveGroupMemberParams) error

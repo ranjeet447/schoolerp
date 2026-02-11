@@ -70,6 +70,25 @@ func (q *Queries) CancelReceipt(ctx context.Context, arg CancelReceiptParams) (R
 	return i, err
 }
 
+const checkPaymentEventProcessed = `-- name: CheckPaymentEventProcessed :one
+SELECT EXISTS (
+    SELECT 1 FROM payment_events 
+    WHERE tenant_id = $1 AND gateway_event_id = $2
+) as processed
+`
+
+type CheckPaymentEventProcessedParams struct {
+	TenantID       pgtype.UUID `json:"tenant_id"`
+	GatewayEventID string      `json:"gateway_event_id"`
+}
+
+func (q *Queries) CheckPaymentEventProcessed(ctx context.Context, arg CheckPaymentEventProcessedParams) (bool, error) {
+	row := q.db.QueryRow(ctx, checkPaymentEventProcessed, arg.TenantID, arg.GatewayEventID)
+	var processed bool
+	err := row.Scan(&processed)
+	return processed, err
+}
+
 const createFeeHead = `-- name: CreateFeeHead :one
 
 INSERT INTO fee_heads (tenant_id, name, type)
@@ -481,6 +500,31 @@ func (q *Queries) ListStudentReceipts(ctx context.Context, arg ListStudentReceip
 		return nil, err
 	}
 	return items, nil
+}
+
+const logPaymentEvent = `-- name: LogPaymentEvent :one
+INSERT INTO payment_events (tenant_id, gateway_event_id, event_type)
+VALUES ($1, $2, $3)
+RETURNING id, tenant_id, gateway_event_id, event_type, processed_at
+`
+
+type LogPaymentEventParams struct {
+	TenantID       pgtype.UUID `json:"tenant_id"`
+	GatewayEventID string      `json:"gateway_event_id"`
+	EventType      string      `json:"event_type"`
+}
+
+func (q *Queries) LogPaymentEvent(ctx context.Context, arg LogPaymentEventParams) (PaymentEvent, error) {
+	row := q.db.QueryRow(ctx, logPaymentEvent, arg.TenantID, arg.GatewayEventID, arg.EventType)
+	var i PaymentEvent
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.GatewayEventID,
+		&i.EventType,
+		&i.ProcessedAt,
+	)
+	return i, err
 }
 
 const updatePaymentOrderStatus = `-- name: UpdatePaymentOrderStatus :one

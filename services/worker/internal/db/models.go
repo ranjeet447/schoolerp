@@ -614,6 +614,14 @@ type PartnerApplication struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
+type PaymentEvent struct {
+	ID             pgtype.UUID        `json:"id"`
+	TenantID       pgtype.UUID        `json:"tenant_id"`
+	GatewayEventID string             `json:"gateway_event_id"`
+	EventType      string             `json:"event_type"`
+	ProcessedAt    pgtype.Timestamptz `json:"processed_at"`
+}
+
 type PaymentOrder struct {
 	ID          pgtype.UUID        `json:"id"`
 	TenantID    pgtype.UUID        `json:"tenant_id"`
