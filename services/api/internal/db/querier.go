@@ -111,6 +111,8 @@ type Querier interface {
 	// limitations under the License.
 	CreateFile(ctx context.Context, arg CreateFileParams) (File, error)
 	CreateGuardian(ctx context.Context, arg CreateGuardianParams) (Guardian, error)
+	// homework.sql
+	CreateHomework(ctx context.Context, arg CreateHomeworkParams) (Homework, error)
 	CreateIPAllowlist(ctx context.Context, arg CreateIPAllowlistParams) (IpAllowlist, error)
 	CreateInventoryCategory(ctx context.Context, arg CreateInventoryCategoryParams) (InventoryCategory, error)
 	CreateInventoryItem(ctx context.Context, arg CreateInventoryItemParams) (InventoryItem, error)
@@ -191,6 +193,9 @@ type Querier interface {
 	GetExamResultsForStudent(ctx context.Context, arg GetExamResultsForStudentParams) ([]GetExamResultsForStudentRow, error)
 	GetFile(ctx context.Context, arg GetFileParams) (File, error)
 	GetGroupAnalytics(ctx context.Context, groupID pgtype.UUID) (GetGroupAnalyticsRow, error)
+	GetHomework(ctx context.Context, arg GetHomeworkParams) (Homework, error)
+	// This searches homework for the section the student is currently in
+	GetHomeworkForStudent(ctx context.Context, arg GetHomeworkForStudentParams) ([]GetHomeworkForStudentRow, error)
 	GetInventoryItem(ctx context.Context, arg GetInventoryItemParams) (InventoryItem, error)
 	GetIssue(ctx context.Context, arg GetIssueParams) (LibraryIssue, error)
 	GetMFASecret(ctx context.Context, userID pgtype.UUID) (MfaSecret, error)
@@ -229,6 +234,7 @@ type Querier interface {
 	// Simple mapping for demo: using the first head's mapping from the plan
 	GetTallyExportData(ctx context.Context, arg GetTallyExportDataParams) ([]GetTallyExportDataRow, error)
 	GetVehicle(ctx context.Context, arg GetVehicleParams) (TransportVehicle, error)
+	GradeSubmission(ctx context.Context, arg GradeSubmissionParams) (HomeworkSubmission, error)
 	IssueBook(ctx context.Context, arg IssueBookParams) (LibraryIssue, error)
 	LinkStudentGuardian(ctx context.Context, arg LinkStudentGuardianParams) error
 	ListAcademicYears(ctx context.Context, tenantID pgtype.UUID) ([]AcademicYear, error)
@@ -249,6 +255,7 @@ type Querier interface {
 	ListFeeHeads(ctx context.Context, tenantID pgtype.UUID) ([]FeeHead, error)
 	ListGradingScales(ctx context.Context, tenantID pgtype.UUID) ([]GradingScale, error)
 	ListGroupMembers(ctx context.Context, groupID pgtype.UUID) ([]ListGroupMembersRow, error)
+	ListHomeworkForSection(ctx context.Context, arg ListHomeworkForSectionParams) ([]ListHomeworkForSectionRow, error)
 	ListIPAllowlists(ctx context.Context, tenantID pgtype.UUID) ([]IpAllowlist, error)
 	ListInventoryCategories(ctx context.Context, tenantID pgtype.UUID) ([]InventoryCategory, error)
 	ListInventoryItems(ctx context.Context, arg ListInventoryItemsParams) ([]ListInventoryItemsRow, error)
@@ -256,6 +263,7 @@ type Querier interface {
 	ListIssues(ctx context.Context, arg ListIssuesParams) ([]ListIssuesRow, error)
 	ListLeaveRequests(ctx context.Context, arg ListLeaveRequestsParams) ([]ListLeaveRequestsRow, error)
 	ListLedgerMappings(ctx context.Context, tenantID pgtype.UUID) ([]ListLedgerMappingsRow, error)
+	ListLessonPlans(ctx context.Context, arg ListLessonPlansParams) ([]LessonPlan, error)
 	ListNotices(ctx context.Context, tenantID pgtype.UUID) ([]ListNoticesRow, error)
 	// This is a bit simplified, in real prod you'd filter by scope.
 	// For now, we fetch all notices for the tenant.
@@ -279,6 +287,7 @@ type Querier interface {
 	ListStudentReceipts(ctx context.Context, arg ListStudentReceiptsParams) ([]Receipt, error)
 	ListStudents(ctx context.Context, arg ListStudentsParams) ([]ListStudentsRow, error)
 	ListSubjects(ctx context.Context, tenantID pgtype.UUID) ([]Subject, error)
+	ListSubmissions(ctx context.Context, homeworkID pgtype.UUID) ([]ListSubmissionsRow, error)
 	ListSuppliers(ctx context.Context, tenantID pgtype.UUID) ([]InventorySupplier, error)
 	ListVehicles(ctx context.Context, tenantID pgtype.UUID) ([]TransportVehicle, error)
 	ListWeightageConfigs(ctx context.Context, arg ListWeightageConfigsParams) ([]ExamWeightageConfig, error)
@@ -288,6 +297,7 @@ type Querier interface {
 	RemoveGroupMember(ctx context.Context, arg RemoveGroupMemberParams) error
 	ReturnBook(ctx context.Context, arg ReturnBookParams) (LibraryIssue, error)
 	SetMFAEnabled(ctx context.Context, arg SetMFAEnabledParams) error
+	SubmitHomework(ctx context.Context, arg SubmitHomeworkParams) (HomeworkSubmission, error)
 	UpdateAlumni(ctx context.Context, arg UpdateAlumniParams) (Alumni, error)
 	UpdateApplicationFee(ctx context.Context, arg UpdateApplicationFeeParams) error
 	UpdateApplicationStatus(ctx context.Context, arg UpdateApplicationStatusParams) error
@@ -310,6 +320,7 @@ type Querier interface {
 	UpdateVehicle(ctx context.Context, arg UpdateVehicleParams) (TransportVehicle, error)
 	UpsertGradingScale(ctx context.Context, arg UpsertGradingScaleParams) (GradingScale, error)
 	UpsertLedgerMapping(ctx context.Context, arg UpsertLedgerMappingParams) (TallyLedgerMapping, error)
+	UpsertLessonPlan(ctx context.Context, arg UpsertLessonPlanParams) (LessonPlan, error)
 	UpsertMFASecret(ctx context.Context, arg UpsertMFASecretParams) error
 	UpsertMarks(ctx context.Context, arg UpsertMarksParams) error
 	UpsertMarksAggregate(ctx context.Context, arg UpsertMarksAggregateParams) (MarksAggregate, error)

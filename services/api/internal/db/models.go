@@ -334,6 +334,33 @@ type Guardian struct {
 	UserID    pgtype.UUID        `json:"user_id"`
 }
 
+type Homework struct {
+	ID                pgtype.UUID        `json:"id"`
+	TenantID          pgtype.UUID        `json:"tenant_id"`
+	SubjectID         pgtype.UUID        `json:"subject_id"`
+	ClassSectionID    pgtype.UUID        `json:"class_section_id"`
+	TeacherID         pgtype.UUID        `json:"teacher_id"`
+	Title             string             `json:"title"`
+	Description       pgtype.Text        `json:"description"`
+	DueDate           pgtype.Timestamptz `json:"due_date"`
+	SubmissionAllowed pgtype.Bool        `json:"submission_allowed"`
+	Attachments       []byte             `json:"attachments"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type HomeworkSubmission struct {
+	ID              pgtype.UUID        `json:"id"`
+	HomeworkID      pgtype.UUID        `json:"homework_id"`
+	StudentID       pgtype.UUID        `json:"student_id"`
+	AttachmentUrl   pgtype.Text        `json:"attachment_url"`
+	Remarks         pgtype.Text        `json:"remarks"`
+	Status          string             `json:"status"`
+	TeacherFeedback pgtype.Text        `json:"teacher_feedback"`
+	SubmittedAt     pgtype.Timestamptz `json:"submitted_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Integration struct {
 	ID               pgtype.UUID        `json:"id"`
 	Slug             string             `json:"slug"`
@@ -447,6 +474,18 @@ type LeaveRequest struct {
 	DecidedBy pgtype.UUID        `json:"decided_by"`
 	DecidedAt pgtype.Timestamptz `json:"decided_at"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type LessonPlan struct {
+	ID           pgtype.UUID        `json:"id"`
+	TenantID     pgtype.UUID        `json:"tenant_id"`
+	SubjectID    pgtype.UUID        `json:"subject_id"`
+	ClassID      pgtype.UUID        `json:"class_id"`
+	WeekNumber   int32              `json:"week_number"`
+	PlannedTopic string             `json:"planned_topic"`
+	CoveredAt    pgtype.Timestamptz `json:"covered_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
 type LibraryAuthor struct {
