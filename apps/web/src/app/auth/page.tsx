@@ -22,11 +22,12 @@ import {
   Label 
 } from '@schoolerp/ui';
 import Link from 'next/link';
-import { RBACService } from '@/lib/auth-service';
+import { useAuth } from '@/components/auth-provider';
 import { toast } from 'sonner';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,12 +38,17 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Real Login via Backend API
-      const result = await RBACService.login(email, password);
+      const result = await login(email, password);
 
-      if (result.success && result.redirect) {
-        toast.success(`Welcome back! Redirecting to ${result.role} portal...`);
-        router.push(result.redirect);
+      if (result.success) {
+        // Redirection handled by redirect in return or manually
+        toast.success(`Welcome back!`);
+        // We still need to know where to redirect after reactive state update
+        // but current RBACService.login already handles localStorage which getDashboardPath uses.
+        const user = JSON.parse(localStorage.getItem('user_role') || '""');
+        // Actually, login in AuthProvider calls RBACService.login which does the same.
+        // Let's just use the router to redirect to the dashboard.
+        router.push('/'); // Root will handle redirection based on new state
       } else {
         toast.error(result.error || "Invalid credentials. Check email and password.");
       }

@@ -19,6 +19,7 @@ import { Button } from '@schoolerp/ui';
 import { RBACService } from '@/lib/auth-service';
 import { usePathname } from 'next/navigation';
 import { TenantConfig } from '@/lib/tenant-utils';
+import { useAuth } from '@/components/auth-provider';
 
 const NAV_ITEMS = [
   { href: '/parent/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
@@ -38,12 +39,8 @@ export default function ParentLayoutClient({
   children: React.ReactNode;
   config: TenantConfig | null;
 }) {
-  const [user, setUser] = useState<any>(null);
+  const { user, logout } = useAuth();
   const pathname = usePathname();
-
-  useEffect(() => {
-    setUser(RBACService.getCurrentUser());
-  }, []);
 
   const filteredNavItems = NAV_ITEMS.filter(item => 
     !item.permission || RBACService.hasPermission(item.permission)
@@ -107,7 +104,7 @@ export default function ParentLayoutClient({
               </div>
             </div>
             <button 
-              onClick={() => RBACService.logout()}
+              onClick={() => logout()}
               className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
               title="Logout"
             >
