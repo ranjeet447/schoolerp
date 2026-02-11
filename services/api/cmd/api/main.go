@@ -16,7 +16,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -26,6 +25,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/schoolerp/api/internal/db"
 	"github.com/schoolerp/api/internal/foundation/approvals"
@@ -70,7 +72,14 @@ import (
 
 
 func main() {
-	// 0. Database Connection
+	// 0. Setup Logger
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	if os.Getenv("ENV") == "production" {
+		log.Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
+	}
+
+	// 1. Database Connection
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		dbURL = "postgres://schoolerp:password@localhost:5432/schoolerp?sslmode=disable"
@@ -78,12 +87,12 @@ func main() {
 	
 	poolConfig, err := pgxpool.ParseConfig(dbURL)
 	if err != nil {
-		log.Fatalf("Unable to parse DB config: %v", err)
+		log.Fatal().Err(err).Msg("Unable to parse DB config")
 	}
 	
 	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {
-		log.Fatalf("Unable to connect to database: %v", err)
+		log.Fatal().Err(err).Msg("Unable to connect to database")
 	}
 	defer pool.Close()
 	
@@ -143,6 +152,8 @@ func main() {
 	r.Use(chimiddleware.Timeout(60 * time.Second))
 	r.Use(middleware.CORS)      // Handle cross-origin requests
 	r.Use(middleware.RateLimit) // Protect sensitive endpoints
+	r.Use(middleware.Metrics)   // Structured logging & metrics
+
 
 	// 2. Custom Foundation Middlewares
 	r.Use(middleware.RequestIDPropagation) // Propagate to response
@@ -157,6 +168,10 @@ func main() {
 		w.Header().Set("X-Request-ID", middleware.GetReqID(r.Context()))
 		w.Write([]byte(`{"status": "ok", "timestamp": "` + time.Now().Format(time.RFC3339) + `"}`))
 	})
+
+	// Metrics endpoint
+	r.Handle("/metrics", promhttp.Handler())
+
 
 	// 4. API V1 Routes
 	r.Route("/v1", func(r chi.Router) {
@@ -224,21 +239,21 @@ func main() {
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		log.Printf("API Server starting on %s", server.Addr)
+		log.Info().Msgf("API Server starting on %s", server.Addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %s\n", err)
+			log.Fatal().Err(err).Msg("Server failed to start")
 		}
 	}()
 
 	<-stop
 
-	log.Println("Shutting down server...")
+	log.Info().Msg("Shutting down server...")
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		log.Fatal().Err(err).Msg("Server forced to shutdown")
 	}
 
-	log.Println("Server exiting")
+	log.Info().Msg("Server exiting")
 }

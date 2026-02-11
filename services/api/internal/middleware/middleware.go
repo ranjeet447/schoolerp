@@ -19,11 +19,16 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/rs/zerolog/log"
 )
 
 type contextKey string
@@ -73,16 +78,56 @@ func GetLocale(ctx context.Context) string {
 }
 
 // RequestIDPropagation ensures the X-Request-ID is sent back in the response header
+// and injected into the zerolog context.
 func RequestIDPropagation(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reqID := middleware.GetReqID(r.Context())
 		if reqID == "" {
 			reqID = uuid.New().String()
 		}
+		
+		// Set on response header
 		w.Header().Set("X-Request-ID", reqID)
-		next.ServeHTTP(w, r)
+		
+		// Set on logger context
+		logger := log.With().Str("request_id", reqID).Logger()
+		ctx := logger.WithContext(r.Context())
+		
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
+
+var (
+	httpRequestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "http_requests_total",
+		Help: "Total number of HTTP requests.",
+	}, []string{"method", "path", "status"})
+
+	httpRequestDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "http_request_duration_seconds",
+		Help:    "Duration of HTTP requests.",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"method", "path"})
+)
+
+// Metrics tracking middleware
+func Metrics(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		
+		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+		next.ServeHTTP(ww, r)
+		
+		duration := time.Since(start).Seconds()
+		path := r.URL.Path
+		// Normalize path if needed (static routes only for now)
+		
+		status := strconv.Itoa(ww.Status())
+		httpRequestsTotal.WithLabelValues(r.Method, path, status).Inc()
+		httpRequestDuration.WithLabelValues(r.Method, path).Observe(duration)
+	})
+}
+
 
 // TenantResolver extracts the tenant ID from the X-Tenant-ID header
 func TenantResolver(next http.Handler) http.Handler {
