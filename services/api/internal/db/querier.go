@@ -360,6 +360,12 @@ type Querier interface {
 	UpdateStudent(ctx context.Context, arg UpdateStudentParams) (Student, error)
 	UpdateVehicle(ctx context.Context, arg UpdateVehicleParams) (TransportVehicle, error)
 	UpsertChatModerationSettings(ctx context.Context, arg UpsertChatModerationSettingsParams) (ChatModerationSetting, error)
+	
+	// Tenants
+	GetTenantBySubdomain(ctx context.Context, subdomain string) (Tenant, error)
+	GetTenantByID(ctx context.Context, id pgtype.UUID) (Tenant, error)
+	UpdateTenantConfig(ctx context.Context, arg UpdateTenantConfigParams) (Tenant, error)
+
 	UpsertGradingScale(ctx context.Context, arg UpsertGradingScaleParams) (GradingScale, error)
 	UpsertLedgerMapping(ctx context.Context, arg UpsertLedgerMappingParams) (TallyLedgerMapping, error)
 	UpsertLessonPlan(ctx context.Context, arg UpsertLessonPlanParams) (LessonPlan, error)

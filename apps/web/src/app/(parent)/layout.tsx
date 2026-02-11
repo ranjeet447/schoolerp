@@ -1,117 +1,17 @@
-"use client"
+import React from 'react';
+import { getTenantConfig } from '@/lib/tenant-utils';
+import ParentLayoutClient from './parent-layout-client';
 
-import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { 
-  LayoutDashboard, 
-  Users, 
-  CalendarCheck, 
-  Banknote, 
-  Settings,
-  Menu,
-  GraduationCap,
-  LogOut,
-  User,
-  MessageSquare,
-  FileText
-} from 'lucide-react';
-import { Button } from '@schoolerp/ui';
-import { RBACService } from '@/lib/auth-service';
-import { usePathname } from 'next/navigation';
-
-const NAV_ITEMS = [
-  { href: '/parent/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
-  { href: '/parent/children', label: 'My Children', icon: Users, permission: 'sis:read' },
-  { href: '/parent/attendance', label: 'Attendance', icon: CalendarCheck, permission: 'attendance:read' },
-  { href: '/parent/fees', label: 'Fees & Payments', icon: Banknote, permission: 'fees:read' },
-  { href: '/parent/results', label: 'Exam Results', icon: GraduationCap, permission: 'exams:read' },
-  { href: '/parent/notices', label: 'Notices', icon: FileText, permission: 'notices:read' },
-  { href: '/parent/leaves', label: 'Leave Requests', icon: MessageSquare, permission: 'attendance:write' },
-  { href: '/parent/settings', label: 'Settings', icon: Settings },
-];
-
-export default function ParentLayout({
+export default async function ParentLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [user, setUser] = useState<any>(null);
-  const pathname = usePathname();
-
-  useEffect(() => {
-    setUser(RBACService.getCurrentUser());
-  }, []);
-
-  const filteredNavItems = NAV_ITEMS.filter(item => 
-    !item.permission || RBACService.hasPermission(item.permission)
-  );
+  const config = await getTenantConfig();
 
   return (
-    <div className="flex h-screen bg-rose-50/30">
-      {/* Sidebar */}
-      <aside className="w-64 border-r border-rose-100 bg-white hidden md:flex md:flex-col">
-        <div className="flex h-16 items-center border-b border-rose-100 px-6">
-          <Link href="/parent/dashboard" className="flex items-center gap-2 font-bold text-xl text-rose-600">
-            <GraduationCap className="h-6 w-6" />
-            <span>Parent<span className="text-slate-900">Portal</span></span>
-          </Link>
-        </div>
-        <nav className="flex-1 overflow-y-auto py-4">
-          <ul className="space-y-1 px-3">
-            {filteredNavItems.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    pathname === item.href 
-                      ? 'bg-rose-50 text-rose-600' 
-                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-                  }`}
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-        
-        <div className="border-t border-rose-100 p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-rose-100 flex items-center justify-center text-xs font-bold text-rose-600 border border-rose-200">
-                {user?.name?.[0] || <User className="h-4 w-4" />}
-              </div>
-              <div className="overflow-hidden">
-                <p className="text-sm font-medium text-slate-900 truncate">{user?.name || 'Loading...'}</p>
-                <p className="text-xs text-slate-400 truncate capitalize">{user?.role?.replace('_', ' ') || ''}</p>
-              </div>
-            </div>
-            <button 
-              onClick={() => RBACService.logout()}
-              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-              title="Logout"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 items-center justify-between border-b border-rose-100 bg-white px-6">
-          <Button variant="ghost" size="icon" className="md:hidden text-slate-600">
-            <Menu className="h-5 w-5" />
-          </Button>
-          <div className="ml-auto flex items-center gap-4">
-            <span className="text-sm text-slate-400 font-medium">Demo International School</span>
-          </div>
-        </header>
-        <main className="flex-1 overflow-y-auto p-6">
-          {children}
-        </main>
-      </div>
-    </div>
+    <ParentLayoutClient config={config}>
+      {children}
+    </ParentLayoutClient>
   );
 }

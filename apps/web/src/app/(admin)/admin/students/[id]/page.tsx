@@ -1,14 +1,15 @@
-import React from "react"
 import Link from "next/link"
+import { getTenantId } from "@/lib/tenant-utils"
 import { ChevronLeft } from "lucide-react"
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger, StudentProfileCard } from "@schoolerp/ui"
 
 async function getStudent(id: string) {
+  const tenant = await getTenantId();
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/v1';
   try {
     const res = await fetch(`${API_URL}/admin/students/${id}`, {
       headers: {
-        "X-Tenant-ID": "default-tenant", // Stub
+        "X-Tenant-ID": tenant,
       },
       cache: "no-store",
     })

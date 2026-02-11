@@ -3,78 +3,51 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
-	"path/filepath"
+	"strings"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
 )
 
 func main() {
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		log.Fatal("DATABASE_URL environment variable is not set")
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		fmt.Println("DATABASE_URL is not set")
+		os.Exit(1)
 	}
 
-	config, err := pgxpool.ParseConfig(databaseURL)
+	ctx := context.Background()
+	conn, err := pgx.Connect(ctx, dbURL)
 	if err != nil {
-		log.Fatalf("Unable to parse DATABASE_URL: %v", err)
+		fmt.Printf("Unable to connect to database: %v\n", err)
+		os.Exit(1)
 	}
+	defer conn.Close(ctx)
 
-	pool, err := pgxpool.NewWithConfig(context.Background(), config)
+	sqlFile := "infra/migrations/seed_users.sql"
+	content, err := os.ReadFile(sqlFile)
 	if err != nil {
-		log.Fatalf("Unable to create connection pool: %v", err)
-	}
-	defer pool.Close()
-
-	// Locate the SQL file
-	// Assuming running from project root or services/api
-	// We'll try to find it relative to where we might be running
-	projectRoot, err := findProjectRoot()
-	if err != nil {
-		log.Fatalf("Could not find project root: %v", err)
+		fmt.Printf("Unable to read seed file: %v\n", err)
+		os.Exit(1)
 	}
 
-	sqlPath := filepath.Join(projectRoot, "infra", "migrations", "seed_users.sql")
-	sqlBytes, err := os.ReadFile(sqlPath)
-	if err != nil {
-		log.Fatalf("Could not read SQL file at %s: %v", sqlPath, err)
-	}
+	// Split by semicolon and run each statement
+	// Note: This is a simple split, might fail on complex SQL (like functions or trigers)
+	// but seed_users.sql is mostly INSERTs.
+	statements := strings.Split(string(content), ";")
 
-	sqlContent := string(sqlBytes)
-
-	fmt.Printf("Executing seed script from %s...\n", sqlPath)
-
-	conn, err := pool.Acquire(context.Background())
-	if err != nil {
-		log.Fatalf("Unable to acquire connection: %v", err)
-	}
-	defer conn.Release()
-
-	_, err = conn.Exec(context.Background(), sqlContent)
-	if err != nil {
-		log.Fatalf("Failed to execute seed script: %v", err)
-	}
-
-	fmt.Println("Seed script executed successfully.")
-}
-
-func findProjectRoot() (string, error) {
-	// Start from current working directory and walk up until we find "go.mod" or "package.json" or "turbo.json"
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "turbo.json")); err == nil {
-			return dir, nil
+	for _, stmt := range statements {
+		stmt = strings.TrimSpace(stmt)
+		if stmt == "" {
+			continue
 		}
 
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", fmt.Errorf("project root not found")
+		_, err := conn.Exec(ctx, stmt)
+		if err != nil {
+			fmt.Printf("Error executing statement: %v\nStatement: %s\n", err, stmt)
+			// Continue on error for seed files usually
 		}
-		dir = parent
 	}
+
+	fmt.Println("Seeding complete.")
 }

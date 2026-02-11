@@ -57,6 +57,7 @@ import (
 	roleshandler "github.com/schoolerp/api/internal/handler/roles"
 	"github.com/schoolerp/api/internal/handler/safety"
 	"github.com/schoolerp/api/internal/handler/sis"
+	"github.com/schoolerp/api/internal/handler/tenant"
 	"github.com/schoolerp/api/internal/handler/transport"
 	"github.com/schoolerp/api/internal/middleware"
 	academicservice "github.com/schoolerp/api/internal/service/academics"
@@ -77,6 +78,7 @@ import (
 	rolesservice "github.com/schoolerp/api/internal/service/roles"
 	safetyservice "github.com/schoolerp/api/internal/service/safety"
 	sisservice "github.com/schoolerp/api/internal/service/sis"
+	tenantservice "github.com/schoolerp/api/internal/service/tenant"
 	transportservice "github.com/schoolerp/api/internal/service/transport"
 )
 
@@ -162,6 +164,7 @@ func main() {
 	rolesService := rolesservice.NewService(querier)
 	notificationService := notificationservice.NewService(querier)
 	academicService := academicservice.NewService(querier, auditLogger)
+	tenantService := tenantservice.NewService(querier)
 	
 	// File Service
 	fsDir := os.Getenv("UPLOAD_DIR")
@@ -192,6 +195,7 @@ func main() {
 	authHandler := authhandler.NewHandler(authService)
 	rolesHandler := roleshandler.NewHandler(rolesService)
 	fileHandler := files.NewHandler(fileService)
+	tenantHandler := tenant.NewHandler(tenantService)
 
 
 
@@ -255,6 +259,8 @@ func main() {
 
 		fileHandler.RegisterRoutes(r)
 
+		r.Get("/tenants/config", tenantHandler.GetConfig)
+
 		
 
 		// Admin Routes
@@ -277,6 +283,10 @@ func main() {
 			portfolioHandler.RegisterRoutes(r)
 			alumniHandler.RegisterRoutes(r)
 			rolesHandler.RegisterRoutes(r) // Role management endpoints
+			
+			r.Post("/tenants/config", tenantHandler.UpdateConfig)
+			r.Get("/tenants/plugins", tenantHandler.ListPlugins)
+			r.Post("/tenants/plugins/{id}", tenantHandler.UpdatePluginConfig)
 			
 			// Growth/Other stubs maintained for now
 			r.Get("/demo-bookings", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(`[]`)) })

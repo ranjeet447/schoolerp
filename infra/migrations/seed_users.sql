@@ -8,12 +8,25 @@ BEGIN;
 -- ============================================
 -- 1. SEED TENANT (Demo School)
 -- ============================================
-INSERT INTO tenants (id, name, subdomain, domain, is_active)
+-- Demo International School (Standard)
+INSERT INTO tenants (id, name, subdomain, domain, config, is_active)
 VALUES (
     'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d',
     'Demo International School',
     'demo',
     'demo.schoolerp.com',
+    '{"white_label": false, "branding": {"primary_color": "#4f46e5"}}',
+    TRUE
+) ON CONFLICT (subdomain) DO NOTHING;
+
+-- Elite Academy (White Labeled)
+INSERT INTO tenants (id, name, subdomain, domain, config, is_active)
+VALUES (
+    'e1e1e1e1-e1e1-e1e1-e1e1-e1e1e1e1e1e1',
+    'Elite Academy',
+    'elite',
+    'elite.academy.com',
+    '{"white_label": true, "branding": {"primary_color": "#be123c", "name_override": "Elite LMS"}}',
     TRUE
 ) ON CONFLICT (subdomain) DO NOTHING;
 
@@ -194,16 +207,56 @@ VALUES (
 -- ============================================
 -- 6. ASSIGN ROLES TO USERS
 -- ============================================
+-- Elite Admin
+INSERT INTO users (id, email, phone, full_name, is_active)
+VALUES (
+    'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+    'admin@elite.academy',
+    '+919876543333',
+    'Elite Director',
+    TRUE
+) ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO user_identities (id, user_id, provider, identifier, credential)
+VALUES (
+    'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeef',
+    'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+    'password',
+    'admin@elite.academy',
+    'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f'
+) ON CONFLICT (provider, identifier) DO NOTHING;
+
+-- Elite Teacher
+INSERT INTO users (id, email, phone, full_name, is_active)
+VALUES (
+    'ffffffff-ffff-ffff-ffff-ffffffffffff',
+    'teacher@elite.academy',
+    '+919876543334',
+    'Elite Professor',
+    TRUE
+) ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO user_identities (id, user_id, provider, identifier, credential)
+VALUES (
+    'ffffffff-ffff-ffff-ffff-fffffffffffa',
+    'ffffffff-ffff-ffff-ffff-ffffffffffff',
+    'password',
+    'teacher@elite.academy',
+    'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f'
+) ON CONFLICT (provider, identifier) DO NOTHING;
+
+-- ASSIGN ROLES
 INSERT INTO role_assignments (tenant_id, user_id, role_id, scope_type)
 VALUES 
-    -- Admin has Tenant Admin role
+    -- Demo Portal
     ((SELECT id FROM tenants WHERE subdomain = 'demo'), 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'tenant'),
-    -- Teacher has Teacher role
     ((SELECT id FROM tenants WHERE subdomain = 'demo'), 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '33333333-3333-3333-3333-333333333333', 'tenant'),
-    -- Parent has Parent role
     ((SELECT id FROM tenants WHERE subdomain = 'demo'), 'cccccccc-cccc-cccc-cccc-cccccccccccc', '55555555-5555-5555-5555-555555555555', 'tenant'),
-    -- Accountant has Accountant role
-    ((SELECT id FROM tenants WHERE subdomain = 'demo'), 'dddddddd-dddd-dddd-dddd-dddddddddddd', '44444444-4444-4444-4444-444444444444', 'tenant')
+    ((SELECT id FROM tenants WHERE subdomain = 'demo'), 'dddddddd-dddd-dddd-dddd-dddddddddddd', '44444444-4444-4444-4444-444444444444', 'tenant'),
+    
+    -- Elite Portal
+    ((SELECT id FROM tenants WHERE subdomain = 'elite'), 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '22222222-2222-2222-2222-222222222222', 'tenant'),
+    ((SELECT id FROM tenants WHERE subdomain = 'elite'), 'ffffffff-ffff-ffff-ffff-ffffffffffff', '33333333-3333-3333-3333-333333333333', 'tenant')
 ON CONFLICT DO NOTHING;
 
 
