@@ -42,6 +42,7 @@ import (
 	"github.com/schoolerp/api/internal/handler/alumni"
 	"github.com/schoolerp/api/internal/handler/attendance"
 	authhandler "github.com/schoolerp/api/internal/handler/auth"
+	"github.com/schoolerp/api/internal/handler/communication"
 	"github.com/schoolerp/api/internal/handler/exams"
 	"github.com/schoolerp/api/internal/handler/finance"
 	"github.com/schoolerp/api/internal/handler/hrms"
@@ -60,6 +61,7 @@ import (
 	alumniservice "github.com/schoolerp/api/internal/service/alumni"
 	attendservice "github.com/schoolerp/api/internal/service/attendance"
 	authservice "github.com/schoolerp/api/internal/service/auth"
+	commservice "github.com/schoolerp/api/internal/service/communication"
 	examservice "github.com/schoolerp/api/internal/service/exams"
 	financeservice "github.com/schoolerp/api/internal/service/finance"
 	hrmsservice "github.com/schoolerp/api/internal/service/hrms"
@@ -140,6 +142,7 @@ func main() {
 	transportService := transportservice.NewTransportService(querier, auditLogger)
 	libraryService := libraryservice.NewLibraryService(querier, auditLogger)
 	inventoryService := inventoryservice.NewInventoryService(querier, auditLogger)
+	commService := commservice.NewService(querier, auditLogger)
 	admissionService := admissionservice.NewAdmissionService(querier, auditLogger, studentService)
 	hrmsService := hrmsservice.NewService(querier, auditLogger, approvalSvc)
 	safetyService := safetyservice.NewService(querier, auditLogger)
@@ -161,6 +164,7 @@ func main() {
 	transportHandler := transport.NewHandler(transportService)
 	libraryHandler := library.NewHandler(libraryService)
 	inventoryHandler := inventory.NewHandler(inventoryService)
+	commHandler := communication.NewHandler(commService)
 	admissionHandler := admission.NewHandler(admissionService)
 	hrmsHandler := hrms.NewHandler(hrmsService)
 	safetyHandler := safety.NewHandler(safetyService)
@@ -237,6 +241,7 @@ func main() {
 			admissionHandler.RegisterRoutes(r)
 			hrmsHandler.RegisterRoutes(r)
 			safetyHandler.RegisterRoutes(r)
+			commHandler.RegisterRoutes(r)
 			portfolioHandler.RegisterRoutes(r)
 			alumniHandler.RegisterRoutes(r)
 			rolesHandler.RegisterRoutes(r) // Role management endpoints

@@ -12,10 +12,12 @@ import (
 
 type Querier interface {
 	AcknowledgeNotice(ctx context.Context, arg AcknowledgeNoticeParams) (NoticeAck, error)
+	AddChatParticipant(ctx context.Context, arg AddChatParticipantParams) error
 	AddExamSubject(ctx context.Context, arg AddExamSubjectParams) error
 	AddGroupMember(ctx context.Context, arg AddGroupMemberParams) error
 	AssignPlanToStudent(ctx context.Context, arg AssignPlanToStudentParams) (StudentFeePlan, error)
 	BatchUpsertAttendanceEntries(ctx context.Context, arg []BatchUpsertAttendanceEntriesParams) (int64, error)
+	BookPTMSlot(ctx context.Context, arg BookPTMSlotParams) (PtmSlot, error)
 	CancelReceipt(ctx context.Context, arg CancelReceiptParams) (Receipt, error)
 	CheckIPAllowlist(ctx context.Context, arg CheckIPAllowlistParams) (bool, error)
 	CheckLock(ctx context.Context, arg CheckLockParams) (bool, error)
@@ -63,6 +65,8 @@ type Querier interface {
 	CreateBook(ctx context.Context, arg CreateBookParams) (LibraryBook, error)
 	CreateBookAuthor(ctx context.Context, arg CreateBookAuthorParams) error
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (LibraryCategory, error)
+	CreateChatMessage(ctx context.Context, arg CreateChatMessageParams) (ChatMessage, error)
+	CreateChatRoom(ctx context.Context, arg CreateChatRoomParams) (ChatRoom, error)
 	CreateClass(ctx context.Context, arg CreateClassParams) (Class, error)
 	CreateDigitalAsset(ctx context.Context, arg CreateDigitalAssetParams) (LibraryDigitalAsset, error)
 	CreateDisciplineIncident(ctx context.Context, arg CreateDisciplineIncidentParams) (DisciplineIncident, error)
@@ -140,6 +144,8 @@ type Querier interface {
 	CreateNotice(ctx context.Context, arg CreateNoticeParams) (Notice, error)
 	CreateOutboxEvent(ctx context.Context, arg CreateOutboxEventParams) (Outbox, error)
 	CreatePDFJob(ctx context.Context, arg CreatePDFJobParams) (PdfJob, error)
+	CreatePTMEvent(ctx context.Context, arg CreatePTMEventParams) (PtmEvent, error)
+	CreatePTMSlot(ctx context.Context, arg CreatePTMSlotParams) (PtmSlot, error)
 	CreatePaymentOrder(ctx context.Context, arg CreatePaymentOrderParams) (PaymentOrder, error)
 	CreatePayrollRun(ctx context.Context, arg CreatePayrollRunParams) (PayrollRun, error)
 	CreatePayslip(ctx context.Context, arg CreatePayslipParams) (Payslip, error)
@@ -194,6 +200,8 @@ type Querier interface {
 	GetAttendanceEntries(ctx context.Context, sessionID pgtype.UUID) ([]GetAttendanceEntriesRow, error)
 	GetAttendanceSession(ctx context.Context, arg GetAttendanceSessionParams) (AttendanceSession, error)
 	GetBook(ctx context.Context, arg GetBookParams) (LibraryBook, error)
+	GetChatHistory(ctx context.Context, arg GetChatHistoryParams) ([]GetChatHistoryRow, error)
+	GetChatModerationSettings(ctx context.Context, tenantID pgtype.UUID) (ChatModerationSetting, error)
 	GetChildrenByParentUser(ctx context.Context, arg GetChildrenByParentUserParams) ([]GetChildrenByParentUserRow, error)
 	GetDisciplineIncident(ctx context.Context, arg GetDisciplineIncidentParams) (DisciplineIncident, error)
 	GetEmployee(ctx context.Context, arg GetEmployeeParams) (Employee, error)
@@ -218,6 +226,7 @@ type Querier interface {
 	GetNotice(ctx context.Context, arg GetNoticeParams) (Notice, error)
 	GetNoticeAcks(ctx context.Context, noticeID pgtype.UUID) ([]GetNoticeAcksRow, error)
 	GetPDFTemplate(ctx context.Context, arg GetPDFTemplateParams) (PdfTemplate, error)
+	GetPTMSlots(ctx context.Context, eventID pgtype.UUID) ([]GetPTMSlotsRow, error)
 	GetPaymentOrder(ctx context.Context, arg GetPaymentOrderParams) (PaymentOrder, error)
 	GetPayrollRun(ctx context.Context, arg GetPayrollRunParams) (PayrollRun, error)
 	GetPendingAdjustments(ctx context.Context, arg GetPendingAdjustmentsParams) ([]PayrollAdjustment, error)
@@ -290,6 +299,7 @@ type Querier interface {
 	// For now, we fetch all notices for the tenant.
 	ListNoticesForParent(ctx context.Context, arg ListNoticesForParentParams) ([]ListNoticesForParentRow, error)
 	ListOutboxEvents(ctx context.Context, arg ListOutboxEventsParams) ([]Outbox, error)
+	ListPTMEvents(ctx context.Context, tenantID pgtype.UUID) ([]ListPTMEventsRow, error)
 	ListPayrollRuns(ctx context.Context, arg ListPayrollRunsParams) ([]PayrollRun, error)
 	ListPayslipsByRun(ctx context.Context, payrollRunID pgtype.UUID) ([]ListPayslipsByRunRow, error)
 	ListPendingApprovals(ctx context.Context, tenantID pgtype.UUID) ([]ApprovalRequest, error)
@@ -306,6 +316,7 @@ type Querier interface {
 	ListSchoolGroups(ctx context.Context, ownerUserID pgtype.UUID) ([]SchoolGroup, error)
 	ListSectionsByClass(ctx context.Context, classID pgtype.UUID) ([]Section, error)
 	ListSectionsByTenant(ctx context.Context, tenantID pgtype.UUID) ([]Section, error)
+	ListStudentChatRooms(ctx context.Context, arg ListStudentChatRoomsParams) ([]ListStudentChatRoomsRow, error)
 	ListStudentReceipts(ctx context.Context, arg ListStudentReceiptsParams) ([]Receipt, error)
 	ListStudents(ctx context.Context, arg ListStudentsParams) ([]ListStudentsRow, error)
 	ListSubjects(ctx context.Context, tenantID pgtype.UUID) ([]Subject, error)
@@ -344,6 +355,7 @@ type Querier interface {
 	UpdateReceiptSeries(ctx context.Context, arg UpdateReceiptSeriesParams) (ReceiptSeries, error)
 	UpdateStudent(ctx context.Context, arg UpdateStudentParams) (Student, error)
 	UpdateVehicle(ctx context.Context, arg UpdateVehicleParams) (TransportVehicle, error)
+	UpsertChatModerationSettings(ctx context.Context, arg UpsertChatModerationSettingsParams) (ChatModerationSetting, error)
 	UpsertGradingScale(ctx context.Context, arg UpsertGradingScaleParams) (GradingScale, error)
 	UpsertLedgerMapping(ctx context.Context, arg UpsertLedgerMappingParams) (TallyLedgerMapping, error)
 	UpsertLessonPlan(ctx context.Context, arg UpsertLessonPlanParams) (LessonPlan, error)

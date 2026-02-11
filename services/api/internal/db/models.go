@@ -172,6 +172,42 @@ type CalendarConnection struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
+type ChatMessage struct {
+	ID               pgtype.UUID        `json:"id"`
+	RoomID           pgtype.UUID        `json:"room_id"`
+	SenderID         pgtype.UUID        `json:"sender_id"`
+	Message          string             `json:"message"`
+	IsModerated      pgtype.Bool        `json:"is_moderated"`
+	ModerationReason pgtype.Text        `json:"moderation_reason"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
+type ChatModerationSetting struct {
+	TenantID        pgtype.UUID        `json:"tenant_id"`
+	QuietHoursStart pgtype.Time        `json:"quiet_hours_start"`
+	QuietHoursEnd   pgtype.Time        `json:"quiet_hours_end"`
+	BlockedKeywords []string           `json:"blocked_keywords"`
+	IsEnabled       pgtype.Bool        `json:"is_enabled"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ChatParticipant struct {
+	RoomID   pgtype.UUID        `json:"room_id"`
+	UserID   pgtype.UUID        `json:"user_id"`
+	Role     string             `json:"role"`
+	JoinedAt pgtype.Timestamptz `json:"joined_at"`
+}
+
+type ChatRoom struct {
+	ID        pgtype.UUID        `json:"id"`
+	TenantID  pgtype.UUID        `json:"tenant_id"`
+	StudentID pgtype.UUID        `json:"student_id"`
+	Title     pgtype.Text        `json:"title"`
+	IsActive  pgtype.Bool        `json:"is_active"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Class struct {
 	ID        pgtype.UUID        `json:"id"`
 	TenantID  pgtype.UUID        `json:"tenant_id"`
@@ -848,6 +884,32 @@ type Policy struct {
 	IsActive  pgtype.Bool        `json:"is_active"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PtmEvent struct {
+	ID                  pgtype.UUID        `json:"id"`
+	TenantID            pgtype.UUID        `json:"tenant_id"`
+	Title               string             `json:"title"`
+	Description         pgtype.Text        `json:"description"`
+	EventDate           pgtype.Date        `json:"event_date"`
+	StartTime           pgtype.Time        `json:"start_time"`
+	EndTime             pgtype.Time        `json:"end_time"`
+	SlotDurationMinutes int32              `json:"slot_duration_minutes"`
+	TeacherID           pgtype.UUID        `json:"teacher_id"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PtmSlot struct {
+	ID             pgtype.UUID        `json:"id"`
+	EventID        pgtype.UUID        `json:"event_id"`
+	StartTime      pgtype.Time        `json:"start_time"`
+	EndTime        pgtype.Time        `json:"end_time"`
+	StudentID      pgtype.UUID        `json:"student_id"`
+	Status         string             `json:"status"`
+	BookingRemarks pgtype.Text        `json:"booking_remarks"`
+	BookedAt       pgtype.Timestamptz `json:"booked_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type PurchaseOrder struct {
