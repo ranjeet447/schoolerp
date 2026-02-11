@@ -15,7 +15,7 @@ export interface ErrorStateProps extends React.HTMLAttributes<HTMLDivElement> {
 
 const ErrorState = React.forwardRef<HTMLDivElement, ErrorStateProps>(
   ({ className, type = "error", title, description, onRetry, onGoHome, ...props }, ref) => {
-    const config = {
+    const configMap = {
       error: {
         icon: AlertTriangle,
         iconClass: "text-destructive",
@@ -32,7 +32,7 @@ const ErrorState = React.forwardRef<HTMLDivElement, ErrorStateProps>(
         icon: FileSearch,
         iconClass: "text-primary",
         defaultTitle: "Page Not Found",
-        defaultDescription: "The page you looking for doesn't exist or has been moved.",
+        defaultDescription: "The page you are looking for doesn't exist or has been moved.",
       },
       server: {
         icon: AlertTriangle,
@@ -40,7 +40,9 @@ const ErrorState = React.forwardRef<HTMLDivElement, ErrorStateProps>(
         defaultTitle: "Server Error",
         defaultDescription: "We're having some trouble on our end. Please bear with us.",
       },
-    }[type];
+    };
+
+    const config = configMap[type] || configMap.error;
 
     const Icon = config.icon;
 
