@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { RBACService } from '@/lib/auth-service';
 import { 
   ShieldCheck, 
   UserCircle, 
@@ -26,6 +27,13 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    const user = RBACService.getCurrentUser();
+    if (user && user.role) {
+      router.replace('/');
+    }
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

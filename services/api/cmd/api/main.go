@@ -25,6 +25,7 @@ import (
 	"github.com/schoolerp/api/internal/foundation/locks"
 	"github.com/schoolerp/api/internal/foundation/policy"
 	"github.com/schoolerp/api/internal/foundation/quota"
+	aihandler "github.com/schoolerp/api/internal/handler"
 	academic "github.com/schoolerp/api/internal/handler/academics"
 	"github.com/schoolerp/api/internal/handler/admission"
 	"github.com/schoolerp/api/internal/handler/alumni"
@@ -48,6 +49,7 @@ import (
 	"github.com/schoolerp/api/internal/middleware"
 	academicservice "github.com/schoolerp/api/internal/service/academics"
 	admissionservice "github.com/schoolerp/api/internal/service/admission"
+	aiservice "github.com/schoolerp/api/internal/service/ai"
 	alumniservice "github.com/schoolerp/api/internal/service/alumni"
 	attendservice "github.com/schoolerp/api/internal/service/attendance"
 	authservice "github.com/schoolerp/api/internal/service/auth"
@@ -152,6 +154,11 @@ func main() {
 	academicService := academicservice.NewService(querier, auditLogger)
 	tenantService := tenantservice.NewService(querier, pool)
 	
+	aiService, err := aiservice.NewService()
+	if err != nil {
+		log.Warn().Err(err).Msg("AI Service failed to initialize (missing API key?)")
+	}
+	
 	// File Service
 	fsDir := os.Getenv("UPLOAD_DIR")
 	if fsDir == "" { fsDir = "./uploads" }
@@ -182,6 +189,7 @@ func main() {
 	rolesHandler := roleshandler.NewHandler(rolesService)
 	fileHandler := files.NewHandler(fileService)
 	tenantHandler := tenant.NewHandler(tenantService)
+	aiHandler := aihandler.NewAIHandler(aiService)
 
 
 
@@ -298,6 +306,16 @@ func main() {
 			noticeHandler.RegisterParentRoutes(r)
 			examHandler.RegisterParentRoutes(r)
 			academicHandler.RegisterStudentRoutes(r)
+		})
+
+		// AI Routes
+		r.Route("/ai", func(r chi.Router) {
+			r.Post("/helpdesk", aiHandler.ParentQuery)
+			
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RoleGuard("teacher", "tenant_admin", "super_admin"))
+				r.Post("/lesson-plan", aiHandler.GenerateLessonPlan)
+			})
 		})
 	})
 

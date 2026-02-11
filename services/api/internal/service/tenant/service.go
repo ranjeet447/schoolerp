@@ -70,6 +70,17 @@ var SystemPlugins = []PluginMetadata{
 			"tracking_id": "text",
 		},
 	},
+	{
+		ID:          "ai_suite_v1",
+		Name:        "AI Suite (Practical AI)",
+		Description: "Enable AI Teacher Copilot and Parent Helpdesk.",
+		Category:    "AI & Automation",
+		Config: map[string]interface{}{
+			"enable_teacher_copilot": "boolean",
+			"enable_parent_helpdesk": "boolean",
+			"monthly_budget_cap":    "number",
+		},
+	},
 }
 
 func (s *Service) GetConfig(ctx context.Context, tenantIDOrSubdomain string) (map[string]interface{}, error) {
