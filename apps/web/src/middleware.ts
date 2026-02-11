@@ -18,7 +18,7 @@ export default function middleware(request: any) {
   const response = createMiddleware({
     locales: ['en', 'hi'],
     defaultLocale: 'en',
-    localePrefix: 'as-needed'
+    localePrefix: 'never'
   })(request);
 
   if (tenant) {
@@ -29,6 +29,10 @@ export default function middleware(request: any) {
 }
 
 export const config = {
-  // Match only internationalized pathnames
-  matcher: ['/', '/(hi|en)/:path*']
+  // Match all pathnames except for
+  // - /api (API routes)
+  // - /_next (Next.js internals)
+  // - /_static (inside /public)
+  // - all root files inside /public (e.g. /favicon.ico)
+  matcher: ['/((?!api|_next|_static|_vercel|[\\w-]+\\.\\w+).*)']
 };
