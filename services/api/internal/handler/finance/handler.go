@@ -16,9 +16,11 @@ package finance
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/schoolerp/api/internal/middleware"
@@ -44,6 +46,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/offline", h.IssueReceipt)
 		r.Post("/online", h.CreateOnlineOrder)
 		r.Post("/razorpay-webhook", h.HandleWebhook)
+		r.Get("/tally-export", h.ExportTally)
+		r.Get("/ledger-mappings", h.ListLedgerMappings)
+		r.Post("/ledger-mappings", h.UpsertLedgerMapping)
 	})
 	r.Route("/receipts", func(r chi.Router) {
 		r.Get("/series", h.ListReceiptSeries)
@@ -289,4 +294,53 @@ func (h *Handler) CreateRefund(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewEncoder(w).Encode(refund)
 }
+
+func (h *Handler) UpsertLedgerMapping(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		HeadID    string `json:"fee_head_id"`
+		TallyName string `json:"tally_ledger_name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	mapping, err := h.svc.UpsertLedgerMapping(r.Context(), middleware.GetTenantID(r.Context()), req.HeadID, req.TallyName)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(mapping)
+}
+
+func (h *Handler) ListLedgerMappings(w http.ResponseWriter, r *http.Request) {
+	mappings, err := h.svc.ListLedgerMappings(r.Context(), middleware.GetTenantID(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(mappings)
+}
+
+func (h *Handler) ExportTally(w http.ResponseWriter, r *http.Request) {
+	fromStr := r.URL.Query().Get("from")
+	toStr := r.URL.Query().Get("to")
+
+	from, _ := time.Parse("2006-01-02", fromStr)
+	to, _ := time.Parse("2006-01-02", toStr)
+	if to.IsZero() {
+		to = time.Now()
+	}
+
+	csvData, err := h.svc.ExportReceiptsToTallyCSV(r.Context(), middleware.GetTenantID(r.Context()), from, to)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=tally_export_%s.csv", time.Now().Format("20060102")))
+	w.Write(csvData)
+}
+
 
