@@ -47,7 +47,7 @@ export function DriverDialog({ open, onOpenChange, onSuccess, driver }: DriverDi
     setLoading(true)
 
     try {
-      const res = await apiClient("/transport/drivers", {
+      const res = await apiClient("/admin/transport/drivers", {
         method: "POST", // assuming Create for now
         body: JSON.stringify(formData)
       })

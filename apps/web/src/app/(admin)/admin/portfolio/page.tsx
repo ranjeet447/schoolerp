@@ -33,7 +33,7 @@ export default function PortfolioPage() {
   const fetchGroups = async () => {
     setLoading(true)
     try {
-      const res = await apiClient("/portfolio/groups")
+      const res = await apiClient("/admin/portfolio/groups")
       if (res.ok) {
         const data = await res.json() || []
         setGroups(data)
@@ -51,7 +51,7 @@ export default function PortfolioPage() {
 
   const fetchAnalytics = async (groupId: string) => {
     try {
-      const res = await apiClient(`/portfolio/groups/${groupId}/analytics`)
+      const res = await apiClient(`/admin/portfolio/groups/${groupId}/analytics`)
       if (res.ok) {
         setAnalytics(await res.json())
       }

@@ -24,7 +24,7 @@ export default function DriversPage() {
   const fetchDrivers = async () => {
     setLoading(true)
     try {
-      const res = await apiClient("/transport/drivers")
+      const res = await apiClient("/admin/transport/drivers")
       if (res.ok) {
         const data = await res.json()
         setDrivers(data || [])

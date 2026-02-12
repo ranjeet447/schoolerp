@@ -23,7 +23,7 @@ export default function IssuesPage() {
   const fetchIssues = async () => {
     setLoading(true)
     try {
-      const res = await apiClient("/library/issues?limit=50")
+      const res = await apiClient("/admin/library/issues?limit=50")
       if (res.ok) {
         const data = await res.json()
         setIssues(data || [])
@@ -39,7 +39,7 @@ export default function IssuesPage() {
     if (!confirm(`Confirm return for "${issue.book_title}"?`)) return
     
     try {
-      const res = await apiClient(`/library/issues/${issue.id}/return`, {
+      const res = await apiClient(`/admin/library/issues/${issue.id}/return`, {
         method: "POST",
         body: JSON.stringify({ remarks: "Returned via admin dashboard" })
       })

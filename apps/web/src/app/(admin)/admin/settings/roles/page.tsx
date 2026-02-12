@@ -19,8 +19,7 @@ import {
 } from 'lucide-react';
 import { Button, Input, Label } from '@schoolerp/ui';
 import { toast } from 'sonner';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/v1';
+import { apiClient } from '@/lib/api-client';
 
 interface Role {
   id: string;
@@ -47,8 +46,6 @@ function groupPermissionsByModule(permissions: Permission[]): Record<string, Per
     return acc;
   }, {} as Record<string, Permission[]>);
 }
- import { apiClient } from '@/lib/api-client';
-
 export default function RolesSettingsPage() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);

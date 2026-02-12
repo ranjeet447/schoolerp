@@ -38,8 +38,8 @@ export function TransactionDialog({ open, onOpenChange, onSuccess }: Transaction
   const fetchDependencies = async () => {
     try {
       const [iRes, sRes] = await Promise.all([
-        apiClient("/inventory/items?limit=100"),
-        apiClient("/inventory/suppliers?limit=100")
+        apiClient("/admin/inventory/items?limit=100"),
+        apiClient("/admin/inventory/suppliers?limit=100")
       ])
       
       if (iRes.ok) setItems(await iRes.json() || [])
@@ -60,7 +60,7 @@ export function TransactionDialog({ open, onOpenChange, onSuccess }: Transaction
         unit_price:parseFloat(formData.unit_price) || 0
       }
 
-      const res = await apiClient("/inventory/transactions", {
+      const res = await apiClient("/admin/inventory/transactions", {
         method: "POST",
         body: JSON.stringify(payload)
       })

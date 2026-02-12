@@ -55,8 +55,8 @@ export function RouteDialog({ open, onOpenChange, onSuccess, route }: RouteDialo
   const fetchDependencies = async () => {
     try {
       const [vRes, dRes] = await Promise.all([
-        apiClient("/transport/vehicles"),
-        apiClient("/transport/drivers")
+        apiClient("/admin/transport/vehicles"),
+        apiClient("/admin/transport/drivers")
       ])
       
       if (vRes.ok) setVehicles(await vRes.json() || [])
@@ -72,8 +72,8 @@ export function RouteDialog({ open, onOpenChange, onSuccess, route }: RouteDialo
 
     try {
       const url = route 
-        ? `/transport/routes/${route.id}` 
-        : "/transport/routes"
+        ? `/admin/transport/routes/${route.id}` 
+        : "/admin/transport/routes"
         
       const res = await apiClient(url, {
         method: route ? "PUT" : "POST",

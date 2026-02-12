@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@schoolerp/ui"
 import {
   Dialog,
@@ -14,8 +15,11 @@ import {
 import { Input } from "@schoolerp/ui"
 import { Label } from "@schoolerp/ui"
 import { Plus } from "lucide-react"
+import { apiClient } from "@/lib/api-client"
+import { toast } from "sonner"
 
 export function AddStudentDialog() {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -27,23 +31,22 @@ export function AddStudentDialog() {
     const data = Object.fromEntries(formData)
 
     try {
-      const res = await fetch('http://localhost:8080/v1/admin/students', {
+      const res = await apiClient('/admin/students', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Tenant-ID': 'default-tenant', // Stub for now
-        },
         body: JSON.stringify(data),
       })
       
-      if (!res.ok) throw new Error('Failed to create')
+      if (!res.ok) {
+        const message = await res.text()
+        throw new Error(message || 'Failed to create student')
+      }
       
       setOpen(false)
-      // trigger refresh or mutate here
-      window.location.reload() // brute force refresh for Release 1
-    } catch (error) {
+      toast.success('Student created successfully')
+      router.refresh()
+    } catch (error: any) {
       console.error(error)
-      alert('Failed to create student')
+      toast.error(error?.message || 'Failed to create student')
     } finally {
       setLoading(false)
     }

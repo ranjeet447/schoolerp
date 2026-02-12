@@ -27,7 +27,7 @@ export default function PluginCard({ plugin, onRefresh }: PluginCardProps) {
   const handleToggle = async (enabled: boolean) => {
     setToggleLoading(true);
     try {
-      const res = await apiClient(`/tenants/plugins/${plugin.metadata.id}`, {
+      const res = await apiClient(`/admin/tenants/plugins/${plugin.metadata.id}`, {
         method: 'POST',
         body: JSON.stringify({
           enabled,

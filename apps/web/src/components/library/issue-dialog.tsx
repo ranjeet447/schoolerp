@@ -34,7 +34,7 @@ export function IssueDialog({ open, onOpenChange, onSuccess }: IssueDialogProps)
   const fetchDependencies = async () => {
     try {
       const [bRes, sRes] = await Promise.all([
-        apiClient("/library/books?limit=100"),
+        apiClient("/admin/library/books?limit=100"),
         apiClient("/admin/students?limit=100")
       ])
       
@@ -55,7 +55,7 @@ export function IssueDialog({ open, onOpenChange, onSuccess }: IssueDialogProps)
         days: parseInt(formData.days) || 14
       }
 
-      const res = await apiClient("/library/issues", {
+      const res = await apiClient("/admin/library/issues", {
         method: "POST",
         body: JSON.stringify(payload)
       })

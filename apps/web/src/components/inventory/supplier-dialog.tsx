@@ -51,7 +51,7 @@ export function SupplierDialog({ open, onOpenChange, onSuccess, supplier }: Supp
     setLoading(true)
 
     try {
-      const res = await apiClient("/inventory/suppliers", {
+      const res = await apiClient("/admin/inventory/suppliers", {
         method: "POST", // TODO: PUT for update
         body: JSON.stringify(formData)
       })

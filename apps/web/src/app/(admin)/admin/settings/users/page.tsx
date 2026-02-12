@@ -49,8 +49,8 @@ export default function UserManagementPage() {
     setLoading(true);
     try {
       const [usersRes, rolesRes] = await Promise.all([
-        apiClient('/roles/users'),
-        apiClient('/roles')
+        apiClient('/admin/roles/users'),
+        apiClient('/admin/roles')
       ]);
 
       if (usersRes.ok) {
@@ -74,7 +74,7 @@ export default function UserManagementPage() {
     if (!selectedUser || !targetRole) return;
 
     try {
-      const res = await apiClient('/roles/assign', {
+      const res = await apiClient('/admin/roles/assign', {
         method: 'POST',
         body: JSON.stringify({
           user_id: selectedUser.id,

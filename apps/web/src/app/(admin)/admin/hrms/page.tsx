@@ -40,8 +40,8 @@ export default function HRMSPage() {
     setLoading(true)
     try {
       const [empRes, prRes] = await Promise.all([
-        apiClient("/hrms/employees"),
-        apiClient("/hrms/payroll-runs")
+        apiClient("/admin/hrms/employees"),
+        apiClient("/admin/hrms/payroll-runs")
       ])
       if (empRes.ok) setEmployees(await empRes.json() || [])
       if (prRes.ok) setPayrollRuns(await prRes.json() || [])

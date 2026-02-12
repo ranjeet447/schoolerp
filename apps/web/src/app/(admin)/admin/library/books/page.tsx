@@ -25,7 +25,7 @@ export default function BooksPage() {
   const fetchBooks = async () => {
     setLoading(true)
     try {
-      const res = await apiClient("/library/books?limit=50")
+      const res = await apiClient("/admin/library/books?limit=50")
       if (res.ok) {
         const data = await res.json()
         setBooks(data || [])

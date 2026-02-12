@@ -21,7 +21,7 @@ export default function TeacherAttendancePage() {
   const fetchSession = async () => {
     setLoading(true)
     try {
-      const res = await apiClient(`/attendance/sessions?class_section_id=${classSectionID}&date=${date}`)
+      const res = await apiClient(`/teacher/attendance/sessions?class_section_id=${classSectionID}&date=${date}`)
       if (res.ok) {
         const data = await res.json()
         setSession(data.session)
@@ -51,7 +51,7 @@ export default function TeacherAttendancePage() {
   const handleSubmit = async () => {
     setLoading(true)
     try {
-      const res = await apiClient("/attendance/mark", {
+      const res = await apiClient("/teacher/attendance/mark", {
         method: "POST",
         body: JSON.stringify({
           class_section_id: classSectionID,

@@ -58,7 +58,7 @@ export function ItemDialog({ open, onOpenChange, onSuccess, item }: ItemDialogPr
 
   const fetchCategories = async () => {
     try {
-      const res = await apiClient("/inventory/categories")
+      const res = await apiClient("/admin/inventory/categories")
       if (res.ok) {
         setCategories(await res.json() || [])
       }
@@ -75,7 +75,7 @@ export function ItemDialog({ open, onOpenChange, onSuccess, item }: ItemDialogPr
         reorder_level: parseInt(formData.reorder_level) || 0
       }
 
-      const res = await apiClient("/inventory/items", {
+      const res = await apiClient("/admin/inventory/items", {
         method: "POST", // TODO: PUT for update
         body: JSON.stringify(payload)
       })

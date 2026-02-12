@@ -77,8 +77,8 @@ export function BookDialog({ open, onOpenChange, onSuccess, book }: BookDialogPr
       }
 
       const url = book 
-        ? `/library/books/${book.id}` 
-        : "/library/books"
+        ? `/admin/library/books/${book.id}` 
+        : "/admin/library/books"
 
       const res = await apiClient(url, {
         method: book ? "PUT" : "POST",

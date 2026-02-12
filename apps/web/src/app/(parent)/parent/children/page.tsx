@@ -1,29 +1,41 @@
+"use client";
+
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getTenantId } from '@/lib/tenant-utils';
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from "@schoolerp/ui";
 import { User, ChevronRight } from "lucide-react";
+import { apiClient } from '@/lib/api-client';
 
-async function getMyChildren() {
-  const tenant = await getTenantId();
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/v1';
-  try {
-    const res = await fetch(`${API_URL}/parent/me/children`, {
-      headers: {
-        "X-Tenant-ID": tenant,
-        "X-User-ID": "parent-user-id", // Still needs real ID from session
-      },
-      cache: 'no-store',
-    });
-    if (!res.ok) return [];
-    return res.json();
-  } catch (e) {
-    console.error(e);
-    return [];
-  }
-}
+export default function ChildrenPage() {
+  const [children, setChildren] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export default async function ChildrenPage() {
-  const children = await getMyChildren();
+  useEffect(() => {
+    const loadChildren = async () => {
+      setLoading(true);
+      try {
+        const res = await apiClient('/parent/me/children');
+        if (!res.ok) {
+          setChildren([]);
+          return;
+        }
+
+        const payload = await res.json();
+        if (Array.isArray(payload)) {
+          setChildren(payload);
+        } else {
+          setChildren(payload?.data || []);
+        }
+      } catch (e) {
+        console.error(e);
+        setChildren([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadChildren();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -34,7 +46,9 @@ export default async function ChildrenPage() {
         </p>
       </div>
 
-      {children.length === 0 ? (
+      {loading ? (
+        <div className="text-sm text-muted-foreground">Loading children...</div>
+      ) : children.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed rounded-lg">
           <User className="h-12 w-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium">No children linked</h3>
@@ -49,7 +63,7 @@ export default async function ChildrenPage() {
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-lg font-bold">{child.full_name}</CardTitle>
                 <Badge variant={child.status === 'active' ? 'default' : 'secondary'}>
-                   {child.status.toUpperCase()}
+                  {child.status.toUpperCase()}
                 </Badge>
               </CardHeader>
               <CardContent>

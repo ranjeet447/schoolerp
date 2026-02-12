@@ -7,6 +7,7 @@ import {
 } from "@schoolerp/ui"
 import { FileText, Upload, Trash2, Loader2 } from "lucide-react"
 import { AdmissionApplication } from "@/types/admission"
+import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 
 interface ApplicationDocumentsDialogProps {
@@ -35,7 +36,7 @@ export function ApplicationDocumentsDialog({ application, open, onOpenChange, on
 
     try {
         // 1. Upload file to storage
-        const uploadRes = await fetch("/api/v1/files/upload", {
+        const uploadRes = await apiClient("/files/upload", {
             method: "POST",
             body: formData,
             headers: {
@@ -47,7 +48,7 @@ export function ApplicationDocumentsDialog({ application, open, onOpenChange, on
         const uploadData = await uploadRes.json()
 
         // 2. Attach to application
-        const attachRes = await fetch(`/api/v1/admin/admissions/applications/${application?.id}/documents`, {
+        const attachRes = await apiClient(`/admin/admissions/applications/${application?.id}/documents`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

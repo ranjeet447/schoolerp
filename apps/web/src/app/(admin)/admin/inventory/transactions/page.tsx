@@ -23,7 +23,7 @@ export default function TransactionsPage() {
   const fetchTransactions = async () => {
     setLoading(true)
     try {
-      const res = await apiClient("/inventory/transactions?limit=50")
+      const res = await apiClient("/admin/inventory/transactions?limit=50")
       if (res.ok) {
         const data = await res.json()
         setTransactions(data || [])

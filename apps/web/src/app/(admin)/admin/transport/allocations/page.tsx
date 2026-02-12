@@ -23,7 +23,7 @@ export default function AllocationsPage() {
   const fetchAllocations = async () => {
     setLoading(true)
     try {
-      const res = await apiClient("/transport/allocations")
+      const res = await apiClient("/admin/transport/allocations")
       if (res.ok) {
         const data = await res.json()
         setAllocations(data || [])

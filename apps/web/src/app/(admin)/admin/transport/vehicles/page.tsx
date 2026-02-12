@@ -24,7 +24,7 @@ export default function VehiclesPage() {
   const fetchVehicles = async () => {
     setLoading(true)
     try {
-      const res = await apiClient("/transport/vehicles")
+      const res = await apiClient("/admin/transport/vehicles")
       if (res.ok) {
         const data = await res.json()
         setVehicles(data || [])

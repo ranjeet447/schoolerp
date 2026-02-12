@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, use } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { ChevronLeft, Loader2 } from "lucide-react"
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger, StudentProfileCard } from "@schoolerp/ui"
+import { apiClient } from "@/lib/api-client"
 
 export default function StudentProfileClient({ id }: { id: string }) {
   const [student, setStudent] = useState<any>(null)
@@ -11,14 +12,8 @@ export default function StudentProfileClient({ id }: { id: string }) {
 
   useEffect(() => {
     async function loadStudent() {
-      const tenant = localStorage.getItem('tenant_id');
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/v1';
       try {
-        const res = await fetch(`${API_URL}/admin/students/${id}`, {
-          headers: {
-            "X-Tenant-ID": tenant || '',
-          }
-        })
+        const res = await apiClient(`/admin/students/${id}`)
         if (res.ok) {
           const data = await res.json()
           setStudent(data)

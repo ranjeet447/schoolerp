@@ -13,7 +13,7 @@ export default function PluginManagementPage() {
   const fetchPlugins = async () => {
     setLoading(true);
     try {
-      const res = await apiClient('/tenants/plugins');
+      const res = await apiClient('/admin/tenants/plugins');
       const data = await res.json();
       setPlugins(data.plugins || []);
     } catch (error) {

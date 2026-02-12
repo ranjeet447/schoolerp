@@ -45,7 +45,7 @@ export function AllocationDialog({ open, onOpenChange, onSuccess }: AllocationDi
   const fetchDependencies = async () => {
     try {
       const [rRes, sRes] = await Promise.all([
-        apiClient("/transport/routes"),
+        apiClient("/admin/transport/routes"),
         apiClient("/admin/students?limit=100") // Simple fetch for now, should be search/autocomplete in real app
       ])
       
@@ -58,7 +58,7 @@ export function AllocationDialog({ open, onOpenChange, onSuccess }: AllocationDi
 
   const fetchStops = async (routeId: string) => {
     try {
-      const res = await apiClient(`/transport/routes/${routeId}/stops`)
+      const res = await apiClient(`/admin/transport/routes/${routeId}/stops`)
       if (res.ok) {
         setStops(await res.json() || [])
       }
@@ -72,7 +72,7 @@ export function AllocationDialog({ open, onOpenChange, onSuccess }: AllocationDi
     setLoading(true)
 
     try {
-      const res = await apiClient("/transport/allocations", {
+      const res = await apiClient("/admin/transport/allocations", {
         method: "POST",
         body: JSON.stringify(formData)
       })

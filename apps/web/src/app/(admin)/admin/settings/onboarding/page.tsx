@@ -27,6 +27,7 @@ import {
 } from '@schoolerp/ui';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/auth-provider';
+import { apiClient } from '@/lib/api-client';
 
 export default function OnboardingPage() {
   const { user } = useAuth();
@@ -64,18 +65,14 @@ export default function OnboardingPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/admin/tenants/onboard`, {
+      const response = await apiClient('/admin/tenants/onboard', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
         body: JSON.stringify(formData)
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to onboard school');
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to onboard school');
       }
 
       const data = await response.json();

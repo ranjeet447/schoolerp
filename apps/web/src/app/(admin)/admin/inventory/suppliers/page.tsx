@@ -23,7 +23,7 @@ export default function SuppliersPage() {
   const fetchSuppliers = async () => {
     setLoading(true)
     try {
-      const res = await apiClient("/inventory/suppliers")
+      const res = await apiClient("/admin/inventory/suppliers")
       if (res.ok) {
         setSuppliers(await res.json() || [])
       }

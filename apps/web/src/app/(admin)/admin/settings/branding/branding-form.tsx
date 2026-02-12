@@ -26,7 +26,7 @@ export default function BrandingForm({ initialConfig }: BrandingFormProps) {
   const handleSave = async () => {
     setLoading(true);
     try {
-      const res = await apiClient('/tenants/config', {
+      const res = await apiClient('/admin/tenants/config', {
         method: 'POST',
         body: JSON.stringify({ config }),
       });

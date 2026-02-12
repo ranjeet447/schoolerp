@@ -26,7 +26,7 @@ export default function ItemsPage() {
   const fetchItems = async () => {
     setLoading(true)
     try {
-      const res = await apiClient("/inventory/items")
+      const res = await apiClient("/admin/inventory/items")
       if (res.ok) {
         setItems(await res.json() || [])
       }

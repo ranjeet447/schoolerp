@@ -1,45 +1,49 @@
-import React from 'react';
+"use client";
+
+import React, { useEffect, useState } from 'react';
 import { StudentTable } from '@/components/students/student-table';
 import { Button } from "@schoolerp/ui";
-import { getTenantId } from "@/lib/tenant-utils";
 import { columns, Student } from '@/components/students/columns';
 import { AddStudentDialog } from '@/components/students/add-student-dialog';
 import { ImportStudentWizard } from '@/components/students/import-wizard';
-import { 
-    Users, 
-    UserPlus, 
-    Download, 
-    Filter,
-    Search,
-    RefreshCw
+import { apiClient } from '@/lib/api-client';
+import {
+  Users,
+  Download,
+  Filter,
+  Search,
 } from 'lucide-react';
 
-async function getStudents(): Promise<Student[]> {
-  const tenant = await getTenantId();
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/v1';
-  
-  try {
-    const res = await fetch(`${API_URL}/admin/students?limit=100`, {
-        headers: { 
-            'X-Tenant-ID': tenant
-        },
-        cache: 'no-store'
-    });
-    
-    if (!res.ok) {
-        return [];
-    }
-    
-    const data = await res.json();
-    return data.data || [];
-  } catch (error) {
-    console.error('Failed to fetch students:', error);
-    return [];
-  }
-}
+export default function StudentsPage() {
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export default async function StudentsPage() {
-  const data = await getStudents();
+  useEffect(() => {
+    const loadStudents = async () => {
+      setLoading(true);
+      try {
+        const res = await apiClient('/admin/students?limit=100');
+        if (!res.ok) {
+          setStudents([]);
+          return;
+        }
+
+        const payload = await res.json();
+        if (Array.isArray(payload)) {
+          setStudents(payload);
+        } else {
+          setStudents(payload?.data || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch students:', error);
+        setStudents([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadStudents();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -62,7 +66,7 @@ export default async function StudentsPage() {
             </div>
             <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Total Students</span>
           </div>
-          <div className="text-4xl font-black text-white">{data.length}</div>
+          <div className="text-4xl font-black text-white">{students.length}</div>
         </div>
       </div>
 
@@ -70,8 +74,8 @@ export default async function StudentsPage() {
         <div className="p-6 border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="relative group flex-1 max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
-            <input 
-              placeholder="Search by name, roll no, or class..." 
+            <input
+              placeholder="Search by name, roll no, or class..."
               className="w-full h-11 pl-11 bg-slate-800/50 border border-white/5 rounded-xl text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
             />
           </div>
@@ -84,8 +88,11 @@ export default async function StudentsPage() {
             </Button>
           </div>
         </div>
-        
-        <StudentTable columns={columns} data={data} />
+
+        <StudentTable columns={columns} data={students} />
+        {loading && (
+          <div className="p-4 text-sm text-slate-400">Loading students...</div>
+        )}
       </div>
     </div>
   );

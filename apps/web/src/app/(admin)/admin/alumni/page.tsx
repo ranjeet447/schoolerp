@@ -39,8 +39,8 @@ export default function AlumniPage() {
     setLoading(true)
     try {
       const [alumniRes, drivesRes] = await Promise.all([
-        apiClient("/alumni"),
-        apiClient("/alumni/drives")
+        apiClient("/admin/alumni"),
+        apiClient("/admin/alumni/drives")
       ])
       if (alumniRes.ok) setAlumni(await alumniRes.json() || [])
       if (drivesRes.ok) setDrives(await drivesRes.json() || [])

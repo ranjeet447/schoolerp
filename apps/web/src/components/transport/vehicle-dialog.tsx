@@ -62,7 +62,7 @@ export function VehicleDialog({ open, onOpenChange, onSuccess, vehicle }: Vehicl
       // and maybe show error or just create new if it's "update" (which is wrong).
       // Let's assume Create for now and I will add Update later if requested or if I fix it.
       
-      const res = await apiClient("/transport/vehicles", {
+      const res = await apiClient("/admin/transport/vehicles", {
         method: "POST", // vehicle ? "PUT" : "POST" - waiting for backend
         body: JSON.stringify(payload)
       })

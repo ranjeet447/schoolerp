@@ -25,7 +25,7 @@ export default function RoutesPage() {
   const fetchRoutes = async () => {
     setLoading(true)
     try {
-      const res = await apiClient("/transport/routes")
+      const res = await apiClient("/admin/transport/routes")
       if (res.ok) {
         const data = await res.json()
         setRoutes(data || [])

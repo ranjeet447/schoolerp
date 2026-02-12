@@ -20,7 +20,7 @@ export default function PluginConfigDialog({ plugin, open, onOpenChange, onSucce
   const handleSave = async () => {
     setLoading(true);
     try {
-      const res = await apiClient(`/tenants/plugins/${plugin.metadata.id}`, {
+      const res = await apiClient(`/admin/tenants/plugins/${plugin.metadata.id}`, {
         method: 'POST',
         body: JSON.stringify({
           enabled: plugin.enabled,
