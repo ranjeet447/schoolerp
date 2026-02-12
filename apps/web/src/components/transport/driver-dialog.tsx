@@ -7,6 +7,7 @@ import {
 } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
 import { Driver } from "@/types/transport"
+import { toast } from "sonner"
 
 interface DriverDialogProps {
   open: boolean
@@ -47,20 +48,25 @@ export function DriverDialog({ open, onOpenChange, onSuccess, driver }: DriverDi
     setLoading(true)
 
     try {
-      const res = await apiClient("/admin/transport/drivers", {
-        method: "POST", // assuming Create for now
+      const url = driver
+        ? `/admin/transport/drivers/${driver.id}`
+        : "/admin/transport/drivers"
+
+      const res = await apiClient(url, {
+        method: driver ? "PUT" : "POST",
         body: JSON.stringify(formData)
       })
 
       if (res.ok) {
+        toast.success(driver ? "Driver updated" : "Driver added")
         onSuccess()
         onOpenChange(false)
       } else {
-        alert("Failed to save driver")
+        toast.error("Failed to save driver")
       }
     } catch (error) {
       console.error(error)
-      alert("An error occurred")
+      toast.error("An error occurred")
     } finally {
       setLoading(false)
     }

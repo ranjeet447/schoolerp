@@ -37,9 +37,8 @@ export default function DriversPage() {
   }
 
   const handleEdit = (driver: Driver) => {
-    // setSelectedDriver(driver) // Update not implemented in backend yet
-    // setDialogOpen(true)
-    alert("Edit not implemented in backend yet")
+    setSelectedDriver(driver)
+    setDialogOpen(true)
   }
 
   const handleCreate = () => {

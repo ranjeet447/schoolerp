@@ -56,10 +56,15 @@ Validate and complete end-to-end readiness across APIs, services, responsive UI 
   - Enabled edit dialogs for transport routes and library books.
 
 ## Remaining Backlog (Phased)
-- `PENDING` Driver update flow (`/admin/transport/drivers/{id}` backend + UI edit wiring).
+- `DONE` Driver update flow (`/admin/transport/drivers/{id}` backend + UI edit wiring).
 - `PENDING` Inventory edit flows (supplier/item dialogs currently create-only).
 - `PENDING` Attendance settings persistence UX cleanup (remove local-only fallback messaging).
 - `PENDING` Replace remaining `alert(...)` UX fallbacks with consistent toasts/stateful errors.
+
+- 2026-02-12: Implemented transport driver update end-to-end:
+  - Added `PUT /v1/admin/transport/drivers/{id}`.
+  - Added backend update logic with audited raw SQL update path.
+  - Wired admin drivers page + dialog edit flow to real update API.
 
 ## Known Environment Constraints
 - `next build` default Turbopack path can fail in this sandbox due process/port restrictions; webpack build succeeds.

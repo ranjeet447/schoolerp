@@ -138,7 +138,7 @@ func main() {
 	})
 	noticeService := noticeservice.NewService(querier, auditLogger)
 	examService := examservice.NewService(querier, auditLogger)
-	transportService := transportservice.NewTransportService(querier, auditLogger)
+	transportService := transportservice.NewTransportService(querier, pool, auditLogger)
 	libraryService := libraryservice.NewLibraryService(querier, auditLogger)
 	inventoryService := inventoryservice.NewInventoryService(querier, auditLogger)
 	commService := commservice.NewService(querier, auditLogger)

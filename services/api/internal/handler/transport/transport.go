@@ -27,6 +27,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 
 	// Drivers
 	r.Post("/transport/drivers", h.CreateDriver)
+	r.Put("/transport/drivers/{id}", h.UpdateDriver)
 	r.Get("/transport/drivers", h.ListDrivers)
 
 	// Routes
@@ -164,6 +165,34 @@ func (h *Handler) CreateDriver(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondJSON(w, http.StatusCreated, driver)
+}
+
+func (h *Handler) UpdateDriver(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	driverID := chi.URLParam(r, "id")
+
+	var req createDriverReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+
+	driver, err := h.svc.UpdateDriver(ctx, middleware.GetTenantID(ctx), driverID, transport.CreateDriverParams{
+		TenantID:      middleware.GetTenantID(ctx),
+		FullName:      req.FullName,
+		LicenseNumber: req.LicenseNumber,
+		Phone:         req.Phone,
+		Status:        req.Status,
+		UserID:        middleware.GetUserID(ctx),
+		RequestID:     middleware.GetReqID(ctx),
+		IP:            r.RemoteAddr,
+	})
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusOK, driver)
 }
 
 func (h *Handler) ListDrivers(w http.ResponseWriter, r *http.Request) {

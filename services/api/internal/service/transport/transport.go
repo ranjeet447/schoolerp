@@ -5,17 +5,19 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/schoolerp/api/internal/db"
 	"github.com/schoolerp/api/internal/foundation/audit"
 )
 
 type TransportService struct {
 	q     db.Querier
+	pool  *pgxpool.Pool
 	audit *audit.Logger
 }
 
-func NewTransportService(q db.Querier, audit *audit.Logger) *TransportService {
-	return &TransportService{q: q, audit: audit}
+func NewTransportService(q db.Querier, pool *pgxpool.Pool, audit *audit.Logger) *TransportService {
+	return &TransportService{q: q, pool: pool, audit: audit}
 }
 
 // Vehicles
@@ -152,6 +154,62 @@ func (s *TransportService) CreateDriver(ctx context.Context, p CreateDriverParam
 		UserID:       uUUID,
 		RequestID:    p.RequestID,
 		Action:       "driver.create",
+		ResourceType: "transport_driver",
+		ResourceID:   driver.ID,
+		After:        driver,
+		IPAddress:    p.IP,
+	})
+
+	return driver, nil
+}
+
+func (s *TransportService) UpdateDriver(ctx context.Context, tenantID, driverID string, p CreateDriverParams) (db.TransportDriver, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	dUUID := pgtype.UUID{}
+	dUUID.Scan(driverID)
+
+	var driver db.TransportDriver
+	err := s.pool.QueryRow(ctx, `
+		UPDATE transport_drivers
+		SET full_name = $3,
+			license_number = $4,
+			phone = $5,
+			status = $6,
+			updated_at = NOW()
+		WHERE id = $1 AND tenant_id = $2
+		RETURNING id, tenant_id, user_id, full_name, license_number, phone, status, is_active, created_at, updated_at
+	`,
+		dUUID,
+		tUUID,
+		p.FullName,
+		pgtype.Text{String: p.LicenseNumber, Valid: p.LicenseNumber != ""},
+		pgtype.Text{String: p.Phone, Valid: p.Phone != ""},
+		p.Status,
+	).Scan(
+		&driver.ID,
+		&driver.TenantID,
+		&driver.UserID,
+		&driver.FullName,
+		&driver.LicenseNumber,
+		&driver.Phone,
+		&driver.Status,
+		&driver.IsActive,
+		&driver.CreatedAt,
+		&driver.UpdatedAt,
+	)
+	if err != nil {
+		return db.TransportDriver{}, err
+	}
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(p.UserID)
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    p.RequestID,
+		Action:       "driver.update",
 		ResourceType: "transport_driver",
 		ResourceID:   driver.ID,
 		After:        driver,
