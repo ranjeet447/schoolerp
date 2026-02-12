@@ -21,7 +21,7 @@ Validate and complete end-to-end readiness across APIs, services, responsive UI 
 6. `DONE` Sales bookings admin UI integration with backend
 7. `DONE` Public admissions flow hardening (tenant resolution and captcha toggle behavior)
 8. `DONE` Final verification sweep (using stable webpack build path for web)
-9. `DONE` Remaining enterprise backlog triage and phased execution list
+9. `IN_PROGRESS` Remaining enterprise backlog triage and phased execution list
 
 ## Execution Log
 - 2026-02-12: Added backend marketing service + handler and wired new routes in API server.
@@ -60,6 +60,17 @@ Validate and complete end-to-end readiness across APIs, services, responsive UI 
 - `DONE` Inventory edit flows (supplier/item update APIs + dialogs).
 - `DONE` Attendance settings persistence UX cleanup (policy-backed save/load).
 - `DONE` Replaced remaining `alert(...)` UX fallbacks with consistent toasts/stateful errors.
+- `PENDING` Replace local mock/setTimeout flows with API integrations:
+  - `apps/web/src/app/(accountant)/accountant/payments/page.tsx`
+  - `apps/web/src/app/(parent)/parent/leaves/page.tsx`
+  - `apps/web/src/app/auth/forget-password/page.tsx`
+- `PENDING` Complete remaining backend stubs/TODO integrations:
+  - `services/api/internal/handler/admission/admission.go` (application creation path still marked stub)
+  - `services/api/internal/service/safety/safety.go` (outbox integration TODO)
+  - `services/api/internal/service/academics/service.go` (notification trigger TODO)
+  - `services/api/internal/foundation/ai/client.go` (provider-not-implemented fallback)
+- `PENDING` Fill remaining UI data integration gaps:
+  - `apps/web/src/components/library/book-dialog.tsx` (dynamic category/author fetching)
 
 - 2026-02-12: Implemented transport driver update end-to-end:
   - Added `PUT /v1/admin/transport/drivers/{id}`.
