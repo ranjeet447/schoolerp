@@ -5,18 +5,21 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/schoolerp/api/internal/db"
 	"github.com/schoolerp/api/internal/foundation/audit"
 )
 
 type InventoryService struct {
 	q     db.Querier
+	pool  *pgxpool.Pool
 	audit *audit.Logger
 }
 
-func NewInventoryService(q db.Querier, audit *audit.Logger) *InventoryService {
+func NewInventoryService(q db.Querier, pool *pgxpool.Pool, audit *audit.Logger) *InventoryService {
 	return &InventoryService{
 		q:     q,
+		pool:  pool,
 		audit: audit,
 	}
 }
@@ -101,6 +104,63 @@ func (s *InventoryService) ListSuppliers(ctx context.Context, tenantID string) (
 	return s.q.ListSuppliers(ctx, tID)
 }
 
+func (s *InventoryService) UpdateSupplier(ctx context.Context, tenantID, supplierID, name, contact, phone, email, address, userID, reqID, ip string) (db.InventorySupplier, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	sID := pgtype.UUID{}
+	sID.Scan(supplierID)
+
+	var supplier db.InventorySupplier
+	err := s.pool.QueryRow(ctx, `
+		UPDATE inventory_suppliers
+		SET name = $3,
+			contact_person = $4,
+			phone = $5,
+			email = $6,
+			address = $7,
+			updated_at = NOW()
+		WHERE id = $1 AND tenant_id = $2
+		RETURNING id, tenant_id, name, contact_person, phone, email, address, created_at, updated_at
+	`,
+		sID,
+		tID,
+		name,
+		pgtype.Text{String: contact, Valid: contact != ""},
+		pgtype.Text{String: phone, Valid: phone != ""},
+		pgtype.Text{String: email, Valid: email != ""},
+		pgtype.Text{String: address, Valid: address != ""},
+	).Scan(
+		&supplier.ID,
+		&supplier.TenantID,
+		&supplier.Name,
+		&supplier.ContactPerson,
+		&supplier.Phone,
+		&supplier.Email,
+		&supplier.Address,
+		&supplier.CreatedAt,
+		&supplier.UpdatedAt,
+	)
+	if err != nil {
+		return db.InventorySupplier{}, fmt.Errorf("failed to update supplier: %w", err)
+	}
+
+	uID := pgtype.UUID{}
+	uID.Scan(userID)
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tID,
+		UserID:       uID,
+		RequestID:    reqID,
+		Action:       "inventory.update_supplier",
+		ResourceType: "inventory_supplier",
+		ResourceID:   supplier.ID,
+		After:        supplier,
+		IPAddress:    ip,
+	})
+
+	return supplier, nil
+}
+
 // Item Management
 
 func (s *InventoryService) CreateItem(ctx context.Context, tenantID, catID, name, sku, unit, desc string, reorder int32, userID, reqID, ip string) (db.InventoryItem, error) {
@@ -149,6 +209,68 @@ func (s *InventoryService) ListItems(ctx context.Context, tenantID string, limit
 	})
 }
 
+func (s *InventoryService) UpdateItem(ctx context.Context, tenantID, itemID, catID, name, sku, unit, desc string, reorder int32, userID, reqID, ip string) (db.InventoryItem, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	iID := pgtype.UUID{}
+	iID.Scan(itemID)
+	cID := pgtype.UUID{}
+	cID.Scan(catID)
+
+	var item db.InventoryItem
+	err := s.pool.QueryRow(ctx, `
+		UPDATE inventory_items
+		SET category_id = $3,
+			name = $4,
+			sku = $5,
+			unit = $6,
+			reorder_level = $7,
+			description = $8,
+			updated_at = NOW()
+		WHERE id = $1 AND tenant_id = $2
+		RETURNING id, tenant_id, category_id, name, sku, description, unit, reorder_level, created_at, updated_at
+	`,
+		iID,
+		tID,
+		cID,
+		name,
+		pgtype.Text{String: sku, Valid: sku != ""},
+		pgtype.Text{String: unit, Valid: unit != ""},
+		pgtype.Int4{Int32: reorder, Valid: true},
+		pgtype.Text{String: desc, Valid: desc != ""},
+	).Scan(
+		&item.ID,
+		&item.TenantID,
+		&item.CategoryID,
+		&item.Name,
+		&item.Sku,
+		&item.Description,
+		&item.Unit,
+		&item.ReorderLevel,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
+	if err != nil {
+		return db.InventoryItem{}, fmt.Errorf("failed to update item: %w", err)
+	}
+
+	uID := pgtype.UUID{}
+	uID.Scan(userID)
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tID,
+		UserID:       uID,
+		RequestID:    reqID,
+		Action:       "inventory.update_item",
+		ResourceType: "inventory_item",
+		ResourceID:   item.ID,
+		After:        item,
+		IPAddress:    ip,
+	})
+
+	return item, nil
+}
+
 // Transaction Management
 
 type StockTransactionParams struct {
@@ -174,7 +296,7 @@ func (s *InventoryService) CreateTransaction(ctx context.Context, p StockTransac
 	iID.Scan(p.ItemID)
 	uID := pgtype.UUID{}
 	uID.Scan(p.UserID)
-	
+
 	sID := pgtype.UUID{}
 	if p.SupplierID != "" {
 		sID.Scan(p.SupplierID)
@@ -216,7 +338,7 @@ func (s *InventoryService) CreateTransaction(ctx context.Context, p StockTransac
 		}
 		delta = -p.Quantity
 	}
-	
+
 	// Default location if not provided
 	location := p.Location
 	if location == "" {
@@ -382,7 +504,7 @@ func (s *InventoryService) ReceivePurchaseOrder(ctx context.Context, tenantID, p
 			IP:            ip,
 		})
 	}
-	
+
 	_ = s.audit.Log(ctx, audit.Entry{
 		TenantID:     tID,
 		UserID:       uID,

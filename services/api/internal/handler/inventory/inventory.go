@@ -22,13 +22,15 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	// Categories
 	r.Post("/inventory/categories", h.CreateCategory)
 	r.Get("/inventory/categories", h.ListCategories)
-	
+
 	// Suppliers
 	r.Post("/inventory/suppliers", h.CreateSupplier)
+	r.Put("/inventory/suppliers/{id}", h.UpdateSupplier)
 	r.Get("/inventory/suppliers", h.ListSuppliers)
 
 	// Items
 	r.Post("/inventory/items", h.CreateItem)
+	r.Put("/inventory/items/{id}", h.UpdateItem)
 	r.Get("/inventory/items", h.ListItems)
 
 	// Transactions
@@ -52,8 +54,8 @@ func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cat, err := h.svc.CreateCategory(ctx, 
-		middleware.GetTenantID(ctx), 
+	cat, err := h.svc.CreateCategory(ctx,
+		middleware.GetTenantID(ctx),
 		req.Name, req.Type, req.Description,
 		middleware.GetUserID(ctx), middleware.GetReqID(ctx), r.RemoteAddr,
 	)
@@ -92,8 +94,8 @@ func (h *Handler) CreateSupplier(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	supplier, err := h.svc.CreateSupplier(ctx, 
-		middleware.GetTenantID(ctx), 
+	supplier, err := h.svc.CreateSupplier(ctx,
+		middleware.GetTenantID(ctx),
 		req.Name, req.ContactPerson, req.Phone, req.Email, req.Address,
 		middleware.GetUserID(ctx), middleware.GetReqID(ctx), r.RemoteAddr,
 	)
@@ -103,6 +105,36 @@ func (h *Handler) CreateSupplier(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondJSON(w, http.StatusCreated, supplier)
+}
+
+func (h *Handler) UpdateSupplier(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	supplierID := chi.URLParam(r, "id")
+	var req createSupplierReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	supplier, err := h.svc.UpdateSupplier(
+		ctx,
+		middleware.GetTenantID(ctx),
+		supplierID,
+		req.Name,
+		req.ContactPerson,
+		req.Phone,
+		req.Email,
+		req.Address,
+		middleware.GetUserID(ctx),
+		middleware.GetReqID(ctx),
+		r.RemoteAddr,
+	)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusOK, supplier)
 }
 
 func (h *Handler) ListSuppliers(w http.ResponseWriter, r *http.Request) {
@@ -133,8 +165,8 @@ func (h *Handler) CreateItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item, err := h.svc.CreateItem(ctx, 
-		middleware.GetTenantID(ctx), 
+	item, err := h.svc.CreateItem(ctx,
+		middleware.GetTenantID(ctx),
 		req.CategoryID, req.Name, req.Sku, req.Unit, req.Description, req.ReorderLevel,
 		middleware.GetUserID(ctx), middleware.GetReqID(ctx), r.RemoteAddr,
 	)
@@ -146,9 +178,42 @@ func (h *Handler) CreateItem(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusCreated, item)
 }
 
+func (h *Handler) UpdateItem(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	itemID := chi.URLParam(r, "id")
+	var req createItemReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	item, err := h.svc.UpdateItem(
+		ctx,
+		middleware.GetTenantID(ctx),
+		itemID,
+		req.CategoryID,
+		req.Name,
+		req.Sku,
+		req.Unit,
+		req.Description,
+		req.ReorderLevel,
+		middleware.GetUserID(ctx),
+		middleware.GetReqID(ctx),
+		r.RemoteAddr,
+	)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusOK, item)
+}
+
 func (h *Handler) ListItems(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit == 0 { limit = 20 }
+	if limit == 0 {
+		limit = 20
+	}
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 
 	items, err := h.svc.ListItems(r.Context(), middleware.GetTenantID(r.Context()), int32(limit), int32(offset))
@@ -204,7 +269,9 @@ func (h *Handler) CreateTransaction(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) ListTransactions(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit == 0 { limit = 20 }
+	if limit == 0 {
+		limit = 20
+	}
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 
 	items, err := h.svc.ListTransactions(r.Context(), middleware.GetTenantID(r.Context()), int32(limit), int32(offset))

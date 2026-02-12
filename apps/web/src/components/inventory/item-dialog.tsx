@@ -7,6 +7,7 @@ import {
 } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
 import { InventoryItem, InventoryCategory } from "@/types/inventory"
+import { toast } from "sonner"
 
 interface ItemDialogProps {
   open: boolean
@@ -75,20 +76,25 @@ export function ItemDialog({ open, onOpenChange, onSuccess, item }: ItemDialogPr
         reorder_level: parseInt(formData.reorder_level) || 0
       }
 
-      const res = await apiClient("/admin/inventory/items", {
-        method: "POST", // TODO: PUT for update
+      const url = item
+        ? `/admin/inventory/items/${item.id}`
+        : "/admin/inventory/items"
+
+      const res = await apiClient(url, {
+        method: item ? "PUT" : "POST",
         body: JSON.stringify(payload)
       })
 
       if (res.ok) {
+        toast.success(item ? "Item updated" : "Item added")
         onSuccess()
         onOpenChange(false)
       } else {
-        alert("Failed to save item")
+        toast.error("Failed to save item")
       }
     } catch (error) {
       console.error(error)
-      alert("An error occurred")
+      toast.error("An error occurred")
     } finally {
       setLoading(false)
     }

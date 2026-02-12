@@ -7,6 +7,7 @@ import {
 } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
 import { InventorySupplier } from "@/types/inventory"
+import { toast } from "sonner"
 
 interface SupplierDialogProps {
   open: boolean
@@ -51,20 +52,25 @@ export function SupplierDialog({ open, onOpenChange, onSuccess, supplier }: Supp
     setLoading(true)
 
     try {
-      const res = await apiClient("/admin/inventory/suppliers", {
-        method: "POST", // TODO: PUT for update
+      const url = supplier
+        ? `/admin/inventory/suppliers/${supplier.id}`
+        : "/admin/inventory/suppliers"
+
+      const res = await apiClient(url, {
+        method: supplier ? "PUT" : "POST",
         body: JSON.stringify(formData)
       })
 
       if (res.ok) {
+        toast.success(supplier ? "Supplier updated" : "Supplier added")
         onSuccess()
         onOpenChange(false)
       } else {
-        alert("Failed to save supplier")
+        toast.error("Failed to save supplier")
       }
     } catch (error) {
       console.error(error)
-      alert("An error occurred")
+      toast.error("An error occurred")
     } finally {
       setLoading(false)
     }

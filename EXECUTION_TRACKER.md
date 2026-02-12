@@ -57,7 +57,7 @@ Validate and complete end-to-end readiness across APIs, services, responsive UI 
 
 ## Remaining Backlog (Phased)
 - `DONE` Driver update flow (`/admin/transport/drivers/{id}` backend + UI edit wiring).
-- `PENDING` Inventory edit flows (supplier/item dialogs currently create-only).
+- `DONE` Inventory edit flows (supplier/item update APIs + dialogs).
 - `PENDING` Attendance settings persistence UX cleanup (remove local-only fallback messaging).
 - `PENDING` Replace remaining `alert(...)` UX fallbacks with consistent toasts/stateful errors.
 
@@ -65,6 +65,11 @@ Validate and complete end-to-end readiness across APIs, services, responsive UI 
   - Added `PUT /v1/admin/transport/drivers/{id}`.
   - Added backend update logic with audited raw SQL update path.
   - Wired admin drivers page + dialog edit flow to real update API.
+- 2026-02-12: Implemented inventory update end-to-end:
+  - Added `PUT /v1/admin/inventory/suppliers/{id}`.
+  - Added `PUT /v1/admin/inventory/items/{id}`.
+  - Added backend update logic with audited raw SQL update paths.
+  - Wired supplier/item dialogs to create/update automatically based on edit mode.
 
 ## Known Environment Constraints
 - `next build` default Turbopack path can fail in this sandbox due process/port restrictions; webpack build succeeds.
