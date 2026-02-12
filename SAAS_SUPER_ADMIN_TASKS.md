@@ -10,9 +10,10 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - `[!]` Blocked
 
 ## Current Progress Snapshot
-- `[~]` Super admin workspace routing initiated (`/platform/*` route direction).
-- `[~]` Initial platform tenant APIs and service scaffolding started.
-- `[~]` Control-plane schema draft migration started.
+- `[x]` Super admin workspace routing enabled (`super_admin -> /platform/dashboard`).
+- `[x]` Platform core pages added: dashboard, tenant directory, tenant detail, platform payments.
+- `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, domain mapping, branch creation, admin reset/logout, impersonation).
+- `[~]` Control-plane schema migration added; pending runtime migration in target environments.
 
 ## Execution Order
 1. Tenant management core and lifecycle
@@ -30,20 +31,20 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 13. Hardening, audits, tests, docs, rollout
 
 ## 1) Tenant Management (Schools / Organizations)
-- [ ] TM-001 Tenant directory API with filters (plan, status, region, created date).
-- [ ] TM-002 Tenant directory UI with search, filters, sorting, pagination.
-- [ ] TM-003 Tenant lifecycle state machine (trial -> active -> suspended -> closed).
-- [ ] TM-004 Multi-campus/branches API (list/create/update/activate/deactivate).
-- [ ] TM-005 Branding and domain mapping API (branding config, CNAME target, SSL status).
-- [ ] TM-006 Manual tenant onboarding flow (create tenant + tenant admin + default config).
-- [ ] TM-007 Signup request moderation (approve/reject + notes + audit).
-- [ ] TM-008 Tenant actions: activate/suspend/terminate.
-- [ ] TM-009 Reset tenant admin password endpoint + force logout all sessions.
-- [ ] TM-010 Tenant defaults: timezone, locale, academic year.
-- [ ] TM-011 Assign plan and limits to tenant.
-- [ ] TM-012 Domain mapping UI and verification status panel.
-- [ ] TM-013 Impersonate tenant admin with reason, TTL, revocation, audit trail.
-- [ ] TM-014 Tenant region/shard migration workflow (or explicitly mark unsupported with safe messaging).
+- [x] TM-001 Tenant directory API with filters (plan, status, region, created date).
+- [x] TM-002 Tenant directory UI with search, filters, sorting, pagination.
+- [x] TM-003 Tenant lifecycle state machine (trial -> active -> suspended -> closed).
+- [~] TM-004 Multi-campus/branches API (list/create/update/activate/deactivate).
+- [~] TM-005 Branding and domain mapping API (branding config, CNAME target, SSL status).
+- [x] TM-006 Manual tenant onboarding flow (create tenant + tenant admin + default config).
+- [~] TM-007 Signup request moderation (approve/reject + notes + audit).
+- [x] TM-008 Tenant actions: activate/suspend/terminate.
+- [x] TM-009 Reset tenant admin password endpoint + force logout all sessions.
+- [x] TM-010 Tenant defaults: timezone, locale, academic year.
+- [x] TM-011 Assign plan and limits to tenant.
+- [x] TM-012 Domain mapping UI and verification status panel.
+- [~] TM-013 Impersonate tenant admin with reason, TTL, revocation, audit trail.
+- [!] TM-014 Tenant region/shard migration workflow (or explicitly mark unsupported with safe messaging).
 
 ## 2) Plans, Modules, and Feature Flags
 - [ ] PL-001 Plan model and API (Basic/Pro/Enterprise/custom).

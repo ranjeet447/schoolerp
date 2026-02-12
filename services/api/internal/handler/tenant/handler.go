@@ -1,12 +1,14 @@
 package tenant
 
 import (
-	"errors"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/schoolerp/api/internal/middleware"
 	"github.com/schoolerp/api/internal/service/tenant"
 )
 
@@ -20,9 +22,18 @@ func NewHandler(service *tenant.Service) *Handler {
 
 func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Get("/summary", h.GetPlatformSummary)
+	r.Get("/signup-requests", h.ListSignupRequests)
+	r.Post("/signup-requests/{signup_id}/review", h.ReviewSignupRequest)
 	r.Get("/tenants", h.ListPlatformTenants)
 	r.Get("/tenants/{tenant_id}", h.GetPlatformTenant)
 	r.Patch("/tenants/{tenant_id}", h.UpdatePlatformTenant)
+	r.Post("/tenants/{tenant_id}/lifecycle", h.UpdateTenantLifecycle)
+	r.Post("/tenants/{tenant_id}/defaults", h.UpdateTenantDefaults)
+	r.Post("/tenants/{tenant_id}/plan", h.AssignTenantPlan)
+	r.Post("/tenants/{tenant_id}/domain", h.UpdateTenantDomainMapping)
+	r.Post("/tenants/{tenant_id}/reset-admin-password", h.ResetTenantAdminPassword)
+	r.Post("/tenants/{tenant_id}/force-logout", h.ForceLogoutTenantUsers)
+	r.Post("/tenants/{tenant_id}/impersonate", h.ImpersonateTenantAdmin)
 	r.Get("/tenants/{tenant_id}/branches", h.ListTenantBranches)
 	r.Post("/tenants/{tenant_id}/branches", h.CreateTenantBranch)
 	r.Get("/payments", h.ListPlatformPayments)
@@ -161,7 +172,30 @@ func (h *Handler) GetPlatformSummary(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) ListPlatformTenants(w http.ResponseWriter, r *http.Request) {
 	includeInactive := r.URL.Query().Get("include_inactive") == "true"
-	tenants, err := h.service.ListPlatformTenants(r.Context(), includeInactive)
+
+	var createdFrom *time.Time
+	if raw := r.URL.Query().Get("created_from"); raw != "" {
+		if parsed, err := time.Parse(time.RFC3339, raw); err == nil {
+			createdFrom = &parsed
+		}
+	}
+
+	var createdTo *time.Time
+	if raw := r.URL.Query().Get("created_to"); raw != "" {
+		if parsed, err := time.Parse(time.RFC3339, raw); err == nil {
+			createdTo = &parsed
+		}
+	}
+
+	tenants, err := h.service.ListPlatformTenantsWithFilters(r.Context(), tenant.TenantDirectoryFilters{
+		IncludeInactive: includeInactive,
+		Search:          r.URL.Query().Get("search"),
+		PlanCode:        r.URL.Query().Get("plan"),
+		Status:          r.URL.Query().Get("status"),
+		Region:          r.URL.Query().Get("region"),
+		CreatedFrom:     createdFrom,
+		CreatedTo:       createdTo,
+	})
 	if err != nil {
 		http.Error(w, "Failed to load tenants", http.StatusInternalServerError)
 		return
@@ -278,4 +312,227 @@ func (h *Handler) ListPlatformPayments(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(payments)
+}
+
+func (h *Handler) UpdateTenantLifecycle(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+
+	var req tenant.TenantLifecycleParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.UpdatedBy = middleware.GetUserID(r.Context())
+
+	if err := h.service.UpsertTenantLifecycle(r.Context(), tenantID, req); err != nil {
+		if errors.Is(err, tenant.ErrInvalidLifecycleStatus) {
+			http.Error(w, "Invalid lifecycle status", http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, tenant.ErrInvalidTenantID) {
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Failed to update lifecycle", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+}
+
+func (h *Handler) UpdateTenantDefaults(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	var req tenant.TenantDefaultsParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.service.UpdateTenantDefaults(r.Context(), tenantID, req); err != nil {
+		if errors.Is(err, tenant.ErrInvalidTenantID) {
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Failed to update tenant defaults", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+}
+
+func (h *Handler) AssignTenantPlan(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	var req tenant.AssignPlanParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.UpdatedBy = middleware.GetUserID(r.Context())
+
+	if err := h.service.AssignPlanToTenant(r.Context(), tenantID, req); err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidPlanCode):
+			http.Error(w, "Invalid plan code", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPlanNotFound):
+			http.Error(w, "Plan not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to assign plan", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+}
+
+func (h *Handler) UpdateTenantDomainMapping(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	var req tenant.DomainMappingParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	updated, err := h.service.UpdateTenantDomainMapping(r.Context(), tenantID, req)
+	if err != nil {
+		if errors.Is(err, tenant.ErrInvalidTenantID) {
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Failed to update domain mapping", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
+}
+
+func (h *Handler) ResetTenantAdminPassword(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	var req struct {
+		NewPassword string `json:"new_password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	updatedRows, err := h.service.ResetTenantAdminPassword(r.Context(), tenantID, req.NewPassword)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrWeakPassword):
+			http.Error(w, "Password must be at least 8 characters", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to reset tenant admin password", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"status":       "ok",
+		"updated_rows": updatedRows,
+	})
+}
+
+func (h *Handler) ForceLogoutTenantUsers(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	revoked, err := h.service.ForceLogoutTenantUsers(r.Context(), tenantID)
+	if err != nil {
+		if errors.Is(err, tenant.ErrInvalidTenantID) {
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Failed to force logout tenant users", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"status":         "ok",
+		"revoked_count":  revoked,
+	})
+}
+
+func (h *Handler) ImpersonateTenantAdmin(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	var req tenant.ImpersonationParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	result, err := h.service.CreateImpersonationToken(
+		r.Context(),
+		tenantID,
+		req.Reason,
+		req.DurationMinutes,
+		middleware.GetUserID(r.Context()),
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidReason):
+			http.Error(w, "Impersonation reason is required", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrImpersonationTarget):
+			http.Error(w, "No tenant admin available for impersonation", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to create impersonation token", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+func (h *Handler) ListSignupRequests(w http.ResponseWriter, r *http.Request) {
+	status := r.URL.Query().Get("status")
+	limit := int32(100)
+	if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
+		if parsed, err := strconv.Atoi(rawLimit); err == nil {
+			limit = int32(parsed)
+		}
+	}
+
+	rows, err := h.service.ListSignupRequests(r.Context(), status, limit)
+	if err != nil {
+		http.Error(w, "Failed to load signup requests", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) ReviewSignupRequest(w http.ResponseWriter, r *http.Request) {
+	signupID := chi.URLParam(r, "signup_id")
+	var req tenant.ReviewSignupRequestParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.ReviewedBy = middleware.GetUserID(r.Context())
+
+	if err := h.service.ReviewSignupRequest(r.Context(), signupID, req); err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidSignupStatus):
+			http.Error(w, "Invalid signup review status", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrSignupRequestNotFound):
+			http.Error(w, "Signup request not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to review signup request", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
 }
