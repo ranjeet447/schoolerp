@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { AttendanceGrid, AttendanceStatus, Button, Card, CardContent, CardHeader, CardTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
+import { toast } from "sonner"
 
 export default function TeacherAttendancePage() {
   const [classSectionID, setClassSectionID] = useState("")
@@ -64,11 +65,11 @@ export default function TeacherAttendancePage() {
         })
       })
       if (res.ok) {
-        alert("Attendance submitted successfully!")
+        toast.success("Attendance submitted successfully")
         fetchSession()
       }
     } catch (err) {
-      alert("Failed to submit attendance")
+      toast.error("Failed to submit attendance")
     } finally {
       setLoading(false)
     }

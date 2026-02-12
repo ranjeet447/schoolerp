@@ -6,6 +6,7 @@ import {
   Input, Label, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
+import { toast } from "sonner"
 
 export default function AdmissionEnquiryPage() {
   const [loading, setLoading] = useState(false)
@@ -61,11 +62,11 @@ export default function AdmissionEnquiryPage() {
         })
       } else {
         const err = await res.text()
-        alert(err || "Failed to submit enquiry")
+        toast.error(err || "Failed to submit enquiry")
       }
     } catch (error) {
       console.error(error)
-      alert("An error occurred")
+      toast.error("An error occurred")
     } finally {
       setLoading(false)
     }

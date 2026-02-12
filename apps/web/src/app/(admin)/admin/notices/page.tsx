@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { NoticeCard, TargetSelector, Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Textarea, Badge } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
+import { toast } from "sonner"
 
 const SCOPES = [
   { value: "all", label: "All School" },
@@ -43,14 +44,14 @@ export default function AdminNoticesPage() {
         body: JSON.stringify({ title, body, scope })
       })
       if (res.ok) {
-        alert("Notice published successfully!")
+        toast.success("Notice published successfully")
         fetchNotices()
         setTitle("")
         setBody("")
         setScope("")
       }
     } catch (err) {
-      alert("Failed to publish notice")
+      toast.error("Failed to publish notice")
     } finally {
       setLoading(false)
     }

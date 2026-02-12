@@ -21,7 +21,7 @@ Validate and complete end-to-end readiness across APIs, services, responsive UI 
 6. `DONE` Sales bookings admin UI integration with backend
 7. `DONE` Public admissions flow hardening (tenant resolution and captcha toggle behavior)
 8. `DONE` Final verification sweep (using stable webpack build path for web)
-9. `IN_PROGRESS` Remaining enterprise backlog triage and phased execution list
+9. `DONE` Remaining enterprise backlog triage and phased execution list
 
 ## Execution Log
 - 2026-02-12: Added backend marketing service + handler and wired new routes in API server.
@@ -59,7 +59,7 @@ Validate and complete end-to-end readiness across APIs, services, responsive UI 
 - `DONE` Driver update flow (`/admin/transport/drivers/{id}` backend + UI edit wiring).
 - `DONE` Inventory edit flows (supplier/item update APIs + dialogs).
 - `DONE` Attendance settings persistence UX cleanup (policy-backed save/load).
-- `PENDING` Replace remaining `alert(...)` UX fallbacks with consistent toasts/stateful errors.
+- `DONE` Replaced remaining `alert(...)` UX fallbacks with consistent toasts/stateful errors.
 
 - 2026-02-12: Implemented transport driver update end-to-end:
   - Added `PUT /v1/admin/transport/drivers/{id}`.
@@ -74,6 +74,9 @@ Validate and complete end-to-end readiness across APIs, services, responsive UI 
   - Added `GET /v1/admin/attendance/stats?date=YYYY-MM-DD`.
   - Replaced attendance settings stub save with policy-backed persistence via `/v1/admin/attendance/policies`.
   - Added settings load path from existing attendance policies.
+- 2026-02-12: UI feedback hardening:
+  - Removed `alert(...)` usage across admin/teacher/parent/public web flows.
+  - Standardized to `sonner` toasts for success/error/info feedback.
 
 ## Known Environment Constraints
 - `next build` default Turbopack path can fail in this sandbox due process/port restrictions; webpack build succeeds.

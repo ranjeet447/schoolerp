@@ -9,6 +9,7 @@ import {
 import { apiClient } from "@/lib/api-client"
 import { AdmissionEnquiry } from "@/types/admission"
 import { format } from "date-fns"
+import { toast } from "sonner"
 
 export default function AdminEnquiriesPage() {
   const [enquiries, setEnquiries] = useState<AdmissionEnquiry[]>([])
@@ -43,7 +44,7 @@ export default function AdminEnquiriesPage() {
       }
     } catch (err) {
       console.error(err)
-      alert("Failed to update status")
+      toast.error("Failed to update status")
     }
   }
 

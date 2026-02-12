@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { NoticeCard } from "@schoolerp/ui"
+import { toast } from "sonner"
 
 export default function ParentNoticesPage() {
   const [notices, setNotices] = useState<any[]>([
@@ -25,7 +26,7 @@ export default function ParentNoticesPage() {
 
   const handleAck = (id: string) => {
     setNotices(notices.map(n => n.id === id ? { ...n, isRead: true } : n))
-    alert("Notice acknowledged!")
+    toast.success("Notice acknowledged")
   }
 
   return (

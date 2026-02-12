@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { LeaveRequestCard, Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@schoolerp/ui"
+import { toast } from "sonner"
 
 export default function ParentLeavePage() {
   const [loading, setLoading] = useState(false)
@@ -22,7 +23,7 @@ export default function ParentLeavePage() {
     setLoading(true)
     // In a real app, API call to POST /v1/parent/leaves
     setTimeout(() => {
-      alert("Leave request submitted!")
+      toast.success("Leave request submitted")
       setLoading(false)
     }, 1000)
   }

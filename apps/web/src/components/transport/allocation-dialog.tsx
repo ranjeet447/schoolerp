@@ -7,6 +7,7 @@ import {
 } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
 import { Allocation, Route, RouteStop } from "@/types/transport"
+import { toast } from "sonner"
 
 interface AllocationDialogProps {
   open: boolean
@@ -81,11 +82,11 @@ export function AllocationDialog({ open, onOpenChange, onSuccess }: AllocationDi
         onSuccess()
         onOpenChange(false)
       } else {
-        alert("Failed to create allocation")
+        toast.error("Failed to create allocation")
       }
     } catch (error) {
       console.error(error)
-      alert("An error occurred")
+      toast.error("An error occurred")
     } finally {
       setLoading(false)
     }

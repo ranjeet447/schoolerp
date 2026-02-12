@@ -15,6 +15,7 @@ import { Input } from "@schoolerp/ui"
 import { Label } from "@schoolerp/ui"
 import { Upload, FileText, CheckCircle2, AlertCircle } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
+import { toast } from "sonner"
 
 export function ImportStudentWizard() {
   const [open, setOpen] = useState(false)
@@ -53,7 +54,7 @@ export function ImportStudentWizard() {
       setStep(3)
     } catch (error) {
       console.error(error)
-      alert("Failed to import students")
+      toast.error("Failed to import students")
     } finally {
       setLoading(false)
     }

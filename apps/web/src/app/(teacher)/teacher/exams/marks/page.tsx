@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { MarksGrid, Card, CardContent, CardHeader, CardTitle, CardDescription, Button } from "@schoolerp/ui"
 import { Save } from "lucide-react"
+import { toast } from "sonner"
 
 export default function TeacherMarksPage() {
   const [students, setStudents] = useState<any[]>([
@@ -18,7 +19,7 @@ export default function TeacherMarksPage() {
   }
 
   const handleSave = () => {
-    alert("Marks saved successfully!")
+    toast.success("Marks saved successfully")
   }
 
   return (

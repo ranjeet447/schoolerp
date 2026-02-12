@@ -7,6 +7,7 @@ import {
 } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
 import { Book } from "@/types/library"
+import { toast } from "sonner"
 
 interface IssueDialogProps {
   open: boolean
@@ -64,11 +65,11 @@ export function IssueDialog({ open, onOpenChange, onSuccess }: IssueDialogProps)
         onSuccess()
         onOpenChange(false)
       } else {
-        alert("Failed to issue book. Check stock.")
+        toast.error("Failed to issue book. Check stock.")
       }
     } catch (error) {
       console.error(error)
-      alert("An error occurred")
+      toast.error("An error occurred")
     } finally {
       setLoading(false)
     }

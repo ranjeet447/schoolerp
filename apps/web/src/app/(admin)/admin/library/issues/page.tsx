@@ -10,6 +10,7 @@ import { Plus, BookOpen, Clock, AlertCircle } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { LibraryIssue } from "@/types/library"
 import { IssueDialog } from "@/components/library/issue-dialog"
+import { toast } from "sonner"
 
 export default function IssuesPage() {
   const [issues, setIssues] = useState<LibraryIssue[]>([])
@@ -46,10 +47,11 @@ export default function IssuesPage() {
       if (res.ok) {
         fetchIssues()
       } else {
-        alert("Failed to process return")
+        toast.error("Failed to process return")
       }
     } catch (err) {
       console.error(err)
+      toast.error("Failed to process return")
     }
   }
 

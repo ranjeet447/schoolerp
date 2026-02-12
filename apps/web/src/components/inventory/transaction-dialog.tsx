@@ -7,6 +7,7 @@ import {
 } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
 import { InventoryItem, InventorySupplier } from "@/types/inventory"
+import { toast } from "sonner"
 
 interface TransactionDialogProps {
   open: boolean
@@ -69,11 +70,11 @@ export function TransactionDialog({ open, onOpenChange, onSuccess }: Transaction
         onSuccess()
         onOpenChange(false)
       } else {
-        alert("Failed to record transaction")
+        toast.error("Failed to record transaction")
       }
     } catch (error) {
       console.error(error)
-      alert("An error occurred")
+      toast.error("An error occurred")
     } finally {
       setLoading(false)
     }

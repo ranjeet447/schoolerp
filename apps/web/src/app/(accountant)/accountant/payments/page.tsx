@@ -6,6 +6,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Table, TableBody, Tab
 import { Input } from "@schoolerp/ui"
 import { Label } from "@schoolerp/ui"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@schoolerp/ui"
+import { toast } from "sonner"
 
 export default function AccountantPaymentsPage() {
   const [loading, setLoading] = useState(false)
@@ -25,7 +26,7 @@ export default function AccountantPaymentsPage() {
         status: "issued"
       }
       setReceipts([newReceipt, ...receipts])
-      alert("Payment collected and receipt generated!")
+      toast.success("Payment collected and receipt generated")
       setLoading(false)
     }, 1000)
   }
@@ -81,7 +82,7 @@ export default function AccountantPaymentsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {receipts.map(r => (
-              <ReceiptCard key={r.id} {...r} onDownload={() => alert('Downloading...')} />
+              <ReceiptCard key={r.id} {...r} onDownload={() => toast.info("Downloading receipt...")} />
             ))}
           </div>
         )}

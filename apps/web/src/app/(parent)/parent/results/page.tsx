@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { ReportCardPreviewCard } from "@schoolerp/ui"
+import { toast } from "sonner"
 
 export default function ParentResultsPage() {
   const [results] = useState([
@@ -26,7 +27,7 @@ export default function ParentResultsPage() {
   ])
 
   const handleDownload = (examName: string) => {
-    alert(`Downloading report card for ${examName}...`)
+    toast.info(`Downloading report card for ${examName}...`)
   }
 
   return (

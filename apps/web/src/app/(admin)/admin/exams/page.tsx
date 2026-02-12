@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Badge } from "@schoolerp/ui"
 import { Calendar, Plus } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
+import { toast } from "sonner"
 
 export default function AdminExamsPage() {
   const [exams, setExams] = useState<any[]>([])
@@ -36,12 +37,12 @@ export default function AdminExamsPage() {
         body: JSON.stringify({ name: newName })
       })
       if (res.ok) {
-        alert("Exam created successfully!")
+        toast.success("Exam created successfully")
         fetchExams()
         setNewName("")
       }
     } catch (err) {
-      alert("Failed to create exam")
+      toast.error("Failed to create exam")
     }
   }
 

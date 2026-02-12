@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { ReceiptCard, Card, CardContent, CardHeader, CardTitle, Progress } from "@schoolerp/ui"
+import { toast } from "sonner"
 
 export default function ParentFeesPage() {
   const [receipts] = useState<any[]>([
@@ -45,7 +46,7 @@ export default function ParentFeesPage() {
           <h2 className="text-xl font-bold">Payment History</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {receipts.map(r => (
-              <ReceiptCard key={r.id} {...r} onDownload={() => alert('Downloading...')} />
+              <ReceiptCard key={r.id} {...r} onDownload={() => toast.info("Downloading receipt...")} />
             ))}
           </div>
         </div>

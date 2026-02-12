@@ -12,6 +12,7 @@ import {
   Badge
 } from "@schoolerp/ui"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@schoolerp/ui"
+import { toast } from "sonner"
 
 export default function AccountantFeesPage() {
   const [plans, setPlans] = useState<any[]>([])
@@ -42,11 +43,11 @@ export default function AccountantFeesPage() {
         body: JSON.stringify(plan)
       })
       if (res.ok) {
-        alert("Fee plan created successfully!")
+        toast.success("Fee plan created successfully")
         fetchPlans()
       }
     } catch (err) {
-      alert("Failed to save plan")
+      toast.error("Failed to save plan")
     }
   }
 
