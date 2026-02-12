@@ -23,6 +23,8 @@ This document provides a step-by-step guide for deploying the SchoolERP SaaS pla
    - `DATABASE_URL`: Your Supabase URI.
    - `JWT_SECRET`: A secure random string.
    - `ENV`: `production`
+   - `CORS_ALLOWED_ORIGINS`: Comma-separated frontend origins allowed to call API
+     (example: `https://schoolerp-web.vercel.app` or `https://*.vercel.app`).
 
 ## 3. Frontend: Vercel (Next.js)
 1. Import the repository into [Vercel](https://vercel.com/).

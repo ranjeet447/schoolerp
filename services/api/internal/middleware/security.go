@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"net/url"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -10,22 +10,66 @@ import (
 )
 
 var (
-	corsConfigOnce       sync.Once
-	corsAllowedOrigins   map[string]struct{}
+	corsConfigOnce        sync.Once
+	corsAllowedOrigins    map[string]struct{}
+	corsWildcardOrigins   []wildcardOrigin
 )
+
+type wildcardOrigin struct {
+	scheme     string
+	hostSuffix string
+}
+
+func normalizeOrigin(rawOrigin string) (string, bool) {
+	parsed, err := url.Parse(strings.TrimSpace(rawOrigin))
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return "", false
+	}
+	return strings.ToLower(parsed.Scheme) + "://" + strings.ToLower(parsed.Host), true
+}
+
+func addAllowedOrigin(rawOrigin string) {
+	origin := strings.TrimSpace(rawOrigin)
+	if origin == "" {
+		return
+	}
+
+	// Wildcard syntax: https://*.example.com
+	if strings.Contains(origin, "://*.") {
+		parts := strings.SplitN(origin, "://*.", 2)
+		if len(parts) == 2 {
+			scheme := strings.ToLower(strings.TrimSpace(parts[0]))
+			hostSuffix := strings.ToLower(strings.TrimSpace(parts[1]))
+			if scheme != "" && hostSuffix != "" {
+				corsWildcardOrigins = append(corsWildcardOrigins, wildcardOrigin{
+					scheme:     scheme,
+					hostSuffix: "." + hostSuffix,
+				})
+				return
+			}
+		}
+	}
+
+	normalized, ok := normalizeOrigin(origin)
+	if !ok {
+		return
+	}
+	corsAllowedOrigins[normalized] = struct{}{}
+}
 
 func initCORSConfig() {
 	corsAllowedOrigins = make(map[string]struct{})
+	corsWildcardOrigins = nil
 
 	configured := strings.TrimSpace(os.Getenv("CORS_ALLOWED_ORIGINS"))
-	if configured != "" {
-		for _, origin := range strings.Split(configured, ",") {
-			o := strings.TrimSpace(origin)
-			if o == "" {
-				continue
-			}
-			corsAllowedOrigins[o] = struct{}{}
-		}
+	if configured == "" {
+		configured = strings.TrimSpace(os.Getenv("FRONTEND_URL"))
+	}
+	for _, origin := range strings.Split(configured, ",") {
+		addAllowedOrigin(origin)
+	}
+
+	if len(corsAllowedOrigins) > 0 || len(corsWildcardOrigins) > 0 {
 		return
 	}
 
@@ -43,23 +87,39 @@ func initCORSConfig() {
 		"http://127.0.0.1:5173",
 	}
 	for _, origin := range localOrigins {
-		corsAllowedOrigins[origin] = struct{}{}
+		addAllowedOrigin(origin)
 	}
 }
 
 func isOriginAllowed(origin string) bool {
 	corsConfigOnce.Do(initCORSConfig)
-	if origin == "" {
+	normalizedOrigin, ok := normalizeOrigin(origin)
+	if !ok {
 		return false
 	}
 
-	parsed, err := url.Parse(origin)
-	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+	if _, exists := corsAllowedOrigins[normalizedOrigin]; exists {
+		return true
+	}
+
+	parsed, err := url.Parse(normalizedOrigin)
+	if err != nil {
 		return false
 	}
-	normalizedOrigin := parsed.Scheme + "://" + parsed.Host
-	_, ok := corsAllowedOrigins[normalizedOrigin]
-	return ok
+
+	host := strings.ToLower(parsed.Host)
+	scheme := strings.ToLower(parsed.Scheme)
+	for _, wildcard := range corsWildcardOrigins {
+		if scheme != wildcard.scheme {
+			continue
+		}
+		baseHost := strings.TrimPrefix(wildcard.hostSuffix, ".")
+		if host != baseHost && strings.HasSuffix(host, wildcard.hostSuffix) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // CORS provides Cross-Origin Resource Sharing middleware
