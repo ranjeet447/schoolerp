@@ -32,7 +32,12 @@ make up-cms
 # Apply migrations (using golang-migrate CLI or manual)
 # Example manual apply if CLI not installed:
 cat infra/migrations/*.up.sql | docker exec -i schoolerp-postgres-1 psql -U schoolerp
-cat infra/seed/seed.sql | docker exec -i schoolerp-postgres-1 psql -U schoolerp
+
+# Safe bootstrap seed (recommended default)
+cat infra/migrations/seed_users.sql | docker exec -i schoolerp-postgres-1 psql -U schoolerp
+
+# Destructive full reset + reseed (use with caution)
+cat infra/migrations/seed_production.sql | docker exec -i schoolerp-postgres-1 psql -U schoolerp
 ```
 
 ### 4. Run Development Services

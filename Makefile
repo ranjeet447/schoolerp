@@ -1,4 +1,4 @@
-.PHONY: dev build migrate seed test help
+.PHONY: dev build migrate seed seed-bootstrap seed-reset seed-marketing test help
 
 # Standard local development
 dev:
@@ -23,8 +23,19 @@ migrate:
 
 # Database Seeding
 seed:
+	@$(MAKE) seed-bootstrap
+
+seed-bootstrap:
 	chmod +x scripts/seed_db.sh
-	./scripts/seed_db.sh --demo
+	./scripts/seed_db.sh --bootstrap
+
+seed-reset:
+	chmod +x scripts/seed_db.sh
+	./scripts/seed_db.sh --reset
+
+seed-marketing:
+	chmod +x scripts/seed_db.sh
+	./scripts/seed_db.sh --marketing
 
 # Help
 help:
@@ -32,4 +43,7 @@ help:
 	@echo "  make dev      - Start all services (web, api, worker)"
 	@echo "  make build    - Build all services"
 	@echo "  make migrate  - Run DB migrations"
-	@echo "  make seed     - Seed DB with demo data"
+	@echo "  make seed     - Safe bootstrap seed (default)"
+	@echo "  make seed-bootstrap - Safe idempotent seed"
+	@echo "  make seed-reset - Destructive reset + reseed"
+	@echo "  make seed-marketing - Marketing demo fixtures only"

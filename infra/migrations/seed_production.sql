@@ -1,5 +1,12 @@
--- SchoolERP Comprehensive Cleanup & Re-Seed
--- EXHAUSTIVELY USING UNIQUE, PROPER UUID v7 FROM USER LIST
+-- SchoolERP DESTRUCTIVE RESET + RESEED
+-- WARNING:
+--   - this script TRUNCATES core tables
+--   - intended for disposable/staging environments
+--   - do not run on live production data unless wipe is intentional
+--
+-- For safe/default seeding (no truncation), use:
+--   infra/migrations/seed_users.sql
+--
 -- Password for all users: "password123" (SHA256: ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f)
 
 BEGIN;

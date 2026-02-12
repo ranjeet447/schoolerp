@@ -14,7 +14,7 @@ func main() {
 	// 1. Load .env manually
 	envPath := "../../.env"
 	dbURL := ""
-	
+
 	file, err := os.Open(envPath)
 	if err != nil {
 		fmt.Printf("Error opening .env file: %v\n", err)
@@ -50,7 +50,10 @@ func main() {
 	fmt.Println("Connected to database.")
 
 	// 3. Read seed SQL
-	seedPath := "../../infra/migrations/seed_users.sql"
+	seedPath := os.Getenv("SEED_FILE")
+	if seedPath == "" {
+		seedPath = "../../infra/migrations/seed_users.sql"
+	}
 	sqlBytes, err := os.ReadFile(seedPath)
 	if err != nil {
 		fmt.Printf("Error reading seed file: %v\n", err)
@@ -58,7 +61,7 @@ func main() {
 	}
 
 	sql := string(sqlBytes)
-	fmt.Println("Reading seed file...")
+	fmt.Printf("Reading seed file: %s\n", seedPath)
 
 	// 4. Execute SQL
 	_, err = conn.Exec(ctx, sql)
@@ -67,5 +70,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Println("Successfully executed seed_users.sql!")
+	fmt.Printf("Successfully executed seed file: %s\n", seedPath)
 }

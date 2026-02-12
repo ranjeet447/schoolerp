@@ -9,6 +9,7 @@ This document provides a step-by-step guide for deploying the SchoolERP SaaS pla
    ```bash
    export DATABASE_URL="your-supabase-uri"
    make migrate
+   make seed-bootstrap
    ```
 
 ## 2. Backend: Render (Go API)

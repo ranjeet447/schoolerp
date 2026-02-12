@@ -21,10 +21,18 @@ We use **SQLC** to generate type-safe Go code from raw SQL queries. This avoids 
 - **Command**: `sqlc generate` (Run this after changing any `.sql` query file).
 
 ## 4. Seeding Data
-Seed data for local development is stored in the `infra/seed` directory.
-- **Marketing Seed**: `make seed-marketing`.
-- **Demo Seed**: `make seed-demo`.
-- **Tool**: Uses `psql` to execute SQL scripts against the running container.
+Seeding is split into two explicit modes to avoid confusion:
+- **Safe Bootstrap (default)**: `infra/migrations/seed_users.sql`
+  - Idempotent, non-destructive, safe to run repeatedly.
+  - Command: `make seed` or `make seed-bootstrap`.
+- **Destructive Reset**: `infra/migrations/seed_production.sql`
+  - Truncates core tables then reseeds.
+  - Command: `make seed-reset`.
+- **Marketing Fixtures Only**: `infra/seed/demo_seed.sql`
+  - Adds marketing demo booking fixtures.
+  - Command: `make seed-marketing`.
+
+Tooling is unified through `scripts/seed_db.sh`.
 
 ## 5. Best Practices
 - **Naming**: Use `snake_case` for all table and column names.
