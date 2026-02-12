@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 	"github.com/schoolerp/api/internal/db"
 )
 
@@ -48,13 +49,18 @@ type LoginResult struct {
 
 // Login authenticates a user via email/password and returns a JWT
 func (s *Service) Login(ctx context.Context, email, password string) (*LoginResult, error) {
+	normalizedEmail := strings.ToLower(strings.TrimSpace(email))
+	logger := log.Ctx(ctx).With().Str("auth_email", maskEmail(normalizedEmail)).Logger()
+
 	// 1. Find user by email
-	user, err := s.queries.GetUserByEmail(ctx, email)
+	user, err := s.queries.GetUserByEmail(ctx, normalizedEmail)
 	if err != nil {
+		logger.Warn().Err(err).Msg("auth login failed: user lookup")
 		return nil, ErrInvalidCredentials
 	}
 
 	if !user.IsActive.Bool {
+		logger.Warn().Str("user_id", user.ID.String()).Msg("auth login failed: user inactive")
 		return nil, ErrUserInactive
 	}
 
@@ -64,18 +70,21 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 		Provider: "password",
 	})
 	if err != nil {
+		logger.Warn().Err(err).Str("user_id", user.ID.String()).Msg("auth login failed: password identity lookup")
 		return nil, ErrInvalidCredentials
 	}
 
 	// Compare hashed password
 	hashedInput := hashPassword(password)
 	if identity.Credential.String != hashedInput {
+		logger.Warn().Str("user_id", user.ID.String()).Msg("auth login failed: password mismatch")
 		return nil, ErrInvalidCredentials
 	}
 
 	// 3. Get role and permissions for this user
 	roleAssignment, err := s.queries.GetUserRoleAssignmentWithPermissions(ctx, user.ID)
 	if err != nil {
+		logger.Warn().Err(err).Str("user_id", user.ID.String()).Msg("auth login fallback: role assignment missing")
 		// User has no role assigned - still allow login but with no role
 		roleAssignment = db.GetUserRoleAssignmentWithPermissionsRow{
 			RoleCode:    "user",
@@ -85,10 +94,11 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 
 	// 4. Generate JWT token
 	expiresAt := time.Now().Add(24 * time.Hour) // 24 hour token validity
-	
+
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		if strings.EqualFold(os.Getenv("ENV"), "production") {
+			logger.Error().Str("user_id", user.ID.String()).Msg("auth login failed: JWT_SECRET not configured in production")
 			return nil, errors.New("server authentication is not configured")
 		}
 		jwtSecret = "default-dev-secret"
@@ -109,14 +119,23 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString([]byte(jwtSecret))
 	if err != nil {
+		logger.Error().Err(err).Str("user_id", user.ID.String()).Msg("auth login failed: token signing error")
 		return nil, err
 	}
 
 	// 5. Update last login timestamp
-	_ = s.queries.UpdateUserLastLogin(ctx, db.UpdateUserLastLoginParams{
+	if err := s.queries.UpdateUserLastLogin(ctx, db.UpdateUserLastLoginParams{
 		ID:       identity.ID,
 		Provider: "password",
-	})
+	}); err != nil {
+		logger.Warn().Err(err).Str("user_id", user.ID.String()).Msg("auth login warning: unable to update last_login")
+	}
+
+	logger.Info().
+		Str("user_id", user.ID.String()).
+		Str("role", roleAssignment.RoleCode).
+		Str("tenant_id", roleAssignment.TenantID.String()).
+		Msg("auth login success")
 
 	return &LoginResult{
 		Token:       tokenString,
@@ -130,7 +149,6 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 	}, nil
 }
 
-
 // hashPassword creates a SHA256 hash of the password
 // In production, use bcrypt or argon2 instead
 func hashPassword(password string) string {
@@ -141,4 +159,21 @@ func hashPassword(password string) string {
 // HashPasswordForSeed is exported for use in seed scripts
 func HashPasswordForSeed(password string) string {
 	return hashPassword(password)
+}
+
+func maskEmail(email string) string {
+	e := strings.ToLower(strings.TrimSpace(email))
+	parts := strings.SplitN(e, "@", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "***"
+	}
+
+	local := parts[0]
+	if len(local) == 1 {
+		return local + "***@" + parts[1]
+	}
+	if len(local) == 2 {
+		return local[:1] + "***@" + parts[1]
+	}
+	return local[:1] + "***" + local[len(local)-1:] + "@" + parts[1]
 }

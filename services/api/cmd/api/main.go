@@ -106,6 +106,12 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("Unable to parse DB config")
 	}
+	log.Info().
+		Str("db_host", poolConfig.ConnConfig.Host).
+		Uint16("db_port", poolConfig.ConnConfig.Port).
+		Str("db_name", poolConfig.ConnConfig.Database).
+		Str("db_user", poolConfig.ConnConfig.User).
+		Msg("Database target configured")
 
 	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {

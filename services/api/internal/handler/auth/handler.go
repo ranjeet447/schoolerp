@@ -3,8 +3,10 @@ package auth
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog/log"
 	"github.com/schoolerp/api/internal/middleware"
 	"github.com/schoolerp/api/internal/service/auth"
 )
@@ -34,12 +36,12 @@ func (h *Handler) SetupMFA(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	
+
 	// We need email for AccountName in TOTP
 	// Ideally we fetch user from DB or claims.
 	// For now, let's pass a placeholder or fetch it.
 	// Simplest: "SchoolERP User"
-	
+
 	config, err := h.svc.MFA.GenerateSecret(r.Context(), userID, "SchoolERP User")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -48,7 +50,7 @@ func (h *Handler) SetupMFA(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"secret": config.Secret,
+		"secret":  config.Secret,
 		"qr_code": config.QRCode, // Client can display this
 	})
 }
@@ -115,22 +117,23 @@ func (h *Handler) ValidateMFA(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"valid": true}`))
 }
 
-
-
 type loginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
 type loginResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message,omitempty"`
+	Success bool              `json:"success"`
+	Message string            `json:"message,omitempty"`
 	Data    *auth.LoginResult `json:"data,omitempty"`
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
+	logger := log.Ctx(r.Context())
+
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Warn().Err(err).Msg("auth login failed: invalid request body")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(loginResponse{
@@ -141,6 +144,9 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Email == "" || req.Password == "" {
+		logger.Warn().
+			Str("auth_email", maskLoginEmail(req.Email)).
+			Msg("auth login failed: missing email/password")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(loginResponse{
@@ -150,8 +156,18 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	logger.Info().
+		Str("auth_email", maskLoginEmail(req.Email)).
+		Str("tenant_header", r.Header.Get("X-Tenant-ID")).
+		Str("origin", r.Header.Get("Origin")).
+		Msg("auth login attempt")
+
 	result, err := h.svc.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
+		logger.Warn().
+			Err(err).
+			Str("auth_email", maskLoginEmail(req.Email)).
+			Msg("auth login failed")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(loginResponse{
@@ -161,6 +177,13 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	logger.Info().
+		Str("auth_email", maskLoginEmail(req.Email)).
+		Str("user_id", result.UserID).
+		Str("role", result.Role).
+		Str("tenant_id", result.TenantID).
+		Msg("auth login completed")
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(loginResponse{
 		Success: true,
@@ -168,4 +191,19 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func maskLoginEmail(email string) string {
+	e := strings.ToLower(strings.TrimSpace(email))
+	parts := strings.SplitN(e, "@", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "***"
+	}
 
+	local := parts[0]
+	if len(local) == 1 {
+		return local + "***@" + parts[1]
+	}
+	if len(local) == 2 {
+		return local[:1] + "***@" + parts[1]
+	}
+	return local[:1] + "***" + local[len(local)-1:] + "@" + parts[1]
+}
