@@ -81,6 +81,41 @@ func (s *TransportService) GetVehicle(ctx context.Context, tenantID, vehicleID s
 	})
 }
 
+func (s *TransportService) UpdateVehicle(ctx context.Context, tenantID, vehicleID string, p CreateVehicleParams) (db.TransportVehicle, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	vUUID := pgtype.UUID{}
+	vUUID.Scan(vehicleID)
+
+	vehicle, err := s.q.UpdateVehicle(ctx, db.UpdateVehicleParams{
+		ID:                 vUUID,
+		TenantID:           tUUID,
+		RegistrationNumber: p.RegistrationNumber,
+		Capacity:           p.Capacity,
+		Type:               p.Type,
+		Status:             p.Status,
+	})
+	if err != nil {
+		return db.TransportVehicle{}, err
+	}
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(p.UserID)
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    p.RequestID,
+		Action:       "vehicle.update",
+		ResourceType: "transport_vehicle",
+		ResourceID:   vehicle.ID,
+		After:        vehicle,
+		IPAddress:    p.IP,
+	})
+
+	return vehicle, nil
+}
+
 // Drivers
 
 type CreateDriverParams struct {
@@ -141,19 +176,23 @@ type CreateRouteParams struct {
 	DriverID    string
 	Description string
 	UserID      string // for audit
-    RequestID   string
-    IP          string
+	RequestID   string
+	IP          string
 }
 
 func (s *TransportService) CreateRoute(ctx context.Context, p CreateRouteParams) (db.TransportRoute, error) {
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(p.TenantID)
-	
+
 	vUUID := pgtype.UUID{}
-	if p.VehicleID != "" { vUUID.Scan(p.VehicleID) }
+	if p.VehicleID != "" {
+		vUUID.Scan(p.VehicleID)
+	}
 
 	dUUID := pgtype.UUID{}
-	if p.DriverID != "" { dUUID.Scan(p.DriverID) }
+	if p.DriverID != "" {
+		dUUID.Scan(p.DriverID)
+	}
 
 	route, err := s.q.CreateRoute(ctx, db.CreateRouteParams{
 		TenantID:    tUUID,
@@ -162,23 +201,23 @@ func (s *TransportService) CreateRoute(ctx context.Context, p CreateRouteParams)
 		DriverID:    dUUID,
 		Description: pgtype.Text{String: p.Description, Valid: p.Description != ""},
 	})
-    if err != nil {
-        return db.TransportRoute{}, err
-    }
+	if err != nil {
+		return db.TransportRoute{}, err
+	}
 
-    uUUID := pgtype.UUID{}
-    uUUID.Scan(p.UserID)
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(p.UserID)
 
-    _ = s.audit.Log(ctx, audit.Entry{
-        TenantID:     tUUID,
-        UserID:       uUUID,
-        RequestID:    p.RequestID,
-        Action:       "route.create",
-        ResourceType: "transport_route",
-        ResourceID:   route.ID,
-        After:        route,
-        IPAddress:    p.IP,
-    })
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    p.RequestID,
+		Action:       "route.create",
+		ResourceType: "transport_route",
+		ResourceID:   route.ID,
+		After:        route,
+		IPAddress:    p.IP,
+	})
 
 	return route, nil
 }
@@ -195,10 +234,14 @@ func (s *TransportService) UpdateRoute(ctx context.Context, tenantID, routeID st
 	rUUID.Scan(routeID)
 
 	vUUID := pgtype.UUID{}
-	if p.VehicleID != "" { vUUID.Scan(p.VehicleID) }
+	if p.VehicleID != "" {
+		vUUID.Scan(p.VehicleID)
+	}
 
 	dUUID := pgtype.UUID{}
-	if p.DriverID != "" { dUUID.Scan(p.DriverID) }
+	if p.DriverID != "" {
+		dUUID.Scan(p.DriverID)
+	}
 
 	route, err := s.q.UpdateRoute(ctx, db.UpdateRouteParams{
 		ID:          rUUID,
@@ -256,85 +299,87 @@ func (s *TransportService) CreateRouteStop(ctx context.Context, p CreateStopPara
 }
 
 func (s *TransportService) ListStops(ctx context.Context, routeID string) ([]db.TransportRouteStop, error) {
-    rUUID := pgtype.UUID{}
-    rUUID.Scan(routeID)
-    return s.q.ListRouteStops(ctx, rUUID)
+	rUUID := pgtype.UUID{}
+	rUUID.Scan(routeID)
+	return s.q.ListRouteStops(ctx, rUUID)
 }
 
 // Allocations
 
 type CreateAllocationParams struct {
-    TenantID string
-    StudentID string
-    RouteID string
-    StopID string
-    StartDate pgtype.Date
-    Status string
+	TenantID  string
+	StudentID string
+	RouteID   string
+	StopID    string
+	StartDate pgtype.Date
+	Status    string
 }
 
 func (s *TransportService) CreateAllocation(ctx context.Context, p CreateAllocationParams) (db.TransportAllocation, error) {
-    tUUID := pgtype.UUID{}
-    tUUID.Scan(p.TenantID)
-    
-    stUUID := pgtype.UUID{}
-    stUUID.Scan(p.StudentID)
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(p.TenantID)
 
-    rUUID := pgtype.UUID{}
-    rUUID.Scan(p.RouteID)
+	stUUID := pgtype.UUID{}
+	stUUID.Scan(p.StudentID)
 
-    // 1. Capacity Check
-    route, err := s.q.GetRoute(ctx, db.GetRouteParams{ID: rUUID, TenantID: tUUID})
-    if err == nil && route.VehicleID.Valid {
-        vehicle, vErr := s.q.GetVehicle(ctx, db.GetVehicleParams{ID: route.VehicleID, TenantID: tUUID})
-        if vErr == nil {
-            count, _ := s.q.CountRouteAllocations(ctx, db.CountRouteAllocationsParams{RouteID: rUUID, TenantID: tUUID})
-            if int32(count) >= vehicle.Capacity {
-                return db.TransportAllocation{}, fmt.Errorf("vehicle capacity (%d) reached for this route", vehicle.Capacity)
-            }
-        }
-    }
+	rUUID := pgtype.UUID{}
+	rUUID.Scan(p.RouteID)
 
-    stopUUID := pgtype.UUID{}
-    if p.StopID != "" { stopUUID.Scan(p.StopID) }
+	// 1. Capacity Check
+	route, err := s.q.GetRoute(ctx, db.GetRouteParams{ID: rUUID, TenantID: tUUID})
+	if err == nil && route.VehicleID.Valid {
+		vehicle, vErr := s.q.GetVehicle(ctx, db.GetVehicleParams{ID: route.VehicleID, TenantID: tUUID})
+		if vErr == nil {
+			count, _ := s.q.CountRouteAllocations(ctx, db.CountRouteAllocationsParams{RouteID: rUUID, TenantID: tUUID})
+			if int32(count) >= vehicle.Capacity {
+				return db.TransportAllocation{}, fmt.Errorf("vehicle capacity (%d) reached for this route", vehicle.Capacity)
+			}
+		}
+	}
 
-    allocation, err := s.q.CreateAllocation(ctx, db.CreateAllocationParams{
-        TenantID: tUUID,
-        StudentID: stUUID,
-        RouteID: rUUID,
-        StopID: stopUUID,
-        StartDate: p.StartDate,
-        Status: p.Status,
-    })
-    if err != nil {
-        return db.TransportAllocation{}, err
-    }
+	stopUUID := pgtype.UUID{}
+	if p.StopID != "" {
+		stopUUID.Scan(p.StopID)
+	}
 
-    // 2. Transport Billing Integration - Create transport fee entry
-    // Get stop cost if available
-    if p.StopID != "" {
-        stop, stopErr := s.q.GetRouteStop(ctx, stopUUID)
-        if stopErr == nil && stop.PickupCost.Valid {
-            // Log transport fee for billing (fee plan integration)
-            s.audit.Log(ctx, audit.Entry{
-                TenantID:     tUUID,
-                Action:       "transport.fee_generated",
-                ResourceType: "transport_allocation",
-                ResourceID:   allocation.ID,
-                After: map[string]interface{}{
-                    "student_id": p.StudentID,
-                    "route_id":   p.RouteID,
-                    "stop_id":    p.StopID,
-                    "cost":       stop.PickupCost.Int64,
-                },
-            })
-        }
-    }
+	allocation, err := s.q.CreateAllocation(ctx, db.CreateAllocationParams{
+		TenantID:  tUUID,
+		StudentID: stUUID,
+		RouteID:   rUUID,
+		StopID:    stopUUID,
+		StartDate: p.StartDate,
+		Status:    p.Status,
+	})
+	if err != nil {
+		return db.TransportAllocation{}, err
+	}
 
-    return allocation, nil
+	// 2. Transport Billing Integration - Create transport fee entry
+	// Get stop cost if available
+	if p.StopID != "" {
+		stop, stopErr := s.q.GetRouteStop(ctx, stopUUID)
+		if stopErr == nil && stop.PickupCost.Valid {
+			// Log transport fee for billing (fee plan integration)
+			s.audit.Log(ctx, audit.Entry{
+				TenantID:     tUUID,
+				Action:       "transport.fee_generated",
+				ResourceType: "transport_allocation",
+				ResourceID:   allocation.ID,
+				After: map[string]interface{}{
+					"student_id": p.StudentID,
+					"route_id":   p.RouteID,
+					"stop_id":    p.StopID,
+					"cost":       stop.PickupCost.Int64,
+				},
+			})
+		}
+	}
+
+	return allocation, nil
 }
 
 func (s *TransportService) ListAllocations(ctx context.Context, tenantID string) ([]db.ListAllocationsRow, error) {
-    tUUID := pgtype.UUID{}
-    tUUID.Scan(tenantID)
-    return s.q.ListAllocations(ctx, tUUID)
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	return s.q.ListAllocations(ctx, tUUID)
 }

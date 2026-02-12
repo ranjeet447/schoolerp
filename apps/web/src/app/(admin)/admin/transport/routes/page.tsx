@@ -38,9 +38,8 @@ export default function RoutesPage() {
   }
 
   const handleEdit = (route: Route) => {
-    // setSelectedRoute(route)
-    // setDialogOpen(true)
-    alert("Edit not implemented in backend yet")
+    setSelectedRoute(route)
+    setDialogOpen(true)
   }
 
   const handleCreate = () => {

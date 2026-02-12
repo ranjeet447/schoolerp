@@ -7,6 +7,7 @@ import {
 } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
 import { Vehicle } from "@/types/transport"
+import { toast } from "sonner"
 
 interface VehicleDialogProps {
   open: boolean
@@ -52,30 +53,25 @@ export function VehicleDialog({ open, onOpenChange, onSuccess, vehicle }: Vehicl
         capacity: parseInt(formData.capacity) || 0
       }
 
-      // TODO: Handle update when API supports it. Currently only Create implemented.
-      // Assuming Create for now.
-      // If vehicle exists, we might need a PUT endpoint.
-      // Based on handler, we only saw POST /transport/vehicles. 
-      // Checking handler... ah, I missed UpdateVehicle in handler implementation!
-      // I only implemented CreateVehicle, ListVehicles, GetVehicle.
-      // I should update the handler to support Update if needed, but for now let's implement Create only
-      // and maybe show error or just create new if it's "update" (which is wrong).
-      // Let's assume Create for now and I will add Update later if requested or if I fix it.
-      
-      const res = await apiClient("/admin/transport/vehicles", {
-        method: "POST", // vehicle ? "PUT" : "POST" - waiting for backend
+      const url = vehicle
+        ? `/admin/transport/vehicles/${vehicle.id}`
+        : "/admin/transport/vehicles"
+
+      const res = await apiClient(url, {
+        method: vehicle ? "PUT" : "POST",
         body: JSON.stringify(payload)
       })
 
       if (res.ok) {
+        toast.success(vehicle ? "Vehicle updated" : "Vehicle added")
         onSuccess()
         onOpenChange(false)
       } else {
-        alert("Failed to save vehicle")
+        toast.error("Failed to save vehicle")
       }
     } catch (error) {
       console.error(error)
-      alert("An error occurred")
+      toast.error("An error occurred")
     } finally {
       setLoading(false)
     }

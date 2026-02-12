@@ -38,9 +38,8 @@ export default function BooksPage() {
   }
 
   const handleEdit = (book: Book) => {
-    // setSelectedBook(book)
-    // setDialogOpen(true)
-    alert("Edit not implemented in backend yet")
+    setSelectedBook(book)
+    setDialogOpen(true)
   }
 
   const handleCreate = () => {

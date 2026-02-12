@@ -37,9 +37,8 @@ export default function VehiclesPage() {
   }
 
   const handleEdit = (vehicle: Vehicle) => {
-    // setSelectedVehicle(vehicle) // Update not implemented in backend yet
-    // setDialogOpen(true)
-    alert("Edit not implemented in backend yet")
+    setSelectedVehicle(vehicle)
+    setDialogOpen(true)
   }
 
   const handleCreate = () => {

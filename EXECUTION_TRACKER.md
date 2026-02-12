@@ -20,7 +20,7 @@ Validate and complete end-to-end readiness across APIs, services, responsive UI 
 5. `DONE` Marketing frontend API integration (replace stubs/fallback mocks with real endpoints)
 6. `DONE` Sales bookings admin UI integration with backend
 7. `DONE` Public admissions flow hardening (tenant resolution and captcha toggle behavior)
-8. `BLOCKED` Final verification sweep (web production build blocked by external Google Fonts fetch in restricted network)
+8. `DONE` Final verification sweep (using stable webpack build path for web)
 9. `IN_PROGRESS` Remaining enterprise backlog triage and phased execution list
 
 ## Execution Log
@@ -50,8 +50,17 @@ Validate and complete end-to-end readiness across APIs, services, responsive UI 
   - `apps/web`: `pnpm exec tsc --noEmit` passed.
   - `apps/marketing`: `pnpm exec tsc --noEmit` passed.
   - `apps/marketing`: production build passed.
-  - `apps/web`: production build failed due network-restricted Google Fonts fetch.
+  - `apps/web`: production build passed via `next build --webpack`.
+- 2026-02-12: Cleared web build font dependency and implemented edit flows:
+  - Enabled update API + UI flow for transport vehicles.
+  - Enabled edit dialogs for transport routes and library books.
+
+## Remaining Backlog (Phased)
+- `PENDING` Driver update flow (`/admin/transport/drivers/{id}` backend + UI edit wiring).
+- `PENDING` Inventory edit flows (supplier/item dialogs currently create-only).
+- `PENDING` Attendance settings persistence UX cleanup (remove local-only fallback messaging).
+- `PENDING` Replace remaining `alert(...)` UX fallbacks with consistent toasts/stateful errors.
 
 ## Known Environment Constraints
-- Web production build is blocked by external Google Fonts fetch in restricted network environment.
+- `next build` default Turbopack path can fail in this sandbox due process/port restrictions; webpack build succeeds.
 - Marketing build succeeds but shows cache write warning (`ENOSPC`) in this environment.
