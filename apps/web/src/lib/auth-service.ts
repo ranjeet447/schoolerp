@@ -23,6 +23,7 @@ class AuthServiceClass {
     const r = role || this.getCurrentUser()?.role;
     switch (r) {
       case 'super_admin':
+        return '/platform/dashboard';
       case 'tenant_admin':
         return '/admin/dashboard';
       case 'teacher':

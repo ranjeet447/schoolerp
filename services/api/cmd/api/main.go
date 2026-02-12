@@ -292,6 +292,12 @@ func main() {
 			r.Get("/tenants/plugins", tenantHandler.ListPlugins)
 			r.Post("/tenants/plugins/{id}", tenantHandler.UpdatePluginConfig)
 			r.Post("/tenants/onboard", tenantHandler.OnboardSchool)
+
+			// Platform routes for SaaS admin
+			r.Route("/platform", func(r chi.Router) {
+				r.Use(middleware.RoleGuard("super_admin"))
+				tenantHandler.RegisterPlatformRoutes(r)
+			})
 		})
 
 		// Teacher Routes

@@ -6,12 +6,15 @@ export async function apiClient(path: string, options: RequestInit = {}) {
   // 1. Resolve Tenant from Hostname or LocalStorage
   let tenant = process.env.NEXT_PUBLIC_DEFAULT_TENANT_ID || ""
   if (typeof window !== "undefined") {
+    const storedTenant = localStorage.getItem("tenant_id")
+    if (storedTenant) {
+      tenant = storedTenant
+    }
+
     const hostname = window.location.hostname
     const parts = hostname.split(".")
-    if (parts.length >= 2 && parts[0] !== "www" && parts[0] !== "localhost") {
+    if (!tenant && parts.length >= 2 && parts[0] !== "www" && parts[0] !== "localhost") {
       tenant = parts[0]
-    } else {
-      tenant = localStorage.getItem("tenant_id") || tenant
     }
   }
 

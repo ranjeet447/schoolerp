@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@schoolerp/ui';
 import { RBACService } from '@/lib/auth-service';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { TenantConfig } from '@/lib/tenant-utils';
 import { useAuth } from '@/components/auth-provider';
 
@@ -44,6 +44,13 @@ export default function AdminLayoutClient({
 }) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (user?.role === 'super_admin') {
+      router.replace('/platform/dashboard');
+    }
+  }, [user?.role, router]);
 
   const filteredNavItems = NAV_ITEMS.filter(item => 
     !item.permission || RBACService.hasPermission(item.permission)
