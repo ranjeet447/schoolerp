@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { 
   Button, Card, CardContent, CardHeader, CardTitle, 
   Input, Label, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue
@@ -19,21 +19,32 @@ export default function AdmissionEnquiryPage() {
     grade_interested: "",
     academic_year: "2024-2025",
     source: "website",
-    notes: "",
-    tenant_id: "78805244-6338-4e89-a359-994c502b661d" // TODO: Fetch from headers/domain or config
+    notes: ""
   })
 
-  // Hardcoded for MVP public form, ideally needs dynamic resolution or public config endpoint
-  // const tenantId = "78805244-6338-4e89-a359-994c502b661d" 
+  const [tenantID, setTenantID] = useState(process.env.NEXT_PUBLIC_DEFAULT_TENANT_ID || "")
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const tenantFromStorage = localStorage.getItem("tenant_id")
+    if (tenantFromStorage) {
+      setTenantID(tenantFromStorage)
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
+      const payload = {
+        ...formData,
+        ...(tenantID ? { tenant_id: tenantID } : {})
+      }
+
       const res = await apiClient("/public/admissions/enquiry", {
         method: "POST",
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       })
 
       if (res.ok) {
@@ -46,8 +57,7 @@ export default function AdmissionEnquiryPage() {
             grade_interested: "",
             academic_year: "2024-2025",
             source: "website",
-            notes: "",
-            tenant_id: formData.tenant_id
+            notes: ""
         })
       } else {
         const err = await res.text()

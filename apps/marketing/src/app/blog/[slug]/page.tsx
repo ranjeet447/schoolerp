@@ -52,15 +52,17 @@ const POSTS = {
   }
 };
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const post = POSTS[params.slug as keyof typeof POSTS];
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const post = POSTS[slug as keyof typeof POSTS];
   return {
     title: post ? `${post.title} - School ERP Blog` : 'Blog Post',
   };
 }
 
-export default function BlogPostPage({ params }: { params: { slug: string } }) {
-  const post = POSTS[params.slug as keyof typeof POSTS];
+export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const post = POSTS[slug as keyof typeof POSTS];
 
   if (!post) return <div>Post not found</div>;
 

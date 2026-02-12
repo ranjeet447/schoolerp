@@ -3,7 +3,9 @@ package admission
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -78,17 +80,24 @@ func init() {
 }
 
 func (h *Handler) RegisterRoutes(r chi.Router) {
+	h.RegisterPublicRoutes(r)
+	h.RegisterAdminRoutes(r)
+}
+
+func (h *Handler) RegisterPublicRoutes(r chi.Router) {
 	// Public Routes (Rate Limited)
 	r.Group(func(r chi.Router) {
 		r.Use(h.limitMiddleware)
 		r.Post("/public/admissions/enquiry", h.SubmitEnquiry)
 	})
+}
 
+func (h *Handler) RegisterAdminRoutes(r chi.Router) {
 	// Admin Routes (Authenticated)
-	r.Route("/admin/admissions", func(r chi.Router) {
+	r.Route("/admissions", func(r chi.Router) {
 		r.Get("/enquiries", h.ListEnquiries)
 		r.Put("/enquiries/{id}/status", h.UpdateEnquiryStatus)
-		
+
 		r.Post("/applications", h.CreateApplication)
 		r.Get("/applications", h.ListApplications)
 		r.Get("/applications/{id}", h.GetApplication)
@@ -121,14 +130,21 @@ func (h *Handler) SubmitEnquiry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if strings.TrimSpace(req.TenantID) == "" {
+		req.TenantID = strings.TrimSpace(middleware.GetTenantID(r.Context()))
+	}
+	if strings.TrimSpace(req.TenantID) == "" {
+		req.TenantID = strings.TrimSpace(os.Getenv("PUBLIC_DEFAULT_TENANT_ID"))
+	}
+
 	// Basic validation
 	if req.TenantID == "" || req.ParentName == "" || req.Phone == "" {
 		http.Error(w, "missing required fields", http.StatusBadRequest)
 		return
 	}
 
-	// Captcha stub (Hardening requirement)
-	if req.Captcha == "" && r.Header.Get("X-Env") != "test" {
+	captchaRequired := strings.EqualFold(os.Getenv("PUBLIC_FORM_CAPTCHA_REQUIRED"), "true")
+	if captchaRequired && req.Captcha == "" && r.Header.Get("X-Env") != "test" {
 		http.Error(w, "captcha validation required", http.StatusForbidden)
 		return
 	}
@@ -157,7 +173,9 @@ func (h *Handler) SubmitEnquiry(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) ListEnquiries(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit == 0 { limit = 20 }
+	if limit == 0 {
+		limit = 20
+	}
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 
 	status := r.URL.Query().Get("status")
@@ -213,7 +231,9 @@ func (h *Handler) CreateApplication(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) ListApplications(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit == 0 { limit = 20 }
+	if limit == 0 {
+		limit = 20
+	}
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 
 	status := r.URL.Query().Get("status")
@@ -311,7 +331,6 @@ func (h *Handler) AttachDocument(w http.ResponseWriter, r *http.Request) {
 	}
 	respondJSON(w, http.StatusOK, map[string]string{"message": "document attached"})
 }
-
 
 func respondJSON(w http.ResponseWriter, status int, payload interface{}) {
 	w.Header().Set("Content-Type", "application/json")

@@ -45,6 +45,8 @@ export default function CaseStudyPage({ params }: CaseStudyPageProps) {
   const { slug } = React.use(params);
   const [jobId, setJobId] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'generating' | 'ready' | 'error'>('idle');
+  const [downloadURL, setDownloadURL] = useState<string | null>(null);
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/v1';
 
   const study = CASE_STUDIES[slug];
 
@@ -54,8 +56,10 @@ export default function CaseStudyPage({ params }: CaseStudyPageProps) {
 
   const requestPdf = async () => {
     setStatus('generating');
+    setDownloadURL(null);
     try {
-      const res = await fetch(`/api/public/case-studies/${slug}/pdf`, { method: 'POST' });
+      const res = await fetch(`${apiBase}/public/case-studies/${slug}/pdf`, { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to start PDF generation');
       const data = await res.json();
       setJobId(data.job_id);
     } catch (err) {
@@ -68,9 +72,11 @@ export default function CaseStudyPage({ params }: CaseStudyPageProps) {
     if (jobId && status === 'generating') {
       interval = setInterval(async () => {
         try {
-          const res = await fetch(`/api/public/pdf-jobs/${jobId}`);
+          const res = await fetch(`${apiBase}/public/pdf-jobs/${jobId}`);
+          if (!res.ok) throw new Error('Failed to fetch PDF job status');
           const data = await res.json();
           if (data.status === 'completed') {
+            setDownloadURL(data.download_url || null);
             setStatus('ready');
             clearInterval(interval);
           } else if (data.status === 'failed') {
@@ -84,11 +90,12 @@ export default function CaseStudyPage({ params }: CaseStudyPageProps) {
       }, 3000);
     }
     return () => clearInterval(interval);
-  }, [jobId, status]);
+  }, [apiBase, jobId, status]);
 
   const handleDownload = () => {
-    if (status === 'ready') {
-      window.open(`/api/public/files/stub-file-id`, '_blank');
+    if (status === 'ready' && downloadURL) {
+      const absoluteURL = downloadURL.startsWith('http') ? downloadURL : `${apiBase}${downloadURL}`;
+      window.open(absoluteURL, '_blank');
     } else {
       requestPdf();
     }

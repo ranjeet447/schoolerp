@@ -12,19 +12,24 @@ export default function ContactPage() {
     setStatus('loading');
     setError(null);
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/v1';
       const url = `${apiBase}/public/contact`;
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error('network');
+
+      if (!res.ok) {
+        const message = await res.text();
+        throw new Error(message || 'Unable to submit contact request');
+      }
+
       setStatus('success');
     } catch (err) {
-      console.warn('Contact fallback used', err);
-      setError('We could not reach the server, but your message was captured locally.');
-      setStatus('success');
+      console.warn('Contact submission failed', err);
+      setStatus('error');
+      setError('We could not submit your message right now. Please retry shortly.');
     }
   };
 

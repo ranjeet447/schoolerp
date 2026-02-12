@@ -1,13 +1,36 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BookingTable } from '@schoolerp/ui';
+import { apiClient } from '@/lib/api-client';
 
 export default function AdminBookingsPage() {
-  const mockBookings: any[] = [
-    { id: '1', name: 'Vivek Sharma', email: 'vivek@dps.edu.in', school_name: 'Delhi Public School', start_at: '2026-02-01T10:00:00Z', status: 'confirmed' },
-    { id: '2', name: 'Anita Rao', email: 'anita@kv.ac.in', school_name: 'Kendriya Vidyalaya', start_at: '2026-02-02T14:30:00Z', status: 'pending' },
-  ];
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadBookings() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await apiClient('/admin/demo-bookings?limit=100');
+      if (!res.ok) {
+        const message = await res.text();
+        throw new Error(message || 'Failed to load demo bookings');
+      }
+      const data = await res.json();
+      setBookings(Array.isArray(data?.items) ? data.items : []);
+    } catch (err) {
+      console.error(err);
+      setError('Could not load demo bookings. Ensure you are logged in as admin.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadBookings();
+  }, []);
 
   return (
     <div className="p-8">
@@ -19,10 +42,20 @@ export default function AdminBookingsPage() {
       </div>
 
       <div className="mt-8">
-        <BookingTable 
-          bookings={mockBookings} 
-          onAction={(id, action) => alert(`Action: ${action} on booking ${id}`)} 
-        />
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading demo bookings...</p>
+        ) : error ? (
+          <p className="text-sm text-red-600">{error}</p>
+        ) : (
+          <BookingTable
+            bookings={bookings}
+            onAction={(id) => {
+              const booking = bookings.find((b) => b.id === id);
+              if (!booking?.email) return;
+              window.location.href = `mailto:${booking.email}?subject=School ERP Demo Follow-up`;
+            }}
+          />
+        )}
       </div>
     </div>
   );

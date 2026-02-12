@@ -11,19 +11,24 @@ export function BookDemoClient() {
     setStatus("loading");
     setError(null);
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/v1";
       const url = `${apiBase}/public/demo-bookings`;
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data }),
+        body: JSON.stringify({ ...data, source_page: "/book-demo" }),
       });
-      if (!res.ok) throw new Error("network");
+
+      if (!res.ok) {
+        const message = await res.text();
+        throw new Error(message || "Could not submit booking request");
+      }
+
       setStatus("success");
     } catch (err) {
-      console.warn("Demo booking fallback used", err);
-      setError("We could not reach the server, but your request was recorded. We will confirm by email.");
-      setStatus("success");
+      console.warn("Demo booking failed", err);
+      setStatus("error");
+      setError("We could not submit your request right now. Please retry in a moment.");
     }
   };
 

@@ -38,6 +38,7 @@ import (
 	"github.com/schoolerp/api/internal/handler/hrms"
 	"github.com/schoolerp/api/internal/handler/inventory"
 	"github.com/schoolerp/api/internal/handler/library"
+	"github.com/schoolerp/api/internal/handler/marketing"
 	"github.com/schoolerp/api/internal/handler/notices"
 	"github.com/schoolerp/api/internal/handler/notification"
 	"github.com/schoolerp/api/internal/handler/portfolio"
@@ -60,6 +61,7 @@ import (
 	hrmsservice "github.com/schoolerp/api/internal/service/hrms"
 	inventoryservice "github.com/schoolerp/api/internal/service/inventory"
 	libraryservice "github.com/schoolerp/api/internal/service/library"
+	marketingservice "github.com/schoolerp/api/internal/service/marketing"
 	noticeservice "github.com/schoolerp/api/internal/service/notices"
 	notificationservice "github.com/schoolerp/api/internal/service/notification"
 	portfolioservice "github.com/schoolerp/api/internal/service/portfolio"
@@ -69,9 +71,6 @@ import (
 	tenantservice "github.com/schoolerp/api/internal/service/tenant"
 	transportservice "github.com/schoolerp/api/internal/service/transport"
 )
-
-
-
 
 func main() {
 	// 0. Setup Logger
@@ -102,21 +101,21 @@ func main() {
 	if dbURL == "" {
 		dbURL = "postgres://schoolerp:password@localhost:5432/schoolerp?sslmode=disable"
 	}
-	
+
 	poolConfig, err := pgxpool.ParseConfig(dbURL)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Unable to parse DB config")
 	}
-	
+
 	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Unable to connect to database")
 	}
 	defer pool.Close()
-	
+
 	// Initialize Querier
 	querier := db.New(pool)
-	
+
 	// Initialize Foundations
 	auditLogger := audit.NewLogger(querier)
 	policyEval := policy.NewEvaluator(querier)
@@ -153,21 +152,26 @@ func main() {
 	notificationService := notificationservice.NewService(querier)
 	academicService := academicservice.NewService(querier, auditLogger)
 	tenantService := tenantservice.NewService(querier, pool)
-	
+	marketingService := marketingservice.NewService(pool)
+
 	aiService, err := aiservice.NewService()
 	if err != nil {
 		log.Warn().Err(err).Msg("AI Service failed to initialize (missing API key?)")
 	}
-	
+
 	// File Service
 	fsDir := os.Getenv("UPLOAD_DIR")
-	if fsDir == "" { fsDir = "./uploads" }
+	if fsDir == "" {
+		fsDir = "./uploads"
+	}
 	fsURL := os.Getenv("UPLOAD_URL")
-	if fsURL == "" { fsURL = "/uploads" }
-	
+	if fsURL == "" {
+		fsURL = "/uploads"
+	}
+
 	store, _ := filestore.NewLocalProvider(fsDir, fsURL)
 	fileService := fileservice.NewFileService(querier, store)
-	
+
 	// Initialize Handlers
 	studentHandler := sis.NewHandler(studentService)
 	attendanceHandler := attendance.NewHandler(attendanceService)
@@ -190,15 +194,14 @@ func main() {
 	fileHandler := files.NewHandler(fileService)
 	tenantHandler := tenant.NewHandler(tenantService)
 	aiHandler := aihandler.NewAIHandler(aiService)
-
-
+	marketingHandler := marketing.NewHandler(marketingService)
 
 	r := chi.NewRouter()
 
 	// 1. Standard Middlewares
 	r.Use(chimiddleware.RequestID)
 	r.Use(chimiddleware.RealIP)
-	
+
 	// Sentry middleware
 	if os.Getenv("SENTRY_DSN") != "" {
 		sentryHandler := sentryhttp.New(sentryhttp.Options{
@@ -214,12 +217,11 @@ func main() {
 	r.Use(middleware.RateLimit) // Protect sensitive endpoints
 	r.Use(middleware.Metrics)   // Structured logging & metrics
 
-
 	// 2. Custom Foundation Middlewares
-	r.Use(middleware.RequestIDPropagation) // Propagate to response
-	r.Use(middleware.TenantResolver)       // Resolve tenant from header/subdomain
-	r.Use(middleware.AuthResolver)         // Parse JWT and set user context
-	r.Use(middleware.LocaleResolver)       // Detect language from Accept-Language
+	r.Use(middleware.RequestIDPropagation)         // Propagate to response
+	r.Use(middleware.TenantResolver)               // Resolve tenant from header/subdomain
+	r.Use(middleware.AuthResolver)                 // Parse JWT and set user context
+	r.Use(middleware.LocaleResolver)               // Detect language from Accept-Language
 	r.Use(middleware.IPGuard(authService.IPGuard)) // Enforce IP allowlists
 
 	// 3. Health Endpoint
@@ -234,14 +236,15 @@ func main() {
 
 	// Static Assets (Uploads)
 	uploadDir := os.Getenv("UPLOAD_DIR")
-	if uploadDir == "" { uploadDir = "./uploads" }
+	if uploadDir == "" {
+		uploadDir = "./uploads"
+	}
 	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
 		os.MkdirAll(uploadDir, 0755)
 	}
-	
+
 	fs := http.FileServer(http.Dir(uploadDir))
 	r.Handle("/uploads/*", http.StripPrefix("/uploads/", fs))
-
 
 	// 4. API V1 Routes
 	r.Route("/v1", func(r chi.Router) {
@@ -252,10 +255,10 @@ func main() {
 		})
 
 		fileHandler.RegisterRoutes(r)
+		marketingHandler.RegisterPublicRoutes(r)
+		admissionHandler.RegisterPublicRoutes(r)
 
 		r.Get("/tenants/config", tenantHandler.GetConfig)
-
-		
 
 		// Admin Routes
 		r.Route("/admin", func(r chi.Router) {
@@ -270,23 +273,20 @@ func main() {
 			transportHandler.RegisterRoutes(r)
 			libraryHandler.RegisterRoutes(r)
 			inventoryHandler.RegisterRoutes(r)
-			admissionHandler.RegisterRoutes(r)
+			admissionHandler.RegisterAdminRoutes(r)
 			hrmsHandler.RegisterRoutes(r)
 			safetyHandler.RegisterRoutes(r)
 			commHandler.RegisterRoutes(r)
 			portfolioHandler.RegisterRoutes(r)
 			alumniHandler.RegisterRoutes(r)
 			rolesHandler.RegisterRoutes(r) // Role management endpoints
-			
+			marketingHandler.RegisterAdminRoutes(r)
+
 			r.Post("/tenants/config", tenantHandler.UpdateConfig)
 			r.Get("/tenants/plugins", tenantHandler.ListPlugins)
 			r.Post("/tenants/plugins/{id}", tenantHandler.UpdatePluginConfig)
 			r.Post("/tenants/onboard", tenantHandler.OnboardSchool)
-			
-			// Growth/Other stubs maintained for now
-			r.Get("/demo-bookings", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(`[]`)) })
 		})
-
 
 		// Teacher Routes
 		r.Route("/teacher", func(r chi.Router) {
@@ -311,7 +311,7 @@ func main() {
 		// AI Routes
 		r.Route("/ai", func(r chi.Router) {
 			r.Post("/helpdesk", aiHandler.ParentQuery)
-			
+
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.RoleGuard("teacher", "tenant_admin", "super_admin"))
 				r.Post("/lesson-plan", aiHandler.GenerateLessonPlan)
