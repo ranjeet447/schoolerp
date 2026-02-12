@@ -7,13 +7,51 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"os"
+	"strings"
+	"sync"
 )
 
-// In a real app, this would be loaded from env or KMS
-var masterKey = []byte("a-very-secret-key-32-chars-long!!")
+var (
+	masterKey     []byte
+	masterKeyErr  error
+	masterKeyOnce sync.Once
+)
+
+func getMasterKey() ([]byte, error) {
+	masterKeyOnce.Do(func() {
+		key := strings.TrimSpace(os.Getenv("DATA_ENCRYPTION_KEY"))
+		if key == "" {
+			masterKeyErr = fmt.Errorf("DATA_ENCRYPTION_KEY is not configured")
+			return
+		}
+
+		// Accept raw 32-byte key for local/dev usage.
+		if len(key) == 32 {
+			masterKey = []byte(key)
+			return
+		}
+
+		// Accept base64-encoded 32-byte key for secure secret managers.
+		decoded, err := base64.StdEncoding.DecodeString(key)
+		if err == nil && len(decoded) == 32 {
+			masterKey = decoded
+			return
+		}
+
+		masterKeyErr = fmt.Errorf("DATA_ENCRYPTION_KEY must be 32 raw characters or base64 for 32 bytes")
+	})
+
+	return masterKey, masterKeyErr
+}
 
 func encrypt(plaintext []byte) (string, error) {
-	block, err := aes.NewCipher(masterKey)
+	key, err := getMasterKey()
+	if err != nil {
+		return "", err
+	}
+
+	block, err := aes.NewCipher(key)
 	if err != nil {
 		return "", err
 	}
@@ -38,7 +76,12 @@ func decrypt(cryptoText string) ([]byte, error) {
 		return nil, err
 	}
 
-	block, err := aes.NewCipher(masterKey)
+	key, err := getMasterKey()
+	if err != nil {
+		return nil, err
+	}
+
+	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
