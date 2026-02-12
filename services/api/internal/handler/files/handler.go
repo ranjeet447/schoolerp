@@ -26,6 +26,15 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 	tenantID := middleware.GetTenantID(ctx)
 	userID := middleware.GetUserID(ctx)
 
+	if tenantID == "" {
+		http.Error(w, "tenant context is required", http.StatusBadRequest)
+		return
+	}
+	if userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	// Limit upload size (e.g., 10MB)
 	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
 

@@ -128,9 +128,10 @@ func TenantResolver(next http.Handler) http.Handler {
 // AuthResolver validates JWT tokens from the Authorization header
 func AuthResolver(next http.Handler) http.Handler {
 	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		secret = "your-very-secret-key-123" // Fallback for dev only
+	if secret == "" && !strings.EqualFold(os.Getenv("ENV"), "production") {
+		secret = "default-dev-secret"
 	}
+	secretConfigured := secret != ""
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 1. Skip auth for public paths
@@ -139,13 +140,24 @@ func AuthResolver(next http.Handler) http.Handler {
 			return
 		}
 
-		// 2. Extract Bearer Token
 		authHeader := r.Header.Get("Authorization")
+		isProtectedPath := strings.HasPrefix(r.URL.Path, "/v1/admin") ||
+			strings.HasPrefix(r.URL.Path, "/v1/teacher") ||
+			strings.HasPrefix(r.URL.Path, "/v1/parent")
+
+		if !secretConfigured {
+			if isProtectedPath || authHeader != "" {
+				http.Error(w, "Server authentication is not configured", http.StatusInternalServerError)
+				return
+			}
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// 2. Extract Bearer Token
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
 			// Strict auth for protected routes
-			if strings.HasPrefix(r.URL.Path, "/v1/admin") || 
-			   strings.HasPrefix(r.URL.Path, "/v1/teacher") || 
-			   strings.HasPrefix(r.URL.Path, "/v1/parent") {
+			if isProtectedPath {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}

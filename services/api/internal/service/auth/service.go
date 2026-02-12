@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -87,6 +88,9 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 	
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
+		if strings.EqualFold(os.Getenv("ENV"), "production") {
+			return nil, errors.New("server authentication is not configured")
+		}
 		jwtSecret = "default-dev-secret"
 	}
 

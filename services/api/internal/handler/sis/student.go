@@ -249,7 +249,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 // Parent Routes
 func (h *Handler) RegisterParentRoutes(r chi.Router) {
 	r.Get("/me/children", h.ListMyChildren)
-	r.Get("/children/{id}/profile", h.Get) // Reuse admin get for now, but usually needs scope check
+	r.Get("/children/{id}/profile", h.GetMyChildProfile)
 }
 
 func (h *Handler) ListMyChildren(w http.ResponseWriter, r *http.Request) {
@@ -269,4 +269,50 @@ func (h *Handler) ListMyChildren(w http.ResponseWriter, r *http.Request) {
 	} else {
 		json.NewEncoder(w).Encode(children)
 	}
+}
+
+func (h *Handler) GetMyChildProfile(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	tenantID := middleware.GetTenantID(ctx)
+	userID := middleware.GetUserID(ctx)
+	childID := chi.URLParam(r, "id")
+
+	if childID == "" {
+		http.Error(w, "child id is required", http.StatusBadRequest)
+		return
+	}
+
+	children, err := h.svc.ListChildrenByParent(ctx, tenantID, userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	childUUID := pgtype.UUID{}
+	if err := childUUID.Scan(childID); err != nil {
+		http.Error(w, "invalid child id", http.StatusBadRequest)
+		return
+	}
+
+	authorized := false
+	for _, child := range children {
+		if child.ID.Valid && childUUID.Valid && child.ID.Bytes == childUUID.Bytes {
+			authorized = true
+			break
+		}
+	}
+
+	if !authorized {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	student, err := h.svc.GetStudent(ctx, tenantID, childID)
+	if err != nil {
+		http.Error(w, "student not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(student)
 }
