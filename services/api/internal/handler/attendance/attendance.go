@@ -21,6 +21,7 @@ func NewHandler(svc *attendservice.Service) *Handler {
 func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Route("/attendance", func(r chi.Router) {
 		r.Get("/sessions", h.GetSession)
+		r.Get("/stats", h.GetDailyStats)
 		r.Post("/mark", h.MarkAttendance)
 		r.Get("/policies", h.ListPolicies)
 		r.Post("/policies", h.UpdatePolicy)
@@ -38,8 +39,8 @@ func (h *Handler) RegisterParentRoutes(r chi.Router) {
 
 func (h *Handler) MarkAttendance(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		ClassSectionID string                         `json:"class_section_id"`
-		Date           string                         `json:"date"`
+		ClassSectionID string                          `json:"class_section_id"`
+		Date           string                          `json:"date"`
 		Entries        []attendservice.AttendanceEntry `json:"entries"`
 	}
 
@@ -49,7 +50,7 @@ func (h *Handler) MarkAttendance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	date, _ := time.Parse("2006-01-02", req.Date)
-	
+
 	p := attendservice.MarkAttendanceParams{
 		TenantID:       middleware.GetTenantID(r.Context()),
 		ClassSectionID: req.ClassSectionID,
@@ -71,7 +72,7 @@ func (h *Handler) MarkAttendance(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 	classSectionID := r.URL.Query().Get("class_section_id")
 	dateStr := r.URL.Query().Get("date")
-	
+
 	date, _ := time.Parse("2006-01-02", dateStr)
 	tenantID := middleware.GetTenantID(r.Context())
 
@@ -185,3 +186,27 @@ func (h *Handler) UpdatePolicy(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(policy)
 }
 
+func (h *Handler) GetDailyStats(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	dateStr := r.URL.Query().Get("date")
+
+	var targetDate time.Time
+	var err error
+	if dateStr == "" {
+		targetDate = time.Now()
+	} else {
+		targetDate, err = time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			http.Error(w, "invalid date format, expected YYYY-MM-DD", http.StatusBadRequest)
+			return
+		}
+	}
+
+	stats, err := h.svc.GetDailyStats(r.Context(), tenantID, targetDate)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(stats)
+}

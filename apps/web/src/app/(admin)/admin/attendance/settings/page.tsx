@@ -1,25 +1,75 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label } from "@schoolerp/ui"
 import { Switch } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
+import { toast } from "sonner"
 
 export default function AdminAttendanceSettingsPage() {
   const [loading, setLoading] = useState(false)
+  const [initializing, setInitializing] = useState(true)
+  const [editWindow, setEditWindow] = useState("24")
+  const [requireReason, setRequireReason] = useState(true)
+  const [lockPreviousMonths, setLockPreviousMonths] = useState(true)
+
+  useEffect(() => {
+    fetchSettings()
+  }, [])
+
+  const fetchSettings = async () => {
+    setInitializing(true)
+    try {
+      const res = await apiClient("/admin/attendance/policies")
+      if (!res.ok) {
+        return
+      }
+      const policies = await res.json()
+      const settingsPolicy = Array.isArray(policies)
+        ? policies.find((p) => p.module === "attendance" && p.action === "settings")
+        : null
+
+      const logic = settingsPolicy?.logic || {}
+      if (typeof logic.edit_window_hours === "number") {
+        setEditWindow(String(logic.edit_window_hours))
+      }
+      if (typeof logic.require_reason_for_edits === "boolean") {
+        setRequireReason(logic.require_reason_for_edits)
+      }
+      if (typeof logic.lock_previous_months === "boolean") {
+        setLockPreviousMonths(logic.lock_previous_months)
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setInitializing(false)
+    }
+  }
 
   const handleSave = async () => {
     setLoading(true)
     try {
-      // Stub endpoint for settings
-      await apiClient("/admin/attendance/settings", {
+      const res = await apiClient("/admin/attendance/policies", {
         method: "POST",
-        body: JSON.stringify({ edit_window: 24 })
+        body: JSON.stringify({
+          module: "attendance",
+          action: "settings",
+          logic: {
+            edit_window_hours: parseInt(editWindow) || 24,
+            require_reason_for_edits: requireReason,
+            lock_previous_months: lockPreviousMonths,
+          },
+          is_active: true,
+        })
       })
-      alert("Settings saved!")
+      if (!res.ok) {
+        const message = await res.text()
+        throw new Error(message || "Failed to save attendance settings")
+      }
+      toast.success("Attendance settings saved")
     } catch (err) {
-      // Silently fail if endpoint doesn't exist yet but allow UI flow
-      alert("Settings updated locally (Backend sync pending)")
+      console.error(err)
+      toast.error("Failed to save attendance settings")
     } finally {
       setLoading(false)
     }
@@ -45,7 +95,12 @@ export default function AdminAttendanceSettingsPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>Edit Window (In Hours)</Label>
-              <Input type="number" defaultValue="24" />
+              <Input
+                type="number"
+                value={editWindow}
+                onChange={(e) => setEditWindow(e.target.value)}
+                disabled={initializing}
+              />
               <p className="text-xs text-gray-500">
                 Number of hours after marking that a teacher can edit attendance without approval.
               </p>
@@ -57,7 +112,7 @@ export default function AdminAttendanceSettingsPage() {
                   Always ask for a reason when attendance is changed.
                 </span>
               </Label>
-              <Switch defaultChecked />
+              <Switch checked={requireReason} onCheckedChange={setRequireReason} />
             </div>
           </CardContent>
         </Card>
@@ -77,7 +132,7 @@ export default function AdminAttendanceSettingsPage() {
                   Automatically lock attendance marking for the previous month on the 5th of current month.
                 </span>
               </Label>
-              <Switch defaultChecked />
+              <Switch checked={lockPreviousMonths} onCheckedChange={setLockPreviousMonths} />
             </div>
             <Button variant="outline" className="w-full text-red-600 border-red-200 hover:bg-red-50">
               Lock All Attendance (Emergency)
