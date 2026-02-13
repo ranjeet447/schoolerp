@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -36,6 +37,7 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Post("/tenants/{tenant_id}/impersonate", h.ImpersonateTenantAdmin)
 	r.Get("/tenants/{tenant_id}/branches", h.ListTenantBranches)
 	r.Post("/tenants/{tenant_id}/branches", h.CreateTenantBranch)
+	r.Patch("/tenants/{tenant_id}/branches/{branch_id}", h.UpdateTenantBranch)
 	r.Get("/payments", h.ListPlatformPayments)
 }
 
@@ -171,30 +173,54 @@ func (h *Handler) GetPlatformSummary(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListPlatformTenants(w http.ResponseWriter, r *http.Request) {
-	includeInactive := r.URL.Query().Get("include_inactive") == "true"
+	qp := r.URL.Query()
+	includeInactive := qp.Get("include_inactive") == "true"
 
 	var createdFrom *time.Time
-	if raw := r.URL.Query().Get("created_from"); raw != "" {
-		if parsed, err := time.Parse(time.RFC3339, raw); err == nil {
-			createdFrom = &parsed
+	if raw := qp.Get("created_from"); raw != "" {
+		parsed, err := parseDateOrRFC3339(raw, false)
+		if err != nil {
+			http.Error(w, "invalid created_from", http.StatusBadRequest)
+			return
 		}
+		createdFrom = &parsed
 	}
 
 	var createdTo *time.Time
-	if raw := r.URL.Query().Get("created_to"); raw != "" {
-		if parsed, err := time.Parse(time.RFC3339, raw); err == nil {
-			createdTo = &parsed
+	if raw := qp.Get("created_to"); raw != "" {
+		parsed, err := parseDateOrRFC3339(raw, true)
+		if err != nil {
+			http.Error(w, "invalid created_to", http.StatusBadRequest)
+			return
+		}
+		createdTo = &parsed
+	}
+
+	limit := int32(50)
+	if raw := qp.Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = int32(parsed)
+		}
+	}
+	offset := int32(0)
+	if raw := qp.Get("offset"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			offset = int32(parsed)
 		}
 	}
 
 	tenants, err := h.service.ListPlatformTenantsWithFilters(r.Context(), tenant.TenantDirectoryFilters{
 		IncludeInactive: includeInactive,
-		Search:          r.URL.Query().Get("search"),
-		PlanCode:        r.URL.Query().Get("plan"),
-		Status:          r.URL.Query().Get("status"),
-		Region:          r.URL.Query().Get("region"),
+		Search:          firstNonEmpty(qp.Get("q"), qp.Get("search")),
+		PlanCode:        firstNonEmpty(qp.Get("plan_code"), qp.Get("plan")),
+		Status:          qp.Get("status"),
+		Region:          qp.Get("region"),
 		CreatedFrom:     createdFrom,
 		CreatedTo:       createdTo,
+		Limit:           limit,
+		Offset:          offset,
+		SortBy:          qp.Get("sort"),
+		SortOrder:       qp.Get("order"),
 	})
 	if err != nil {
 		http.Error(w, "Failed to load tenants", http.StatusInternalServerError)
@@ -203,6 +229,38 @@ func (h *Handler) ListPlatformTenants(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(tenants)
+}
+
+func parseDateOrRFC3339(raw string, endOfDay bool) (time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}, errors.New("empty")
+	}
+
+	// 1) Full timestamp
+	if t, err := time.Parse(time.RFC3339, raw); err == nil {
+		return t, nil
+	}
+
+	// 2) Date only
+	d, err := time.Parse("2006-01-02", raw)
+	if err != nil {
+		return time.Time{}, err
+	}
+	if endOfDay {
+		return d.Add(24*time.Hour - time.Nanosecond), nil
+	}
+	return d, nil
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		v = strings.TrimSpace(v)
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func (h *Handler) GetPlatformTenant(w http.ResponseWriter, r *http.Request) {
@@ -294,6 +352,37 @@ func (h *Handler) CreateTenantBranch(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(created)
+}
+
+func (h *Handler) UpdateTenantBranch(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	branchID := chi.URLParam(r, "branch_id")
+
+	var req tenant.UpdateBranchParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	updated, err := h.service.UpdateTenantBranch(r.Context(), tenantID, branchID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidBranchID):
+			http.Error(w, "Invalid branch id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidBranch):
+			http.Error(w, "Invalid branch payload", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrBranchNotFound):
+			http.Error(w, "Branch not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to update branch", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
 }
 
 func (h *Handler) ListPlatformPayments(w http.ResponseWriter, r *http.Request) {

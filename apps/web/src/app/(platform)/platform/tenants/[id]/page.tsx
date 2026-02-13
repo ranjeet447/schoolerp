@@ -60,6 +60,7 @@ export default function PlatformTenantDetailPage() {
   const [newAdminPassword, setNewAdminPassword] = useState("");
   const [impersonationReason, setImpersonationReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [busyBranchId, setBusyBranchId] = useState("");
 
   const loadData = async () => {
     setLoading(true);
@@ -218,6 +219,25 @@ export default function PlatformTenantDetailPage() {
   if (loading) return <div className="text-slate-400">Loading tenant details...</div>;
   if (!tenant) return <div className="text-red-400">Tenant not found.</div>;
 
+  const toggleBranchActive = async (branch: Branch) => {
+    setBusyBranchId(branch.id);
+    setError("");
+    setMessage("");
+    try {
+      const res = await apiClient(`/admin/platform/tenants/${id}/branches/${branch.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_active: !branch.is_active }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setMessage(`Branch ${branch.is_active ? "deactivated" : "activated"}.`);
+      await loadData();
+    } catch (e: any) {
+      setError(e?.message || "Failed to update branch.");
+    } finally {
+      setBusyBranchId("");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
@@ -318,12 +338,13 @@ export default function PlatformTenantDetailPage() {
                 <th className="py-2">Code</th>
                 <th className="py-2">Address</th>
                 <th className="py-2">Status</th>
+                <th className="py-2">Action</th>
               </tr>
             </thead>
             <tbody>
               {branches.length === 0 ? (
                 <tr>
-                  <td className="py-3 text-slate-400" colSpan={4}>
+                  <td className="py-3 text-slate-400" colSpan={5}>
                     No branches yet.
                   </td>
                 </tr>
@@ -334,6 +355,19 @@ export default function PlatformTenantDetailPage() {
                     <td className="py-2 text-slate-300">{b.code}</td>
                     <td className="py-2 text-slate-300">{b.address || "-"}</td>
                     <td className="py-2 text-slate-300">{b.is_active ? "Active" : "Inactive"}</td>
+                    <td className="py-2">
+                      <button
+                        onClick={() => toggleBranchActive(b)}
+                        disabled={busy || busyBranchId === b.id}
+                        className={`rounded border px-3 py-1 text-xs disabled:opacity-60 ${
+                          b.is_active
+                            ? "border-amber-700 text-amber-200 hover:bg-amber-900/20"
+                            : "border-emerald-700 text-emerald-200 hover:bg-emerald-900/20"
+                        }`}
+                      >
+                        {b.is_active ? "Deactivate" : "Activate"}
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}

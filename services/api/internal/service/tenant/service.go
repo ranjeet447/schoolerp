@@ -211,6 +211,8 @@ var (
 	ErrInvalidTenantID = errors.New("invalid tenant id")
 	ErrTenantNotFound  = errors.New("tenant not found")
 	ErrInvalidBranch   = errors.New("invalid branch payload")
+	ErrInvalidBranchID = errors.New("invalid branch id")
+	ErrBranchNotFound  = errors.New("branch not found")
 	ErrInvalidTenant   = errors.New("invalid tenant payload")
 )
 
@@ -272,6 +274,12 @@ type CreateBranchParams struct {
 	Name    string `json:"name"`
 	Code    string `json:"code"`
 	Address string `json:"address"`
+}
+
+type UpdateBranchParams struct {
+	Name     *string `json:"name"`
+	Address  *string `json:"address"`
+	IsActive *bool   `json:"is_active"`
 }
 
 type UpdateTenantParams struct {
@@ -409,8 +417,8 @@ func (s *Service) GetPlatformSummary(ctx context.Context) (PlatformSummary, erro
 	return summary, err
 }
 
-func (s *Service) ListPlatformTenants(ctx context.Context, includeInactive bool) ([]PlatformTenant, error) {
-	const query = `
+func (s *Service) ListPlatformTenants(ctx context.Context, filters TenantDirectoryFilters) ([]PlatformTenant, error) {
+	baseQuery := `
 		SELECT
 			t.id::text,
 			t.name,
@@ -449,16 +457,66 @@ func (s *Service) ListPlatformTenants(ctx context.Context, includeInactive bool)
 			FROM employees e
 			WHERE e.tenant_id = t.id
 		) e ON TRUE
-		LEFT JOIN LATERAL (
-			SELECT COUNT(*) AS total_receipts, COALESCE(SUM(amount_paid)::BIGINT, 0) AS total_collections
-			FROM receipts r
-			WHERE r.tenant_id = t.id
-		) r ON TRUE
+			LEFT JOIN LATERAL (
+				SELECT COUNT(*) AS total_receipts, COALESCE(SUM(amount_paid)::BIGINT, 0) AS total_collections
+				FROM receipts r
+				WHERE r.tenant_id = t.id
+			) r ON TRUE
 		WHERE ($1::bool = TRUE OR t.is_active = TRUE)
-		ORDER BY t.created_at DESC
+		  AND ($2::text = '' OR (
+		    t.name ILIKE '%' || $2 || '%'
+		    OR t.subdomain ILIKE '%' || $2 || '%'
+		    OR COALESCE(t.domain, '') ILIKE '%' || $2 || '%'
+		  ))
+		  AND ($3::text = '' OR LOWER(COALESCE(ts.status, 'trial')) = LOWER($3))
+		  AND (
+		    $4::text = ''
+		    OR (LOWER($4::text) = 'none' AND COALESCE(pp.code, '') = '')
+		    OR LOWER(COALESCE(pp.code, '')) = LOWER($4)
+		  )
+		  AND ($5::text = '' OR LOWER(COALESCE(t.config->>'region', '')) = LOWER($5))
+		  AND ($6::timestamptz IS NULL OR t.created_at >= $6)
+		  AND ($7::timestamptz IS NULL OR t.created_at <= $7)
 	`
 
-	rows, err := s.db.Query(ctx, query, includeInactive)
+	limit := filters.Limit
+	if limit <= 0 || limit > 500 {
+		limit = 50
+	}
+	offset := filters.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	sortBy := strings.ToLower(strings.TrimSpace(filters.SortBy))
+	sortOrder := strings.ToLower(strings.TrimSpace(filters.SortOrder))
+	if sortOrder != "asc" && sortOrder != "desc" {
+		sortOrder = "desc"
+	}
+
+	sortExpr := "t.created_at"
+	switch sortBy {
+	case "", "created_at", "created":
+		sortExpr = "t.created_at"
+	case "name":
+		sortExpr = "t.name"
+	case "subdomain":
+		sortExpr = "t.subdomain"
+	}
+
+	query := fmt.Sprintf("%s ORDER BY %s %s LIMIT $8 OFFSET $9", baseQuery, sortExpr, strings.ToUpper(sortOrder))
+
+	rows, err := s.db.Query(ctx, query,
+		filters.IncludeInactive,
+		strings.TrimSpace(filters.Search),
+		strings.TrimSpace(filters.Status),
+		strings.TrimSpace(filters.PlanCode),
+		strings.TrimSpace(filters.Region),
+		filters.CreatedFrom,
+		filters.CreatedTo,
+		limit,
+		offset,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -716,6 +774,72 @@ func (s *Service) CreateTenantBranch(ctx context.Context, tenantID string, param
 		&row.CreatedAt,
 		&row.UpdatedAt,
 	)
+	return row, err
+}
+
+func (s *Service) UpdateTenantBranch(ctx context.Context, tenantID, branchID string, params UpdateBranchParams) (PlatformBranch, error) {
+	tid, err := parseTenantUUID(tenantID)
+	if err != nil {
+		return PlatformBranch{}, err
+	}
+
+	var bid pgtype.UUID
+	if err := bid.Scan(strings.TrimSpace(branchID)); err != nil || !bid.Valid {
+		return PlatformBranch{}, ErrInvalidBranchID
+	}
+
+	setClauses := make([]string, 0, 3)
+	args := []interface{}{tid, bid}
+	argIndex := 3
+
+	if params.Name != nil {
+		name := strings.TrimSpace(*params.Name)
+		if name == "" {
+			return PlatformBranch{}, ErrInvalidBranch
+		}
+		setClauses = append(setClauses, fmt.Sprintf("name = $%d", argIndex))
+		args = append(args, name)
+		argIndex++
+	}
+
+	if params.Address != nil {
+		address := strings.TrimSpace(*params.Address)
+		setClauses = append(setClauses, fmt.Sprintf("address = NULLIF($%d, '')", argIndex))
+		args = append(args, address)
+		argIndex++
+	}
+
+	if params.IsActive != nil {
+		setClauses = append(setClauses, fmt.Sprintf("is_active = $%d", argIndex))
+		args = append(args, *params.IsActive)
+		argIndex++
+	}
+
+	if len(setClauses) == 0 {
+		return PlatformBranch{}, ErrInvalidBranch
+	}
+
+	query := fmt.Sprintf(`
+		UPDATE branches
+		SET %s, updated_at = NOW()
+		WHERE tenant_id = $1 AND id = $2
+		RETURNING id::text, tenant_id::text, name, code, COALESCE(address, ''), is_active, created_at, updated_at
+	`, strings.Join(setClauses, ", "))
+
+	var row PlatformBranch
+	err = s.db.QueryRow(ctx, query, args...).Scan(
+		&row.ID,
+		&row.TenantID,
+		&row.Name,
+		&row.Code,
+		&row.Address,
+		&row.IsActive,
+		&row.CreatedAt,
+		&row.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return PlatformBranch{}, ErrBranchNotFound
+	}
 	return row, err
 }
 

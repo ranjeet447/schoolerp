@@ -34,6 +34,10 @@ type TenantDirectoryFilters struct {
 	Region          string
 	CreatedFrom     *time.Time
 	CreatedTo       *time.Time
+	Limit           int32
+	Offset          int32
+	SortBy          string
+	SortOrder       string
 }
 
 type TenantLifecycleParams struct {
@@ -99,43 +103,7 @@ type ReviewSignupRequestParams struct {
 }
 
 func (s *Service) ListPlatformTenantsWithFilters(ctx context.Context, filters TenantDirectoryFilters) ([]PlatformTenant, error) {
-	tenants, err := s.ListPlatformTenants(ctx, filters.IncludeInactive)
-	if err != nil {
-		return nil, err
-	}
-
-	search := strings.ToLower(strings.TrimSpace(filters.Search))
-	planCode := strings.TrimSpace(filters.PlanCode)
-	status := strings.TrimSpace(filters.Status)
-	region := strings.TrimSpace(filters.Region)
-
-	filtered := make([]PlatformTenant, 0, len(tenants))
-	for _, t := range tenants {
-		if search != "" {
-			haystack := strings.ToLower(t.Name + " " + t.Subdomain + " " + t.Domain)
-			if !strings.Contains(haystack, search) {
-				continue
-			}
-		}
-		if planCode != "" && !strings.EqualFold(t.PlanCode, planCode) {
-			continue
-		}
-		if status != "" && !strings.EqualFold(t.LifecycleStatus, status) {
-			continue
-		}
-		if region != "" && !strings.EqualFold(t.Region, region) {
-			continue
-		}
-		if filters.CreatedFrom != nil && t.CreatedAt.Before(*filters.CreatedFrom) {
-			continue
-		}
-		if filters.CreatedTo != nil && t.CreatedAt.After(*filters.CreatedTo) {
-			continue
-		}
-		filtered = append(filtered, t)
-	}
-
-	return filtered, nil
+	return s.ListPlatformTenants(ctx, filters)
 }
 
 func (s *Service) UpsertTenantLifecycle(ctx context.Context, tenantID string, params TenantLifecycleParams) error {

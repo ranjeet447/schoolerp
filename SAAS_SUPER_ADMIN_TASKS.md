@@ -34,7 +34,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [x] TM-001 Tenant directory API with filters (plan, status, region, created date).
 - [x] TM-002 Tenant directory UI with search, filters, sorting, pagination.
 - [x] TM-003 Tenant lifecycle state machine (trial -> active -> suspended -> closed).
-- [~] TM-004 Multi-campus/branches API (list/create/update/activate/deactivate).
+- [x] TM-004 Multi-campus/branches API (list/create/update/activate/deactivate).
 - [~] TM-005 Branding and domain mapping API (branding config, CNAME target, SSL status).
 - [x] TM-006 Manual tenant onboarding flow (create tenant + tenant admin + default config).
 - [~] TM-007 Signup request moderation (approve/reject + notes + audit).
