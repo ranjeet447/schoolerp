@@ -239,6 +239,10 @@ type PlatformTenant struct {
 	Timezone         string    `json:"timezone,omitempty"`
 	Locale           string    `json:"locale,omitempty"`
 	AcademicYear     string    `json:"academic_year,omitempty"`
+	WhiteLabel       bool      `json:"white_label"`
+	BrandPrimaryColor string   `json:"brand_primary_color,omitempty"`
+	BrandNameOverride string   `json:"brand_name_override,omitempty"`
+	BrandLogoURL      string   `json:"brand_logo_url,omitempty"`
 	CnameTarget      string    `json:"cname_target,omitempty"`
 	SslStatus        string    `json:"ssl_status,omitempty"`
 	BranchCount      int64     `json:"branch_count"`
@@ -432,6 +436,10 @@ func (s *Service) ListPlatformTenants(ctx context.Context, filters TenantDirecto
 			COALESCE(t.config->>'timezone', '') AS timezone,
 			COALESCE(t.config->>'locale', '') AS locale,
 			COALESCE(t.config->>'academic_year', '') AS academic_year,
+			COALESCE((t.config->>'white_label')::boolean, FALSE) AS white_label,
+			COALESCE(t.config->'branding'->>'primary_color', '') AS brand_primary_color,
+			COALESCE(t.config->'branding'->>'name_override', '') AS brand_name_override,
+			COALESCE(t.config->'branding'->>'logo_url', '') AS brand_logo_url,
 			COALESCE(t.config->>'cname_target', '') AS cname_target,
 			COALESCE(t.config->>'ssl_status', '') AS ssl_status,
 			COALESCE(b.total_branches, 0) AS branch_count,
@@ -538,6 +546,10 @@ func (s *Service) ListPlatformTenants(ctx context.Context, filters TenantDirecto
 			&row.Timezone,
 			&row.Locale,
 			&row.AcademicYear,
+			&row.WhiteLabel,
+			&row.BrandPrimaryColor,
+			&row.BrandNameOverride,
+			&row.BrandLogoURL,
 			&row.CnameTarget,
 			&row.SslStatus,
 			&row.BranchCount,
@@ -568,6 +580,10 @@ func (s *Service) GetPlatformTenant(ctx context.Context, tenantID string) (Platf
 			COALESCE(t.config->>'timezone', '') AS timezone,
 			COALESCE(t.config->>'locale', '') AS locale,
 			COALESCE(t.config->>'academic_year', '') AS academic_year,
+			COALESCE((t.config->>'white_label')::boolean, FALSE) AS white_label,
+			COALESCE(t.config->'branding'->>'primary_color', '') AS brand_primary_color,
+			COALESCE(t.config->'branding'->>'name_override', '') AS brand_name_override,
+			COALESCE(t.config->'branding'->>'logo_url', '') AS brand_logo_url,
 			COALESCE(t.config->>'cname_target', '') AS cname_target,
 			COALESCE(t.config->>'ssl_status', '') AS ssl_status,
 			COALESCE(b.total_branches, 0) AS branch_count,
@@ -620,6 +636,10 @@ func (s *Service) GetPlatformTenant(ctx context.Context, tenantID string) (Platf
 		&row.Timezone,
 		&row.Locale,
 		&row.AcademicYear,
+		&row.WhiteLabel,
+		&row.BrandPrimaryColor,
+		&row.BrandNameOverride,
+		&row.BrandLogoURL,
 		&row.CnameTarget,
 		&row.SslStatus,
 		&row.BranchCount,

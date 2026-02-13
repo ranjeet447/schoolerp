@@ -16,6 +16,10 @@ type Tenant = {
   timezone?: string;
   locale?: string;
   academic_year?: string;
+  white_label: boolean;
+  brand_primary_color?: string;
+  brand_name_override?: string;
+  brand_logo_url?: string;
   cname_target?: string;
   ssl_status?: string;
   branch_count: number;
@@ -56,6 +60,12 @@ export default function PlatformTenantDetailPage() {
     cname_target: "",
     ssl_status: "",
   });
+  const [branding, setBranding] = useState({
+    white_label: false,
+    primary_color: "#4f46e5",
+    name_override: "",
+    logo_url: "",
+  });
   const [planCode, setPlanCode] = useState("");
   const [newAdminPassword, setNewAdminPassword] = useState("");
   const [impersonationReason, setImpersonationReason] = useState("");
@@ -88,6 +98,12 @@ export default function PlatformTenantDetailPage() {
         domain: tenantData.domain || "",
         cname_target: tenantData.cname_target || "",
         ssl_status: tenantData.ssl_status || "",
+      });
+      setBranding({
+        white_label: tenantData.white_label || false,
+        primary_color: tenantData.brand_primary_color || "#4f46e5",
+        name_override: tenantData.brand_name_override || "",
+        logo_url: tenantData.brand_logo_url || "",
       });
       setPlanCode(tenantData.plan_code || "");
 
@@ -138,6 +154,24 @@ export default function PlatformTenantDetailPage() {
       const res = await apiClient(`/admin/platform/tenants/${id}/domain`, {
         method: "POST",
         body: JSON.stringify(domainMap),
+      });
+      if (!res.ok) throw new Error(await res.text());
+    });
+  };
+
+  const submitBranding = async (e: FormEvent) => {
+    e.preventDefault();
+    await action("Branding update", async () => {
+      const res = await apiClient(`/admin/platform/tenants/${id}/branding`, {
+        method: "POST",
+        body: JSON.stringify({
+          white_label: branding.white_label,
+          branding: {
+            primary_color: branding.primary_color,
+            name_override: branding.name_override,
+            logo_url: branding.logo_url,
+          },
+        }),
       });
       if (!res.ok) throw new Error(await res.text());
     });
@@ -285,6 +319,52 @@ export default function PlatformTenantDetailPage() {
             <button disabled={busy} className="rounded bg-cyan-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-60">Save Domain Mapping</button>
           </form>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+        <h2 className="font-semibold text-white">Branding</h2>
+        <form onSubmit={submitBranding} className="mt-3 grid gap-2 md:grid-cols-2">
+          <label className="flex items-center gap-2 text-sm text-slate-300 md:col-span-2">
+            <input
+              type="checkbox"
+              checked={branding.white_label}
+              onChange={(e) => setBranding((p) => ({ ...p, white_label: e.target.checked }))}
+            />
+            White label (remove SchoolERP branding)
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              type="color"
+              value={branding.primary_color}
+              onChange={(e) => setBranding((p) => ({ ...p, primary_color: e.target.value }))}
+              className="h-10 w-14 bg-transparent"
+              title="Primary color"
+            />
+            <input
+              className="flex-1 rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+              placeholder="#4f46e5"
+              value={branding.primary_color}
+              onChange={(e) => setBranding((p) => ({ ...p, primary_color: e.target.value }))}
+            />
+          </div>
+          <input
+            className="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+            placeholder="Name override (display)"
+            value={branding.name_override}
+            onChange={(e) => setBranding((p) => ({ ...p, name_override: e.target.value }))}
+          />
+          <input
+            className="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white md:col-span-2"
+            placeholder="Logo URL"
+            value={branding.logo_url}
+            onChange={(e) => setBranding((p) => ({ ...p, logo_url: e.target.value }))}
+          />
+          <div className="md:col-span-2">
+            <button disabled={busy} className="rounded bg-cyan-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-60">
+              Save Branding
+            </button>
+          </div>
+        </form>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">

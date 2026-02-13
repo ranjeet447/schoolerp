@@ -31,6 +31,7 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Post("/tenants/{tenant_id}/lifecycle", h.UpdateTenantLifecycle)
 	r.Post("/tenants/{tenant_id}/defaults", h.UpdateTenantDefaults)
 	r.Post("/tenants/{tenant_id}/plan", h.AssignTenantPlan)
+	r.Post("/tenants/{tenant_id}/branding", h.UpdateTenantBranding)
 	r.Post("/tenants/{tenant_id}/domain", h.UpdateTenantDomainMapping)
 	r.Post("/tenants/{tenant_id}/reset-admin-password", h.ResetTenantAdminPassword)
 	r.Post("/tenants/{tenant_id}/force-logout", h.ForceLogoutTenantUsers)
@@ -61,9 +62,9 @@ func (h *Handler) GetConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Header.Get("X-Tenant-ID")
+	tenantID := middleware.GetTenantID(r.Context())
 	if tenantID == "" {
-		http.Error(w, "X-Tenant-ID header required", http.StatusBadRequest)
+		http.Error(w, "tenant context missing", http.StatusBadRequest)
 		return
 	}
 
@@ -86,9 +87,9 @@ func (h *Handler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListPlugins(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Header.Get("X-Tenant-ID")
+	tenantID := middleware.GetTenantID(r.Context())
 	if tenantID == "" {
-		http.Error(w, "X-Tenant-ID header required", http.StatusBadRequest)
+		http.Error(w, "tenant context missing", http.StatusBadRequest)
 		return
 	}
 
@@ -105,9 +106,9 @@ func (h *Handler) ListPlugins(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdatePluginConfig(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Header.Get("X-Tenant-ID")
+	tenantID := middleware.GetTenantID(r.Context())
 	if tenantID == "" {
-		http.Error(w, "X-Tenant-ID header required", http.StatusBadRequest)
+		http.Error(w, "tenant context missing", http.StatusBadRequest)
 		return
 	}
 
@@ -476,6 +477,29 @@ func (h *Handler) AssignTenantPlan(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+}
+
+func (h *Handler) UpdateTenantBranding(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+
+	var req tenant.TenantBrandingParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	updated, err := h.service.UpdateTenantBranding(r.Context(), tenantID, req)
+	if err != nil {
+		if errors.Is(err, tenant.ErrInvalidTenantID) {
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Failed to update tenant branding", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
 }
 
 func (h *Handler) UpdateTenantDomainMapping(w http.ResponseWriter, r *http.Request) {

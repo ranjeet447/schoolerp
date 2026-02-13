@@ -58,6 +58,15 @@ type DomainMappingParams struct {
 	SslStatus   string `json:"ssl_status"`
 }
 
+type TenantBrandingParams struct {
+	WhiteLabel *bool `json:"white_label"`
+	Branding   struct {
+		PrimaryColor *string `json:"primary_color"`
+		NameOverride *string `json:"name_override"`
+		LogoURL      *string `json:"logo_url"`
+	} `json:"branding"`
+}
+
 type AssignPlanParams struct {
 	PlanCode  string                 `json:"plan_code"`
 	Limits    map[string]interface{} `json:"limits"`
@@ -258,6 +267,55 @@ func (s *Service) UpdateTenantDomainMapping(ctx context.Context, tenantID string
 		configJSON,
 	)
 	if err != nil {
+		return PlatformTenant{}, err
+	}
+
+	return s.GetPlatformTenant(ctx, tenantID)
+}
+
+func (s *Service) UpdateTenantBranding(ctx context.Context, tenantID string, params TenantBrandingParams) (PlatformTenant, error) {
+	tid, err := parseTenantUUID(tenantID)
+	if err != nil {
+		return PlatformTenant{}, err
+	}
+
+	t, err := s.q.GetTenantByID(ctx, tid)
+	if err != nil {
+		return PlatformTenant{}, err
+	}
+
+	config := map[string]interface{}{}
+	if len(t.Config) > 0 {
+		_ = json.Unmarshal(t.Config, &config)
+	}
+
+	if params.WhiteLabel != nil {
+		config["white_label"] = *params.WhiteLabel
+	}
+
+	branding := map[string]interface{}{}
+	if existing, ok := config["branding"].(map[string]interface{}); ok {
+		branding = existing
+	}
+
+	if params.Branding.PrimaryColor != nil {
+		branding["primary_color"] = strings.TrimSpace(*params.Branding.PrimaryColor)
+	}
+	if params.Branding.NameOverride != nil {
+		branding["name_override"] = strings.TrimSpace(*params.Branding.NameOverride)
+	}
+	if params.Branding.LogoURL != nil {
+		branding["logo_url"] = strings.TrimSpace(*params.Branding.LogoURL)
+	}
+
+	config["branding"] = branding
+
+	configJSON, err := json.Marshal(config)
+	if err != nil {
+		return PlatformTenant{}, err
+	}
+
+	if _, err := s.q.UpdateTenantConfig(ctx, db.UpdateTenantConfigParams{ID: tid, Config: configJSON}); err != nil {
 		return PlatformTenant{}, err
 	}
 
