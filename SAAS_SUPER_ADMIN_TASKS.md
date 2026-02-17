@@ -26,6 +26,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - `[x]` Dunning and lockout controls added (retry/channel rules, grace window controls, and tenant access lock/unlock flows).
 - `[x]` Internal platform user management added (create/list/update users with platform role assignment and active-state controls).
 - `[x]` Platform RBAC role template matrix added (platform permission catalog + per-role template editing in UI/API).
+- `[x]` Platform IP allowlist controls added for internal roles (create/list/delete CIDR/IP entries for platform access).
 - `[x]` Tenant plan change flow added (upgrade/downgrade with proration policy and effective time).
 - `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, branding/domain mapping, branch create/update/activate/deactivate, admin reset/logout, impersonation).
 - `[x]` Signup request moderation UI and API flow added (approve/reject with notes).
@@ -94,7 +95,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [ ] AC-005 MFA/2FA enforcement policy for platform users.
 - [ ] AC-006 Session/device listing and forced revoke endpoint.
 - [ ] AC-007 Token rotation endpoint for internal users.
-- [ ] AC-008 IP allowlist controls for platform access.
+- [x] AC-008 IP allowlist controls for platform access.
 - [ ] AC-009 Break-glass admin policy with monitored use and audit.
 
 ## 5) Security, Compliance, and Governance

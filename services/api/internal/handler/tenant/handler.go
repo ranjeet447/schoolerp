@@ -56,6 +56,9 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Patch("/internal-users/{user_id}", h.UpdatePlatformInternalUser)
 	r.Get("/rbac/templates", h.ListPlatformRBACTemplates)
 	r.Post("/rbac/templates/{role_code}/permissions", h.UpdatePlatformRolePermissions)
+	r.Get("/access/ip-allowlist", h.ListPlatformIPAllowlist)
+	r.Post("/access/ip-allowlist", h.CreatePlatformIPAllowlist)
+	r.Delete("/access/ip-allowlist/{allowlist_id}", h.DeletePlatformIPAllowlist)
 	r.Get("/billing/overview", h.GetPlatformBillingOverview)
 	r.Get("/billing/config", h.GetPlatformBillingConfig)
 	r.Post("/billing/config", h.UpdatePlatformBillingConfig)
@@ -782,6 +785,75 @@ func (h *Handler) UpdatePlatformRolePermissions(w http.ResponseWriter, r *http.R
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(updated)
+}
+
+func (h *Handler) ListPlatformIPAllowlist(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.service.ListPlatformIPAllowlist(r.Context(), r.URL.Query().Get("role_name"))
+	if err != nil {
+		http.Error(w, "Failed to load IP allowlist", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) CreatePlatformIPAllowlist(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	var req tenant.CreatePlatformIPAllowlistParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.CreatedBy = actorID
+
+	created, err := h.service.CreatePlatformIPAllowlist(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrPlatformRoleNotAllowed):
+			http.Error(w, "Invalid role name", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidCIDRBlock):
+			http.Error(w, "Invalid CIDR block", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to create IP allowlist entry", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.security.ip_allowlist.create",
+		ResourceType: "platform_ip_allowlist",
+		ResourceID:   created.ID,
+		Reason:       created.RoleName,
+		After:        created,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(created)
+}
+
+func (h *Handler) DeletePlatformIPAllowlist(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	allowlistID := chi.URLParam(r, "allowlist_id")
+
+	if err := h.service.DeletePlatformIPAllowlist(r.Context(), allowlistID); err != nil {
+		if errors.Is(err, tenant.ErrInvalidAllowlistID) {
+			http.Error(w, "Invalid allowlist id", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Failed to delete allowlist entry", http.StatusInternalServerError)
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.security.ip_allowlist.delete",
+		ResourceType: "platform_ip_allowlist",
+		ResourceID:   strings.TrimSpace(allowlistID),
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"status": "deleted"})
 }
 
 func (h *Handler) ListPlatformPayments(w http.ResponseWriter, r *http.Request) {

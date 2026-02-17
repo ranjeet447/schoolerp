@@ -33,6 +33,15 @@ type PlatformRBACMatrix = {
   permissions: PlatformPermissionTemplate[];
 };
 
+type PlatformIPAllowlistEntry = {
+  id: string;
+  role_name: string;
+  cidr_block: string;
+  description?: string;
+  created_by?: string;
+  created_at: string;
+};
+
 const ROLE_OPTIONS = [
   "super_admin",
   "support_l1",
@@ -46,6 +55,7 @@ export default function PlatformInternalUsersPage() {
   const [rows, setRows] = useState<PlatformInternalUser[]>([]);
   const [rbac, setRbac] = useState<PlatformRBACMatrix | null>(null);
   const [rbacDraft, setRbacDraft] = useState<Record<string, string[]>>({});
+  const [ipAllowlist, setIpAllowlist] = useState<PlatformIPAllowlistEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -61,6 +71,11 @@ export default function PlatformInternalUsersPage() {
     password: "",
     role_code: "support_l1",
   });
+  const [newAllowlist, setNewAllowlist] = useState({
+    role_name: "super_admin",
+    cidr_block: "",
+    description: "",
+  });
 
   const load = async () => {
     setLoading(true);
@@ -72,9 +87,10 @@ export default function PlatformInternalUsersPage() {
       if (roleFilter.trim()) query.set("role_code", roleFilter.trim());
       if (activeFilter === "true" || activeFilter === "false") query.set("is_active", activeFilter);
 
-      const [usersRes, rbacRes] = await Promise.all([
+      const [usersRes, rbacRes, allowlistRes] = await Promise.all([
         apiClient(`/admin/platform/internal-users?${query.toString()}`),
         apiClient("/admin/platform/rbac/templates"),
+        apiClient("/admin/platform/access/ip-allowlist"),
       ]);
       if (!usersRes.ok) throw new Error(await usersRes.text());
 
@@ -92,6 +108,12 @@ export default function PlatformInternalUsersPage() {
       } else {
         setRbac(null);
         setRbacDraft({});
+      }
+      if (allowlistRes.ok) {
+        const allowlistData = await allowlistRes.json();
+        setIpAllowlist(Array.isArray(allowlistData) ? allowlistData : []);
+      } else {
+        setIpAllowlist([]);
       }
     } catch (e: any) {
       setError(e?.message || "Failed to load internal users.");
@@ -184,6 +206,57 @@ export default function PlatformInternalUsersPage() {
       await load();
     } catch (e: any) {
       setError(e?.message || "Failed to update role permissions.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const createAllowlistEntry = async () => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      if (!newAllowlist.role_name.trim() || !newAllowlist.cidr_block.trim()) {
+        throw new Error("Role and CIDR/IP are required.");
+      }
+
+      const res = await apiClient("/admin/platform/access/ip-allowlist", {
+        method: "POST",
+        body: JSON.stringify({
+          role_name: newAllowlist.role_name.trim(),
+          cidr_block: newAllowlist.cidr_block.trim(),
+          description: newAllowlist.description.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+
+      setMessage("IP allowlist entry created.");
+      setNewAllowlist({
+        role_name: newAllowlist.role_name,
+        cidr_block: "",
+        description: "",
+      });
+      await load();
+    } catch (e: any) {
+      setError(e?.message || "Failed to create IP allowlist entry.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteAllowlistEntry = async (entryId: string) => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await apiClient(`/admin/platform/access/ip-allowlist/${entryId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setMessage("IP allowlist entry deleted.");
+      await load();
+    } catch (e: any) {
+      setError(e?.message || "Failed to delete IP allowlist entry.");
     } finally {
       setBusy(false);
     }
@@ -345,6 +418,90 @@ export default function PlatformInternalUsersPage() {
               </div>
             ))
           )}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <h2 className="text-sm font-semibold text-foreground">IP Allowlist (Platform Access)</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Restrict platform-role access by source CIDR/IP blocks.
+        </p>
+        <div className="mt-3 grid gap-2 md:grid-cols-4">
+          <select
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            value={newAllowlist.role_name}
+            onChange={(e) => setNewAllowlist((p) => ({ ...p, role_name: e.target.value }))}
+          >
+            {ROLE_OPTIONS.map((role) => (
+              <option key={role} value={role}>
+                {role}
+              </option>
+            ))}
+          </select>
+          <input
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+            placeholder="CIDR or IP (e.g. 203.0.113.0/24)"
+            value={newAllowlist.cidr_block}
+            onChange={(e) => setNewAllowlist((p) => ({ ...p, cidr_block: e.target.value }))}
+          />
+          <input
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+            placeholder="Description"
+            value={newAllowlist.description}
+            onChange={(e) => setNewAllowlist((p) => ({ ...p, description: e.target.value }))}
+          />
+          <button
+            type="button"
+            onClick={createAllowlistEntry}
+            disabled={busy}
+            className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+          >
+            Add Allowlist
+          </button>
+        </div>
+
+        <div className="mt-3 overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead className="bg-muted text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">Role</th>
+                <th className="px-3 py-2">CIDR/IP</th>
+                <th className="px-3 py-2">Description</th>
+                <th className="px-3 py-2">Created</th>
+                <th className="px-3 py-2">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ipAllowlist.length === 0 ? (
+                <tr>
+                  <td className="px-3 py-4 text-muted-foreground" colSpan={5}>
+                    No allowlist entries found.
+                  </td>
+                </tr>
+              ) : (
+                ipAllowlist.map((entry) => (
+                  <tr key={entry.id} className="border-t border-border">
+                    <td className="px-3 py-2 text-foreground">{entry.role_name}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{entry.cidr_block}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{entry.description || "-"}</td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {entry.created_at ? new Date(entry.created_at).toLocaleString() : "-"}
+                    </td>
+                    <td className="px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() => deleteAllowlistEntry(entry.id)}
+                        disabled={busy}
+                        className="rounded border border-red-600/40 px-2 py-1 text-xs text-red-700 hover:bg-red-500/10 disabled:opacity-60 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/20"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
