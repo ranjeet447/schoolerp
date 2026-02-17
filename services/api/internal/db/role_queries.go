@@ -33,9 +33,16 @@ func (q *Queries) ListRolesByTenant(ctx context.Context, tenantID pgtype.UUID) (
 		FROM roles r
 		LEFT JOIN role_permissions rp ON rp.role_id = r.id
 		LEFT JOIN permissions p ON p.id = rp.permission_id
-		WHERE r.tenant_id IS NULL OR r.tenant_id = $1
+		WHERE (
+			r.tenant_id = $1
+			OR (
+				r.tenant_id IS NULL
+				AND r.code IN ('tenant_admin','teacher','accountant','parent','student')
+				AND NOT EXISTS (SELECT 1 FROM roles r2 WHERE r2.tenant_id = $1 AND r2.code = r.code)
+			)
+		)
 		GROUP BY r.id, r.tenant_id, r.name, r.code, r.description, r.is_system
-		ORDER BY r.is_system DESC, r.name ASC
+		ORDER BY (r.tenant_id IS NULL) ASC, r.is_system DESC, r.name ASC
 	`
 
 	rows, err := q.db.Query(ctx, query, tenantID)

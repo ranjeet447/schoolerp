@@ -376,22 +376,13 @@ func (s *Service) OnboardSchool(ctx context.Context, params OnboardSchoolParams)
 	}
 
 	// 4. Assign Tenant Admin Role
-	// Note: We need the system role ID for 'tenant_admin'
-	// For simplicity, we'll look it up by code
-	roles, err := qtx.ListRolesByTenant(ctx, tid)
-	if err != nil {
-		return "", fmt.Errorf("failed to list roles: %w", err)
+	// Ensure tenant-scoped default roles exist (editable) and assign the tenant_admin role.
+	if err := ensureTenantDefaultRoles(ctx, tx, tid); err != nil {
+		return "", fmt.Errorf("failed to ensure tenant roles: %w", err)
 	}
 
 	var adminRoleID pgtype.UUID
-	for _, r := range roles {
-		if r.Code == "tenant_admin" {
-			adminRoleID = r.ID
-			break
-		}
-	}
-
-	if adminRoleID.Valid == false {
+	if err := tx.QueryRow(ctx, `SELECT id FROM roles WHERE tenant_id = $1 AND code = 'tenant_admin' ORDER BY created_at ASC LIMIT 1`, tid).Scan(&adminRoleID); err != nil || !adminRoleID.Valid {
 		return "", fmt.Errorf("tenant_admin role not found")
 	}
 
@@ -932,4 +923,87 @@ func parseTenantUUID(rawTenantID string) (pgtype.UUID, error) {
 		return pgtype.UUID{}, ErrInvalidTenantID
 	}
 	return tid, nil
+}
+
+func ensureTenantDefaultRoles(ctx context.Context, tx pgx.Tx, tenantID pgtype.UUID) error {
+	// Clone baseline templates into tenant-scoped roles (editable). Idempotent.
+	const templateQuery = `
+		SELECT DISTINCT ON (r.code)
+			r.id,
+			r.code,
+			r.name,
+			COALESCE(r.description, '') AS description
+		FROM roles r
+		WHERE r.tenant_id IS NULL
+		  AND r.code IN ('tenant_admin','teacher','accountant','parent','student')
+		ORDER BY r.code, r.created_at ASC
+	`
+
+	type tmpl struct {
+		id          pgtype.UUID
+		code        string
+		name        string
+		description string
+	}
+
+	rows, err := tx.Query(ctx, templateQuery)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	templates := make([]tmpl, 0, 8)
+	for rows.Next() {
+		var t tmpl
+		if err := rows.Scan(&t.id, &t.code, &t.name, &t.description); err != nil {
+			return err
+		}
+		templates = append(templates, t)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, t := range templates {
+		var roleID pgtype.UUID
+		err := tx.QueryRow(ctx, `
+			INSERT INTO roles (tenant_id, name, code, description, is_system, created_at, updated_at)
+			VALUES ($1, $2, $3, NULLIF($4, ''), FALSE, NOW(), NOW())
+			ON CONFLICT (tenant_id, code)
+			DO UPDATE SET
+				name = EXCLUDED.name,
+				description = EXCLUDED.description,
+				updated_at = NOW()
+			RETURNING id
+		`, tenantID, t.name, t.code, strings.TrimSpace(t.description)).Scan(&roleID)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.Exec(ctx, `
+			INSERT INTO role_permissions (role_id, permission_id)
+			SELECT $1, rp.permission_id
+			FROM role_permissions rp
+			WHERE rp.role_id = $2
+			ON CONFLICT DO NOTHING
+		`, roleID, t.id)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Migrate any template-based assignments to tenant-scoped roles.
+	_, _ = tx.Exec(ctx, `
+		UPDATE role_assignments ra
+		SET role_id = tr.id
+		FROM roles tmpl
+		JOIN roles tr
+		  ON tr.tenant_id = ra.tenant_id
+		 AND tr.code = tmpl.code
+		WHERE ra.role_id = tmpl.id
+		  AND tmpl.tenant_id IS NULL
+		  AND tmpl.code IN ('tenant_admin','teacher','accountant','parent','student')
+	`)
+
+	return nil
 }
