@@ -43,6 +43,7 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Patch("/incidents/{incident_id}", h.UpdatePlatformIncident)
 	r.Post("/incidents/{incident_id}/events", h.CreatePlatformIncidentEvent)
 	r.Post("/incidents/{incident_id}/limit-overrides", h.ApplyIncidentLimitOverride)
+	r.Post("/incidents/{incident_id}/broadcasts", h.CreatePlatformIncidentBroadcast)
 	r.Get("/tenants", h.ListPlatformTenants)
 	r.Get("/tenants/{tenant_id}", h.GetPlatformTenant)
 	r.Patch("/tenants/{tenant_id}", h.UpdatePlatformTenant)
@@ -2416,6 +2417,45 @@ func (h *Handler) ApplyIncidentLimitOverride(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(result)
+}
+
+func (h *Handler) CreatePlatformIncidentBroadcast(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	incidentID := chi.URLParam(r, "incident_id")
+
+	var req tenant.CreatePlatformIncidentBroadcastParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.CreatedBy = actorID
+
+	created, err := h.service.CreatePlatformIncidentBroadcast(r.Context(), incidentID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidPlatformIncidentID):
+			http.Error(w, "invalid incident id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPlatformIncidentNotFound):
+			http.Error(w, "incident not found", http.StatusNotFound)
+		case errors.Is(err, tenant.ErrInvalidPlatformBroadcastPayload):
+			http.Error(w, "Invalid broadcast payload", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to create broadcast", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.incident.broadcast.create",
+		ResourceType: "platform_broadcast",
+		ResourceID:   created.ID,
+		Reason:       strings.Join(created.Channels, ","),
+		After:        created,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(created)
 }
 
 func (h *Handler) GetPlatformSupportSLAPolicy(w http.ResponseWriter, r *http.Request) {

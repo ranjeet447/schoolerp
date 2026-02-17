@@ -69,6 +69,10 @@ export default function PlatformIncidentsPage() {
   const [limitOverrideExpiresAt, setLimitOverrideExpiresAt] = useState("");
   const [limitOverrideReason, setLimitOverrideReason] = useState("");
 
+  const [broadcastTitle, setBroadcastTitle] = useState("");
+  const [broadcastMessage, setBroadcastMessage] = useState("");
+  const [broadcastChannels, setBroadcastChannels] = useState<string[]>(["in_app"]);
+
   const query = useMemo(() => {
     const params = new URLSearchParams();
     if (search.trim()) params.set("search", search.trim());
@@ -118,6 +122,9 @@ export default function PlatformIncidentsPage() {
       setEditUpdateMessage("");
       setNewEventType("update");
       setNewEventMessage("");
+      setBroadcastTitle("");
+      setBroadcastMessage("");
+      setBroadcastChannels(["in_app"]);
     } catch (e: any) {
       setError(e?.message || "Failed to load incident detail.");
     } finally {
@@ -277,6 +284,47 @@ export default function PlatformIncidentsPage() {
       setMessage("Limit override applied to affected tenants.");
     } catch (e: any) {
       setError(e?.message || "Failed to apply limit override.");
+    } finally {
+      setBusyId("");
+    }
+  };
+
+  const toggleBroadcastChannel = (channel: string) => {
+    const code = channel.trim().toLowerCase();
+    if (!code) return;
+    setBroadcastChannels((prev) => {
+      if (prev.includes(code)) return prev.filter((c) => c !== code);
+      return [...prev, code];
+    });
+  };
+
+  const sendIncidentBroadcast = async () => {
+    if (!detail) return;
+    setBusyId(`broadcast:${detail.incident.id}`);
+    setError("");
+    setMessage("");
+    try {
+      const msg = broadcastMessage.trim();
+      if (!msg) throw new Error("Broadcast message is required.");
+
+      const payload: Record<string, unknown> = {
+        message: msg,
+        channels: broadcastChannels,
+      };
+      if (broadcastTitle.trim()) payload.title = broadcastTitle.trim();
+
+      const res = await apiClient(`/admin/platform/incidents/${detail.incident.id}/broadcasts`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await res.text());
+
+      setBroadcastTitle("");
+      setBroadcastMessage("");
+      setBroadcastChannels(["in_app"]);
+      setMessage("Broadcast queued to affected tenants.");
+    } catch (e: any) {
+      setError(e?.message || "Failed to send broadcast.");
     } finally {
       setBusyId("");
     }
@@ -566,6 +614,45 @@ export default function PlatformIncidentsPage() {
                     value={limitOverrideReason}
                     onChange={(e) => setLimitOverrideReason(e.target.value)}
                   />
+                </div>
+
+                <div className="rounded-lg border border-border bg-background p-3">
+                  <p className="text-xs font-semibold text-muted-foreground">Broadcast Notification</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Send a one-time broadcast message to affected tenants via the outbox.</p>
+                  <div className="mt-2 grid gap-2">
+                    <input
+                      className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+                      placeholder="Title (optional)"
+                      value={broadcastTitle}
+                      onChange={(e) => setBroadcastTitle(e.target.value)}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      {["in_app", "push", "email", "sms", "whatsapp"].map((code) => (
+                        <label key={code} className="flex items-center gap-2 rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4"
+                            checked={broadcastChannels.includes(code)}
+                            onChange={() => toggleBroadcastChannel(code)}
+                          />
+                          <span>{code}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <textarea
+                      className="min-h-[88px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+                      placeholder="Message (required)"
+                      value={broadcastMessage}
+                      onChange={(e) => setBroadcastMessage(e.target.value)}
+                    />
+                    <button
+                      onClick={() => void sendIncidentBroadcast()}
+                      disabled={busyId === `broadcast:${detail.incident.id}` || !broadcastMessage.trim() || broadcastChannels.length === 0}
+                      className="rounded-md border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground hover:bg-accent disabled:opacity-60"
+                    >
+                      {busyId === `broadcast:${detail.incident.id}` ? "Sending..." : "Send broadcast"}
+                    </button>
+                  </div>
                 </div>
               </div>
 

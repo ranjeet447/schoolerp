@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -13,9 +14,9 @@ import (
 )
 
 type Consumer struct {
-	q       db.Querier
-	notif   notification.Adapter
-	limit   int32
+	q     db.Querier
+	notif notification.Adapter
+	limit int32
 }
 
 func NewConsumer(q db.Querier, notif notification.Adapter) *Consumer {
@@ -69,7 +70,6 @@ func (c *Consumer) processHomeworkReminders(ctx context.Context) {
 	}
 }
 
-
 func (c *Consumer) processEvents(ctx context.Context) {
 	events, err := c.q.GetPendingOutboxEvents(ctx, c.limit)
 	if err != nil {
@@ -102,6 +102,22 @@ func (c *Consumer) handleEvent(ctx context.Context, event db.Outbox) error {
 	log.Printf("[Worker] Processing event: %s (%s)", event.ID, event.EventType)
 
 	switch event.EventType {
+	case "platform.broadcast":
+		var payload map[string]interface{}
+		_ = json.Unmarshal(event.Payload, &payload)
+		title, _ := payload["title"].(string)
+		message, _ := payload["message"].(string)
+		title = strings.TrimSpace(title)
+		message = strings.TrimSpace(message)
+		if title == "" {
+			title = "Broadcast"
+		}
+		if message == "" {
+			return nil
+		}
+		// Placeholder: broadcast delivery should fan out to tenant users via the notification adapter.
+		return c.notif.SendPush(ctx, "all_users", title, message)
+
 	case "attendance.absent":
 		var payload map[string]interface{}
 		json.Unmarshal(event.Payload, &payload)
