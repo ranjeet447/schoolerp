@@ -9,11 +9,13 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/schoolerp/api/internal/foundation/security"
 	"github.com/schoolerp/api/internal/middleware"
 	"github.com/schoolerp/api/internal/service/tenant"
 )
@@ -85,6 +87,11 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Get("/security/events", h.ListPlatformSecurityEvents)
 	r.Get("/security/retention-policy", h.GetPlatformDataRetentionPolicy)
 	r.Post("/security/retention-policy", h.UpdatePlatformDataRetentionPolicy)
+	r.Get("/security/secrets/status", h.GetPlatformSecretsStatus)
+	r.Get("/security/secret-rotations", h.ListPlatformSecretRotationRequests)
+	r.Post("/security/secret-rotations", h.CreatePlatformSecretRotationRequest)
+	r.Post("/security/secret-rotations/{rotation_id}/review", h.ReviewPlatformSecretRotationRequest)
+	r.Post("/security/secret-rotations/{rotation_id}/execute", h.ExecutePlatformSecretRotationRequest)
 	r.Get("/billing/overview", h.GetPlatformBillingOverview)
 	r.Get("/billing/config", h.GetPlatformBillingConfig)
 	r.Post("/billing/config", h.UpdatePlatformBillingConfig)
@@ -1768,6 +1775,204 @@ func (h *Handler) UpdatePlatformDataRetentionPolicy(w http.ResponseWriter, r *ht
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(updated)
+}
+
+func (h *Handler) GetPlatformSecretsStatus(w http.ResponseWriter, r *http.Request) {
+	jwtSecrets, jwtConfigured := security.ResolveJWTSecrets()
+
+	parseEnvList := func(listKey, legacyKey string) []string {
+		rawList := strings.TrimSpace(os.Getenv(listKey))
+		out := make([]string, 0, 3)
+		if rawList != "" {
+			for _, part := range strings.Split(rawList, ",") {
+				v := strings.TrimSpace(part)
+				if v != "" {
+					out = append(out, v)
+				}
+			}
+			return out
+		}
+		if legacy := strings.TrimSpace(os.Getenv(legacyKey)); legacy != "" {
+			out = append(out, legacy)
+		}
+		return out
+	}
+
+	dataKeys := parseEnvList("DATA_ENCRYPTION_KEYS", "DATA_ENCRYPTION_KEY")
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"jwt": map[string]any{
+			"configured": jwtConfigured,
+			"env_var":    "JWT_SECRETS",
+			"count":      len(jwtSecrets),
+		},
+		"data_encryption": map[string]any{
+			"configured": len(dataKeys) > 0,
+			"env_var":    "DATA_ENCRYPTION_KEYS",
+			"count":      len(dataKeys),
+		},
+	})
+}
+
+func (h *Handler) ListPlatformSecretRotationRequests(w http.ResponseWriter, r *http.Request) {
+	limit := int32(50)
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = int32(parsed)
+		}
+	}
+	offset := int32(0)
+	if raw := strings.TrimSpace(r.URL.Query().Get("offset")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			offset = int32(parsed)
+		}
+	}
+
+	rows, err := h.service.ListPlatformSecretRotationRequests(r.Context(), tenant.ListPlatformSecretRotationRequestsFilters{
+		SecretName: strings.TrimSpace(r.URL.Query().Get("secret_name")),
+		Status:     strings.TrimSpace(r.URL.Query().Get("status")),
+		Limit:      limit,
+		Offset:     offset,
+	})
+	if err != nil {
+		http.Error(w, "Failed to load secret rotation requests", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) CreatePlatformSecretRotationRequest(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+
+	var req tenant.CreatePlatformSecretRotationRequestParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.RequestedBy = actorID
+
+	created, err := h.service.CreatePlatformSecretRotationRequest(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrSecretRotationInvalidSecretName):
+			http.Error(w, "Invalid secret name (use jwt|data_encryption)", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrSecretRotationReasonRequired):
+			http.Error(w, "Rotation reason is required", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrSecretRotationAlreadyInProgress):
+			http.Error(w, "A rotation request already exists for this secret", http.StatusConflict)
+		default:
+			http.Error(w, "Failed to create secret rotation request", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.security.secret_rotation.request",
+		ResourceType: "secret_rotation",
+		ResourceID:   created.ID,
+		Reason:       strings.TrimSpace(req.Reason),
+		After:        created,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(created)
+}
+
+func (h *Handler) ReviewPlatformSecretRotationRequest(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	requestID := chi.URLParam(r, "rotation_id")
+
+	var req tenant.ReviewPlatformSecretRotationRequestParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.ReviewedBy = actorID
+
+	updated, err := h.service.ReviewPlatformSecretRotationRequest(r.Context(), requestID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidSecretRotationRequestID):
+			http.Error(w, "Invalid rotation request id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrSecretRotationRequestNotFound):
+			http.Error(w, "Rotation request not found", http.StatusNotFound)
+		case errors.Is(err, tenant.ErrSecretRotationInvalidDecision):
+			http.Error(w, "Invalid decision (use approve|reject)", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrSecretRotationNotPending):
+			http.Error(w, "Rotation request is not pending", http.StatusConflict)
+		case errors.Is(err, tenant.ErrSecretRotationSelfApproval):
+			http.Error(w, "Cannot approve your own rotation request", http.StatusForbidden)
+		default:
+			http.Error(w, "Failed to review secret rotation request", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	action := "platform.security.secret_rotation.review"
+	if strings.EqualFold(strings.TrimSpace(req.Decision), "approve") {
+		action = "platform.security.secret_rotation.approve"
+	}
+	if strings.EqualFold(strings.TrimSpace(req.Decision), "reject") {
+		action = "platform.security.secret_rotation.reject"
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       action,
+		ResourceType: "secret_rotation",
+		ResourceID:   strings.TrimSpace(requestID),
+		Reason:       strings.TrimSpace(req.Notes),
+		After:        updated,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
+}
+
+func (h *Handler) ExecutePlatformSecretRotationRequest(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	requestID := chi.URLParam(r, "rotation_id")
+
+	var req tenant.ExecutePlatformSecretRotationRequestParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.ExecutedBy = actorID
+
+	result, err := h.service.ExecutePlatformSecretRotation(r.Context(), requestID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidSecretRotationRequestID):
+			http.Error(w, "Invalid rotation request id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrSecretRotationRequestNotFound):
+			http.Error(w, "Rotation request not found", http.StatusNotFound)
+		case errors.Is(err, tenant.ErrSecretRotationConfirmationNeeded):
+			http.Error(w, "Rotation confirmation is required", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrSecretRotationInvalidConfirmation):
+			http.Error(w, "Rotation confirmation did not match", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrSecretRotationNotApproved):
+			http.Error(w, "Rotation request is not approved", http.StatusConflict)
+		case errors.Is(err, tenant.ErrSecretRotationAlreadyExecuted):
+			http.Error(w, "Rotation request is already executed", http.StatusConflict)
+		default:
+			http.Error(w, "Failed to execute secret rotation request", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.security.secret_rotation.execute",
+		ResourceType: "secret_rotation",
+		ResourceID:   strings.TrimSpace(requestID),
+		After:        result.Request,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 func (h *Handler) ListPlatformPayments(w http.ResponseWriter, r *http.Request) {

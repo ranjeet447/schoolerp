@@ -8,6 +8,7 @@ import {
   Building2,
   CreditCard,
   FileCheck2,
+  KeyRound,
   Layers3,
   LogOut,
   Menu,
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
   { href: "/platform/payments", label: "Platform Payments", icon: CreditCard },
   { href: "/platform/internal-users", label: "Internal Users", icon: Users },
   { href: "/platform/security-events", label: "Security Events", icon: Shield },
+  { href: "/platform/secrets", label: "Secrets & Keys", icon: KeyRound },
 ];
 
 export default function PlatformLayoutClient({

@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"os"
 	"strings"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/schoolerp/api/internal/db"
+	"github.com/schoolerp/api/internal/foundation/security"
 )
 
 var (
@@ -112,14 +112,12 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 	expiresAt := time.Now().Add(24 * time.Hour) // 24 hour token validity
 	tokenJTI := uuid.Must(uuid.NewV7()).String()
 
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		if strings.EqualFold(os.Getenv("ENV"), "production") {
-			logger.Error().Str("user_id", user.ID.String()).Msg("auth login failed: JWT_SECRET not configured in production")
-			return nil, errors.New("server authentication is not configured")
-		}
-		jwtSecret = "default-dev-secret"
+	jwtSecrets, ok := security.ResolveJWTSecrets()
+	if !ok || len(jwtSecrets) == 0 {
+		logger.Error().Str("user_id", user.ID.String()).Msg("auth login failed: JWT secrets not configured in production")
+		return nil, errors.New("server authentication is not configured")
 	}
+	jwtSecret := jwtSecrets[0]
 
 	claims := jwt.MapClaims{
 		"sub":         user.ID.String(),

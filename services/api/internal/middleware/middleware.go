@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"net"
 	"net/http"
 	"os"
@@ -19,6 +20,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
+	"github.com/schoolerp/api/internal/foundation/security"
 )
 
 type contextKey string
@@ -130,11 +132,7 @@ func TenantResolver(next http.Handler) http.Handler {
 
 // AuthResolver validates JWT tokens from the Authorization header
 func AuthResolver(next http.Handler) http.Handler {
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" && !strings.EqualFold(os.Getenv("ENV"), "production") {
-		secret = "default-dev-secret"
-	}
-	secretConfigured := secret != ""
+	secrets, secretConfigured := security.ResolveJWTSecrets()
 
 	var sessionPool *pgxpool.Pool
 	if dbURL := strings.TrimSpace(os.Getenv("DATABASE_URL")); dbURL != "" {
@@ -180,11 +178,21 @@ func AuthResolver(next http.Handler) http.Handler {
 		tokenString := authHeader[7:]
 
 		// 3. Parse and Validate
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return []byte(secret), nil
-		})
+		var token *jwt.Token
+		var err error
+		for _, secret := range secrets {
+			token, err = jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+				if token.Method != jwt.SigningMethodHS256 {
+					return nil, errors.New("unexpected signing method")
+				}
+				return []byte(secret), nil
+			})
+			if err == nil && token != nil && token.Valid {
+				break
+			}
+		}
 
-		if err != nil || !token.Valid {
+		if err != nil || token == nil || !token.Valid {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}

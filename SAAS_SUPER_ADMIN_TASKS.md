@@ -36,6 +36,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - `[x]` Data retention policy settings added (platform-scoped retention window config API/UI with audit logging).
 - `[x]` Tenant data export workflow added (request/list/download ZIP NDJSON exports per tenant with audit trail; safe defaults and restricted-table allowlist).
 - `[x]` Tenant deletion workflow added (request/list/approve/reject/execute with typed confirmation and cooldown; executes safe soft-close).
+- `[x]` Platform secrets/key rotation workflow added (rotation requests with 2-person approval + execute; JWT + data-encryption multi-key env support; secrets UI page).
 - `[x]` Tenant plan change flow added (upgrade/downgrade with proration policy and effective time).
 - `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, branding/domain mapping, branch create/update/activate/deactivate, admin reset/logout, impersonation).
 - `[x]` Signup request moderation UI and API flow added (approve/reject with notes).
@@ -114,7 +115,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [x] SG-004 Data retention and deletion policy settings.
 - [x] SG-005 Tenant data export workflow (compliance request).
 - [x] SG-006 Tenant deletion workflow with cooldown + approvals.
-- [ ] SG-007 Platform secrets/key rotation workflow.
+- [x] SG-007 Platform secrets/key rotation workflow.
 - [ ] SG-008 Password policy configuration (length/reuse/expiry).
 - [ ] SG-009 Risk-based tenant/user block actions.
 - [ ] SG-010 Legal docs versions and forced re-acceptance controls.

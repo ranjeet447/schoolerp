@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"os"
 	"strings"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/schoolerp/api/internal/db"
+	"github.com/schoolerp/api/internal/foundation/security"
 	"github.com/schoolerp/api/internal/service/auth"
 )
 
@@ -1231,10 +1231,11 @@ func (s *Service) CreateImpersonationToken(ctx context.Context, tenantID, reason
 		return ImpersonationResult{}, ErrImpersonationTarget
 	}
 
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		return ImpersonationResult{}, errors.New("JWT_SECRET is not configured")
+	jwtSecrets, ok := security.ResolveJWTSecrets()
+	if !ok || len(jwtSecrets) == 0 {
+		return ImpersonationResult{}, errors.New("JWT secrets are not configured")
 	}
+	jwtSecret := jwtSecrets[0]
 
 	expiresAt := time.Now().Add(time.Duration(durationMinutes) * time.Minute)
 	claims := jwt.MapClaims{

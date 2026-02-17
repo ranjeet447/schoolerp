@@ -13,45 +13,71 @@ import (
 )
 
 var (
-	masterKey     []byte
-	masterKeyErr  error
-	masterKeyOnce sync.Once
+	masterKeys     [][]byte
+	masterKeyErr   error
+	masterKeyOnce  sync.Once
+	masterKeyCount int
 )
 
-func getMasterKey() ([]byte, error) {
+func getMasterKeys() ([][]byte, error) {
 	masterKeyOnce.Do(func() {
-		key := strings.TrimSpace(os.Getenv("DATA_ENCRYPTION_KEY"))
-		if key == "" {
-			masterKeyErr = fmt.Errorf("DATA_ENCRYPTION_KEY is not configured")
+		rawList := strings.TrimSpace(os.Getenv("DATA_ENCRYPTION_KEYS"))
+		keys := make([]string, 0, 3)
+		if rawList != "" {
+			for _, part := range strings.Split(rawList, ",") {
+				trimmed := strings.TrimSpace(part)
+				if trimmed != "" {
+					keys = append(keys, trimmed)
+				}
+			}
+		} else if legacy := strings.TrimSpace(os.Getenv("DATA_ENCRYPTION_KEY")); legacy != "" {
+			keys = append(keys, legacy)
+		}
+
+		if len(keys) == 0 {
+			masterKeyErr = fmt.Errorf("DATA_ENCRYPTION_KEY(S) is not configured")
 			return
 		}
 
-		// Accept raw 32-byte key for local/dev usage.
-		if len(key) == 32 {
-			masterKey = []byte(key)
+		for _, key := range keys {
+			// Accept raw 32-byte key for local/dev usage.
+			if len(key) == 32 {
+				masterKeys = append(masterKeys, []byte(key))
+				continue
+			}
+
+			// Accept base64-encoded 32-byte key for secure secret managers.
+			decoded, err := base64.StdEncoding.DecodeString(key)
+			if err == nil && len(decoded) == 32 {
+				masterKeys = append(masterKeys, decoded)
+				continue
+			}
+
+			masterKeyErr = fmt.Errorf("DATA_ENCRYPTION_KEY(S) must be 32 raw characters or base64 for 32 bytes")
+			masterKeys = nil
 			return
 		}
 
-		// Accept base64-encoded 32-byte key for secure secret managers.
-		decoded, err := base64.StdEncoding.DecodeString(key)
-		if err == nil && len(decoded) == 32 {
-			masterKey = decoded
-			return
-		}
-
-		masterKeyErr = fmt.Errorf("DATA_ENCRYPTION_KEY must be 32 raw characters or base64 for 32 bytes")
+		masterKeyCount = len(masterKeys)
 	})
 
-	return masterKey, masterKeyErr
+	if masterKeyErr != nil {
+		return nil, masterKeyErr
+	}
+	if masterKeyCount <= 0 || len(masterKeys) == 0 {
+		return nil, fmt.Errorf("DATA_ENCRYPTION_KEY(S) is not configured")
+	}
+
+	return masterKeys, nil
 }
 
 func encrypt(plaintext []byte) (string, error) {
-	key, err := getMasterKey()
+	keys, err := getMasterKeys()
 	if err != nil {
 		return "", err
 	}
 
-	block, err := aes.NewCipher(key)
+	block, err := aes.NewCipher(keys[0])
 	if err != nil {
 		return "", err
 	}
@@ -76,26 +102,40 @@ func decrypt(cryptoText string) ([]byte, error) {
 		return nil, err
 	}
 
-	key, err := getMasterKey()
+	keys, err := getMasterKeys()
 	if err != nil {
 		return nil, err
 	}
 
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
+	var lastErr error
+	for _, key := range keys {
+		block, err := aes.NewCipher(key)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		gcm, err := cipher.NewGCM(block)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		nonceSize := gcm.NonceSize()
+		if len(ciphertext) < nonceSize {
+			return nil, fmt.Errorf("ciphertext too short")
+		}
+
+		nonce, data := ciphertext[:nonceSize], ciphertext[nonceSize:]
+		plaintext, err := gcm.Open(nil, nonce, data, nil)
+		if err == nil {
+			return plaintext, nil
+		}
+		lastErr = err
 	}
 
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
+	if lastErr == nil {
+		lastErr = fmt.Errorf("decryption failed")
 	}
-
-	nonceSize := gcm.NonceSize()
-	if len(ciphertext) < nonceSize {
-		return nil, fmt.Errorf("ciphertext too short")
-	}
-
-	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
-	return gcm.Open(nil, nonce, ciphertext, nil)
+	return nil, lastErr
 }
