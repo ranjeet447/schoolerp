@@ -21,16 +21,16 @@ var (
 )
 
 type PlatformIncident struct {
-	ID               string     `json:"id"`
-	Title            string     `json:"title"`
-	Status           string     `json:"status"`
-	Severity         string     `json:"severity"`
-	Scope            string     `json:"scope"`
+	ID                string     `json:"id"`
+	Title             string     `json:"title"`
+	Status            string     `json:"status"`
+	Severity          string     `json:"severity"`
+	Scope             string     `json:"scope"`
 	AffectedTenantIDs []string   `json:"affected_tenant_ids"`
-	CreatedBy        string     `json:"created_by,omitempty"`
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
-	ResolvedAt       *time.Time `json:"resolved_at,omitempty"`
+	CreatedBy         string     `json:"created_by,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
+	ResolvedAt        *time.Time `json:"resolved_at,omitempty"`
 }
 
 type PlatformIncidentEvent struct {
@@ -56,23 +56,40 @@ type PlatformIncidentFilters struct {
 }
 
 type CreatePlatformIncidentParams struct {
-	Title            string   `json:"title"`
-	Status           string   `json:"status,omitempty"`
-	Severity         string   `json:"severity,omitempty"`
-	Scope            string   `json:"scope,omitempty"`
+	Title             string   `json:"title"`
+	Status            string   `json:"status,omitempty"`
+	Severity          string   `json:"severity,omitempty"`
+	Scope             string   `json:"scope,omitempty"`
 	AffectedTenantIDs []string `json:"affected_tenant_ids,omitempty"`
-	InitialMessage   string   `json:"initial_message,omitempty"`
-	CreatedBy        string   `json:"-"`
+	InitialMessage    string   `json:"initial_message,omitempty"`
+	CreatedBy         string   `json:"-"`
 }
 
 type UpdatePlatformIncidentParams struct {
-	Title            *string  `json:"title,omitempty"`
-	Status           *string  `json:"status,omitempty"`
-	Severity         *string  `json:"severity,omitempty"`
-	Scope            *string  `json:"scope,omitempty"`
+	Title             *string  `json:"title,omitempty"`
+	Status            *string  `json:"status,omitempty"`
+	Severity          *string  `json:"severity,omitempty"`
+	Scope             *string  `json:"scope,omitempty"`
 	AffectedTenantIDs []string `json:"affected_tenant_ids,omitempty"`
-	UpdateMessage    string   `json:"update_message,omitempty"`
-	UpdatedBy        string   `json:"-"`
+	UpdateMessage     string   `json:"update_message,omitempty"`
+	UpdatedBy         string   `json:"-"`
+}
+
+type IncidentLimitOverrideParams struct {
+	TenantIDs  []string `json:"tenant_ids,omitempty"` // Optional: override incident affected tenants.
+	LimitKey   string   `json:"limit_key"`
+	LimitValue int64    `json:"limit_value"`
+	ExpiresAt  string   `json:"expires_at,omitempty"`
+	Reason     string   `json:"reason"`
+	UpdatedBy  string   `json:"-"`
+}
+
+type IncidentLimitOverrideResult struct {
+	IncidentID       string   `json:"incident_id"`
+	AppliedTenantIDs []string `json:"applied_tenant_ids"`
+	LimitKey         string   `json:"limit_key"`
+	LimitValue       int64    `json:"limit_value"`
+	ExpiresAt        string   `json:"expires_at,omitempty"`
 }
 
 type CreatePlatformIncidentEventParams struct {
@@ -83,7 +100,7 @@ type CreatePlatformIncidentEventParams struct {
 }
 
 type PlatformIncidentDetail struct {
-	Incident PlatformIncident      `json:"incident"`
+	Incident PlatformIncident        `json:"incident"`
 	Events   []PlatformIncidentEvent `json:"events"`
 }
 
@@ -297,7 +314,7 @@ func (s *Service) CreatePlatformIncident(ctx context.Context, params CreatePlatf
 		_, _ = s.CreatePlatformIncidentEvent(ctx, id, CreatePlatformIncidentEventParams{
 			EventType: "update",
 			Message:   initial,
-			Metadata: map[string]interface{}{},
+			Metadata:  map[string]interface{}{},
 			CreatedBy: params.CreatedBy,
 		})
 	}
@@ -408,7 +425,7 @@ func (s *Service) UpdatePlatformIncident(ctx context.Context, incidentID string,
 		_, _ = s.CreatePlatformIncidentEvent(ctx, incidentID, CreatePlatformIncidentEventParams{
 			EventType: evType,
 			Message:   updateMsg,
-			Metadata: map[string]interface{}{},
+			Metadata:  map[string]interface{}{},
 			CreatedBy: params.UpdatedBy,
 		})
 	}
@@ -418,6 +435,90 @@ func (s *Service) UpdatePlatformIncident(ctx context.Context, incidentID string,
 		return PlatformIncidentDetail{}, PlatformIncidentDetail{}, err
 	}
 	return before, after, nil
+}
+
+func (s *Service) ApplyIncidentLimitOverride(ctx context.Context, incidentID string, params IncidentLimitOverrideParams) (IncidentLimitOverrideResult, error) {
+	incidentID = strings.TrimSpace(incidentID)
+	var iid pgtype.UUID
+	if err := iid.Scan(incidentID); err != nil || !iid.Valid {
+		return IncidentLimitOverrideResult{}, ErrInvalidPlatformIncidentID
+	}
+
+	limitKey := strings.TrimSpace(strings.ToLower(params.LimitKey))
+	if limitKey == "" {
+		return IncidentLimitOverrideResult{}, ErrInvalidLimitOverride
+	}
+	if params.LimitValue < 0 {
+		return IncidentLimitOverrideResult{}, ErrInvalidLimitOverride
+	}
+
+	expiresAt := strings.TrimSpace(params.ExpiresAt)
+	if expiresAt != "" {
+		if _, err := time.Parse(time.RFC3339, expiresAt); err != nil {
+			return IncidentLimitOverrideResult{}, ErrInvalidLimitOverride
+		}
+	}
+
+	reason := strings.TrimSpace(params.Reason)
+	if reason == "" {
+		return IncidentLimitOverrideResult{}, ErrInvalidReason
+	}
+
+	targetTenantIDs, err := validateUUIDStrings(params.TenantIDs)
+	if err != nil {
+		return IncidentLimitOverrideResult{}, ErrInvalidLimitOverride
+	}
+
+	if len(targetTenantIDs) == 0 {
+		const incQuery = `
+			SELECT COALESCE(affected_tenant_ids::text[], '{}') AS affected_tenant_ids
+			FROM platform_incidents
+			WHERE id = $1
+		`
+		var affected []string
+		if err := s.db.QueryRow(ctx, incQuery, iid).Scan(&affected); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return IncidentLimitOverrideResult{}, ErrPlatformIncidentNotFound
+			}
+			return IncidentLimitOverrideResult{}, err
+		}
+		targetTenantIDs = affected
+	}
+
+	if len(targetTenantIDs) == 0 {
+		return IncidentLimitOverrideResult{}, ErrInvalidLimitOverride
+	}
+
+	var updatedBy pgtype.UUID
+	_ = updatedBy.Scan(strings.TrimSpace(params.UpdatedBy))
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return IncidentLimitOverrideResult{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	for _, rawTenantID := range targetTenantIDs {
+		tid, err := parseTenantUUID(rawTenantID)
+		if err != nil {
+			return IncidentLimitOverrideResult{}, err
+		}
+		if err := upsertTenantLimitOverride(ctx, tx, tid, limitKey, params.LimitValue, expiresAt, reason, iid.String(), updatedBy); err != nil {
+			return IncidentLimitOverrideResult{}, err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return IncidentLimitOverrideResult{}, err
+	}
+
+	return IncidentLimitOverrideResult{
+		IncidentID:       iid.String(),
+		AppliedTenantIDs: targetTenantIDs,
+		LimitKey:         limitKey,
+		LimitValue:       params.LimitValue,
+		ExpiresAt:        expiresAt,
+	}, nil
 }
 
 func (s *Service) GetPlatformIncidentDetail(ctx context.Context, incidentID string) (PlatformIncidentDetail, error) {

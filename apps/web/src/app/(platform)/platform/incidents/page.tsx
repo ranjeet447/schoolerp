@@ -64,6 +64,11 @@ export default function PlatformIncidentsPage() {
   const [newEventType, setNewEventType] = useState<"update" | "note">("update");
   const [newEventMessage, setNewEventMessage] = useState("");
 
+  const [limitOverrideKey, setLimitOverrideKey] = useState("students");
+  const [limitOverrideValue, setLimitOverrideValue] = useState("");
+  const [limitOverrideExpiresAt, setLimitOverrideExpiresAt] = useState("");
+  const [limitOverrideReason, setLimitOverrideReason] = useState("");
+
   const query = useMemo(() => {
     const params = new URLSearchParams();
     if (search.trim()) params.set("search", search.trim());
@@ -233,6 +238,45 @@ export default function PlatformIncidentsPage() {
       await load();
     } catch (e: any) {
       setError(e?.message || "Failed to add incident event.");
+    } finally {
+      setBusyId("");
+    }
+  };
+
+  const applyIncidentLimitOverride = async () => {
+    if (!detail) return;
+    setBusyId(`limit:${detail.incident.id}`);
+    setError("");
+    setMessage("");
+    try {
+      const limitValue = Number(limitOverrideValue);
+      if (!Number.isFinite(limitValue) || limitValue < 0) {
+        throw new Error("Limit value must be a non-negative number.");
+      }
+      const reason = limitOverrideReason.trim();
+      if (!reason) throw new Error("Reason is required.");
+
+      const payload: Record<string, unknown> = {
+        limit_key: limitOverrideKey,
+        limit_value: Math.floor(limitValue),
+        reason,
+      };
+      if (limitOverrideExpiresAt.trim()) {
+        payload.expires_at = new Date(limitOverrideExpiresAt).toISOString();
+      }
+
+      const res = await apiClient(`/admin/platform/incidents/${detail.incident.id}/limit-overrides`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await res.text());
+
+      setLimitOverrideValue("");
+      setLimitOverrideExpiresAt("");
+      setLimitOverrideReason("");
+      setMessage("Limit override applied to affected tenants.");
+    } catch (e: any) {
+      setError(e?.message || "Failed to apply limit override.");
     } finally {
       setBusyId("");
     }
@@ -477,6 +521,52 @@ export default function PlatformIncidentsPage() {
                     {detail.incident.resolved_at ? ` · Resolved: ${new Date(detail.incident.resolved_at).toLocaleString()}` : ""}
                   </p>
                 </div>
+
+                <div className="rounded-lg border border-border bg-background p-3">
+                  <p className="text-xs font-semibold text-muted-foreground">Temporary Limit Override</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Apply a temporary (or permanent) limit override to affected tenants for this incident. A reason is required for audit logging.
+                  </p>
+                  <div className="mt-2 grid gap-2 md:grid-cols-2">
+                    <select
+                      className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                      value={limitOverrideKey}
+                      onChange={(e) => setLimitOverrideKey(e.target.value)}
+                      title="Limit key"
+                    >
+                      <option value="students">students</option>
+                      <option value="staff">staff</option>
+                      <option value="storage_mb">storage_mb</option>
+                    </select>
+                    <input
+                      type="number"
+                      min={0}
+                      className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+                      placeholder="Limit value"
+                      value={limitOverrideValue}
+                      onChange={(e) => setLimitOverrideValue(e.target.value)}
+                    />
+                    <input
+                      type="datetime-local"
+                      className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                      value={limitOverrideExpiresAt}
+                      onChange={(e) => setLimitOverrideExpiresAt(e.target.value)}
+                    />
+                    <button
+                      onClick={() => void applyIncidentLimitOverride()}
+                      disabled={busyId === `limit:${detail.incident.id}` || !limitOverrideValue.trim() || !limitOverrideReason.trim()}
+                      className="rounded-md border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground hover:bg-accent disabled:opacity-60"
+                    >
+                      {busyId === `limit:${detail.incident.id}` ? "Applying..." : "Apply override"}
+                    </button>
+                  </div>
+                  <textarea
+                    className="mt-2 min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+                    placeholder="Reason (required)"
+                    value={limitOverrideReason}
+                    onChange={(e) => setLimitOverrideReason(e.target.value)}
+                  />
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -536,4 +626,3 @@ export default function PlatformIncidentsPage() {
     </div>
   );
 }
-

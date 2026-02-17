@@ -42,6 +42,7 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Get("/incidents/{incident_id}", h.GetPlatformIncident)
 	r.Patch("/incidents/{incident_id}", h.UpdatePlatformIncident)
 	r.Post("/incidents/{incident_id}/events", h.CreatePlatformIncidentEvent)
+	r.Post("/incidents/{incident_id}/limit-overrides", h.ApplyIncidentLimitOverride)
 	r.Get("/tenants", h.ListPlatformTenants)
 	r.Get("/tenants/{tenant_id}", h.GetPlatformTenant)
 	r.Patch("/tenants/{tenant_id}", h.UpdatePlatformTenant)
@@ -2229,7 +2230,7 @@ func (h *Handler) ListPlatformIncidents(w http.ResponseWriter, r *http.Request) 
 		Status:   strings.TrimSpace(qp.Get("status")),
 		Severity: strings.TrimSpace(qp.Get("severity")),
 		Scope:    strings.TrimSpace(qp.Get("scope")),
-		TenantID:  strings.TrimSpace(qp.Get("tenant_id")),
+		TenantID: strings.TrimSpace(qp.Get("tenant_id")),
 		Limit:    limit,
 		Offset:   offset,
 	})
@@ -2377,6 +2378,44 @@ func (h *Handler) CreatePlatformIncidentEvent(w http.ResponseWriter, r *http.Req
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(created)
+}
+
+func (h *Handler) ApplyIncidentLimitOverride(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	incidentID := chi.URLParam(r, "incident_id")
+
+	var req tenant.IncidentLimitOverrideParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.UpdatedBy = actorID
+
+	result, err := h.service.ApplyIncidentLimitOverride(r.Context(), incidentID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidPlatformIncidentID):
+			http.Error(w, "invalid incident id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPlatformIncidentNotFound):
+			http.Error(w, "incident not found", http.StatusNotFound)
+		case errors.Is(err, tenant.ErrInvalidLimitOverride), errors.Is(err, tenant.ErrInvalidReason):
+			http.Error(w, "Invalid limit override payload", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to apply limit override", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.incident.limit_override.apply",
+		ResourceType: "platform_incident",
+		ResourceID:   result.IncidentID,
+		Reason:       strings.TrimSpace(req.Reason),
+		After:        result,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 func (h *Handler) GetPlatformSupportSLAPolicy(w http.ResponseWriter, r *http.Request) {
@@ -3296,6 +3335,8 @@ func (h *Handler) UpsertTenantLimitOverride(w http.ResponseWriter, r *http.Reque
 			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
 		case errors.Is(err, tenant.ErrInvalidLimitOverride):
 			http.Error(w, "Invalid limit override payload", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidReason):
+			http.Error(w, "Reason is required", http.StatusBadRequest)
 		default:
 			http.Error(w, "Failed to update tenant limit override", http.StatusInternalServerError)
 		}
@@ -3307,7 +3348,7 @@ func (h *Handler) UpsertTenantLimitOverride(w http.ResponseWriter, r *http.Reque
 		Action:       "platform.tenant.limit_override.upsert",
 		ResourceType: "tenant",
 		ResourceID:   tenantID,
-		Reason:       strings.TrimSpace(result.LimitKey),
+		Reason:       strings.TrimSpace(req.Reason),
 		After:        result,
 	})
 

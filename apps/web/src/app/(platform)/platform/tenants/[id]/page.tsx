@@ -141,6 +141,8 @@ export default function PlatformTenantDetailPage() {
   const [limitOverrideKey, setLimitOverrideKey] = useState("students");
   const [limitOverrideValue, setLimitOverrideValue] = useState("");
   const [limitOverrideExpiresAt, setLimitOverrideExpiresAt] = useState("");
+  const [limitOverrideIncidentId, setLimitOverrideIncidentId] = useState("");
+  const [limitOverrideReason, setLimitOverrideReason] = useState("");
   const [trialDays, setTrialDays] = useState("14");
   const [renewAfterDays, setRenewAfterDays] = useState("30");
   const [dunningRetryCadence, setDunningRetryCadence] = useState("3,7,14");
@@ -384,13 +386,20 @@ export default function PlatformTenantDetailPage() {
       if (!Number.isFinite(limitValue) || limitValue < 0) {
         throw new Error("Limit value must be a non-negative number.");
       }
+      if (!limitOverrideReason.trim()) {
+        throw new Error("Reason is required for limit overrides.");
+      }
 
       const payload: Record<string, unknown> = {
         limit_key: limitOverrideKey,
         limit_value: Math.floor(limitValue),
+        reason: limitOverrideReason.trim(),
       };
       if (limitOverrideExpiresAt.trim()) {
         payload.expires_at = new Date(limitOverrideExpiresAt).toISOString();
+      }
+      if (limitOverrideIncidentId.trim()) {
+        payload.incident_id = limitOverrideIncidentId.trim();
       }
 
       const res = await apiClient(`/admin/platform/tenants/${id}/limit-overrides`, {
@@ -400,6 +409,8 @@ export default function PlatformTenantDetailPage() {
       if (!res.ok) throw new Error(await res.text());
       setLimitOverrideValue("");
       setLimitOverrideExpiresAt("");
+      setLimitOverrideIncidentId("");
+      setLimitOverrideReason("");
     });
   };
 
@@ -863,9 +874,9 @@ export default function PlatformTenantDetailPage() {
             <div className="mt-2 rounded border border-border bg-background/40 p-3">
               <h3 className="text-sm font-medium text-foreground">Tenant Limit Override</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                Set permanent overrides by leaving expiry empty, or temporary overrides with an expiry date/time.
+                Limit overrides require a reason for audit logging. Leave expiry empty for permanent overrides, or set an expiry date/time for temporary overrides.
               </p>
-              <div className="mt-2 grid gap-2 md:grid-cols-4">
+              <div className="mt-2 grid gap-2 md:grid-cols-5">
                 <select
                   className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
                   value={limitOverrideKey}
@@ -889,15 +900,27 @@ export default function PlatformTenantDetailPage() {
                   value={limitOverrideExpiresAt}
                   onChange={(e) => setLimitOverrideExpiresAt(e.target.value)}
                 />
+                <input
+                  className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+                  placeholder="Incident ID (optional)"
+                  value={limitOverrideIncidentId}
+                  onChange={(e) => setLimitOverrideIncidentId(e.target.value)}
+                />
                 <button
                   type="button"
-                  disabled={busy || !limitOverrideValue.trim()}
+                  disabled={busy || !limitOverrideValue.trim() || !limitOverrideReason.trim()}
                   onClick={applyLimitOverride}
                   className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
                 >
                   Apply Override
                 </button>
               </div>
+              <textarea
+                className="mt-2 min-h-[72px] w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+                placeholder="Reason (required)"
+                value={limitOverrideReason}
+                onChange={(e) => setLimitOverrideReason(e.target.value)}
+              />
             </div>
           </form>
         </div>

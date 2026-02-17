@@ -103,6 +103,8 @@ type TenantLimitOverrideParams struct {
 	LimitKey   string `json:"limit_key"`
 	LimitValue int64  `json:"limit_value"`
 	ExpiresAt  string `json:"expires_at"`
+	Reason     string `json:"reason,omitempty"`
+	IncidentID string `json:"incident_id,omitempty"`
 	UpdatedBy  string `json:"-"`
 }
 
@@ -110,6 +112,67 @@ type TenantLimitOverrideResult struct {
 	LimitKey   string `json:"limit_key"`
 	LimitValue int64  `json:"limit_value"`
 	ExpiresAt  string `json:"expires_at,omitempty"`
+}
+
+type sqlExec interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+}
+
+func upsertTenantLimitOverride(
+	ctx context.Context,
+	exec sqlExec,
+	tenantID pgtype.UUID,
+	limitKey string,
+	limitValue int64,
+	expiresAt string,
+	reason string,
+	incidentID string,
+	updatedBy pgtype.UUID,
+) error {
+	const upsert = `
+		INSERT INTO tenant_subscriptions (tenant_id, status, overrides, updated_by)
+		VALUES (
+			$1,
+			'active',
+			jsonb_build_object(
+				'limits',
+				jsonb_build_object($2::text, to_jsonb($3::bigint)),
+				'limit_overrides_meta',
+				jsonb_build_object(
+					$2::text,
+					jsonb_strip_nulls(jsonb_build_object(
+						'expires_at', NULLIF($4::text, ''),
+						'reason', NULLIF($5::text, ''),
+						'incident_id', NULLIF($6::text, ''),
+						'updated_at', NOW()::text
+					))
+				)
+			),
+			$7
+		)
+		ON CONFLICT (tenant_id)
+		DO UPDATE SET
+			overrides = jsonb_set(
+				jsonb_set(
+					COALESCE(tenant_subscriptions.overrides, '{}'::jsonb),
+					ARRAY['limits', $2::text],
+					to_jsonb($3::bigint),
+					TRUE
+				),
+				ARRAY['limit_overrides_meta', $2::text],
+				jsonb_strip_nulls(jsonb_build_object(
+					'expires_at', NULLIF($4::text, ''),
+					'reason', NULLIF($5::text, ''),
+					'incident_id', NULLIF($6::text, ''),
+					'updated_at', NOW()::text
+				)),
+				TRUE
+			),
+			updated_by = EXCLUDED.updated_by,
+			updated_at = NOW()
+	`
+	_, err := exec.Exec(ctx, upsert, tenantID, limitKey, limitValue, expiresAt, reason, incidentID, updatedBy)
+	return err
 }
 
 type TenantTrialLifecycleParams struct {
@@ -545,44 +608,24 @@ func (s *Service) UpsertTenantLimitOverride(ctx context.Context, tenantID string
 		}
 	}
 
+	reason := strings.TrimSpace(params.Reason)
+	if reason == "" {
+		return TenantLimitOverrideResult{}, ErrInvalidReason
+	}
+
+	incidentID := strings.TrimSpace(params.IncidentID)
+	if incidentID != "" {
+		var pid pgtype.UUID
+		if err := pid.Scan(incidentID); err != nil || !pid.Valid {
+			return TenantLimitOverrideResult{}, ErrInvalidLimitOverride
+		}
+		incidentID = pid.String()
+	}
+
 	var updatedBy pgtype.UUID
 	_ = updatedBy.Scan(strings.TrimSpace(params.UpdatedBy))
 
-	const upsert = `
-		INSERT INTO tenant_subscriptions (tenant_id, status, overrides, updated_by)
-		VALUES (
-			$1,
-			'active',
-			jsonb_build_object(
-				'limits', jsonb_build_object($2::text, to_jsonb($3::bigint)),
-				'limit_overrides_meta',
-				CASE
-					WHEN $4::text = '' THEN jsonb_build_object($2::text, 'null'::jsonb)
-					ELSE jsonb_build_object($2::text, jsonb_build_object('expires_at', $4::text))
-				END
-			),
-			$5
-		)
-		ON CONFLICT (tenant_id)
-		DO UPDATE SET
-			overrides = jsonb_set(
-				jsonb_set(
-					COALESCE(tenant_subscriptions.overrides, '{}'::jsonb),
-					ARRAY['limits', $2::text],
-					to_jsonb($3::bigint),
-					TRUE
-				),
-				ARRAY['limit_overrides_meta', $2::text],
-				CASE
-					WHEN $4::text = '' THEN 'null'::jsonb
-					ELSE jsonb_build_object('expires_at', $4::text)
-				END,
-				TRUE
-			),
-			updated_by = EXCLUDED.updated_by,
-			updated_at = NOW()
-	`
-	if _, err := s.db.Exec(ctx, upsert, tid, limitKey, params.LimitValue, expiresAt, updatedBy); err != nil {
+	if err := upsertTenantLimitOverride(ctx, s.db, tid, limitKey, params.LimitValue, expiresAt, reason, incidentID, updatedBy); err != nil {
 		return TenantLimitOverrideResult{}, err
 	}
 
