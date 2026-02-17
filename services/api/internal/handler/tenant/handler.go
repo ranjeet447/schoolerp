@@ -1,9 +1,13 @@
 package tenant
 
 import (
+	"bytes"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -69,6 +73,7 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Post("/access/break-glass/policy", h.UpdatePlatformBreakGlassPolicy)
 	r.Post("/access/break-glass/activate", h.ActivateBreakGlass)
 	r.Get("/access/break-glass/events", h.ListBreakGlassEvents)
+	r.Get("/security/audit-logs/export", h.ExportPlatformAuditLogs)
 	r.Get("/security/audit-logs", h.ListPlatformAuditLogs)
 	r.Get("/billing/overview", h.GetPlatformBillingOverview)
 	r.Get("/billing/config", h.GetPlatformBillingConfig)
@@ -1172,6 +1177,180 @@ func (h *Handler) ListPlatformAuditLogs(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) ExportPlatformAuditLogs(w http.ResponseWriter, r *http.Request) {
+	qp := r.URL.Query()
+
+	format := strings.ToLower(strings.TrimSpace(qp.Get("format")))
+	if format == "" {
+		format = "csv"
+	}
+	if format != "csv" && format != "json" {
+		http.Error(w, "invalid format, expected csv or json", http.StatusBadRequest)
+		return
+	}
+
+	limit := int32(1000)
+	if raw := strings.TrimSpace(qp.Get("limit")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = int32(parsed)
+		}
+	}
+	offset := int32(0)
+	if raw := strings.TrimSpace(qp.Get("offset")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			offset = int32(parsed)
+		}
+	}
+
+	var createdFrom *time.Time
+	if raw := strings.TrimSpace(qp.Get("created_from")); raw != "" {
+		parsed, err := parseDateOrRFC3339(raw, false)
+		if err != nil {
+			http.Error(w, "invalid created_from", http.StatusBadRequest)
+			return
+		}
+		createdFrom = &parsed
+	}
+
+	var createdTo *time.Time
+	if raw := strings.TrimSpace(qp.Get("created_to")); raw != "" {
+		parsed, err := parseDateOrRFC3339(raw, true)
+		if err != nil {
+			http.Error(w, "invalid created_to", http.StatusBadRequest)
+			return
+		}
+		createdTo = &parsed
+	}
+
+	rows, err := h.service.ListPlatformAuditLogs(r.Context(), tenant.PlatformAuditLogFilters{
+		TenantID:    strings.TrimSpace(qp.Get("tenant_id")),
+		UserID:      strings.TrimSpace(qp.Get("user_id")),
+		Action:      strings.TrimSpace(qp.Get("action")),
+		CreatedFrom: createdFrom,
+		CreatedTo:   createdTo,
+		Limit:       limit,
+		Offset:      offset,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "invalid tenant_id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidPlatformUserID):
+			http.Error(w, "invalid user_id", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to export audit logs", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	masked := make([]tenant.PlatformAuditLogRow, 0, len(rows))
+	for _, row := range rows {
+		masked = append(masked, maskPlatformAuditLogRow(row))
+	}
+
+	filename := fmt.Sprintf("platform_audit_logs_%s.%s", time.Now().UTC().Format("20060102_150405"), format)
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+
+	if format == "json" {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(masked)
+		return
+	}
+
+	var out bytes.Buffer
+	writer := csv.NewWriter(&out)
+	_ = writer.Write([]string{
+		"id",
+		"created_at",
+		"tenant_id",
+		"tenant_name",
+		"user_id",
+		"user_name",
+		"user_email_masked",
+		"action",
+		"resource_type",
+		"resource_id",
+		"reason_code",
+		"request_id",
+		"ip_address_masked",
+	})
+	for _, row := range masked {
+		_ = writer.Write([]string{
+			strconv.FormatInt(row.ID, 10),
+			row.CreatedAt.UTC().Format(time.RFC3339),
+			row.TenantID,
+			row.TenantName,
+			row.UserID,
+			row.UserName,
+			row.UserEmail,
+			row.Action,
+			row.ResourceType,
+			row.ResourceID,
+			row.ReasonCode,
+			row.RequestID,
+			row.IPAddress,
+		})
+	}
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		http.Error(w, "Failed to encode CSV", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	_, _ = w.Write(out.Bytes())
+}
+
+func maskPlatformAuditLogRow(row tenant.PlatformAuditLogRow) tenant.PlatformAuditLogRow {
+	row.UserEmail = maskAuditEmail(row.UserEmail)
+	row.IPAddress = maskAuditIPAddress(row.IPAddress)
+	return row
+}
+
+func maskAuditEmail(raw string) string {
+	email := strings.TrimSpace(raw)
+	if email == "" {
+		return ""
+	}
+
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return "***"
+	}
+
+	local := parts[0]
+	domain := parts[1]
+	if len(local) <= 1 {
+		return "*@" + domain
+	}
+	if len(local) == 2 {
+		return local[:1] + "*@" + domain
+	}
+	return local[:1] + strings.Repeat("*", len(local)-2) + local[len(local)-1:] + "@" + domain
+}
+
+func maskAuditIPAddress(raw string) string {
+	ipRaw := strings.TrimSpace(raw)
+	if ipRaw == "" {
+		return ""
+	}
+
+	parsed := net.ParseIP(ipRaw)
+	if parsed == nil {
+		return "***"
+	}
+
+	if v4 := parsed.To4(); v4 != nil {
+		return fmt.Sprintf("%d.%d.%d.x", v4[0], v4[1], v4[2])
+	}
+
+	segments := strings.Split(parsed.String(), ":")
+	if len(segments) >= 2 {
+		return segments[0] + ":" + segments[1] + ":****:****"
+	}
+	return "****"
 }
 
 func (h *Handler) ListPlatformPayments(w http.ResponseWriter, r *http.Request) {

@@ -555,6 +555,40 @@ export default function PlatformInternalUsersPage() {
     }
   };
 
+  const exportAuditLogs = async (format: "csv" | "json") => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const query = new URLSearchParams();
+      query.set("format", format);
+      query.set("limit", "1000");
+      if (auditFilters.tenant_id.trim()) query.set("tenant_id", auditFilters.tenant_id.trim());
+      if (auditFilters.user_id.trim()) query.set("user_id", auditFilters.user_id.trim());
+      if (auditFilters.action.trim()) query.set("action", auditFilters.action.trim());
+      if (auditFilters.created_from.trim()) query.set("created_from", auditFilters.created_from.trim());
+      if (auditFilters.created_to.trim()) query.set("created_to", auditFilters.created_to.trim());
+
+      const res = await apiClient(`/admin/platform/security/audit-logs/export?${query.toString()}`);
+      if (!res.ok) throw new Error(await res.text());
+
+      const blob = await res.blob();
+      const downloadUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = downloadUrl;
+      anchor.download = `platform_audit_logs_${new Date().toISOString().replace(/[:.]/g, "-")}.${format}`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(downloadUrl);
+      setMessage(`Audit logs exported as ${format.toUpperCase()}.`);
+    } catch (e: any) {
+      setError(e?.message || "Failed to export audit logs.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -1027,14 +1061,32 @@ export default function PlatformInternalUsersPage() {
               Filter platform audit logs by tenant, user, action, and date window.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={load}
-            disabled={busy}
-            className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
-          >
-            Apply Audit Filters
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void exportAuditLogs("csv")}
+              disabled={busy}
+              className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+            >
+              Export CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => void exportAuditLogs("json")}
+              disabled={busy}
+              className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+            >
+              Export JSON
+            </button>
+            <button
+              type="button"
+              onClick={load}
+              disabled={busy}
+              className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+            >
+              Apply Audit Filters
+            </button>
+          </div>
         </div>
 
         <div className="mt-3 grid gap-2 md:grid-cols-5">
