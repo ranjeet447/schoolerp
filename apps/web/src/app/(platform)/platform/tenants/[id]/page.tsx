@@ -67,10 +67,25 @@ export default function PlatformTenantDetailPage() {
     logo_url: "",
   });
   const [planCode, setPlanCode] = useState("");
+  const [planModulesText, setPlanModulesText] = useState("{}");
+  const [planLimitsText, setPlanLimitsText] = useState("{}");
+  const [planFlagsText, setPlanFlagsText] = useState("{}");
   const [newAdminPassword, setNewAdminPassword] = useState("");
   const [impersonationReason, setImpersonationReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [busyBranchId, setBusyBranchId] = useState("");
+
+  const parseJSONObject = (raw: string, label: string) => {
+    try {
+      const value = JSON.parse(raw || "{}");
+      if (!value || Array.isArray(value) || typeof value !== "object") {
+        throw new Error(`${label} must be a JSON object.`);
+      }
+      return value;
+    } catch {
+      throw new Error(`${label} must be valid JSON.`);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -180,13 +195,17 @@ export default function PlatformTenantDetailPage() {
   const submitPlan = async (e: FormEvent) => {
     e.preventDefault();
     await action("Plan assignment", async () => {
+      const modules = parseJSONObject(planModulesText, "Modules override");
+      const limits = parseJSONObject(planLimitsText, "Limits override");
+      const featureFlags = parseJSONObject(planFlagsText, "Feature flags override");
+
       const res = await apiClient(`/admin/platform/tenants/${id}/plan`, {
         method: "POST",
         body: JSON.stringify({
           plan_code: planCode,
-          limits: {},
-          modules: {},
-          feature_flags: {},
+          limits,
+          modules,
+          feature_flags: featureFlags,
         }),
       });
       if (!res.ok) throw new Error(await res.text());
@@ -389,9 +408,40 @@ export default function PlatformTenantDetailPage() {
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-4">
           <h2 className="font-semibold text-foreground">Plan Assignment</h2>
-          <form onSubmit={submitPlan} className="mt-3 flex gap-2">
-            <input className="flex-1 rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="Plan code (basic/pro/enterprise)" value={planCode} onChange={(e) => setPlanCode(e.target.value)} />
-            <button disabled={busy} className="rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">Assign</button>
+          <form onSubmit={submitPlan} className="mt-3 space-y-2">
+            <input
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+              placeholder="Plan code (basic/pro/enterprise)"
+              value={planCode}
+              onChange={(e) => setPlanCode(e.target.value)}
+            />
+            <textarea
+              rows={3}
+              className="w-full rounded border border-input bg-background px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground"
+              placeholder='Modules override JSON, e.g. {"attendance":true}'
+              value={planModulesText}
+              onChange={(e) => setPlanModulesText(e.target.value)}
+            />
+            <textarea
+              rows={3}
+              className="w-full rounded border border-input bg-background px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground"
+              placeholder='Limits override JSON, e.g. {"students":1200}'
+              value={planLimitsText}
+              onChange={(e) => setPlanLimitsText(e.target.value)}
+            />
+            <textarea
+              rows={3}
+              className="w-full rounded border border-input bg-background px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground"
+              placeholder='Feature flags override JSON, e.g. {"beta_transport":true}'
+              value={planFlagsText}
+              onChange={(e) => setPlanFlagsText(e.target.value)}
+            />
+            <button
+              disabled={busy}
+              className="rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            >
+              Assign Plan & Overrides
+            </button>
           </form>
         </div>
 
