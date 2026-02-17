@@ -9,16 +9,18 @@ import (
 	"github.com/schoolerp/api/internal/db"
 	"github.com/schoolerp/api/internal/foundation/approvals"
 	"github.com/schoolerp/api/internal/foundation/audit"
+	"github.com/schoolerp/api/internal/foundation/quota"
 )
 
 type Service struct {
 	q         db.Querier
 	audit     *audit.Logger
 	approvals *approvals.Service
+	quota     *quota.Service
 }
 
-func NewService(q db.Querier, audit *audit.Logger, approvals *approvals.Service) *Service {
-	return &Service{q: q, audit: audit, approvals: approvals}
+func NewService(q db.Querier, audit *audit.Logger, approvals *approvals.Service, quotaSvc *quota.Service) *Service {
+	return &Service{q: q, audit: audit, approvals: approvals, quota: quotaSvc}
 }
 
 // ==================== Employees ====================
@@ -37,6 +39,12 @@ type CreateEmployeeParams struct {
 }
 
 func (s *Service) CreateEmployee(ctx context.Context, p CreateEmployeeParams) (db.Employee, error) {
+	if s.quota != nil {
+		if err := s.quota.CheckQuota(ctx, p.TenantID, quota.QuotaStaff); err != nil {
+			return db.Employee{}, err
+		}
+	}
+
 	tID := pgtype.UUID{}
 	tID.Scan(p.TenantID)
 	ssID := pgtype.UUID{}

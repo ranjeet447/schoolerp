@@ -25,6 +25,7 @@ type Querier interface {
 	CheckPaymentEventProcessed(ctx context.Context, arg CheckPaymentEventProcessedParams) (bool, error)
 	CountRouteAllocations(ctx context.Context, arg CountRouteAllocationsParams) (int64, error)
 	CountStudents(ctx context.Context, tenantID pgtype.UUID) (int64, error)
+	CountEmployees(ctx context.Context, tenantID pgtype.UUID) (int64, error)
 	// Academic Structure
 	CreateAcademicYear(ctx context.Context, arg CreateAcademicYearParams) (AcademicYear, error)
 	CreateAdjustment(ctx context.Context, arg CreateAdjustmentParams) (PayrollAdjustment, error)
@@ -33,9 +34,9 @@ type Querier interface {
 	CreateApplication(ctx context.Context, arg CreateApplicationParams) (AdmissionApplication, error)
 	// Approvals
 	CreateApprovalRequest(ctx context.Context, arg CreateApprovalRequestParams) (ApprovalRequest, error)
-	
+
 	CreateAttendanceSession(ctx context.Context, arg CreateAttendanceSessionParams) (AttendanceSession, error)
-	
+
 	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) (AuditLog, error)
 	CreateAuthor(ctx context.Context, arg CreateAuthorParams) (LibraryAuthor, error)
 	CreateBook(ctx context.Context, arg CreateBookParams) (LibraryBook, error)
@@ -50,13 +51,13 @@ type Querier interface {
 	CreateEmergencyBroadcast(ctx context.Context, arg CreateEmergencyBroadcastParams) (EmergencyBroadcast, error)
 	CreateEmployee(ctx context.Context, arg CreateEmployeeParams) (Employee, error)
 	CreateEnquiry(ctx context.Context, arg CreateEnquiryParams) (AdmissionEnquiry, error)
-	
+
 	CreateExam(ctx context.Context, arg CreateExamParams) (Exam, error)
-	
+
 	CreateFeeHead(ctx context.Context, arg CreateFeeHeadParams) (FeeHead, error)
 	CreateFeePlan(ctx context.Context, arg CreateFeePlanParams) (FeePlan, error)
 	CreateFeePlanItem(ctx context.Context, arg CreateFeePlanItemParams) (FeePlanItem, error)
-	
+
 	CreateFile(ctx context.Context, arg CreateFileParams) (File, error)
 	CreateGuardian(ctx context.Context, arg CreateGuardianParams) (Guardian, error)
 	// homework.sql
@@ -68,7 +69,7 @@ type Querier interface {
 	CreateLeaveRequest(ctx context.Context, arg CreateLeaveRequestParams) (LeaveRequest, error)
 	// Locks
 	CreateLock(ctx context.Context, arg CreateLockParams) (Lock, error)
-	
+
 	CreateNotice(ctx context.Context, arg CreateNoticeParams) (Notice, error)
 	CreateOutboxEvent(ctx context.Context, arg CreateOutboxEventParams) (Outbox, error)
 	CreatePDFJob(ctx context.Context, arg CreatePDFJobParams) (PdfJob, error)
@@ -91,7 +92,7 @@ type Querier interface {
 	CreateSalaryStructure(ctx context.Context, arg CreateSalaryStructureParams) (SalaryStructure, error)
 	CreateSchoolGroup(ctx context.Context, arg CreateSchoolGroupParams) (SchoolGroup, error)
 	CreateSection(ctx context.Context, arg CreateSectionParams) (Section, error)
-	
+
 	CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error)
 	CreateSubject(ctx context.Context, arg CreateSubjectParams) (Subject, error)
 	CreateSupplier(ctx context.Context, arg CreateSupplierParams) (InventorySupplier, error)
@@ -131,6 +132,7 @@ type Querier interface {
 	GetExam(ctx context.Context, arg GetExamParams) (Exam, error)
 	GetExamMarks(ctx context.Context, arg GetExamMarksParams) ([]GetExamMarksRow, error)
 	GetExamResultsForStudent(ctx context.Context, arg GetExamResultsForStudentParams) ([]GetExamResultsForStudentRow, error)
+	GetEffectiveTenantLimit(ctx context.Context, arg GetEffectiveTenantLimitParams) (int64, error)
 	GetFile(ctx context.Context, arg GetFileParams) (File, error)
 	GetGroupAnalytics(ctx context.Context, groupID pgtype.UUID) (GetGroupAnalyticsRow, error)
 	GetHomework(ctx context.Context, arg GetHomeworkParams) (Homework, error)
@@ -152,7 +154,7 @@ type Querier interface {
 	GetPendingAdjustments(ctx context.Context, arg GetPendingAdjustmentsParams) ([]PayrollAdjustment, error)
 	GetPendingOutboxEvents(ctx context.Context, limitCount int32) ([]Outbox, error)
 	GetPlacementDrive(ctx context.Context, arg GetPlacementDriveParams) (PlacementDrife, error)
-	
+
 	// foundation.sql
 	// Policies
 	GetPolicy(ctx context.Context, arg GetPolicyParams) (Policy, error)

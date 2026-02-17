@@ -149,7 +149,7 @@ func main() {
 	inventoryService := inventoryservice.NewInventoryService(querier, pool, auditLogger)
 	commService := commservice.NewService(querier, auditLogger)
 	admissionService := admissionservice.NewAdmissionService(querier, auditLogger, studentService)
-	hrmsService := hrmsservice.NewService(querier, auditLogger, approvalSvc)
+	hrmsService := hrmsservice.NewService(querier, auditLogger, approvalSvc, quotaSvc)
 	safetyService := safetyservice.NewService(querier, auditLogger)
 	portfolioService := portfolioservice.NewService(querier)
 	alumniService := alumniservice.NewService(querier)
