@@ -51,11 +51,12 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	res, err := h.svc.Upload(ctx, filesvc.UploadParams{
-		TenantID:   tenantID,
-		Name:       header.Filename,
-		MimeType:   header.Header.Get("Content-Type"),
-		UploadedBy: userID,
-		Content:    file,
+		TenantID:    tenantID,
+		Name:        header.Filename,
+		MimeType:    header.Header.Get("Content-Type"),
+		UploadedBy:  userID,
+		Content:     file,
+		ContentSize: header.Size,
 	})
 
 	if err != nil {

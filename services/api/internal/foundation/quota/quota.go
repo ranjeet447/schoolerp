@@ -22,6 +22,7 @@ type QuotaType string
 const (
 	QuotaStudents QuotaType = "students"
 	QuotaStaff    QuotaType = "staff"
+	QuotaStorage  QuotaType = "storage_mb"
 )
 
 func (s *Service) CheckQuota(ctx context.Context, tenantID string, qType QuotaType) error {
@@ -56,6 +57,45 @@ func (s *Service) CheckQuota(ctx context.Context, tenantID string, qType QuotaTy
 	}
 	if current >= limit {
 		return fmt.Errorf("%s quota exceeded (limit: %d)", qType, limit)
+	}
+	return nil
+}
+
+func (s *Service) CheckStorageQuota(ctx context.Context, tenantID string, incomingBytes int64) error {
+	tUUID := pgtype.UUID{}
+	if err := tUUID.Scan(tenantID); err != nil || !tUUID.Valid {
+		return errors.New("invalid tenant id")
+	}
+
+	limitMB, err := s.q.GetEffectiveTenantLimit(ctx, db.GetEffectiveTenantLimitParams{
+		TenantID: tUUID,
+		QuotaKey: string(QuotaStorage),
+	})
+	if err != nil {
+		return err
+	}
+	if limitMB <= 0 {
+		// 0 means unlimited storage.
+		return nil
+	}
+
+	usedBytes, err := s.q.GetTenantStorageUsage(ctx, tUUID)
+	if err != nil {
+		return err
+	}
+
+	toMB := func(bytes int64) int64 {
+		if bytes <= 0 {
+			return 0
+		}
+		const oneMB = int64(1024 * 1024)
+		return (bytes + oneMB - 1) / oneMB
+	}
+
+	usedMB := toMB(usedBytes)
+	incomingMB := toMB(incomingBytes)
+	if usedMB+incomingMB > limitMB {
+		return fmt.Errorf("storage quota exceeded (limit_mb: %d, used_mb: %d, incoming_mb: %d)", limitMB, usedMB, incomingMB)
 	}
 	return nil
 }

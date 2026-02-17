@@ -134,6 +134,7 @@ type Querier interface {
 	GetExamResultsForStudent(ctx context.Context, arg GetExamResultsForStudentParams) ([]GetExamResultsForStudentRow, error)
 	GetEffectiveTenantLimit(ctx context.Context, arg GetEffectiveTenantLimitParams) (int64, error)
 	GetFile(ctx context.Context, arg GetFileParams) (File, error)
+	GetTenantStorageUsage(ctx context.Context, tenantID pgtype.UUID) (int64, error)
 	GetGroupAnalytics(ctx context.Context, groupID pgtype.UUID) (GetGroupAnalyticsRow, error)
 	GetHomework(ctx context.Context, arg GetHomeworkParams) (Homework, error)
 	GetHomeworkDueSoon(ctx context.Context) ([]Homework, error)

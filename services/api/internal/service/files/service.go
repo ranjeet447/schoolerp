@@ -8,23 +8,26 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/schoolerp/api/internal/db"
 	"github.com/schoolerp/api/internal/foundation/filestore"
+	"github.com/schoolerp/api/internal/foundation/quota"
 )
 
 type FileService struct {
 	q     db.Querier
 	store filestore.Provider
+	quota *quota.Service
 }
 
-func NewFileService(q db.Querier, store filestore.Provider) *FileService {
-	return &FileService{q: q, store: store}
+func NewFileService(q db.Querier, store filestore.Provider, quotaSvc *quota.Service) *FileService {
+	return &FileService{q: q, store: store, quota: quotaSvc}
 }
 
 type UploadParams struct {
-	TenantID   string
-	Name       string
-	MimeType   string
-	UploadedBy string
-	Content    io.Reader
+	TenantID    string
+	Name        string
+	MimeType    string
+	UploadedBy  string
+	Content     io.Reader
+	ContentSize int64
 }
 
 func (s *FileService) Upload(ctx context.Context, p UploadParams) (db.File, error) {
@@ -34,10 +37,23 @@ func (s *FileService) Upload(ctx context.Context, p UploadParams) (db.File, erro
 	uUUID := pgtype.UUID{}
 	uUUID.Scan(p.UploadedBy)
 
+	if s.quota != nil && p.ContentSize > 0 {
+		if err := s.quota.CheckStorageQuota(ctx, p.TenantID, p.ContentSize); err != nil {
+			return db.File{}, err
+		}
+	}
+
 	// 1. Upload to physical storage
 	info, err := s.store.Upload(ctx, p.Name, p.Content)
 	if err != nil {
 		return db.File{}, fmt.Errorf("storage upload failed: %w", err)
+	}
+
+	if s.quota != nil {
+		if err := s.quota.CheckStorageQuota(ctx, p.TenantID, info.Size); err != nil {
+			_ = s.store.Delete(ctx, info.ID)
+			return db.File{}, err
+		}
 	}
 
 	// 2. Create database record

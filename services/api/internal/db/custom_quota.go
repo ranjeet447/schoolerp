@@ -59,3 +59,16 @@ func (q *Queries) GetEffectiveTenantLimit(ctx context.Context, arg GetEffectiveT
 	err := row.Scan(&limit)
 	return limit, err
 }
+
+const getTenantStorageUsage = `
+SELECT COALESCE(SUM(COALESCE(size, 0)), 0)::BIGINT
+FROM files
+WHERE tenant_id = $1
+`
+
+func (q *Queries) GetTenantStorageUsage(ctx context.Context, tenantID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, getTenantStorageUsage, tenantID)
+	var used int64
+	err := row.Scan(&used)
+	return used, err
+}

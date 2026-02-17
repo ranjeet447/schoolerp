@@ -15,7 +15,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - `[x]` Platform plan management added: plans API + plans UI (create/edit/clone/status).
 - `[x]` Tenant-level plan override UI added for modules, limits, and feature flags in plan assignment flow.
 - `[x]` Feature-flag rollout control added (cohort filters + percentage + dry-run/apply).
-- `[~]` Quota enforcement upgraded to resolve effective limits from plan/overrides for students and staff creation hooks.
+- `[x]` Quota enforcement upgraded to resolve effective limits from plan/overrides for students, staff, and storage upload checks.
 - `[x]` Temporary/permanent tenant limit override controls added (expiry-based override metadata).
 - `[x]` Critical module lock guardrails added to prevent disabling compliance modules in plan/tenant module payloads.
 - `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, branding/domain mapping, branch create/update/activate/deactivate, admin reset/logout, impersonation).
@@ -59,7 +59,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [x] PL-002 Plan builder UI (create/edit/clone plans).
 - [x] PL-003 Module toggles by plan and by tenant override.
 - [x] PL-004 Feature flags by tenant/cohort with rollout percentage support.
-- [~] PL-005 Usage limits model + enforcement hooks for students/staff/storage/modules.
+- [x] PL-005 Usage limits model + enforcement hooks for students/staff/storage/modules.
 - [x] PL-006 Temporary and permanent tenant limit overrides.
 - [x] PL-007 Critical/compliance modules lock rules (cannot disable when policy-locked).
 - [x] PL-008 Audit every plan/module/flag mutation.

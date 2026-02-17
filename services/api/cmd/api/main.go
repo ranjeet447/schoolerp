@@ -176,7 +176,7 @@ func main() {
 	}
 
 	store, _ := filestore.NewLocalProvider(fsDir, fsURL)
-	fileService := fileservice.NewFileService(querier, store)
+	fileService := fileservice.NewFileService(querier, store, quotaSvc)
 
 	// Initialize Handlers
 	studentHandler := sis.NewHandler(studentService)
