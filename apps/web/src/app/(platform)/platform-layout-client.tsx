@@ -26,6 +26,7 @@ const NAV_ITEMS = [
   { href: "/platform/signup-requests", label: "Signup Requests", icon: FileCheck2 },
   { href: "/platform/payments", label: "Platform Payments", icon: CreditCard },
   { href: "/platform/internal-users", label: "Internal Users", icon: Users },
+  { href: "/platform/security-events", label: "Security Events", icon: Shield },
 ];
 
 export default function PlatformLayoutClient({

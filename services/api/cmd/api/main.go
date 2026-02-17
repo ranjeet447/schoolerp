@@ -119,6 +119,9 @@ func main() {
 	}
 	defer pool.Close()
 
+	// Best-effort security event persistence (rate-limit blocks, IP allowlist blocks, auth anomalies, etc.).
+	middleware.SetSecurityEventRecorder(middleware.NewDBSecurityEventRecorder(pool))
+
 	// Initialize Querier
 	querier := db.New(pool)
 

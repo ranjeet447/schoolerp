@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -10,9 +11,9 @@ import (
 )
 
 var (
-	corsConfigOnce        sync.Once
-	corsAllowedOrigins    map[string]struct{}
-	corsWildcardOrigins   []wildcardOrigin
+	corsConfigOnce      sync.Once
+	corsAllowedOrigins  map[string]struct{}
+	corsWildcardOrigins []wildcardOrigin
 )
 
 type wildcardOrigin struct {
@@ -139,6 +140,19 @@ func CORS(next http.Handler) http.Handler {
 
 		if r.Method == "OPTIONS" {
 			if origin != "" && !allowedOrigin {
+				RecordSecurityEvent(r.Context(), SecurityEvent{
+					EventType:  "cors.origin_denied",
+					Severity:   "info",
+					Method:     r.Method,
+					Path:       r.URL.Path,
+					StatusCode: http.StatusForbidden,
+					IPAddress:  clientIPForSecurity(r),
+					UserAgent:  r.UserAgent(),
+					Origin:     origin,
+					Metadata: map[string]any{
+						"host": r.Host,
+					},
+				})
 				http.Error(w, "origin not allowed", http.StatusForbidden)
 				return
 			}
@@ -175,17 +189,51 @@ func init() {
 func RateLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/v1/auth") {
-			ip := r.RemoteAddr
+			ip := clientIPForSecurity(r)
 			authLimiter.mu.Lock()
 			authLimiter.counts[ip]++
 			count := authLimiter.counts[ip]
 			authLimiter.mu.Unlock()
 
 			if count > 20 { // 20 req/min limit
+				if count == 21 {
+					RecordSecurityEvent(r.Context(), SecurityEvent{
+						EventType:  "auth.rate_limited",
+						Severity:   "warning",
+						Method:     r.Method,
+						Path:       r.URL.Path,
+						StatusCode: http.StatusTooManyRequests,
+						IPAddress:  ip,
+						UserAgent:  r.UserAgent(),
+						Origin:     r.Header.Get("Origin"),
+						Metadata: map[string]any{
+							"limit_per_minute": 20,
+						},
+					})
+				}
 				http.Error(w, "Too many requests", http.StatusTooManyRequests)
 				return
 			}
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func clientIPForSecurity(r *http.Request) string {
+	ip := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
+	if ip != "" {
+		if idx := strings.Index(ip, ","); idx != -1 {
+			ip = ip[:idx]
+		}
+		ip = strings.TrimSpace(ip)
+	}
+	if ip == "" {
+		ip = strings.TrimSpace(r.RemoteAddr)
+	}
+
+	host, _, err := net.SplitHostPort(ip)
+	if err == nil {
+		return strings.TrimSpace(host)
+	}
+	return ip
 }

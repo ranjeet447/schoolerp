@@ -3,6 +3,7 @@ package auth
 import (
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"strings"
 
@@ -135,6 +136,16 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		logger.Warn().Err(err).Msg("auth login failed: invalid request body")
+		middleware.RecordSecurityEvent(r.Context(), middleware.SecurityEvent{
+			EventType:  "auth.login.invalid_body",
+			Severity:   "info",
+			Method:     r.Method,
+			Path:       r.URL.Path,
+			StatusCode: http.StatusBadRequest,
+			IPAddress:  clientIPForAuth(r),
+			UserAgent:  r.UserAgent(),
+			Origin:     r.Header.Get("Origin"),
+		})
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(loginResponse{
@@ -148,6 +159,19 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		logger.Warn().
 			Str("auth_email", maskLoginEmail(req.Email)).
 			Msg("auth login failed: missing email/password")
+		middleware.RecordSecurityEvent(r.Context(), middleware.SecurityEvent{
+			EventType:  "auth.login.invalid_request",
+			Severity:   "info",
+			Method:     r.Method,
+			Path:       r.URL.Path,
+			StatusCode: http.StatusBadRequest,
+			IPAddress:  clientIPForAuth(r),
+			UserAgent:  r.UserAgent(),
+			Origin:     r.Header.Get("Origin"),
+			Metadata: map[string]any{
+				"email_masked": maskLoginEmail(req.Email),
+			},
+		})
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(loginResponse{
@@ -170,9 +194,28 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 			Str("auth_email", maskLoginEmail(req.Email)).
 			Msg("auth login failed")
 		statusCode := http.StatusUnauthorized
+		eventType := "auth.login_failed"
+		severity := "warning"
 		if errors.Is(err, auth.ErrMFARequired) {
 			statusCode = http.StatusForbidden
+			eventType = "auth.mfa_required"
+			severity = "info"
 		}
+		middleware.RecordSecurityEvent(r.Context(), middleware.SecurityEvent{
+			EventType:  eventType,
+			Severity:   severity,
+			Method:     r.Method,
+			Path:       r.URL.Path,
+			StatusCode: statusCode,
+			IPAddress:  clientIPForAuth(r),
+			UserAgent:  r.UserAgent(),
+			Origin:     r.Header.Get("Origin"),
+			Metadata: map[string]any{
+				"email_masked":  maskLoginEmail(req.Email),
+				"tenant_header": strings.TrimSpace(r.Header.Get("X-Tenant-ID")),
+				"error":         err.Error(),
+			},
+		})
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
 		json.NewEncoder(w).Encode(loginResponse{
@@ -194,6 +237,25 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		Success: true,
 		Data:    result,
 	})
+}
+
+func clientIPForAuth(r *http.Request) string {
+	ip := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
+	if ip != "" {
+		if idx := strings.Index(ip, ","); idx != -1 {
+			ip = ip[:idx]
+		}
+		ip = strings.TrimSpace(ip)
+	}
+	if ip == "" {
+		ip = strings.TrimSpace(r.RemoteAddr)
+	}
+
+	host, _, err := net.SplitHostPort(ip)
+	if err == nil {
+		return strings.TrimSpace(host)
+	}
+	return ip
 }
 
 func maskLoginEmail(email string) string {

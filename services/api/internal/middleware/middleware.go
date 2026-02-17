@@ -340,11 +340,43 @@ func IPGuard(checker IPChecker) func(http.Handler) http.Handler {
 				// Log error?
 				// For security, fail open or closed?
 				// Fail closed usually.
+				RecordSecurityEvent(r.Context(), SecurityEvent{
+					TenantID:   tenantID,
+					UserID:     GetUserID(r.Context()),
+					Role:       role,
+					EventType:  "access.ip_check_failed",
+					Severity:   "critical",
+					Method:     r.Method,
+					Path:       r.URL.Path,
+					StatusCode: http.StatusForbidden,
+					IPAddress:  ip,
+					UserAgent:  r.UserAgent(),
+					Origin:     r.Header.Get("Origin"),
+					Metadata: map[string]any{
+						"tenant_ref": tenantID,
+					},
+				})
 				http.Error(w, "Forbidden (IP Check Failed)", http.StatusForbidden)
 				return
 			}
 
 			if !allowed {
+				RecordSecurityEvent(r.Context(), SecurityEvent{
+					TenantID:   tenantID,
+					UserID:     GetUserID(r.Context()),
+					Role:       role,
+					EventType:  "access.ip_denied",
+					Severity:   "warning",
+					Method:     r.Method,
+					Path:       r.URL.Path,
+					StatusCode: http.StatusForbidden,
+					IPAddress:  ip,
+					UserAgent:  r.UserAgent(),
+					Origin:     r.Header.Get("Origin"),
+					Metadata: map[string]any{
+						"tenant_ref": tenantID,
+					},
+				})
 				http.Error(w, "Forbidden: IP Not Allowed", http.StatusForbidden)
 				return
 			}

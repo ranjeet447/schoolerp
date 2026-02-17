@@ -75,6 +75,7 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Get("/access/break-glass/events", h.ListBreakGlassEvents)
 	r.Get("/security/audit-logs/export", h.ExportPlatformAuditLogs)
 	r.Get("/security/audit-logs", h.ListPlatformAuditLogs)
+	r.Get("/security/events", h.ListPlatformSecurityEvents)
 	r.Get("/billing/overview", h.GetPlatformBillingOverview)
 	r.Get("/billing/config", h.GetPlatformBillingConfig)
 	r.Post("/billing/config", h.UpdatePlatformBillingConfig)
@@ -1351,6 +1352,68 @@ func maskAuditIPAddress(raw string) string {
 		return segments[0] + ":" + segments[1] + ":****:****"
 	}
 	return "****"
+}
+
+func (h *Handler) ListPlatformSecurityEvents(w http.ResponseWriter, r *http.Request) {
+	qp := r.URL.Query()
+
+	limit := int32(100)
+	if raw := strings.TrimSpace(qp.Get("limit")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = int32(parsed)
+		}
+	}
+	offset := int32(0)
+	if raw := strings.TrimSpace(qp.Get("offset")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			offset = int32(parsed)
+		}
+	}
+
+	var createdFrom *time.Time
+	if raw := strings.TrimSpace(qp.Get("created_from")); raw != "" {
+		parsed, err := parseDateOrRFC3339(raw, false)
+		if err != nil {
+			http.Error(w, "invalid created_from", http.StatusBadRequest)
+			return
+		}
+		createdFrom = &parsed
+	}
+
+	var createdTo *time.Time
+	if raw := strings.TrimSpace(qp.Get("created_to")); raw != "" {
+		parsed, err := parseDateOrRFC3339(raw, true)
+		if err != nil {
+			http.Error(w, "invalid created_to", http.StatusBadRequest)
+			return
+		}
+		createdTo = &parsed
+	}
+
+	rows, err := h.service.ListPlatformSecurityEvents(r.Context(), tenant.PlatformSecurityEventFilters{
+		TenantID:    strings.TrimSpace(qp.Get("tenant_id")),
+		UserID:      strings.TrimSpace(qp.Get("user_id")),
+		EventType:   strings.TrimSpace(firstNonEmpty(qp.Get("event_type"), qp.Get("type"))),
+		Severity:    strings.TrimSpace(qp.Get("severity")),
+		CreatedFrom: createdFrom,
+		CreatedTo:   createdTo,
+		Limit:       limit,
+		Offset:      offset,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "invalid tenant_id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidPlatformUserID):
+			http.Error(w, "invalid user_id", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to load security events", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(rows)
 }
 
 func (h *Handler) ListPlatformPayments(w http.ResponseWriter, r *http.Request) {
