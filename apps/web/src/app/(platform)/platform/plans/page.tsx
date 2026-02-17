@@ -31,6 +31,17 @@ type PlanEditorState = {
   is_active: boolean;
 };
 
+type FeatureRolloutForm = {
+  flag_key: string;
+  enabled: boolean;
+  percentage: string;
+  plan_code: string;
+  region: string;
+  status: string;
+  tenant_ids_csv: string;
+  dry_run: boolean;
+};
+
 const EMPTY_PLAN_EDITOR: PlanEditorState = {
   code: "",
   name: "",
@@ -41,6 +52,17 @@ const EMPTY_PLAN_EDITOR: PlanEditorState = {
   limits_text: "{}",
   feature_flags_text: "{}",
   is_active: true,
+};
+
+const EMPTY_ROLLOUT_FORM: FeatureRolloutForm = {
+  flag_key: "",
+  enabled: true,
+  percentage: "50",
+  plan_code: "",
+  region: "",
+  status: "",
+  tenant_ids_csv: "",
+  dry_run: true,
 };
 
 function toEditorState(plan: PlatformPlan): PlanEditorState {
@@ -81,6 +103,7 @@ export default function PlatformPlansPage() {
 
   const [createForm, setCreateForm] = useState<PlanEditorState>(EMPTY_PLAN_EDITOR);
   const [editForm, setEditForm] = useState<PlanEditorState | null>(null);
+  const [rolloutForm, setRolloutForm] = useState<FeatureRolloutForm>(EMPTY_ROLLOUT_FORM);
 
   const loadPlans = async () => {
     setLoading(true);
@@ -224,6 +247,47 @@ export default function PlatformPlansPage() {
       await loadPlans();
     } catch (e: any) {
       setError(e?.message || "Failed to update status.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const rolloutFeatureFlag = async (e: FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const tenantIDs = rolloutForm.tenant_ids_csv
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean);
+
+      const payload = {
+        flag_key: rolloutForm.flag_key.trim(),
+        enabled: rolloutForm.enabled,
+        percentage: Number(rolloutForm.percentage || 0),
+        plan_code: rolloutForm.plan_code.trim(),
+        region: rolloutForm.region.trim(),
+        status: rolloutForm.status.trim(),
+        tenant_ids: tenantIDs,
+        dry_run: rolloutForm.dry_run,
+      };
+
+      const res = await apiClient("/admin/platform/feature-rollouts", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+
+      setMessage(
+        `Feature rollout ${data.dry_run ? "dry-run" : "applied"}: matched ${data.total_matched}, selected ${data.applied_count}.`
+      );
+      await loadPlans();
+    } catch (e: any) {
+      setError(e?.message || "Failed to execute feature rollout.");
     } finally {
       setSaving(false);
     }
@@ -504,6 +568,84 @@ export default function PlatformPlansPage() {
           </button>
         </form>
       )}
+
+      <form onSubmit={rolloutFeatureFlag} className="space-y-3 rounded-xl border border-border bg-card p-4">
+        <h2 className="text-lg font-semibold text-foreground">Feature Flag Rollout</h2>
+        <p className="text-sm text-muted-foreground">
+          Roll out a single feature flag by cohort filters and rollout percentage.
+        </p>
+        <div className="grid gap-2 md:grid-cols-3">
+          <input
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+            placeholder="Flag key (e.g. beta_transport)"
+            value={rolloutForm.flag_key}
+            onChange={(e) => setRolloutForm((p) => ({ ...p, flag_key: e.target.value }))}
+          />
+          <select
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            value={rolloutForm.enabled ? "enabled" : "disabled"}
+            onChange={(e) => setRolloutForm((p) => ({ ...p, enabled: e.target.value === "enabled" }))}
+          >
+            <option value="enabled">Set Enabled</option>
+            <option value="disabled">Set Disabled</option>
+          </select>
+          <input
+            type="number"
+            min={1}
+            max={100}
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            placeholder="Percentage"
+            value={rolloutForm.percentage}
+            onChange={(e) => setRolloutForm((p) => ({ ...p, percentage: e.target.value }))}
+          />
+          <input
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+            placeholder="Filter by plan code (optional)"
+            value={rolloutForm.plan_code}
+            onChange={(e) => setRolloutForm((p) => ({ ...p, plan_code: e.target.value }))}
+          />
+          <input
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+            placeholder="Filter by region (optional)"
+            value={rolloutForm.region}
+            onChange={(e) => setRolloutForm((p) => ({ ...p, region: e.target.value }))}
+          />
+          <select
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            value={rolloutForm.status}
+            onChange={(e) => setRolloutForm((p) => ({ ...p, status: e.target.value }))}
+          >
+            <option value="">Any status</option>
+            <option value="trial">Trial</option>
+            <option value="active">Active</option>
+            <option value="suspended">Suspended</option>
+            <option value="closed">Closed</option>
+          </select>
+        </div>
+
+        <textarea
+          rows={2}
+          className="w-full rounded border border-input bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground"
+          placeholder="Optional tenant IDs CSV for explicit cohort targeting"
+          value={rolloutForm.tenant_ids_csv}
+          onChange={(e) => setRolloutForm((p) => ({ ...p, tenant_ids_csv: e.target.value }))}
+        />
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={rolloutForm.dry_run}
+            onChange={(e) => setRolloutForm((p) => ({ ...p, dry_run: e.target.checked }))}
+          />
+          Dry run only (no database write)
+        </label>
+        <button
+          type="submit"
+          disabled={saving}
+          className="rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+        >
+          Execute Rollout
+        </button>
+      </form>
     </div>
   );
 }

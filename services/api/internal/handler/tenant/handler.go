@@ -27,6 +27,7 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Post("/plans", h.CreatePlatformPlan)
 	r.Patch("/plans/{plan_id}", h.UpdatePlatformPlan)
 	r.Post("/plans/{plan_id}/clone", h.ClonePlatformPlan)
+	r.Post("/feature-rollouts", h.RolloutFeatureFlag)
 	r.Get("/signup-requests", h.ListSignupRequests)
 	r.Post("/signup-requests/{signup_id}/review", h.ReviewSignupRequest)
 	r.Get("/tenants", h.ListPlatformTenants)
@@ -312,6 +313,51 @@ func (h *Handler) ClonePlatformPlan(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(created)
+}
+
+func (h *Handler) RolloutFeatureFlag(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+
+	var req tenant.FeatureRolloutParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.UpdatedBy = actorID
+
+	result, err := h.service.RolloutFeatureFlag(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidRollout):
+			http.Error(w, "Invalid feature rollout payload", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to execute feature rollout", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.feature_flag.rollout",
+		ResourceType: "platform_feature_flag",
+		ResourceID:   strings.TrimSpace(result.FlagKey),
+		Reason:       strings.TrimSpace(result.FlagKey),
+		After: map[string]any{
+			"enabled":       result.Enabled,
+			"percentage":    result.Percentage,
+			"total_matched": result.TotalMatched,
+			"applied_count": result.AppliedCount,
+			"tenant_ids":    result.TenantIDs,
+			"dry_run":       result.DryRun,
+			"filters": map[string]any{
+				"plan_code": strings.TrimSpace(req.PlanCode),
+				"region":    strings.TrimSpace(req.Region),
+				"status":    strings.TrimSpace(req.Status),
+			},
+		},
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 func (h *Handler) ListPlatformTenants(w http.ResponseWriter, r *http.Request) {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ var (
 	ErrInvalidPlanID      = errors.New("invalid plan id")
 	ErrInvalidPlanPayload = errors.New("invalid plan payload")
 	ErrPlanCodeExists     = errors.New("plan code already exists")
+	ErrInvalidRollout     = errors.New("invalid feature rollout payload")
 )
 
 type PlatformPlanFilters struct {
@@ -70,6 +72,28 @@ type ClonePlatformPlanParams struct {
 	Description string `json:"description"`
 	IsActive    *bool  `json:"is_active"`
 	CreatedBy   string `json:"-"`
+}
+
+type FeatureRolloutParams struct {
+	FlagKey    string   `json:"flag_key"`
+	Enabled    bool     `json:"enabled"`
+	Percentage int      `json:"percentage"`
+	PlanCode   string   `json:"plan_code"`
+	Region     string   `json:"region"`
+	Status     string   `json:"status"`
+	TenantIDs  []string `json:"tenant_ids"`
+	DryRun     bool     `json:"dry_run"`
+	UpdatedBy  string   `json:"-"`
+}
+
+type FeatureRolloutResult struct {
+	FlagKey      string   `json:"flag_key"`
+	Enabled      bool     `json:"enabled"`
+	Percentage   int      `json:"percentage"`
+	TotalMatched int64    `json:"total_matched"`
+	AppliedCount int64    `json:"applied_count"`
+	TenantIDs    []string `json:"tenant_ids"`
+	DryRun       bool     `json:"dry_run"`
 }
 
 func (s *Service) ListPlatformPlans(ctx context.Context, filters PlatformPlanFilters) ([]PlatformPlan, error) {
@@ -405,6 +429,135 @@ func (s *Service) ClonePlatformPlan(ctx context.Context, sourcePlanID string, pa
 		return PlatformPlan{}, err
 	}
 	return row, nil
+}
+
+func (s *Service) RolloutFeatureFlag(ctx context.Context, params FeatureRolloutParams) (FeatureRolloutResult, error) {
+	flagKey := strings.TrimSpace(params.FlagKey)
+	if flagKey == "" {
+		return FeatureRolloutResult{}, fmt.Errorf("%w: flag_key is required", ErrInvalidRollout)
+	}
+	if params.Percentage <= 0 || params.Percentage > 100 {
+		return FeatureRolloutResult{}, fmt.Errorf("%w: percentage must be between 1 and 100", ErrInvalidRollout)
+	}
+
+	status := strings.ToLower(strings.TrimSpace(params.Status))
+	if status != "" {
+		switch status {
+		case "trial", "active", "suspended", "closed":
+		default:
+			return FeatureRolloutResult{}, fmt.Errorf("%w: invalid status", ErrInvalidRollout)
+		}
+	}
+
+	tenantIDs := make([]string, 0, len(params.TenantIDs))
+	seen := map[string]bool{}
+	for _, raw := range params.TenantIDs {
+		id := strings.TrimSpace(raw)
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		tenantIDs = append(tenantIDs, id)
+	}
+
+	const query = `
+		SELECT t.id::text
+		FROM tenants t
+		LEFT JOIN tenant_subscriptions ts ON ts.tenant_id = t.id
+		LEFT JOIN platform_plans pp ON pp.id = ts.plan_id
+		WHERE
+			($1::text = '' OR LOWER(COALESCE(pp.code, '')) = LOWER($1))
+			AND ($2::text = '' OR LOWER(COALESCE(t.config->>'region', '')) = LOWER($2))
+			AND ($3::text = '' OR LOWER(COALESCE(ts.status, 'trial')) = LOWER($3))
+			AND (COALESCE(array_length($4::text[], 1), 0) = 0 OR t.id::text = ANY($4::text[]))
+		ORDER BY t.created_at ASC
+	`
+	rows, err := s.db.Query(
+		ctx,
+		query,
+		strings.TrimSpace(params.PlanCode),
+		strings.TrimSpace(params.Region),
+		status,
+		tenantIDs,
+	)
+	if err != nil {
+		return FeatureRolloutResult{}, err
+	}
+	defer rows.Close()
+
+	matchedTenantIDs := make([]string, 0)
+	for rows.Next() {
+		var tenantID string
+		if err := rows.Scan(&tenantID); err != nil {
+			return FeatureRolloutResult{}, err
+		}
+		matchedTenantIDs = append(matchedTenantIDs, tenantID)
+	}
+	if err := rows.Err(); err != nil {
+		return FeatureRolloutResult{}, err
+	}
+
+	result := FeatureRolloutResult{
+		FlagKey:      flagKey,
+		Enabled:      params.Enabled,
+		Percentage:   params.Percentage,
+		TotalMatched: int64(len(matchedTenantIDs)),
+		DryRun:       params.DryRun,
+	}
+	if len(matchedTenantIDs) == 0 {
+		return result, nil
+	}
+
+	applyCount := int(math.Ceil(float64(len(matchedTenantIDs)) * float64(params.Percentage) / 100.0))
+	if applyCount < 1 {
+		applyCount = 1
+	}
+	if applyCount > len(matchedTenantIDs) {
+		applyCount = len(matchedTenantIDs)
+	}
+
+	selectedTenantIDs := matchedTenantIDs[:applyCount]
+	result.AppliedCount = int64(len(selectedTenantIDs))
+	result.TenantIDs = selectedTenantIDs
+
+	if params.DryRun {
+		return result, nil
+	}
+
+	var updatedBy pgtype.UUID
+	_ = updatedBy.Scan(strings.TrimSpace(params.UpdatedBy))
+
+	const upsert = `
+		INSERT INTO tenant_subscriptions (tenant_id, status, overrides, updated_by)
+		VALUES (
+			$1,
+			'trial',
+			jsonb_build_object('feature_flags', jsonb_build_object($2::text, to_jsonb($3::boolean))),
+			$4
+		)
+		ON CONFLICT (tenant_id)
+		DO UPDATE SET
+			overrides = jsonb_set(
+				COALESCE(tenant_subscriptions.overrides, '{}'::jsonb),
+				ARRAY['feature_flags', $2::text],
+				to_jsonb($3::boolean),
+				TRUE
+			),
+			updated_by = EXCLUDED.updated_by,
+			updated_at = NOW()
+	`
+
+	for _, tenantID := range selectedTenantIDs {
+		tid, err := parseTenantUUID(tenantID)
+		if err != nil {
+			return FeatureRolloutResult{}, err
+		}
+		if _, err := s.db.Exec(ctx, upsert, tid, flagKey, params.Enabled, updatedBy); err != nil {
+			return FeatureRolloutResult{}, err
+		}
+	}
+
+	return result, nil
 }
 
 func (s *Service) getPlatformPlan(ctx context.Context, planID pgtype.UUID) (PlatformPlan, error) {
