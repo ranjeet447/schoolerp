@@ -94,6 +94,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 
 	// 4. Generate JWT token
 	expiresAt := time.Now().Add(24 * time.Hour) // 24 hour token validity
+	tokenJTI := uuid.Must(uuid.NewV7()).String()
 
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
@@ -113,7 +114,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 		"permissions": roleAssignment.Permissions,
 		"iat":         time.Now().Unix(),
 		"exp":         expiresAt.Unix(),
-		"jti":         uuid.Must(uuid.NewV7()).String(),
+		"jti":         tokenJTI,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -129,6 +130,10 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 		Provider: "password",
 	}); err != nil {
 		logger.Warn().Err(err).Str("user_id", user.ID.String()).Msg("auth login warning: unable to update last_login")
+	}
+
+	if err := s.queries.CreateSessionRecord(ctx, user.ID, hashPassword(tokenJTI), expiresAt); err != nil {
+		logger.Warn().Err(err).Str("user_id", user.ID.String()).Msg("auth login warning: unable to create session record")
 	}
 
 	logger.Info().

@@ -42,6 +42,15 @@ type PlatformIPAllowlistEntry = {
   created_at: string;
 };
 
+type PlatformUserSession = {
+  id: string;
+  user_id: string;
+  ip_address?: string;
+  device_info?: Record<string, unknown>;
+  expires_at: string;
+  created_at: string;
+};
+
 const ROLE_OPTIONS = [
   "super_admin",
   "support_l1",
@@ -56,6 +65,9 @@ export default function PlatformInternalUsersPage() {
   const [rbac, setRbac] = useState<PlatformRBACMatrix | null>(null);
   const [rbacDraft, setRbacDraft] = useState<Record<string, string[]>>({});
   const [ipAllowlist, setIpAllowlist] = useState<PlatformIPAllowlistEntry[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [selectedUserSessions, setSelectedUserSessions] = useState<PlatformUserSession[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -257,6 +269,79 @@ export default function PlatformInternalUsersPage() {
       await load();
     } catch (e: any) {
       setError(e?.message || "Failed to delete IP allowlist entry.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const fetchUserSessions = async (userId: string) => {
+    setSessionsLoading(true);
+    try {
+      const res = await apiClient(`/admin/platform/internal-users/${userId}/sessions?limit=200`);
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      setSelectedUserId(userId);
+      setSelectedUserSessions(Array.isArray(data) ? data : []);
+    } finally {
+      setSessionsLoading(false);
+    }
+  };
+
+  const loadUserSessions = async (userId: string) => {
+    if (selectedUserId === userId) {
+      setSelectedUserId("");
+      setSelectedUserSessions([]);
+      return;
+    }
+    setError("");
+    setMessage("");
+    try {
+      await fetchUserSessions(userId);
+    } catch (e: any) {
+      setError(e?.message || "Failed to load user sessions.");
+    }
+  };
+
+  const revokeUserSessions = async (userId: string, sessionId?: string) => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await apiClient(`/admin/platform/internal-users/${userId}/sessions/revoke`, {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: sessionId || "",
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setMessage(sessionId ? "Session revoked." : "All user sessions revoked.");
+      await load();
+      if (selectedUserId === userId) {
+        await fetchUserSessions(userId);
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to revoke sessions.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const rotateUserTokens = async (userId: string) => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await apiClient(`/admin/platform/internal-users/${userId}/tokens/rotate`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setMessage("User tokens rotated (all active sessions revoked).");
+      await load();
+      if (selectedUserId === userId) {
+        await fetchUserSessions(userId);
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to rotate user tokens.");
     } finally {
       setBusy(false);
     }
@@ -559,16 +644,42 @@ export default function PlatformInternalUsersPage() {
                   <td className="px-4 py-3 text-muted-foreground">{row.active_sessions}</td>
                   <td className="px-4 py-3 text-muted-foreground">{row.is_active ? "Active" : "Inactive"}</td>
                   <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void updateUser(row.id, { is_active: !row.is_active }, row.is_active ? "User disabled." : "User enabled.")
-                      }
-                      disabled={busy}
-                      className="rounded border border-input px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
-                    >
-                      {row.is_active ? "Disable" : "Enable"}
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void updateUser(row.id, { is_active: !row.is_active }, row.is_active ? "User disabled." : "User enabled.")
+                        }
+                        disabled={busy}
+                        className="rounded border border-input px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+                      >
+                        {row.is_active ? "Disable" : "Enable"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void loadUserSessions(row.id)}
+                        disabled={busy || sessionsLoading}
+                        className="rounded border border-input px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+                      >
+                        {selectedUserId === row.id ? "Hide Sessions" : "Sessions"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void revokeUserSessions(row.id)}
+                        disabled={busy}
+                        className="rounded border border-amber-600/40 px-2 py-1 text-xs text-amber-700 hover:bg-amber-500/10 disabled:opacity-60 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/20"
+                      >
+                        Revoke All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void rotateUserTokens(row.id)}
+                        disabled={busy}
+                        className="rounded border border-red-600/40 px-2 py-1 text-xs text-red-700 hover:bg-red-500/10 disabled:opacity-60 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/20"
+                      >
+                        Rotate Tokens
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -576,6 +687,64 @@ export default function PlatformInternalUsersPage() {
           </tbody>
         </table>
       </div>
+
+      {selectedUserId && (
+        <div className="rounded-xl border border-border bg-card p-4">
+          <h2 className="text-sm font-semibold text-foreground">Active/Recent Sessions</h2>
+          <p className="mt-1 text-sm text-muted-foreground">User ID: {selectedUserId}</p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-muted text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2">Session</th>
+                  <th className="px-3 py-2">IP</th>
+                  <th className="px-3 py-2">Created</th>
+                  <th className="px-3 py-2">Expires</th>
+                  <th className="px-3 py-2">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sessionsLoading ? (
+                  <tr>
+                    <td className="px-3 py-4 text-muted-foreground" colSpan={5}>
+                      Loading sessions...
+                    </td>
+                  </tr>
+                ) : selectedUserSessions.length === 0 ? (
+                  <tr>
+                    <td className="px-3 py-4 text-muted-foreground" colSpan={5}>
+                      No sessions found.
+                    </td>
+                  </tr>
+                ) : (
+                  selectedUserSessions.map((session) => (
+                    <tr key={session.id} className="border-t border-border">
+                      <td className="px-3 py-2 text-foreground">{session.id}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{session.ip_address || "-"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {session.created_at ? new Date(session.created_at).toLocaleString() : "-"}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {session.expires_at ? new Date(session.expires_at).toLocaleString() : "-"}
+                      </td>
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          onClick={() => void revokeUserSessions(selectedUserId, session.id)}
+                          disabled={busy}
+                          className="rounded border border-red-600/40 px-2 py-1 text-xs text-red-700 hover:bg-red-500/10 disabled:opacity-60 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/20"
+                        >
+                          Revoke
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

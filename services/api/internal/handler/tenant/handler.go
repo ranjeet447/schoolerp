@@ -3,6 +3,7 @@ package tenant
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -54,6 +55,9 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Get("/internal-users", h.ListPlatformInternalUsers)
 	r.Post("/internal-users", h.CreatePlatformInternalUser)
 	r.Patch("/internal-users/{user_id}", h.UpdatePlatformInternalUser)
+	r.Get("/internal-users/{user_id}/sessions", h.ListPlatformInternalUserSessions)
+	r.Post("/internal-users/{user_id}/sessions/revoke", h.RevokePlatformInternalUserSessions)
+	r.Post("/internal-users/{user_id}/tokens/rotate", h.RotatePlatformInternalUserTokens)
 	r.Get("/rbac/templates", h.ListPlatformRBACTemplates)
 	r.Post("/rbac/templates/{role_code}/permissions", h.UpdatePlatformRolePermissions)
 	r.Get("/access/ip-allowlist", h.ListPlatformIPAllowlist)
@@ -738,6 +742,109 @@ func (h *Handler) UpdatePlatformInternalUser(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(updated)
+}
+
+func (h *Handler) ListPlatformInternalUserSessions(w http.ResponseWriter, r *http.Request) {
+	userID := chi.URLParam(r, "user_id")
+	limit := int32(200)
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = int32(parsed)
+		}
+	}
+
+	rows, err := h.service.ListPlatformInternalUserSessions(r.Context(), userID, limit)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidPlatformUserID):
+			http.Error(w, "Invalid platform user id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPlatformUserNotFound):
+			http.Error(w, "Platform user not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to load user sessions", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) RevokePlatformInternalUserSessions(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	userID := chi.URLParam(r, "user_id")
+
+	var req struct {
+		SessionID string `json:"session_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	revoked, err := h.service.RevokePlatformInternalUserSessions(r.Context(), userID, req.SessionID)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidPlatformUserID):
+			http.Error(w, "Invalid platform user id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidSessionID):
+			http.Error(w, "Invalid session id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPlatformUserNotFound):
+			http.Error(w, "Platform user not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to revoke sessions", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.user.sessions.revoke",
+		ResourceType: "platform_user",
+		ResourceID:   strings.TrimSpace(userID),
+		After: map[string]any{
+			"session_id":   strings.TrimSpace(req.SessionID),
+			"revoked_rows": revoked,
+		},
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"status":       "ok",
+		"revoked_rows": revoked,
+	})
+}
+
+func (h *Handler) RotatePlatformInternalUserTokens(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	userID := chi.URLParam(r, "user_id")
+
+	revoked, err := h.service.RotatePlatformInternalUserTokens(r.Context(), userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidPlatformUserID):
+			http.Error(w, "Invalid platform user id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPlatformUserNotFound):
+			http.Error(w, "Platform user not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to rotate user tokens", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.user.tokens.rotate",
+		ResourceType: "platform_user",
+		ResourceID:   strings.TrimSpace(userID),
+		After: map[string]any{
+			"revoked_rows": revoked,
+		},
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"status":       "ok",
+		"revoked_rows": revoked,
+	})
 }
 
 func (h *Handler) ListPlatformRBACTemplates(w http.ResponseWriter, r *http.Request) {

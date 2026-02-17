@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"net"
 	"net/http"
 	"os"
@@ -12,6 +14,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
@@ -71,14 +75,14 @@ func RequestIDPropagation(next http.Handler) http.Handler {
 		if reqID == "" {
 			reqID = uuid.Must(uuid.NewV7()).String()
 		}
-		
+
 		// Set on response header
 		w.Header().Set("X-Request-ID", reqID)
-		
+
 		// Set on logger context
 		logger := log.With().Str("request_id", reqID).Logger()
 		ctx := logger.WithContext(r.Context())
-		
+
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -100,20 +104,19 @@ var (
 func Metrics(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		
+
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		next.ServeHTTP(ww, r)
-		
+
 		duration := time.Since(start).Seconds()
 		path := r.URL.Path
 		// Normalize path if needed (static routes only for now)
-		
+
 		status := strconv.Itoa(ww.Status())
 		httpRequestsTotal.WithLabelValues(r.Method, path, status).Inc()
 		httpRequestDuration.WithLabelValues(r.Method, path).Observe(duration)
 	})
 }
-
 
 // TenantResolver extracts the tenant ID from the X-Tenant-ID header
 func TenantResolver(next http.Handler) http.Handler {
@@ -132,6 +135,15 @@ func AuthResolver(next http.Handler) http.Handler {
 		secret = "default-dev-secret"
 	}
 	secretConfigured := secret != ""
+
+	var sessionPool *pgxpool.Pool
+	if dbURL := strings.TrimSpace(os.Getenv("DATABASE_URL")); dbURL != "" {
+		if cfg, err := pgxpool.ParseConfig(dbURL); err == nil {
+			if pool, err := pgxpool.NewWithConfig(context.Background(), cfg); err == nil {
+				sessionPool = pool
+			}
+		}
+	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 1. Skip auth for public paths
@@ -180,7 +192,7 @@ func AuthResolver(next http.Handler) http.Handler {
 		// 4. Extract Claims
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
 			ctx := r.Context()
-			
+
 			if userID, ok := claims["sub"].(string); ok {
 				ctx = context.WithValue(ctx, UserIDKey, userID)
 			}
@@ -190,7 +202,39 @@ func AuthResolver(next http.Handler) http.Handler {
 			if tenantID, ok := claims["tenant_id"].(string); ok {
 				ctx = context.WithValue(ctx, TenantIDKey, tenantID)
 			}
-			
+
+			if sessionPool != nil {
+				subject, _ := claims["sub"].(string)
+				jti, _ := claims["jti"].(string)
+				subject = strings.TrimSpace(subject)
+				jti = strings.TrimSpace(jti)
+				if subject == "" || jti == "" {
+					http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					return
+				}
+
+				var uid pgtype.UUID
+				if err := uid.Scan(subject); err != nil || !uid.Valid {
+					http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					return
+				}
+
+				hash := sha256.Sum256([]byte(jti))
+				tokenHash := hex.EncodeToString(hash[:])
+
+				var exists bool
+				err := sessionPool.QueryRow(
+					r.Context(),
+					`SELECT EXISTS(SELECT 1 FROM sessions WHERE user_id = $1 AND token_hash = $2 AND expires_at > NOW())`,
+					uid,
+					tokenHash,
+				).Scan(&exists)
+				if err != nil || !exists {
+					http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					return
+				}
+			}
+
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
@@ -204,13 +248,13 @@ func RoleGuard(allowedRoles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			userRole := GetRole(r.Context())
-			
+
 			// If no role found (unauthenticated or public), deny
 			if userRole == "" {
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}
-			
+
 			// Check if userRole is in allowedRoles
 			for _, role := range allowedRoles {
 				if role == userRole {
@@ -218,7 +262,7 @@ func RoleGuard(allowedRoles ...string) func(http.Handler) http.Handler {
 					return
 				}
 			}
-			
+
 			// Provide slightly more detail for debugging, but generically 403
 			http.Error(w, "Forbidden: Insufficient Permissions", http.StatusForbidden)
 		})
@@ -230,7 +274,7 @@ func LocaleResolver(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		locale := "en"
 		lang := r.Header.Get("Accept-Language")
-		
+
 		// Handle complex Accept-Language headers (e.g., "en-US,en;q=0.9,hi;q=0.8")
 		if lang != "" {
 			parts := strings.Split(lang, ",")
@@ -246,7 +290,7 @@ func LocaleResolver(next http.Handler) http.Handler {
 				}
 			}
 		}
-		
+
 		ctx := context.WithValue(r.Context(), LocaleKey, locale)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -263,16 +307,16 @@ func IPGuard(checker IPChecker) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tenantID := GetTenantID(r.Context())
 			role := GetRole(r.Context())
-			
+
 			// If no tenant (e.g. system admin or public?), maybe skip?
-			// If no role, skip? 
+			// If no role, skip?
 			// Usually IP allowlists are for specific scenarios.
 			// Let's assume if tenant AND role are present, we check.
 			if tenantID == "" || role == "" {
 				next.ServeHTTP(w, r)
 				return
 			}
-			
+
 			// Extract IP
 			// Attempt to use X-Forwarded-For or RemoteAddr
 			ip := r.Header.Get("X-Forwarded-For")
@@ -284,7 +328,7 @@ func IPGuard(checker IPChecker) func(http.Handler) http.Handler {
 			} else {
 				ip = r.RemoteAddr
 			}
-			
+
 			// Remove port if present
 			host, _, err := net.SplitHostPort(ip)
 			if err == nil {
@@ -293,18 +337,18 @@ func IPGuard(checker IPChecker) func(http.Handler) http.Handler {
 
 			allowed, err := checker.CheckIPAccess(r.Context(), tenantID, role, ip)
 			if err != nil {
-				// Log error? 
-				// For security, fail open or closed? 
+				// Log error?
+				// For security, fail open or closed?
 				// Fail closed usually.
 				http.Error(w, "Forbidden (IP Check Failed)", http.StatusForbidden)
 				return
 			}
-			
+
 			if !allowed {
 				http.Error(w, "Forbidden: IP Not Allowed", http.StatusForbidden)
 				return
 			}
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}
