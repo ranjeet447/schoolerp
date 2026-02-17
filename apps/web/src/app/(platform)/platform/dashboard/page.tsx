@@ -15,9 +15,9 @@ type PlatformSummary = {
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
-      <p className="text-xs uppercase tracking-wider text-slate-400">{label}</p>
-      <p className="mt-2 text-3xl font-bold text-white">{value}</p>
+    <div className="rounded-xl border border-border bg-card p-5">
+      <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="mt-2 text-3xl font-bold text-foreground">{value}</p>
     </div>
   );
 }
@@ -40,19 +40,17 @@ export default function PlatformDashboardPage() {
     void load();
   }, []);
 
-  if (loading) {
-    return <div className="text-slate-400">Loading platform dashboard...</div>;
-  }
+  if (loading) return <div className="text-muted-foreground">Loading platform dashboard...</div>;
 
   if (!summary) {
-    return <div className="text-red-400">Unable to load platform summary.</div>;
+    return <div className="text-destructive">Unable to load platform summary.</div>;
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-white">Platform Dashboard</h1>
-        <p className="text-slate-400">Global SaaS visibility across all schools and branches.</p>
+        <h1 className="text-3xl font-bold text-foreground">Platform Dashboard</h1>
+        <p className="text-muted-foreground">Global SaaS visibility across all schools and branches.</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "@schoolerp/ui/styles.css";
 import "./globals.css";
 import { Toaster } from "sonner";
@@ -19,8 +20,21 @@ export default async function RootLayout({
 }) {
   const locale = await getLocale();
   return (
-    <html lang={locale}>
-      <body>
+    <html lang={locale} suppressHydrationWarning>
+      <body className="min-h-screen bg-background text-foreground antialiased">
+        <Script id="theme-init" strategy="beforeInteractive">
+          {`
+(() => {
+  try {
+    const key = "schoolerp_theme";
+    const value = localStorage.getItem(key);
+    const theme = value === "dark" || value === "light" ? value : "light";
+    if (theme === "dark") document.documentElement.classList.add("dark");
+    else document.documentElement.classList.remove("dark");
+  } catch (_) {}
+})();
+          `}
+        </Script>
         <AuthProvider>
           <OfflineDetector>
             {children}

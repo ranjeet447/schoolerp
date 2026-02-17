@@ -22,23 +22,23 @@ export default function AdminDashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-4xl font-black text-white tracking-tight">Admin Dashboard</h1>
-        <p className="text-slate-400">Welcome back, Administrator. Here is what's happening today.</p>
+        <h1 className="text-4xl font-black text-foreground tracking-tight">Admin Dashboard</h1>
+        <p className="text-muted-foreground">Welcome back, Administrator. Here is what's happening today.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat) => (
-          <div key={stat.label} className="bg-slate-900/50 border border-white/5 rounded-3xl p-6 backdrop-blur-sm">
+          <div key={stat.label} className="bg-card border border-border rounded-3xl p-6 shadow-sm">
             <div className="flex items-center gap-4 mb-4">
               <div className={`h-12 w-12 ${stat.bg} ${stat.color} rounded-2xl flex items-center justify-center`}>
                 <stat.icon className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs font-black text-slate-500 uppercase tracking-widest">{stat.label}</p>
-                <p className="text-2xl font-black text-white">{stat.value}</p>
+                <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">{stat.label}</p>
+                <p className="text-2xl font-black text-foreground">{stat.value}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-600">
               <TrendingUp className="h-3 w-3" /> +12% from last month
             </div>
           </div>
@@ -46,20 +46,20 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 bg-slate-900/50 border-white/5 rounded-3xl backdrop-blur-sm overflow-hidden">
-          <CardHeader className="border-b border-white/5 p-6">
-            <CardTitle className="text-white font-black text-xl uppercase tracking-tight">Recent Activity</CardTitle>
+        <Card className="lg:col-span-2 rounded-3xl overflow-hidden">
+          <CardHeader className="border-b border-border p-6">
+            <CardTitle className="text-foreground font-black text-xl uppercase tracking-tight">Recent Activity</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-border">
               {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="p-4 flex items-center gap-4 hover:bg-white/5 transition-colors group">
-                  <div className="h-2 w-2 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+                <div key={i} className="p-4 flex items-center gap-4 hover:bg-muted/40 transition-colors group">
+                  <div className="h-2 w-2 rounded-full bg-primary shadow-[0_0_10px_rgba(99,102,241,0.25)]" />
                   <div className="flex-1">
-                    <p className="text-sm font-bold text-white group-hover:text-indigo-400 transition-colors">Multiple Students Attendance Marked</p>
-                    <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Class 10-A • 10:45 AM</p>
+                    <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">Multiple Students Attendance Marked</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Class 10-A • 10:45 AM</p>
                   </div>
-                  <div className="text-slate-600">
+                  <div className="text-muted-foreground">
                     <TrendingUp className="h-4 w-4" />
                   </div>
                 </div>
@@ -69,19 +69,19 @@ export default function AdminDashboardPage() {
         </Card>
 
         <div className="space-y-6">
-          <div className="bg-indigo-600 rounded-3xl p-6 text-white shadow-xl shadow-indigo-600/20 relative overflow-hidden">
+          <div className="bg-primary rounded-3xl p-6 text-primary-foreground shadow-xl shadow-primary/20 relative overflow-hidden">
             <div className="absolute -right-4 -bottom-4 h-32 w-32 bg-white/10 rounded-full blur-3xl" />
             <h3 className="text-xl font-black mb-2 uppercase tracking-tight">System Notice</h3>
-            <p className="text-indigo-100 text-sm mb-6 leading-relaxed">Server maintenance scheduled for Sunday at 02:00 AM UTC. Plan accordingly.</p>
-            <Button className="w-full bg-white text-indigo-600 font-black tracking-widest uppercase text-xs hover:bg-indigo-50">View Details</Button>
+            <p className="text-primary-foreground/80 text-sm mb-6 leading-relaxed">Server maintenance scheduled for Sunday at 02:00 AM UTC. Plan accordingly.</p>
+            <Button className="w-full bg-white text-primary font-black tracking-widest uppercase text-xs hover:bg-white/90">View Details</Button>
           </div>
 
-          <div className="bg-slate-900/50 border border-rose-500/20 rounded-3xl p-6 backdrop-blur-sm">
+          <div className="bg-card border border-rose-500/20 rounded-3xl p-6 shadow-sm">
             <div className="flex items-center gap-3 text-rose-400 mb-4">
               <AlertCircle className="h-5 w-5" />
               <span className="font-bold text-sm uppercase tracking-widest">Action Required</span>
             </div>
-            <p className="text-slate-300 text-sm mb-4">3 admission applications are pending final approval.</p>
+            <p className="text-muted-foreground text-sm mb-4">3 admission applications are pending final approval.</p>
             <Button variant="ghost" className="w-full text-rose-400 hover:text-rose-300 hover:bg-rose-400/10 font-bold uppercase text-xs tracking-widest">Approve Now</Button>
           </div>
         </div>
