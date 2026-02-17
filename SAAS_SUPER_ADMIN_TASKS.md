@@ -134,7 +134,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [x] OP-004 Incident management timeline view.
 - [x] OP-005 Temporary limit increase controls during incidents.
 - [x] OP-006 Broadcast notifications to impacted tenants.
-- [ ] OP-007 Billing freeze during outage flow (policy-based).
+- [x] OP-007 Billing freeze during outage flow (policy-based).
 - [ ] OP-008 Optional external helpdesk integration adapter.
 
 ## 7) Platform Settings (Global Configuration)

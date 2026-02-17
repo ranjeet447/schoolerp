@@ -47,6 +47,10 @@ type BillingControls = {
   grace_period_ends_at?: string;
   billing_locked: boolean;
   lock_reason?: string;
+  billing_frozen: boolean;
+  freeze_reason?: string;
+  freeze_incident_id?: string;
+  freeze_ends_at?: string;
   updated_at?: string;
 };
 
@@ -152,6 +156,9 @@ export default function PlatformTenantDetailPage() {
   const [dunningLockOnFailure, setDunningLockOnFailure] = useState(true);
   const [billingLockReason, setBillingLockReason] = useState("");
   const [billingLockGraceDays, setBillingLockGraceDays] = useState("7");
+  const [billingFreezeReason, setBillingFreezeReason] = useState("");
+  const [billingFreezeEndsAt, setBillingFreezeEndsAt] = useState("");
+  const [billingFreezeIncidentId, setBillingFreezeIncidentId] = useState("");
   const [newAdminPassword, setNewAdminPassword] = useState("");
   const [impersonationReason, setImpersonationReason] = useState("");
   const [exportReason, setExportReason] = useState("");
@@ -511,6 +518,34 @@ export default function PlatformTenantDetailPage() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(await res.text());
+    });
+  };
+
+  const manageBillingFreeze = async (freezeAction: "start" | "stop") => {
+    await action("Billing freeze update", async () => {
+      const reason = billingFreezeReason.trim();
+      if (!reason) {
+        throw new Error("Freeze reason is required.");
+      }
+
+      const payload: Record<string, unknown> = {
+        action: freezeAction,
+        reason,
+      };
+      if (billingFreezeIncidentId.trim()) payload.incident_id = billingFreezeIncidentId.trim();
+      if (freezeAction === "start" && billingFreezeEndsAt.trim()) {
+        payload.ends_at = new Date(billingFreezeEndsAt).toISOString();
+      }
+
+      const res = await apiClient(`/admin/platform/tenants/${id}/billing-freeze`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await res.text());
+
+      setBillingFreezeReason("");
+      setBillingFreezeEndsAt("");
+      setBillingFreezeIncidentId("");
     });
   };
 
@@ -989,7 +1024,7 @@ export default function PlatformTenantDetailPage() {
         <p className="mt-2 text-sm text-muted-foreground">
           Configure retry cadence/channels and control grace-period lockout behavior for unpaid subscriptions.
         </p>
-        <div className="mt-3 grid gap-2 md:grid-cols-4">
+        <div className="mt-3 grid gap-2 md:grid-cols-5">
           <div className="rounded border border-border bg-background/40 p-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Subscription</p>
             <p className="mt-1 text-sm font-semibold text-foreground">{billingControls?.subscription_status || "unknown"}</p>
@@ -1009,6 +1044,17 @@ export default function PlatformTenantDetailPage() {
           <div className="rounded border border-border bg-background/40 p-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Lock Reason</p>
             <p className="mt-1 text-sm font-semibold text-foreground">{billingControls?.lock_reason || "-"}</p>
+          </div>
+          <div className="rounded border border-border bg-background/40 p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Billing Freeze</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">{billingControls?.billing_frozen ? "Frozen" : "Active"}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {billingControls?.freeze_ends_at
+                ? `Ends: ${new Date(billingControls.freeze_ends_at).toLocaleString()}`
+                : billingControls?.freeze_reason
+                  ? `Reason: ${billingControls.freeze_reason}`
+                  : "-"}
+            </p>
           </div>
         </div>
 
@@ -1098,6 +1144,51 @@ export default function PlatformTenantDetailPage() {
           >
             Unlock Access
           </button>
+        </div>
+
+        <div className="mt-4 rounded border border-border bg-background/40 p-3">
+          <h3 className="text-sm font-medium text-foreground">Billing Freeze (During Outage)</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Freeze billing actions for this tenant without locking access. Reason is required for audit logging.
+          </p>
+          <div className="mt-2 grid gap-2 md:grid-cols-3">
+            <input
+              className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground md:col-span-2"
+              placeholder="Freeze reason (required)"
+              value={billingFreezeReason}
+              onChange={(e) => setBillingFreezeReason(e.target.value)}
+            />
+            <input
+              type="datetime-local"
+              className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+              value={billingFreezeEndsAt}
+              onChange={(e) => setBillingFreezeEndsAt(e.target.value)}
+            />
+            <input
+              className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground md:col-span-3"
+              placeholder="Incident ID (optional)"
+              value={billingFreezeIncidentId}
+              onChange={(e) => setBillingFreezeIncidentId(e.target.value)}
+            />
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busy || !billingFreezeReason.trim()}
+              onClick={() => manageBillingFreeze("start")}
+              className="rounded border border-indigo-600/40 px-3 py-2 text-sm text-indigo-700 hover:bg-indigo-500/10 disabled:opacity-60 dark:border-indigo-700 dark:text-indigo-200 dark:hover:bg-indigo-900/20"
+            >
+              Start Freeze
+            </button>
+            <button
+              type="button"
+              disabled={busy || !billingFreezeReason.trim()}
+              onClick={() => manageBillingFreeze("stop")}
+              className="rounded border border-emerald-600/40 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-60 dark:border-emerald-700 dark:text-emerald-200 dark:hover:bg-emerald-900/20"
+            >
+              Stop Freeze
+            </button>
+          </div>
         </div>
       </div>
 

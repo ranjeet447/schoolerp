@@ -92,6 +92,22 @@ type IncidentLimitOverrideResult struct {
 	ExpiresAt        string   `json:"expires_at,omitempty"`
 }
 
+type IncidentBillingFreezeParams struct {
+	Action    string   `json:"action"` // start, stop
+	EndsAt    string   `json:"ends_at,omitempty"`
+	Reason    string   `json:"reason"`
+	TenantIDs []string `json:"tenant_ids,omitempty"`
+	UpdatedBy string   `json:"-"`
+}
+
+type IncidentBillingFreezeResult struct {
+	IncidentID       string   `json:"incident_id"`
+	AppliedTenantIDs []string `json:"applied_tenant_ids"`
+	Action           string   `json:"action"`
+	EndsAt           string   `json:"ends_at,omitempty"`
+	BillingFrozen    bool     `json:"billing_frozen"`
+}
+
 type CreatePlatformIncidentEventParams struct {
 	EventType string                 `json:"event_type,omitempty"` // update, note, status_change
 	Message   string                 `json:"message"`
@@ -518,6 +534,109 @@ func (s *Service) ApplyIncidentLimitOverride(ctx context.Context, incidentID str
 		LimitKey:         limitKey,
 		LimitValue:       params.LimitValue,
 		ExpiresAt:        expiresAt,
+	}, nil
+}
+
+func (s *Service) ApplyIncidentBillingFreeze(ctx context.Context, incidentID string, params IncidentBillingFreezeParams) (IncidentBillingFreezeResult, error) {
+	incidentID = strings.TrimSpace(incidentID)
+	var iid pgtype.UUID
+	if err := iid.Scan(incidentID); err != nil || !iid.Valid {
+		return IncidentBillingFreezeResult{}, ErrInvalidPlatformIncidentID
+	}
+
+	action := strings.ToLower(strings.TrimSpace(params.Action))
+	switch action {
+	case "start", "stop":
+	default:
+		return IncidentBillingFreezeResult{}, ErrInvalidBillingFreeze
+	}
+
+	endsAt := strings.TrimSpace(params.EndsAt)
+	if endsAt != "" {
+		if _, err := time.Parse(time.RFC3339, endsAt); err != nil {
+			return IncidentBillingFreezeResult{}, ErrInvalidBillingFreeze
+		}
+	}
+
+	reason := strings.TrimSpace(params.Reason)
+	if reason == "" {
+		return IncidentBillingFreezeResult{}, ErrInvalidReason
+	}
+
+	targetTenantIDs, err := validateUUIDStrings(params.TenantIDs)
+	if err != nil {
+		return IncidentBillingFreezeResult{}, ErrInvalidBillingFreeze
+	}
+
+	if len(targetTenantIDs) == 0 {
+		const incQuery = `
+			SELECT COALESCE(affected_tenant_ids::text[], '{}') AS affected_tenant_ids
+			FROM platform_incidents
+			WHERE id = $1
+		`
+		var affected []string
+		if err := s.db.QueryRow(ctx, incQuery, iid).Scan(&affected); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return IncidentBillingFreezeResult{}, ErrPlatformIncidentNotFound
+			}
+			return IncidentBillingFreezeResult{}, err
+		}
+		targetTenantIDs = affected
+	}
+
+	if len(targetTenantIDs) == 0 {
+		return IncidentBillingFreezeResult{}, ErrInvalidBillingFreeze
+	}
+
+	now := time.Now().UTC()
+	state := map[string]interface{}{
+		"active":      action == "start",
+		"reason":      reason,
+		"incident_id": iid.String(),
+		"updated_at":  now.Format(time.RFC3339),
+	}
+	if action == "start" {
+		state["started_at"] = now.Format(time.RFC3339)
+		if endsAt != "" {
+			state["ends_at"] = endsAt
+		}
+	} else {
+		state["ended_at"] = now.Format(time.RFC3339)
+	}
+	freezeJSON, err := json.Marshal(state)
+	if err != nil {
+		return IncidentBillingFreezeResult{}, err
+	}
+
+	var updatedBy pgtype.UUID
+	_ = updatedBy.Scan(strings.TrimSpace(params.UpdatedBy))
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return IncidentBillingFreezeResult{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	for _, rawTenantID := range targetTenantIDs {
+		tid, err := parseTenantUUID(rawTenantID)
+		if err != nil {
+			return IncidentBillingFreezeResult{}, err
+		}
+		if err := upsertTenantBillingFreeze(ctx, tx, tid, freezeJSON, updatedBy); err != nil {
+			return IncidentBillingFreezeResult{}, err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return IncidentBillingFreezeResult{}, err
+	}
+
+	return IncidentBillingFreezeResult{
+		IncidentID:       iid.String(),
+		AppliedTenantIDs: targetTenantIDs,
+		Action:           action,
+		EndsAt:           endsAt,
+		BillingFrozen:    action == "start",
 	}, nil
 }
 

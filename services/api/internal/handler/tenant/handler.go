@@ -44,12 +44,14 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Post("/incidents/{incident_id}/events", h.CreatePlatformIncidentEvent)
 	r.Post("/incidents/{incident_id}/limit-overrides", h.ApplyIncidentLimitOverride)
 	r.Post("/incidents/{incident_id}/broadcasts", h.CreatePlatformIncidentBroadcast)
+	r.Post("/incidents/{incident_id}/billing-freeze", h.ApplyIncidentBillingFreeze)
 	r.Get("/tenants", h.ListPlatformTenants)
 	r.Get("/tenants/{tenant_id}", h.GetPlatformTenant)
 	r.Patch("/tenants/{tenant_id}", h.UpdatePlatformTenant)
 	r.Post("/tenants/{tenant_id}/lifecycle", h.UpdateTenantLifecycle)
 	r.Post("/tenants/{tenant_id}/trial", h.ManageTenantTrialLifecycle)
 	r.Get("/tenants/{tenant_id}/billing-controls", h.GetTenantBillingControls)
+	r.Post("/tenants/{tenant_id}/billing-freeze", h.ManageTenantBillingFreeze)
 	r.Post("/tenants/{tenant_id}/dunning-rules", h.UpdateTenantDunningRules)
 	r.Post("/tenants/{tenant_id}/billing-lock", h.ManageTenantBillingLock)
 	r.Post("/tenants/{tenant_id}/defaults", h.UpdateTenantDefaults)
@@ -2458,6 +2460,44 @@ func (h *Handler) CreatePlatformIncidentBroadcast(w http.ResponseWriter, r *http
 	_ = json.NewEncoder(w).Encode(created)
 }
 
+func (h *Handler) ApplyIncidentBillingFreeze(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	incidentID := chi.URLParam(r, "incident_id")
+
+	var req tenant.IncidentBillingFreezeParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.UpdatedBy = actorID
+
+	result, err := h.service.ApplyIncidentBillingFreeze(r.Context(), incidentID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidPlatformIncidentID):
+			http.Error(w, "invalid incident id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPlatformIncidentNotFound):
+			http.Error(w, "incident not found", http.StatusNotFound)
+		case errors.Is(err, tenant.ErrInvalidBillingFreeze), errors.Is(err, tenant.ErrInvalidReason):
+			http.Error(w, "Invalid billing freeze payload", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to apply billing freeze", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.incident.billing_freeze.apply",
+		ResourceType: "platform_incident",
+		ResourceID:   result.IncidentID,
+		Reason:       strings.TrimSpace(req.Reason),
+		After:        result,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
 func (h *Handler) GetPlatformSupportSLAPolicy(w http.ResponseWriter, r *http.Request) {
 	policy, err := h.service.GetPlatformSupportSLAPolicy(r.Context())
 	if err != nil {
@@ -3237,6 +3277,43 @@ func (h *Handler) ManageTenantBillingLock(w http.ResponseWriter, r *http.Request
 		ResourceType: "tenant",
 		ResourceID:   tenantID,
 		Reason:       strings.TrimSpace(req.Action),
+		After:        result,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+func (h *Handler) ManageTenantBillingFreeze(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	actorID := middleware.GetUserID(r.Context())
+
+	var req tenant.TenantBillingFreezeParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.UpdatedBy = actorID
+
+	result, err := h.service.ManageTenantBillingFreeze(r.Context(), tenantID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidBillingFreeze), errors.Is(err, tenant.ErrInvalidReason):
+			http.Error(w, "Invalid billing freeze payload", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to update billing freeze", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.tenant.billing.freeze.manage",
+		ResourceType: "tenant",
+		ResourceID:   tenantID,
+		Reason:       strings.TrimSpace(req.Reason),
 		After:        result,
 	})
 

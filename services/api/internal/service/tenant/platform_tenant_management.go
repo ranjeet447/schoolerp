@@ -32,6 +32,7 @@ var (
 	ErrInvalidProrationPolicy = errors.New("invalid proration policy")
 	ErrInvalidDunningRules    = errors.New("invalid dunning rules")
 	ErrInvalidBillingLock     = errors.New("invalid billing lock action")
+	ErrInvalidBillingFreeze   = errors.New("invalid billing freeze action")
 )
 
 type TenantDirectoryFilters struct {
@@ -175,6 +176,25 @@ func upsertTenantLimitOverride(
 	return err
 }
 
+func upsertTenantBillingFreeze(ctx context.Context, exec sqlExec, tenantID pgtype.UUID, freezeStateJSON []byte, updatedBy pgtype.UUID) error {
+	const upsert = `
+		INSERT INTO tenant_subscriptions (tenant_id, overrides, updated_by)
+		VALUES ($1, jsonb_build_object('billing_freeze', $2::jsonb), $3)
+		ON CONFLICT (tenant_id)
+		DO UPDATE SET
+			overrides = jsonb_set(
+				COALESCE(tenant_subscriptions.overrides, '{}'::jsonb),
+				'{billing_freeze}',
+				$2::jsonb,
+				TRUE
+			),
+			updated_by = EXCLUDED.updated_by,
+			updated_at = NOW()
+	`
+	_, err := exec.Exec(ctx, upsert, tenantID, freezeStateJSON, updatedBy)
+	return err
+}
+
 type TenantTrialLifecycleParams struct {
 	Action         string `json:"action"`
 	Days           int    `json:"days"`
@@ -195,6 +215,10 @@ type TenantBillingControls struct {
 	GracePeriodEndsAt  *time.Time             `json:"grace_period_ends_at,omitempty"`
 	BillingLocked      bool                   `json:"billing_locked"`
 	LockReason         string                 `json:"lock_reason,omitempty"`
+	BillingFrozen      bool                   `json:"billing_frozen"`
+	FreezeReason       string                 `json:"freeze_reason,omitempty"`
+	FreezeIncidentID   string                 `json:"freeze_incident_id,omitempty"`
+	FreezeEndsAt       *time.Time             `json:"freeze_ends_at,omitempty"`
 	UpdatedAt          *time.Time             `json:"updated_at,omitempty"`
 }
 
@@ -212,6 +236,14 @@ type TenantBillingLockParams struct {
 	GracePeriodDays int    `json:"grace_period_days"`
 	Reason          string `json:"reason"`
 	UpdatedBy       string `json:"-"`
+}
+
+type TenantBillingFreezeParams struct {
+	Action     string `json:"action"` // start, stop
+	EndsAt     string `json:"ends_at,omitempty"`
+	Reason     string `json:"reason"`
+	IncidentID string `json:"incident_id,omitempty"`
+	UpdatedBy  string `json:"-"`
 }
 
 type ImpersonationParams struct {
@@ -806,6 +838,24 @@ func (s *Service) GetTenantBillingControls(ctx context.Context, tenantID string)
 		}
 	}
 
+	if freezeRaw, ok := overrides["billing_freeze"].(map[string]interface{}); ok {
+		if active, ok := freezeRaw["active"].(bool); ok {
+			out.BillingFrozen = active
+		}
+		if reason, ok := freezeRaw["reason"].(string); ok {
+			out.FreezeReason = strings.TrimSpace(reason)
+		}
+		if incident, ok := freezeRaw["incident_id"].(string); ok {
+			out.FreezeIncidentID = strings.TrimSpace(incident)
+		}
+		if ends, ok := freezeRaw["ends_at"].(string); ok {
+			if parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(ends)); err == nil {
+				v := parsed
+				out.FreezeEndsAt = &v
+			}
+		}
+	}
+
 	return out, nil
 }
 
@@ -1055,6 +1105,73 @@ func (s *Service) ManageTenantBillingLock(ctx context.Context, tenantID string, 
 			return TenantBillingControls{}, err
 		}
 		_, _ = s.db.Exec(ctx, `UPDATE tenants SET is_active = TRUE, updated_at = NOW() WHERE id = $1`, tid)
+	}
+
+	return s.GetTenantBillingControls(ctx, tenantID)
+}
+
+func (s *Service) ManageTenantBillingFreeze(ctx context.Context, tenantID string, params TenantBillingFreezeParams) (TenantBillingControls, error) {
+	tid, err := parseTenantUUID(tenantID)
+	if err != nil {
+		return TenantBillingControls{}, err
+	}
+
+	action := strings.ToLower(strings.TrimSpace(params.Action))
+	switch action {
+	case "start", "stop":
+	default:
+		return TenantBillingControls{}, ErrInvalidBillingFreeze
+	}
+
+	reason := strings.TrimSpace(params.Reason)
+	if reason == "" {
+		return TenantBillingControls{}, ErrInvalidReason
+	}
+
+	endsAt := strings.TrimSpace(params.EndsAt)
+	if endsAt != "" {
+		if _, err := time.Parse(time.RFC3339, endsAt); err != nil {
+			return TenantBillingControls{}, ErrInvalidBillingFreeze
+		}
+	}
+
+	incidentID := strings.TrimSpace(params.IncidentID)
+	if incidentID != "" {
+		var iid pgtype.UUID
+		if err := iid.Scan(incidentID); err != nil || !iid.Valid {
+			return TenantBillingControls{}, ErrInvalidBillingFreeze
+		}
+		incidentID = iid.String()
+	}
+
+	now := time.Now().UTC()
+	state := map[string]interface{}{
+		"active":     action == "start",
+		"reason":     reason,
+		"updated_at": now.Format(time.RFC3339),
+	}
+	if incidentID != "" {
+		state["incident_id"] = incidentID
+	}
+	if action == "start" {
+		state["started_at"] = now.Format(time.RFC3339)
+		if endsAt != "" {
+			state["ends_at"] = endsAt
+		}
+	} else {
+		state["ended_at"] = now.Format(time.RFC3339)
+	}
+
+	freezeJSON, err := json.Marshal(state)
+	if err != nil {
+		return TenantBillingControls{}, err
+	}
+
+	var updatedBy pgtype.UUID
+	_ = updatedBy.Scan(strings.TrimSpace(params.UpdatedBy))
+
+	if err := upsertTenantBillingFreeze(ctx, s.db, tid, freezeJSON, updatedBy); err != nil {
+		return TenantBillingControls{}, err
 	}
 
 	return s.GetTenantBillingControls(ctx, tenantID)

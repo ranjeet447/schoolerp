@@ -73,6 +73,10 @@ export default function PlatformIncidentsPage() {
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [broadcastChannels, setBroadcastChannels] = useState<string[]>(["in_app"]);
 
+  const [billingFreezeAction, setBillingFreezeAction] = useState<"start" | "stop">("start");
+  const [billingFreezeEndsAt, setBillingFreezeEndsAt] = useState("");
+  const [billingFreezeReason, setBillingFreezeReason] = useState("");
+
   const query = useMemo(() => {
     const params = new URLSearchParams();
     if (search.trim()) params.set("search", search.trim());
@@ -125,6 +129,9 @@ export default function PlatformIncidentsPage() {
       setBroadcastTitle("");
       setBroadcastMessage("");
       setBroadcastChannels(["in_app"]);
+      setBillingFreezeAction("start");
+      setBillingFreezeEndsAt("");
+      setBillingFreezeReason("");
     } catch (e: any) {
       setError(e?.message || "Failed to load incident detail.");
     } finally {
@@ -325,6 +332,39 @@ export default function PlatformIncidentsPage() {
       setMessage("Broadcast queued to affected tenants.");
     } catch (e: any) {
       setError(e?.message || "Failed to send broadcast.");
+    } finally {
+      setBusyId("");
+    }
+  };
+
+  const applyIncidentBillingFreeze = async () => {
+    if (!detail) return;
+    setBusyId(`freeze:${detail.incident.id}`);
+    setError("");
+    setMessage("");
+    try {
+      const reason = billingFreezeReason.trim();
+      if (!reason) throw new Error("Reason is required.");
+
+      const payload: Record<string, unknown> = {
+        action: billingFreezeAction,
+        reason,
+      };
+      if (billingFreezeAction === "start" && billingFreezeEndsAt.trim()) {
+        payload.ends_at = new Date(billingFreezeEndsAt).toISOString();
+      }
+
+      const res = await apiClient(`/admin/platform/incidents/${detail.incident.id}/billing-freeze`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await res.text());
+
+      setBillingFreezeReason("");
+      setBillingFreezeEndsAt("");
+      setMessage(billingFreezeAction === "start" ? "Billing freeze applied to affected tenants." : "Billing freeze stopped for affected tenants.");
+    } catch (e: any) {
+      setError(e?.message || "Failed to apply billing freeze.");
     } finally {
       setBusyId("");
     }
@@ -653,6 +693,42 @@ export default function PlatformIncidentsPage() {
                       {busyId === `broadcast:${detail.incident.id}` ? "Sending..." : "Send broadcast"}
                     </button>
                   </div>
+                </div>
+
+                <div className="rounded-lg border border-border bg-background p-3">
+                  <p className="text-xs font-semibold text-muted-foreground">Billing Freeze</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Freeze billing actions for affected tenants during an outage.</p>
+                  <div className="mt-2 grid gap-2 md:grid-cols-2">
+                    <select
+                      className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                      value={billingFreezeAction}
+                      onChange={(e) => setBillingFreezeAction(e.target.value === "stop" ? "stop" : "start")}
+                      title="Freeze action"
+                    >
+                      <option value="start">start</option>
+                      <option value="stop">stop</option>
+                    </select>
+                    <input
+                      type="datetime-local"
+                      className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                      value={billingFreezeEndsAt}
+                      onChange={(e) => setBillingFreezeEndsAt(e.target.value)}
+                      disabled={billingFreezeAction !== "start"}
+                    />
+                  </div>
+                  <textarea
+                    className="mt-2 min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+                    placeholder="Reason (required)"
+                    value={billingFreezeReason}
+                    onChange={(e) => setBillingFreezeReason(e.target.value)}
+                  />
+                  <button
+                    onClick={() => void applyIncidentBillingFreeze()}
+                    disabled={busyId === `freeze:${detail.incident.id}` || !billingFreezeReason.trim()}
+                    className="mt-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground hover:bg-accent disabled:opacity-60"
+                  >
+                    {busyId === `freeze:${detail.incident.id}` ? "Applying..." : billingFreezeAction === "start" ? "Apply freeze" : "Stop freeze"}
+                  </button>
                 </div>
               </div>
 
