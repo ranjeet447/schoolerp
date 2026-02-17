@@ -13,6 +13,7 @@ import {
   Menu,
   Shield,
   User,
+  Users,
 } from "lucide-react";
 import { Button } from "@schoolerp/ui";
 import { useAuth } from "@/components/auth-provider";
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { href: "/platform/plans", label: "Plans & Flags", icon: Layers3 },
   { href: "/platform/signup-requests", label: "Signup Requests", icon: FileCheck2 },
   { href: "/platform/payments", label: "Platform Payments", icon: CreditCard },
+  { href: "/platform/internal-users", label: "Internal Users", icon: Users },
 ];
 
 export default function PlatformLayoutClient({

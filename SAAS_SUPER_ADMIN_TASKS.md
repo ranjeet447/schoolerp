@@ -24,6 +24,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - `[x]` Billing configuration management added (gateway settings, tax rules, invoice template via platform settings API/UI).
 - `[x]` Invoice adjustments added (refunds, partial refunds, credit notes, and adjustment ledger with audit logging).
 - `[x]` Dunning and lockout controls added (retry/channel rules, grace window controls, and tenant access lock/unlock flows).
+- `[x]` Internal platform user management added (create/list/update users with platform role assignment and active-state controls).
 - `[x]` Tenant plan change flow added (upgrade/downgrade with proration policy and effective time).
 - `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, branding/domain mapping, branch create/update/activate/deactivate, admin reset/logout, impersonation).
 - `[x]` Signup request moderation UI and API flow added (approve/reject with notes).
@@ -85,10 +86,10 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [x] BI-011 Grace period and lockout controls for non-payment.
 
 ## 4) Global User & Access Control (Platform-Level)
-- [ ] AC-001 Internal platform users model (super_admin, support, finance, ops, developer).
+- [x] AC-001 Internal platform users model (super_admin, support, finance, ops, developer).
 - [ ] AC-002 Platform RBAC templates and permission matrix.
-- [ ] AC-003 Internal admin management UI (create/edit/disable users).
-- [ ] AC-004 Assign/revoke platform roles and permissions.
+- [x] AC-003 Internal admin management UI (create/edit/disable users).
+- [x] AC-004 Assign/revoke platform roles and permissions.
 - [ ] AC-005 MFA/2FA enforcement policy for platform users.
 - [ ] AC-006 Session/device listing and forced revoke endpoint.
 - [ ] AC-007 Token rotation endpoint for internal users.

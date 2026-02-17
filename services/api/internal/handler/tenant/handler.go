@@ -51,6 +51,9 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Get("/tenants/{tenant_id}/branches", h.ListTenantBranches)
 	r.Post("/tenants/{tenant_id}/branches", h.CreateTenantBranch)
 	r.Patch("/tenants/{tenant_id}/branches/{branch_id}", h.UpdateTenantBranch)
+	r.Get("/internal-users", h.ListPlatformInternalUsers)
+	r.Post("/internal-users", h.CreatePlatformInternalUser)
+	r.Patch("/internal-users/{user_id}", h.UpdatePlatformInternalUser)
 	r.Get("/billing/overview", h.GetPlatformBillingOverview)
 	r.Get("/billing/config", h.GetPlatformBillingConfig)
 	r.Post("/billing/config", h.UpdatePlatformBillingConfig)
@@ -614,6 +617,117 @@ func (h *Handler) UpdateTenantBranch(w http.ResponseWriter, r *http.Request) {
 		Action:       "platform.tenant.branch.update",
 		ResourceType: "branch",
 		ResourceID:   branchID,
+		After:        updated,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
+}
+
+func (h *Handler) ListPlatformInternalUsers(w http.ResponseWriter, r *http.Request) {
+	limit := int32(100)
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = int32(parsed)
+		}
+	}
+	offset := int32(0)
+	if raw := r.URL.Query().Get("offset"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			offset = int32(parsed)
+		}
+	}
+
+	var isActive *bool
+	if raw := strings.TrimSpace(r.URL.Query().Get("is_active")); raw != "" {
+		v := strings.EqualFold(raw, "true")
+		isActive = &v
+	}
+
+	rows, err := h.service.ListPlatformInternalUsers(r.Context(), tenant.ListPlatformInternalUsersFilters{
+		Search:   firstNonEmpty(r.URL.Query().Get("q"), r.URL.Query().Get("search")),
+		RoleCode: r.URL.Query().Get("role_code"),
+		IsActive: isActive,
+		Limit:    limit,
+		Offset:   offset,
+	})
+	if err != nil {
+		http.Error(w, "Failed to load platform users", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) CreatePlatformInternalUser(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	var req tenant.CreatePlatformInternalUserParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	created, err := h.service.CreatePlatformInternalUser(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidPlatformUserPayload):
+			http.Error(w, "Invalid platform user payload", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPlatformRoleNotAllowed):
+			http.Error(w, "Invalid platform role", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPlatformUserExists):
+			http.Error(w, "Platform user already exists", http.StatusConflict)
+		default:
+			http.Error(w, "Failed to create platform user", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.user.create",
+		ResourceType: "platform_user",
+		ResourceID:   created.ID,
+		Reason:       strings.TrimSpace(created.RoleCode),
+		After:        created,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(created)
+}
+
+func (h *Handler) UpdatePlatformInternalUser(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	userID := chi.URLParam(r, "user_id")
+
+	var req tenant.UpdatePlatformInternalUserParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	updated, err := h.service.UpdatePlatformInternalUser(r.Context(), userID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidPlatformUserID):
+			http.Error(w, "Invalid platform user id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidPlatformUserPayload):
+			http.Error(w, "Invalid platform user payload", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPlatformRoleNotAllowed):
+			http.Error(w, "Invalid platform role", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPlatformUserNotFound):
+			http.Error(w, "Platform user not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to update platform user", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.user.update",
+		ResourceType: "platform_user",
+		ResourceID:   updated.ID,
+		Reason:       strings.TrimSpace(updated.RoleCode),
 		After:        updated,
 	})
 
