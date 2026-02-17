@@ -2,6 +2,7 @@ package auth
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -168,8 +169,12 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 			Err(err).
 			Str("auth_email", maskLoginEmail(req.Email)).
 			Msg("auth login failed")
+		statusCode := http.StatusUnauthorized
+		if errors.Is(err, auth.ErrMFARequired) {
+			statusCode = http.StatusForbidden
+		}
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnauthorized)
+		w.WriteHeader(statusCode)
 		json.NewEncoder(w).Encode(loginResponse{
 			Success: false,
 			Message: err.Error(),

@@ -63,6 +63,8 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Get("/access/ip-allowlist", h.ListPlatformIPAllowlist)
 	r.Post("/access/ip-allowlist", h.CreatePlatformIPAllowlist)
 	r.Delete("/access/ip-allowlist/{allowlist_id}", h.DeletePlatformIPAllowlist)
+	r.Get("/access/policies", h.GetPlatformSecurityPolicy)
+	r.Post("/access/policies/mfa", h.UpdatePlatformMFAPolicy)
 	r.Get("/billing/overview", h.GetPlatformBillingOverview)
 	r.Get("/billing/config", h.GetPlatformBillingConfig)
 	r.Post("/billing/config", h.UpdatePlatformBillingConfig)
@@ -961,6 +963,43 @@ func (h *Handler) DeletePlatformIPAllowlist(w http.ResponseWriter, r *http.Reque
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"status": "deleted"})
+}
+
+func (h *Handler) GetPlatformSecurityPolicy(w http.ResponseWriter, r *http.Request) {
+	policy, err := h.service.GetPlatformSecurityPolicy(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to load security policy", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(policy)
+}
+
+func (h *Handler) UpdatePlatformMFAPolicy(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	var req tenant.UpdatePlatformMFAPolicyParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.UpdatedBy = actorID
+
+	updated, err := h.service.UpdatePlatformMFAPolicy(r.Context(), req)
+	if err != nil {
+		http.Error(w, "Failed to update MFA policy", http.StatusInternalServerError)
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.security.mfa_policy.update",
+		ResourceType: "platform_security_policy",
+		ResourceID:   "security.internal_mfa_policy",
+		After:        updated,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
 }
 
 func (h *Handler) ListPlatformPayments(w http.ResponseWriter, r *http.Request) {

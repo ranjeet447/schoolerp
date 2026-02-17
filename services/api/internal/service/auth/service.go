@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"os"
 	"strings"
@@ -19,6 +20,7 @@ var (
 	ErrInvalidCredentials = errors.New("invalid email or password")
 	ErrUserNotFound       = errors.New("user not found")
 	ErrUserInactive       = errors.New("user account is inactive")
+	ErrMFARequired        = errors.New("mfa is required for this account")
 )
 
 type Service struct {
@@ -89,6 +91,20 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 		roleAssignment = db.GetUserRoleAssignmentWithPermissionsRow{
 			RoleCode:    "user",
 			Permissions: []string{},
+		}
+	}
+
+	if isInternalPlatformRole(roleAssignment.RoleCode) {
+		enforceMFA, err := s.isInternalMFAEnforced(ctx)
+		if err != nil {
+			logger.Warn().Err(err).Msg("auth login warning: unable to evaluate internal MFA policy")
+		}
+		if enforceMFA {
+			secret, err := s.queries.GetMFASecret(ctx, user.ID)
+			if err != nil || !secret.Enabled.Bool {
+				logger.Warn().Str("user_id", user.ID.String()).Msg("auth login blocked: internal MFA policy enforcement")
+				return nil, ErrMFARequired
+			}
 		}
 	}
 
@@ -181,4 +197,34 @@ func maskEmail(email string) string {
 		return local[:1] + "***@" + parts[1]
 	}
 	return local[:1] + "***" + local[len(local)-1:] + "@" + parts[1]
+}
+
+func isInternalPlatformRole(roleCode string) bool {
+	switch strings.ToLower(strings.TrimSpace(roleCode)) {
+	case "super_admin", "support_l1", "support_l2", "finance", "ops", "developer":
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *Service) isInternalMFAEnforced(ctx context.Context) (bool, error) {
+	raw, err := s.queries.GetPlatformSettingValue(ctx, "security.internal_mfa_policy")
+	if err != nil {
+		return false, err
+	}
+	if len(raw) == 0 {
+		return false, nil
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return false, nil
+	}
+
+	value, ok := payload["enforce_for_internal_users"].(bool)
+	if !ok {
+		return false, nil
+	}
+	return value, nil
 }

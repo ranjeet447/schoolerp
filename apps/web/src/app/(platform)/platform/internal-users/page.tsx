@@ -51,6 +51,11 @@ type PlatformUserSession = {
   created_at: string;
 };
 
+type PlatformSecurityPolicy = {
+  enforce_internal_mfa: boolean;
+  updated_at?: string;
+};
+
 const ROLE_OPTIONS = [
   "super_admin",
   "support_l1",
@@ -65,6 +70,8 @@ export default function PlatformInternalUsersPage() {
   const [rbac, setRbac] = useState<PlatformRBACMatrix | null>(null);
   const [rbacDraft, setRbacDraft] = useState<Record<string, string[]>>({});
   const [ipAllowlist, setIpAllowlist] = useState<PlatformIPAllowlistEntry[]>([]);
+  const [securityPolicy, setSecurityPolicy] = useState<PlatformSecurityPolicy | null>(null);
+  const [enforceInternalMFA, setEnforceInternalMFA] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedUserSessions, setSelectedUserSessions] = useState<PlatformUserSession[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
@@ -99,10 +106,11 @@ export default function PlatformInternalUsersPage() {
       if (roleFilter.trim()) query.set("role_code", roleFilter.trim());
       if (activeFilter === "true" || activeFilter === "false") query.set("is_active", activeFilter);
 
-      const [usersRes, rbacRes, allowlistRes] = await Promise.all([
+      const [usersRes, rbacRes, allowlistRes, policyRes] = await Promise.all([
         apiClient(`/admin/platform/internal-users?${query.toString()}`),
         apiClient("/admin/platform/rbac/templates"),
         apiClient("/admin/platform/access/ip-allowlist"),
+        apiClient("/admin/platform/access/policies"),
       ]);
       if (!usersRes.ok) throw new Error(await usersRes.text());
 
@@ -126,6 +134,14 @@ export default function PlatformInternalUsersPage() {
         setIpAllowlist(Array.isArray(allowlistData) ? allowlistData : []);
       } else {
         setIpAllowlist([]);
+      }
+      if (policyRes.ok) {
+        const policyData: PlatformSecurityPolicy = await policyRes.json();
+        setSecurityPolicy(policyData);
+        setEnforceInternalMFA(Boolean(policyData.enforce_internal_mfa));
+      } else {
+        setSecurityPolicy(null);
+        setEnforceInternalMFA(false);
       }
     } catch (e: any) {
       setError(e?.message || "Failed to load internal users.");
@@ -342,6 +358,27 @@ export default function PlatformInternalUsersPage() {
       }
     } catch (e: any) {
       setError(e?.message || "Failed to rotate user tokens.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveMFAPolicy = async () => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await apiClient("/admin/platform/access/policies/mfa", {
+        method: "POST",
+        body: JSON.stringify({
+          enforce_internal_mfa: enforceInternalMFA,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setMessage("Internal MFA policy updated.");
+      await load();
+    } catch (e: any) {
+      setError(e?.message || "Failed to update MFA policy.");
     } finally {
       setBusy(false);
     }
@@ -588,6 +625,34 @@ export default function PlatformInternalUsersPage() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <h2 className="text-sm font-semibold text-foreground">MFA Enforcement Policy</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Require MFA for all internal platform roles during login.
+        </p>
+        <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <label className="flex items-center gap-2 text-sm text-foreground">
+            <input
+              type="checkbox"
+              checked={enforceInternalMFA}
+              onChange={(e) => setEnforceInternalMFA(e.target.checked)}
+            />
+            Enforce MFA for internal roles (`super_admin`, `support_l1`, `support_l2`, `finance`, `ops`, `developer`)
+          </label>
+          <button
+            type="button"
+            onClick={saveMFAPolicy}
+            disabled={busy}
+            className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+          >
+            Save MFA Policy
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Last updated: {securityPolicy?.updated_at ? new Date(securityPolicy.updated_at).toLocaleString() : "-"}
+        </p>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-border bg-card">

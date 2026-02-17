@@ -28,6 +28,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - `[x]` Platform RBAC role template matrix added (platform permission catalog + per-role template editing in UI/API).
 - `[x]` Platform IP allowlist controls added for internal roles (create/list/delete CIDR/IP entries for platform access).
 - `[x]` Internal session/token controls added (session listing, revoke single/all, token rotation) with session-backed JWT validation.
+- `[x]` Internal MFA policy enforcement added (platform security policy API/UI + login-time MFA requirement for internal roles).
 - `[x]` Tenant plan change flow added (upgrade/downgrade with proration policy and effective time).
 - `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, branding/domain mapping, branch create/update/activate/deactivate, admin reset/logout, impersonation).
 - `[x]` Signup request moderation UI and API flow added (approve/reject with notes).
@@ -93,7 +94,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [x] AC-002 Platform RBAC templates and permission matrix.
 - [x] AC-003 Internal admin management UI (create/edit/disable users).
 - [x] AC-004 Assign/revoke platform roles and permissions.
-- [ ] AC-005 MFA/2FA enforcement policy for platform users.
+- [x] AC-005 MFA/2FA enforcement policy for platform users.
 - [x] AC-006 Session/device listing and forced revoke endpoint.
 - [x] AC-007 Token rotation endpoint for internal users.
 - [x] AC-008 IP allowlist controls for platform access.
