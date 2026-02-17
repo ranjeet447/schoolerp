@@ -34,6 +34,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - `[x]` Audit export added (CSV/JSON export endpoint with masking + UI export buttons in audit explorer).
 - `[x]` Security events stream added (record CORS denials, auth rate-limit blocks, login failures/MFA requirement, and IP allowlist blocks; listable via platform UI page).
 - `[x]` Data retention policy settings added (platform-scoped retention window config API/UI with audit logging).
+- `[x]` Tenant data export workflow added (request/list/download ZIP NDJSON exports per tenant with audit trail; safe defaults and restricted-table allowlist).
 - `[x]` Tenant plan change flow added (upgrade/downgrade with proration policy and effective time).
 - `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, branding/domain mapping, branch create/update/activate/deactivate, admin reset/logout, impersonation).
 - `[x]` Signup request moderation UI and API flow added (approve/reject with notes).
@@ -110,7 +111,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [x] SG-002 Audit export (CSV/JSON) with masking policy.
 - [x] SG-003 Security events stream (anomalies, suspicious access, rate-limit events).
 - [x] SG-004 Data retention and deletion policy settings.
-- [ ] SG-005 Tenant data export workflow (compliance request).
+- [x] SG-005 Tenant data export workflow (compliance request).
 - [ ] SG-006 Tenant deletion workflow with cooldown + approvals.
 - [ ] SG-007 Platform secrets/key rotation workflow.
 - [ ] SG-008 Password policy configuration (length/reuse/expiry).

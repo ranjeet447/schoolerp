@@ -50,6 +50,30 @@ type BillingControls = {
   updated_at?: string;
 };
 
+type TenantExportRequest = {
+  id: string;
+  tenant_id: string;
+  status: string;
+  requested_by: string;
+  requested_by_name?: string;
+  requested_by_email?: string;
+  payload?: {
+    reason?: string;
+    include_users?: boolean;
+    include_tables?: string[];
+    exclude_tables?: string[];
+    format?: string;
+    requested_at?: string;
+    started_at?: string;
+    completed_at?: string;
+    error?: string;
+    tables?: Record<string, number>;
+    total_rows?: number;
+  };
+  created_at: string;
+  completed_at?: string;
+};
+
 export default function PlatformTenantDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -57,6 +81,7 @@ export default function PlatformTenantDetailPage() {
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [billingControls, setBillingControls] = useState<BillingControls | null>(null);
+  const [exports, setExports] = useState<TenantExportRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -102,8 +127,13 @@ export default function PlatformTenantDetailPage() {
   const [billingLockGraceDays, setBillingLockGraceDays] = useState("7");
   const [newAdminPassword, setNewAdminPassword] = useState("");
   const [impersonationReason, setImpersonationReason] = useState("");
+  const [exportReason, setExportReason] = useState("");
+  const [exportIncludeUsers, setExportIncludeUsers] = useState(true);
+  const [exportIncludeTables, setExportIncludeTables] = useState("");
+  const [exportExcludeTables, setExportExcludeTables] = useState("");
   const [busy, setBusy] = useState(false);
   const [busyBranchId, setBusyBranchId] = useState("");
+  const [busyExportId, setBusyExportId] = useState("");
 
   const parseJSONObject = (raw: string, label: string) => {
     try {
@@ -121,10 +151,11 @@ export default function PlatformTenantDetailPage() {
     setLoading(true);
     setError("");
     try {
-      const [tenantRes, branchesRes, billingRes] = await Promise.all([
+      const [tenantRes, branchesRes, billingRes, exportsRes] = await Promise.all([
         apiClient(`/admin/platform/tenants/${id}`),
         apiClient(`/admin/platform/tenants/${id}/branches`),
         apiClient(`/admin/platform/tenants/${id}/billing-controls`),
+        apiClient(`/admin/platform/tenants/${id}/exports?limit=20`),
       ]);
 
       if (!tenantRes.ok) {
@@ -174,6 +205,13 @@ export default function PlatformTenantDetailPage() {
         setDunningLockOnFailure(rules.lock_on_failure !== false);
       } else {
         setBillingControls(null);
+      }
+
+      if (exportsRes.ok) {
+        const exportData = await exportsRes.json();
+        setExports(Array.isArray(exportData) ? exportData : []);
+      } else {
+        setExports([]);
       }
     } finally {
       setLoading(false);
@@ -455,6 +493,69 @@ export default function PlatformTenantDetailPage() {
       localStorage.setItem("user_name", `${data.target_tenant_name} Admin`);
       window.location.href = "/admin/dashboard";
     });
+  };
+
+  const requestTenantExport = async () => {
+    await action("Tenant data export request", async () => {
+      if (!exportReason.trim()) {
+        throw new Error("Export reason is required.");
+      }
+
+      const includeTables = exportIncludeTables
+        .split(",")
+        .map((v) => v.trim())
+        .filter((v) => v.length > 0);
+      const excludeTables = exportExcludeTables
+        .split(",")
+        .map((v) => v.trim())
+        .filter((v) => v.length > 0);
+
+      const res = await apiClient(`/admin/platform/tenants/${id}/exports`, {
+        method: "POST",
+        body: JSON.stringify({
+          reason: exportReason.trim(),
+          include_users: exportIncludeUsers,
+          include_tables: includeTables,
+          exclude_tables: excludeTables,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+
+      setExportReason("");
+      setExportIncludeTables("");
+      setExportExcludeTables("");
+    });
+  };
+
+  const downloadTenantExport = async (exportId: string) => {
+    setBusyExportId(exportId);
+    setError("");
+    setMessage("");
+    try {
+      const res = await apiClient(`/admin/platform/tenants/${id}/exports/${exportId}/download`);
+      if (!res.ok) throw new Error(await res.text());
+
+      const blob = await res.blob();
+      const disposition = res.headers.get("content-disposition") || "";
+      const match = disposition.match(/filename=\"?([^\";]+)\"?/i);
+      const filename = match?.[1] || `tenant_export_${id}_${exportId}.zip`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setMessage("Export download started.");
+      await loadData();
+    } catch (e: any) {
+      setError(e?.message || "Failed to download export.");
+    } finally {
+      setBusyExportId("");
+    }
   };
 
   if (loading) return <div className="text-muted-foreground">Loading tenant details...</div>;
@@ -883,6 +984,116 @@ export default function PlatformTenantDetailPage() {
           <button onClick={impersonateTenantAdmin} disabled={busy || !impersonationReason.trim()} className="rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
             Login As Tenant Admin
           </button>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 className="font-semibold text-foreground">Compliance: Tenant Data Export</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Generate a ZIP export (NDJSON per tenant-scoped table + manifest). This is intended for portability and compliance requests.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={loadData}
+            disabled={busy || loading}
+            className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+          >
+            Refresh Exports
+          </button>
+        </div>
+
+        <div className="mt-3 grid gap-2 md:grid-cols-6">
+          <input
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground md:col-span-2"
+            placeholder="Reason (required)"
+            value={exportReason}
+            onChange={(e) => setExportReason(e.target.value)}
+          />
+          <input
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground md:col-span-2"
+            placeholder="Include tables (comma-separated, optional)"
+            value={exportIncludeTables}
+            onChange={(e) => setExportIncludeTables(e.target.value)}
+          />
+          <input
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground md:col-span-2"
+            placeholder="Exclude tables (comma-separated, optional)"
+            value={exportExcludeTables}
+            onChange={(e) => setExportExcludeTables(e.target.value)}
+          />
+          <label className="md:col-span-6 flex items-center gap-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={exportIncludeUsers}
+              onChange={(e) => setExportIncludeUsers(e.target.checked)}
+            />
+            Include tenant users list (safe projection, no credentials)
+          </label>
+          <div className="md:col-span-6">
+            <button
+              type="button"
+              onClick={requestTenantExport}
+              disabled={busy || !exportReason.trim()}
+              className="rounded border border-indigo-600/40 px-3 py-2 text-sm text-indigo-700 hover:bg-indigo-500/10 disabled:opacity-60 dark:border-indigo-700 dark:text-indigo-200 dark:hover:bg-indigo-900/20"
+            >
+              Request Export
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead className="text-muted-foreground">
+              <tr>
+                <th className="py-2">Created</th>
+                <th className="py-2">Status</th>
+                <th className="py-2">Reason</th>
+                <th className="py-2">Requested By</th>
+                <th className="py-2">Rows</th>
+                <th className="py-2">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {exports.length === 0 ? (
+                <tr>
+                  <td className="py-3 text-muted-foreground" colSpan={6}>
+                    No export requests yet.
+                  </td>
+                </tr>
+              ) : (
+                exports.map((ex) => (
+                  <tr key={ex.id} className="border-t border-border">
+                    <td className="py-2 text-muted-foreground">
+                      {ex.created_at ? new Date(ex.created_at).toLocaleString() : "-"}
+                    </td>
+                    <td className="py-2 text-muted-foreground">{ex.status}</td>
+                    <td className="py-2 text-muted-foreground">{ex.payload?.reason || "-"}</td>
+                    <td className="py-2 text-muted-foreground">
+                      <p>{ex.requested_by_name || "-"}</p>
+                      <p className="text-xs">{ex.requested_by_email || ex.requested_by || "-"}</p>
+                    </td>
+                    <td className="py-2 text-muted-foreground">{ex.payload?.total_rows ?? "-"}</td>
+                    <td className="py-2">
+                      <button
+                        type="button"
+                        onClick={() => void downloadTenantExport(ex.id)}
+                        disabled={busy || busyExportId === ex.id}
+                        className="rounded border border-input px-3 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+                      >
+                        Download
+                      </button>
+                      {ex.payload?.error && (
+                        <p className="mt-1 text-xs text-red-700 dark:text-red-200">{ex.payload.error}</p>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

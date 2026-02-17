@@ -56,6 +56,9 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Get("/tenants/{tenant_id}/branches", h.ListTenantBranches)
 	r.Post("/tenants/{tenant_id}/branches", h.CreateTenantBranch)
 	r.Patch("/tenants/{tenant_id}/branches/{branch_id}", h.UpdateTenantBranch)
+	r.Get("/tenants/{tenant_id}/exports", h.ListTenantDataExports)
+	r.Post("/tenants/{tenant_id}/exports", h.CreateTenantDataExport)
+	r.Get("/tenants/{tenant_id}/exports/{export_id}/download", h.DownloadTenantDataExport)
 	r.Get("/internal-users", h.ListPlatformInternalUsers)
 	r.Post("/internal-users", h.CreatePlatformInternalUser)
 	r.Patch("/internal-users/{user_id}", h.UpdatePlatformInternalUser)
@@ -646,6 +649,137 @@ func (h *Handler) UpdateTenantBranch(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(updated)
+}
+
+func (h *Handler) ListTenantDataExports(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+
+	limit := int32(50)
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = int32(parsed)
+		}
+	}
+	offset := int32(0)
+	if raw := strings.TrimSpace(r.URL.Query().Get("offset")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			offset = int32(parsed)
+		}
+	}
+
+	rows, err := h.service.ListTenantDataExportRequests(r.Context(), tenantID, limit, offset)
+	if err != nil {
+		if errors.Is(err, tenant.ErrInvalidTenantID) {
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Failed to load tenant exports", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) CreateTenantDataExport(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	actorID := middleware.GetUserID(r.Context())
+
+	var req tenant.CreateTenantDataExportParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.RequestedBy = actorID
+
+	created, err := h.service.CreateTenantDataExportRequest(r.Context(), tenantID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrExportReasonRequired):
+			http.Error(w, "Export reason is required", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrExportAlreadyInProgress):
+			http.Error(w, "An export is already in progress for this tenant", http.StatusConflict)
+		case errors.Is(err, tenant.ErrExportHardExcludedTable):
+			http.Error(w, "Export request includes restricted table(s)", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to create tenant export request", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.security.tenant_export.request",
+		ResourceType: "tenant_export",
+		ResourceID:   created.ID,
+		Reason:       strings.TrimSpace(req.Reason),
+		After:        created,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(created)
+}
+
+func (h *Handler) DownloadTenantDataExport(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	exportID := chi.URLParam(r, "export_id")
+	actorID := middleware.GetUserID(r.Context())
+
+	exportReq, _, err := h.service.GetTenantDataExportRequest(r.Context(), tenantID, exportID)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidExportID):
+			http.Error(w, "Invalid export id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrExportNotFound):
+			http.Error(w, "Export request not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to load export request", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	startedAt := time.Now().UTC()
+	_ = h.service.UpdateTenantDataExportStatus(r.Context(), exportID, "running", map[string]any{
+		"started_at": startedAt.Format(time.RFC3339),
+		"error":      "",
+	})
+
+	filename := fmt.Sprintf("tenant_export_%s_%s.zip", strings.TrimSpace(tenantID), strings.TrimSpace(exportID))
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	w.WriteHeader(http.StatusOK)
+
+	counts, totalRows, streamErr := h.service.StreamTenantDataExportZipNDJSON(r.Context(), tenantID, exportReq, w)
+	if streamErr != nil {
+		_ = h.service.UpdateTenantDataExportStatus(r.Context(), exportID, "failed", map[string]any{
+			"completed_at": time.Now().UTC().Format(time.RFC3339),
+			"error":        streamErr.Error(),
+		})
+		return
+	}
+
+	_ = h.service.UpdateTenantDataExportStatus(r.Context(), exportID, "completed", map[string]any{
+		"completed_at": time.Now().UTC().Format(time.RFC3339),
+		"tables":       counts,
+		"total_rows":   totalRows,
+	})
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.security.tenant_export.download",
+		ResourceType: "tenant_export",
+		ResourceID:   strings.TrimSpace(exportID),
+		Reason:       strings.TrimSpace(exportReq.Payload.Reason),
+		After: map[string]any{
+			"status":     "completed",
+			"total_rows": totalRows,
+		},
+	})
 }
 
 func (h *Handler) ListPlatformInternalUsers(w http.ResponseWriter, r *http.Request) {
