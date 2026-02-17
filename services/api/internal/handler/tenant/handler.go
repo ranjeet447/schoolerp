@@ -37,6 +37,7 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Post("/tenants/{tenant_id}/trial", h.ManageTenantTrialLifecycle)
 	r.Post("/tenants/{tenant_id}/defaults", h.UpdateTenantDefaults)
 	r.Post("/tenants/{tenant_id}/plan", h.AssignTenantPlan)
+	r.Post("/tenants/{tenant_id}/plan-change", h.ChangeTenantPlan)
 	r.Post("/tenants/{tenant_id}/limit-overrides", h.UpsertTenantLimitOverride)
 	r.Post("/tenants/{tenant_id}/branding", h.UpdateTenantBranding)
 	r.Post("/tenants/{tenant_id}/domain", h.UpdateTenantDomainMapping)
@@ -952,6 +953,48 @@ func (h *Handler) AssignTenantPlan(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+}
+
+func (h *Handler) ChangeTenantPlan(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	var req tenant.TenantPlanChangeParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.UpdatedBy = middleware.GetUserID(r.Context())
+
+	result, err := h.service.ChangeTenantPlan(r.Context(), tenantID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidPlanCode):
+			http.Error(w, "Invalid plan code", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPlanNotFound):
+			http.Error(w, "Plan not found", http.StatusNotFound)
+		case errors.Is(err, tenant.ErrInvalidProrationPolicy):
+			http.Error(w, "Invalid proration policy", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to change tenant plan", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), req.UpdatedBy, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.tenant.plan.change",
+		ResourceType: "tenant",
+		ResourceID:   tenantID,
+		Reason:       strings.TrimSpace(req.ProrationPolicy),
+		After: map[string]any{
+			"reason": req.Reason,
+			"result": result,
+		},
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 func (h *Handler) UpsertTenantLimitOverride(w http.ResponseWriter, r *http.Request) {

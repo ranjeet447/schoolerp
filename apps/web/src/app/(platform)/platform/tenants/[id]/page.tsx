@@ -70,6 +70,8 @@ export default function PlatformTenantDetailPage() {
   const [planModulesText, setPlanModulesText] = useState("{}");
   const [planLimitsText, setPlanLimitsText] = useState("{}");
   const [planFlagsText, setPlanFlagsText] = useState("{}");
+  const [prorationPolicy, setProrationPolicy] = useState("prorated");
+  const [planEffectiveAt, setPlanEffectiveAt] = useState("");
   const [limitOverrideKey, setLimitOverrideKey] = useState("students");
   const [limitOverrideValue, setLimitOverrideValue] = useState("");
   const [limitOverrideExpiresAt, setLimitOverrideExpiresAt] = useState("");
@@ -212,6 +214,29 @@ export default function PlatformTenantDetailPage() {
           modules,
           feature_flags: featureFlags,
         }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+    });
+  };
+
+  const applyPlanChange = async () => {
+    await action("Plan change", async () => {
+      if (!planCode.trim()) {
+        throw new Error("Plan code is required.");
+      }
+
+      const payload: Record<string, unknown> = {
+        plan_code: planCode.trim(),
+        proration_policy: prorationPolicy,
+        reason: "manual_plan_change",
+      };
+      if (planEffectiveAt.trim()) {
+        payload.effective_at = new Date(planEffectiveAt).toISOString();
+      }
+
+      const res = await apiClient(`/admin/platform/tenants/${id}/plan-change`, {
+        method: "POST",
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(await res.text());
     });
@@ -489,6 +514,39 @@ export default function PlatformTenantDetailPage() {
             >
               Assign Plan & Overrides
             </button>
+
+            <div className="mt-2 rounded border border-border bg-background/40 p-3">
+              <h3 className="text-sm font-medium text-foreground">Upgrade / Downgrade Plan</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Apply plan change policy with immediate, next-cycle, no-proration, or prorated behavior metadata.
+              </p>
+              <div className="mt-2 grid gap-2 md:grid-cols-3">
+                <select
+                  className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+                  value={prorationPolicy}
+                  onChange={(e) => setProrationPolicy(e.target.value)}
+                >
+                  <option value="prorated">prorated</option>
+                  <option value="immediate">immediate</option>
+                  <option value="next_cycle">next_cycle</option>
+                  <option value="none">none</option>
+                </select>
+                <input
+                  type="datetime-local"
+                  className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+                  value={planEffectiveAt}
+                  onChange={(e) => setPlanEffectiveAt(e.target.value)}
+                />
+                <button
+                  type="button"
+                  disabled={busy || !planCode.trim()}
+                  onClick={applyPlanChange}
+                  className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+                >
+                  Apply Plan Change
+                </button>
+              </div>
+            </div>
 
             <div className="mt-2 rounded border border-border bg-background/40 p-3">
               <h3 className="text-sm font-medium text-foreground">Tenant Limit Override</h3>

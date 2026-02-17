@@ -27,6 +27,7 @@ var (
 	ErrInvalidLimitOverride   = errors.New("invalid tenant limit override")
 	ErrCriticalModuleLocked   = errors.New("critical module cannot be disabled")
 	ErrInvalidTrialAction     = errors.New("invalid trial action")
+	ErrInvalidProrationPolicy = errors.New("invalid proration policy")
 )
 
 type TenantDirectoryFilters struct {
@@ -76,6 +77,22 @@ type AssignPlanParams struct {
 	Modules   map[string]interface{} `json:"modules"`
 	Flags     map[string]interface{} `json:"feature_flags"`
 	UpdatedBy string                 `json:"-"`
+}
+
+type TenantPlanChangeParams struct {
+	PlanCode        string `json:"plan_code"`
+	ProrationPolicy string `json:"proration_policy"`
+	EffectiveAt     string `json:"effective_at"`
+	Reason          string `json:"reason"`
+	UpdatedBy       string `json:"-"`
+}
+
+type TenantPlanChangeResult struct {
+	FromPlanCode       string     `json:"from_plan_code,omitempty"`
+	ToPlanCode         string     `json:"to_plan_code"`
+	ProrationPolicy    string     `json:"proration_policy"`
+	EffectiveAt        *time.Time `json:"effective_at,omitempty"`
+	SubscriptionStatus string     `json:"subscription_status"`
 }
 
 type TenantLimitOverrideParams struct {
@@ -347,6 +364,135 @@ func (s *Service) AssignPlanToTenant(ctx context.Context, tenantID string, param
 	`
 	_, err = s.db.Exec(ctx, upsertSub, tid, planID, overridesJSON, updatedBy)
 	return err
+}
+
+func (s *Service) ChangeTenantPlan(ctx context.Context, tenantID string, params TenantPlanChangeParams) (TenantPlanChangeResult, error) {
+	tid, err := parseTenantUUID(tenantID)
+	if err != nil {
+		return TenantPlanChangeResult{}, err
+	}
+
+	targetPlanCode := strings.TrimSpace(strings.ToLower(params.PlanCode))
+	if targetPlanCode == "" {
+		return TenantPlanChangeResult{}, ErrInvalidPlanCode
+	}
+
+	prorationPolicy := strings.TrimSpace(strings.ToLower(params.ProrationPolicy))
+	if prorationPolicy == "" {
+		prorationPolicy = "prorated"
+	}
+	switch prorationPolicy {
+	case "none", "immediate", "next_cycle", "prorated":
+	default:
+		return TenantPlanChangeResult{}, ErrInvalidProrationPolicy
+	}
+
+	var effectiveAt time.Time
+	hasEffectiveAt := false
+	if raw := strings.TrimSpace(params.EffectiveAt); raw != "" {
+		parsed, err := time.Parse(time.RFC3339, raw)
+		if err != nil {
+			return TenantPlanChangeResult{}, ErrInvalidProrationPolicy
+		}
+		effectiveAt = parsed
+		hasEffectiveAt = true
+	}
+	if !hasEffectiveAt {
+		effectiveAt = time.Now().UTC()
+	}
+
+	var targetPlanID pgtype.UUID
+	if err := s.db.QueryRow(ctx, `SELECT id FROM platform_plans WHERE code = $1 LIMIT 1`, targetPlanCode).Scan(&targetPlanID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return TenantPlanChangeResult{}, ErrPlanNotFound
+		}
+		return TenantPlanChangeResult{}, err
+	}
+
+	var fromPlanCode string
+	_ = s.db.QueryRow(ctx, `
+		SELECT COALESCE(pp.code, '')
+		FROM tenant_subscriptions ts
+		LEFT JOIN platform_plans pp ON pp.id = ts.plan_id
+		WHERE ts.tenant_id = $1
+		LIMIT 1
+	`, tid).Scan(&fromPlanCode)
+
+	var updatedBy pgtype.UUID
+	_ = updatedBy.Scan(strings.TrimSpace(params.UpdatedBy))
+
+	const upsert = `
+		INSERT INTO tenant_subscriptions (
+			tenant_id,
+			plan_id,
+			status,
+			overrides,
+			updated_by,
+			updated_at
+		)
+		VALUES (
+			$1,
+			$2,
+			'active',
+			jsonb_build_object(
+				'last_plan_change',
+				jsonb_build_object(
+					'from_plan_code', $3::text,
+					'to_plan_code', $4::text,
+					'proration_policy', $5::text,
+					'effective_at', $6::text,
+					'reason', $7::text,
+					'changed_at', NOW()::text
+				)
+			),
+			$8,
+			NOW()
+		)
+		ON CONFLICT (tenant_id)
+		DO UPDATE SET
+			plan_id = EXCLUDED.plan_id,
+			status = 'active',
+			overrides = jsonb_set(
+				COALESCE(tenant_subscriptions.overrides, '{}'::jsonb),
+				'{last_plan_change}',
+				jsonb_build_object(
+					'from_plan_code', $3::text,
+					'to_plan_code', $4::text,
+					'proration_policy', $5::text,
+					'effective_at', $6::text,
+					'reason', $7::text,
+					'changed_at', NOW()::text
+				),
+				TRUE
+			),
+			updated_by = EXCLUDED.updated_by,
+			updated_at = NOW()
+		RETURNING status
+	`
+
+	var status string
+	if err := s.db.QueryRow(
+		ctx,
+		upsert,
+		tid,
+		targetPlanID,
+		fromPlanCode,
+		targetPlanCode,
+		prorationPolicy,
+		effectiveAt.Format(time.RFC3339),
+		strings.TrimSpace(params.Reason),
+		updatedBy,
+	).Scan(&status); err != nil {
+		return TenantPlanChangeResult{}, err
+	}
+
+	return TenantPlanChangeResult{
+		FromPlanCode:       strings.TrimSpace(fromPlanCode),
+		ToPlanCode:         targetPlanCode,
+		ProrationPolicy:    prorationPolicy,
+		EffectiveAt:        &effectiveAt,
+		SubscriptionStatus: status,
+	}, nil
 }
 
 func (s *Service) UpsertTenantLimitOverride(ctx context.Context, tenantID string, params TenantLimitOverrideParams) (TenantLimitOverrideResult, error) {

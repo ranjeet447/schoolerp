@@ -21,6 +21,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - `[x]` Billing overview API + platform billing dashboard cards/trends added (MRR/ARR/churn/trials/renewals mix).
 - `[x]` Platform invoices lifecycle added (create/list/resend/mark-paid/export with audit trail).
 - `[x]` Tenant trial lifecycle controls added (start/extend/convert to paid with audit logging).
+- `[x]` Tenant plan change flow added (upgrade/downgrade with proration policy and effective time).
 - `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, branding/domain mapping, branch create/update/activate/deactivate, admin reset/logout, impersonation).
 - `[x]` Signup request moderation UI and API flow added (approve/reject with notes).
 - `[~]` Platform audit coverage expanded for super-admin actions (tenant-management mutation endpoints + signup review + impersonation entry/exit).
@@ -75,7 +76,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [ ] BI-005 Payment gateway settings management (Razorpay/Stripe provider config).
 - [ ] BI-006 Tax rules (GST/VAT) and invoice template support.
 - [x] BI-007 Trial start/extend/convert flows.
-- [ ] BI-008 Upgrade/downgrade flow with proration policy.
+- [x] BI-008 Upgrade/downgrade flow with proration policy.
 - [x] BI-009 Offline payment recording policy and endpoint.
 - [ ] BI-010 Dunning rules (retry cadence + notification channels).
 - [ ] BI-011 Grace period and lockout controls for non-payment.
