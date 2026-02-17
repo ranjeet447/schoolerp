@@ -37,6 +37,11 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Post("/feature-rollouts", h.RolloutFeatureFlag)
 	r.Get("/signup-requests", h.ListSignupRequests)
 	r.Post("/signup-requests/{signup_id}/review", h.ReviewSignupRequest)
+	r.Get("/incidents", h.ListPlatformIncidents)
+	r.Post("/incidents", h.CreatePlatformIncident)
+	r.Get("/incidents/{incident_id}", h.GetPlatformIncident)
+	r.Patch("/incidents/{incident_id}", h.UpdatePlatformIncident)
+	r.Post("/incidents/{incident_id}/events", h.CreatePlatformIncidentEvent)
 	r.Get("/tenants", h.ListPlatformTenants)
 	r.Get("/tenants/{tenant_id}", h.GetPlatformTenant)
 	r.Patch("/tenants/{tenant_id}", h.UpdatePlatformTenant)
@@ -2195,6 +2200,177 @@ func (h *Handler) CreatePlatformSupportTicketNote(w http.ResponseWriter, r *http
 		ResourceType: "support_ticket_note",
 		ResourceID:   created.ID,
 		Reason:       strings.TrimSpace(created.NoteType),
+		After:        created,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(created)
+}
+
+func (h *Handler) ListPlatformIncidents(w http.ResponseWriter, r *http.Request) {
+	qp := r.URL.Query()
+
+	limit := int32(50)
+	if raw := strings.TrimSpace(qp.Get("limit")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = int32(parsed)
+		}
+	}
+	offset := int32(0)
+	if raw := strings.TrimSpace(qp.Get("offset")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			offset = int32(parsed)
+		}
+	}
+
+	rows, err := h.service.ListPlatformIncidents(r.Context(), tenant.PlatformIncidentFilters{
+		Search:   strings.TrimSpace(firstNonEmpty(qp.Get("q"), qp.Get("search"))),
+		Status:   strings.TrimSpace(qp.Get("status")),
+		Severity: strings.TrimSpace(qp.Get("severity")),
+		Scope:    strings.TrimSpace(qp.Get("scope")),
+		TenantID:  strings.TrimSpace(qp.Get("tenant_id")),
+		Limit:    limit,
+		Offset:   offset,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "invalid tenant_id", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to load incidents", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) CreatePlatformIncident(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+
+	var req tenant.CreatePlatformIncidentParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.CreatedBy = actorID
+
+	created, err := h.service.CreatePlatformIncident(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidPlatformIncidentPayload):
+			http.Error(w, "Invalid incident payload", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to create incident", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.incident.create",
+		ResourceType: "platform_incident",
+		ResourceID:   created.Incident.ID,
+		Reason:       strings.TrimSpace(created.Incident.Severity),
+		After:        created,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(created)
+}
+
+func (h *Handler) GetPlatformIncident(w http.ResponseWriter, r *http.Request) {
+	incidentID := chi.URLParam(r, "incident_id")
+
+	detail, err := h.service.GetPlatformIncidentDetail(r.Context(), incidentID)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidPlatformIncidentID):
+			http.Error(w, "invalid incident id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPlatformIncidentNotFound):
+			http.Error(w, "incident not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to load incident", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(detail)
+}
+
+func (h *Handler) UpdatePlatformIncident(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	incidentID := chi.URLParam(r, "incident_id")
+
+	var req tenant.UpdatePlatformIncidentParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.UpdatedBy = actorID
+
+	before, after, err := h.service.UpdatePlatformIncident(r.Context(), incidentID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidPlatformIncidentID):
+			http.Error(w, "invalid incident id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidPlatformIncidentPayload):
+			http.Error(w, "Invalid incident payload", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPlatformIncidentNotFound):
+			http.Error(w, "incident not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to update incident", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.incident.update",
+		ResourceType: "platform_incident",
+		ResourceID:   after.Incident.ID,
+		Reason:       strings.TrimSpace(after.Incident.Status),
+		Before:       before,
+		After:        after,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(after)
+}
+
+func (h *Handler) CreatePlatformIncidentEvent(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	incidentID := chi.URLParam(r, "incident_id")
+
+	var req tenant.CreatePlatformIncidentEventParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.CreatedBy = actorID
+
+	created, err := h.service.CreatePlatformIncidentEvent(r.Context(), incidentID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidPlatformIncidentID):
+			http.Error(w, "invalid incident id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPlatformIncidentNotFound):
+			http.Error(w, "incident not found", http.StatusNotFound)
+		case errors.Is(err, tenant.ErrInvalidPlatformIncidentEventPayload):
+			http.Error(w, "Invalid incident event payload", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to create incident event", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.incident.event.create",
+		ResourceType: "platform_incident_event",
+		ResourceID:   created.ID,
+		Reason:       strings.TrimSpace(created.EventType),
 		After:        created,
 	})
 

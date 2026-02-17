@@ -43,6 +43,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - `[x]` Support ticketing (v1) added (create/list/update tickets with audit logging and support desk UI).
 - `[x]` Support ticket notes added (internal/customer notes with attachment metadata support).
 - `[x]` Support SLA added (policy config, SLA overview metrics, and manual escalation runner).
+- `[x]` Incident management added (platform incidents with timeline events and status/severity tracking).
 - `[x]` Tenant plan change flow added (upgrade/downgrade with proration policy and effective time).
 - `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, branding/domain mapping, branch create/update/activate/deactivate, admin reset/logout, impersonation).
 - `[x]` Signup request moderation UI and API flow added (approve/reject with notes).
@@ -130,7 +131,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [x] OP-001 Ticket model/API (create/assign/tag/close/reopen).
 - [x] OP-002 Ticket notes (internal/customer-visible) and attachment metadata.
 - [x] OP-003 SLA dashboard and escalation rules.
-- [ ] OP-004 Incident management timeline view.
+- [x] OP-004 Incident management timeline view.
 - [ ] OP-005 Temporary limit increase controls during incidents.
 - [ ] OP-006 Broadcast notifications to impacted tenants.
 - [ ] OP-007 Billing freeze during outage flow (policy-based).

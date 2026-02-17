@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   BarChart3,
   Ban,
   Building2,
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { href: "/platform/plans", label: "Plans & Flags", icon: Layers3 },
   { href: "/platform/signup-requests", label: "Signup Requests", icon: FileCheck2 },
   { href: "/platform/support", label: "Support Desk", icon: LifeBuoy },
+  { href: "/platform/incidents", label: "Incidents", icon: AlertTriangle },
   { href: "/platform/payments", label: "Platform Payments", icon: CreditCard },
   { href: "/platform/internal-users", label: "Internal Users", icon: Users },
   { href: "/platform/security-events", label: "Security Events", icon: Shield },
