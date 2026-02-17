@@ -34,6 +34,7 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Get("/tenants/{tenant_id}", h.GetPlatformTenant)
 	r.Patch("/tenants/{tenant_id}", h.UpdatePlatformTenant)
 	r.Post("/tenants/{tenant_id}/lifecycle", h.UpdateTenantLifecycle)
+	r.Post("/tenants/{tenant_id}/trial", h.ManageTenantTrialLifecycle)
 	r.Post("/tenants/{tenant_id}/defaults", h.UpdateTenantDefaults)
 	r.Post("/tenants/{tenant_id}/plan", h.AssignTenantPlan)
 	r.Post("/tenants/{tenant_id}/limit-overrides", h.UpsertTenantLimitOverride)
@@ -836,6 +837,48 @@ func (h *Handler) UpdateTenantLifecycle(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+}
+
+func (h *Handler) ManageTenantTrialLifecycle(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	actorID := middleware.GetUserID(r.Context())
+
+	var req tenant.TenantTrialLifecycleParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.UpdatedBy = actorID
+
+	result, err := h.service.ManageTenantTrialLifecycle(r.Context(), tenantID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidTrialAction):
+			http.Error(w, "Invalid trial action", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to manage tenant trial lifecycle", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.tenant.trial.lifecycle",
+		ResourceType: "tenant",
+		ResourceID:   tenantID,
+		Reason:       strings.TrimSpace(req.Action),
+		After: map[string]any{
+			"action":           strings.TrimSpace(req.Action),
+			"days":             req.Days,
+			"renew_after_days": req.RenewAfterDays,
+			"result":           result,
+		},
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 func (h *Handler) UpdateTenantDefaults(w http.ResponseWriter, r *http.Request) {

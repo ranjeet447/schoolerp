@@ -26,6 +26,7 @@ var (
 	ErrSignupRequestNotFound  = errors.New("signup request not found")
 	ErrInvalidLimitOverride   = errors.New("invalid tenant limit override")
 	ErrCriticalModuleLocked   = errors.New("critical module cannot be disabled")
+	ErrInvalidTrialAction     = errors.New("invalid trial action")
 )
 
 type TenantDirectoryFilters struct {
@@ -88,6 +89,20 @@ type TenantLimitOverrideResult struct {
 	LimitKey   string `json:"limit_key"`
 	LimitValue int64  `json:"limit_value"`
 	ExpiresAt  string `json:"expires_at,omitempty"`
+}
+
+type TenantTrialLifecycleParams struct {
+	Action         string `json:"action"`
+	Days           int    `json:"days"`
+	RenewAfterDays int    `json:"renew_after_days"`
+	UpdatedBy      string `json:"-"`
+}
+
+type TenantTrialLifecycleResult struct {
+	Status        string     `json:"status"`
+	TrialStartsAt *time.Time `json:"trial_starts_at,omitempty"`
+	TrialEndsAt   *time.Time `json:"trial_ends_at,omitempty"`
+	RenewsAt      *time.Time `json:"renews_at,omitempty"`
 }
 
 type ImpersonationParams struct {
@@ -401,6 +416,112 @@ func (s *Service) UpsertTenantLimitOverride(ctx context.Context, tenantID string
 		LimitValue: params.LimitValue,
 		ExpiresAt:  expiresAt,
 	}, nil
+}
+
+func (s *Service) ManageTenantTrialLifecycle(ctx context.Context, tenantID string, params TenantTrialLifecycleParams) (TenantTrialLifecycleResult, error) {
+	tid, err := parseTenantUUID(tenantID)
+	if err != nil {
+		return TenantTrialLifecycleResult{}, err
+	}
+
+	action := strings.ToLower(strings.TrimSpace(params.Action))
+	days := params.Days
+	if days <= 0 {
+		days = 14
+	}
+	renewAfterDays := params.RenewAfterDays
+	if renewAfterDays <= 0 {
+		renewAfterDays = 30
+	}
+
+	var updatedBy pgtype.UUID
+	_ = updatedBy.Scan(strings.TrimSpace(params.UpdatedBy))
+
+	now := time.Now().UTC()
+	var trialStartsAt pgtype.Timestamptz
+	var trialEndsAt pgtype.Timestamptz
+	var renewsAt pgtype.Timestamptz
+	status := ""
+
+	switch action {
+	case "start":
+		status = "trial"
+		trialStartsAt = pgtype.Timestamptz{Time: now, Valid: true}
+		trialEndsAt = pgtype.Timestamptz{Time: now.Add(time.Duration(days) * 24 * time.Hour), Valid: true}
+		renewsAt = pgtype.Timestamptz{}
+	case "extend":
+		status = "trial"
+		var currentTrialEnds pgtype.Timestamptz
+		_ = s.db.QueryRow(ctx, `SELECT trial_ends_at FROM tenant_subscriptions WHERE tenant_id = $1`, tid).Scan(&currentTrialEnds)
+		base := now
+		if currentTrialEnds.Valid && currentTrialEnds.Time.After(now) {
+			base = currentTrialEnds.Time
+		}
+		trialEndsAt = pgtype.Timestamptz{Time: base.Add(time.Duration(days) * 24 * time.Hour), Valid: true}
+	case "convert_paid":
+		status = "active"
+		trialEndsAt = pgtype.Timestamptz{Time: now, Valid: true}
+		renewsAt = pgtype.Timestamptz{Time: now.Add(time.Duration(renewAfterDays) * 24 * time.Hour), Valid: true}
+	default:
+		return TenantTrialLifecycleResult{}, ErrInvalidTrialAction
+	}
+
+	const upsert = `
+		INSERT INTO tenant_subscriptions (
+			tenant_id,
+			status,
+			trial_starts_at,
+			trial_ends_at,
+			renews_at,
+			updated_by
+		)
+		VALUES (
+			$1,
+			$2,
+			$3,
+			$4,
+			$5,
+			$6
+		)
+		ON CONFLICT (tenant_id)
+		DO UPDATE SET
+			status = EXCLUDED.status,
+			trial_starts_at = COALESCE(EXCLUDED.trial_starts_at, tenant_subscriptions.trial_starts_at),
+			trial_ends_at = COALESCE(EXCLUDED.trial_ends_at, tenant_subscriptions.trial_ends_at),
+			renews_at = COALESCE(EXCLUDED.renews_at, tenant_subscriptions.renews_at),
+			updated_by = EXCLUDED.updated_by,
+			updated_at = NOW()
+		RETURNING status, trial_starts_at, trial_ends_at, renews_at
+	`
+
+	var out TenantTrialLifecycleResult
+	var outTrialStarts pgtype.Timestamptz
+	var outTrialEnds pgtype.Timestamptz
+	var outRenews pgtype.Timestamptz
+
+	if err := s.db.QueryRow(ctx, upsert, tid, status, trialStartsAt, trialEndsAt, renewsAt, updatedBy).Scan(
+		&out.Status,
+		&outTrialStarts,
+		&outTrialEnds,
+		&outRenews,
+	); err != nil {
+		return TenantTrialLifecycleResult{}, err
+	}
+
+	if outTrialStarts.Valid {
+		v := outTrialStarts.Time
+		out.TrialStartsAt = &v
+	}
+	if outTrialEnds.Valid {
+		v := outTrialEnds.Time
+		out.TrialEndsAt = &v
+	}
+	if outRenews.Valid {
+		v := outRenews.Time
+		out.RenewsAt = &v
+	}
+
+	return out, nil
 }
 
 func (s *Service) UpdateTenantDefaults(ctx context.Context, tenantID string, params TenantDefaultsParams) error {

@@ -73,6 +73,8 @@ export default function PlatformTenantDetailPage() {
   const [limitOverrideKey, setLimitOverrideKey] = useState("students");
   const [limitOverrideValue, setLimitOverrideValue] = useState("");
   const [limitOverrideExpiresAt, setLimitOverrideExpiresAt] = useState("");
+  const [trialDays, setTrialDays] = useState("14");
+  const [renewAfterDays, setRenewAfterDays] = useState("30");
   const [newAdminPassword, setNewAdminPassword] = useState("");
   const [impersonationReason, setImpersonationReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -273,6 +275,23 @@ export default function PlatformTenantDetailPage() {
     await action("Force logout", async () => {
       const res = await apiClient(`/admin/platform/tenants/${id}/force-logout`, {
         method: "POST",
+      });
+      if (!res.ok) throw new Error(await res.text());
+    });
+  };
+
+  const manageTrialLifecycle = async (lifecycleAction: "start" | "extend" | "convert_paid") => {
+    await action("Trial lifecycle update", async () => {
+      const days = Number(trialDays || "14");
+      const renewDays = Number(renewAfterDays || "30");
+
+      const res = await apiClient(`/admin/platform/tenants/${id}/trial`, {
+        method: "POST",
+        body: JSON.stringify({
+          action: lifecycleAction,
+          days: Number.isFinite(days) ? Math.max(1, Math.floor(days)) : 14,
+          renew_after_days: Number.isFinite(renewDays) ? Math.max(1, Math.floor(renewDays)) : 30,
+        }),
       });
       if (!res.ok) throw new Error(await res.text());
     });
@@ -520,6 +539,55 @@ export default function PlatformTenantDetailPage() {
             <button onClick={resetAdminPassword} disabled={busy || !newAdminPassword} className="mr-2 rounded border border-amber-600/40 px-3 py-2 text-sm text-amber-700 hover:bg-amber-500/10 disabled:opacity-50 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/20">Reset Admin Password</button>
             <button onClick={forceLogoutUsers} disabled={busy} className="rounded border border-red-600/40 px-3 py-2 text-sm text-red-700 hover:bg-red-500/10 disabled:opacity-50 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/20">Force Logout All Users</button>
           </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <h2 className="font-semibold text-foreground">Trial Lifecycle</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Start a trial, extend trial duration, or convert tenant to paid active subscription.
+        </p>
+        <div className="mt-3 grid gap-2 md:grid-cols-4">
+          <input
+            type="number"
+            min={1}
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            value={trialDays}
+            onChange={(e) => setTrialDays(e.target.value)}
+            placeholder="Trial days"
+          />
+          <input
+            type="number"
+            min={1}
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            value={renewAfterDays}
+            onChange={(e) => setRenewAfterDays(e.target.value)}
+            placeholder="Renew after days"
+          />
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => manageTrialLifecycle("start")}
+            className="rounded border border-indigo-600/40 px-3 py-2 text-sm text-indigo-700 hover:bg-indigo-500/10 disabled:opacity-60 dark:border-indigo-700 dark:text-indigo-200 dark:hover:bg-indigo-900/20"
+          >
+            Start Trial
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => manageTrialLifecycle("extend")}
+            className="rounded border border-amber-600/40 px-3 py-2 text-sm text-amber-700 hover:bg-amber-500/10 disabled:opacity-60 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/20"
+          >
+            Extend Trial
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => manageTrialLifecycle("convert_paid")}
+            className="rounded border border-emerald-600/40 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-60 dark:border-emerald-700 dark:text-emerald-200 dark:hover:bg-emerald-900/20 md:col-span-4"
+          >
+            Convert To Paid
+          </button>
         </div>
       </div>
 
