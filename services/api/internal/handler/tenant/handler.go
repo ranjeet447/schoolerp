@@ -85,6 +85,9 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Get("/security/audit-logs/export", h.ExportPlatformAuditLogs)
 	r.Get("/security/audit-logs", h.ListPlatformAuditLogs)
 	r.Get("/security/events", h.ListPlatformSecurityEvents)
+	r.Get("/security/blocks", h.ListPlatformSecurityBlocks)
+	r.Post("/security/blocks", h.CreatePlatformSecurityBlock)
+	r.Post("/security/blocks/{block_id}/release", h.ReleasePlatformSecurityBlock)
 	r.Get("/security/retention-policy", h.GetPlatformDataRetentionPolicy)
 	r.Post("/security/retention-policy", h.UpdatePlatformDataRetentionPolicy)
 	r.Get("/security/password-policy", h.GetPlatformPasswordPolicy)
@@ -1747,6 +1750,120 @@ func (h *Handler) ListPlatformSecurityEvents(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) ListPlatformSecurityBlocks(w http.ResponseWriter, r *http.Request) {
+	qp := r.URL.Query()
+
+	limit := int32(100)
+	if raw := strings.TrimSpace(qp.Get("limit")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = int32(parsed)
+		}
+	}
+	offset := int32(0)
+	if raw := strings.TrimSpace(qp.Get("offset")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			offset = int32(parsed)
+		}
+	}
+
+	rows, err := h.service.ListPlatformSecurityBlocks(r.Context(), tenant.PlatformSecurityBlockFilters{
+		TargetType: strings.TrimSpace(firstNonEmpty(qp.Get("target_type"), qp.Get("type"))),
+		TenantID:   strings.TrimSpace(qp.Get("tenant_id")),
+		UserID:     strings.TrimSpace(qp.Get("user_id")),
+		Status:     strings.TrimSpace(qp.Get("status")),
+		Limit:      limit,
+		Offset:     offset,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "invalid tenant_id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidPlatformUserID):
+			http.Error(w, "invalid user_id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidSecurityBlockPayload):
+			http.Error(w, "invalid payload", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to load security blocks", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) CreatePlatformSecurityBlock(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+
+	var req tenant.CreatePlatformSecurityBlockParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.CreatedBy = actorID
+
+	created, err := h.service.CreatePlatformSecurityBlock(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "invalid tenant_id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidPlatformUserID):
+			http.Error(w, "invalid user_id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidSecurityBlockPayload):
+			http.Error(w, "Invalid security block payload", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to create security block", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.security.block.create",
+		ResourceType: "platform_security_block",
+		ResourceID:   created.ID,
+		Reason:       strings.TrimSpace(created.TargetType),
+		After:        created,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(created)
+}
+
+func (h *Handler) ReleasePlatformSecurityBlock(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	blockID := chi.URLParam(r, "block_id")
+
+	var req struct {
+		Notes string `json:"notes"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	updated, err := h.service.ReleasePlatformSecurityBlock(r.Context(), blockID, actorID, req.Notes)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidSecurityBlockID):
+			http.Error(w, "invalid block id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrSecurityBlockNotFound):
+			http.Error(w, "block not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to release security block", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.security.block.release",
+		ResourceType: "platform_security_block",
+		ResourceID:   updated.ID,
+		Reason:       strings.TrimSpace(updated.TargetType),
+		After:        updated,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
 }
 
 func (h *Handler) GetPlatformDataRetentionPolicy(w http.ResponseWriter, r *http.Request) {

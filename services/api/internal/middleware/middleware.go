@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
@@ -266,6 +267,65 @@ func AuthResolver(next http.Handler) http.Handler {
 						Str("path", r.URL.Path).
 						Msg("auth session validation failed: session not found")
 					http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					return
+				}
+
+				// Risk-based blocks (tenant/user). Requires control-plane migration.
+				var tid pgtype.UUID
+				if tenantID, ok := claims["tenant_id"].(string); ok {
+					_ = tid.Scan(strings.TrimSpace(tenantID))
+				}
+
+				var blocked bool
+				err = sessionPool.QueryRow(
+					r.Context(),
+					`SELECT EXISTS(
+							SELECT 1
+							FROM platform_security_blocks b
+						WHERE b.status = 'active'
+						  AND (b.expires_at IS NULL OR b.expires_at > NOW())
+						  AND (
+							b.target_user_id = $1
+							OR ($2::uuid IS NOT NULL AND b.target_tenant_id = $2)
+						  )
+					)`,
+					uid,
+					tid,
+				).Scan(&blocked)
+				if err != nil {
+					var pgErr *pgconn.PgError
+					if errors.As(err, &pgErr) && pgErr.Code == "42P01" {
+						// Missing migration/table; don't break auth in mixed environments.
+						log.Ctx(r.Context()).
+							Warn().
+							Str("path", r.URL.Path).
+							Msg("auth block check skipped: platform_security_blocks table missing")
+					} else {
+						log.Ctx(r.Context()).
+							Error().
+							Err(err).
+							Str("auth_user_id", subject).
+							Str("path", r.URL.Path).
+							Msg("auth block check failed: block store unavailable")
+						http.Error(w, "Block store unavailable", http.StatusServiceUnavailable)
+						return
+					}
+				}
+				if blocked {
+					RecordSecurityEvent(r.Context(), SecurityEvent{
+						TenantID:   GetTenantID(ctx),
+						UserID:     GetUserID(ctx),
+						Role:       GetRole(ctx),
+						EventType:  "access.blocked",
+						Severity:   "warning",
+						Method:     r.Method,
+						Path:       r.URL.Path,
+						StatusCode: http.StatusForbidden,
+						IPAddress:  clientIPForSecurity(r),
+						UserAgent:  r.UserAgent(),
+						Origin:     r.Header.Get("Origin"),
+					})
+					http.Error(w, "Forbidden", http.StatusForbidden)
 					return
 				}
 			}

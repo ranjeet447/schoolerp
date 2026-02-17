@@ -24,6 +24,7 @@ var (
 	ErrUserInactive            = errors.New("user account is inactive")
 	ErrMFARequired             = errors.New("mfa is required for this account")
 	ErrSessionStoreUnavailable = errors.New("session store unavailable")
+	ErrAccessBlocked           = errors.New("access blocked")
 	ErrPasswordExpired         = errors.New("password expired; contact administrator")
 )
 
@@ -100,6 +101,19 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 			RoleCode:    "user",
 			Permissions: []string{},
 		}
+	}
+
+	blocked, err := s.queries.IsPlatformSecurityBlocked(ctx, user.ID, roleAssignment.TenantID)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "42P01" {
+			logger.Warn().Str("user_id", user.ID.String()).Msg("auth login warning: security blocks table missing")
+		} else {
+			logger.Warn().Err(err).Str("user_id", user.ID.String()).Msg("auth login warning: unable to evaluate security blocks")
+		}
+	} else if blocked {
+		logger.Warn().Str("user_id", user.ID.String()).Msg("auth login blocked: access blocked")
+		return nil, ErrAccessBlocked
 	}
 
 	if isInternalPlatformRole(roleAssignment.RoleCode) {
