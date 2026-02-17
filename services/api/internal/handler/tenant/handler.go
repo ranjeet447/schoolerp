@@ -46,6 +46,7 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Get("/tenants/{tenant_id}/branches", h.ListTenantBranches)
 	r.Post("/tenants/{tenant_id}/branches", h.CreateTenantBranch)
 	r.Patch("/tenants/{tenant_id}/branches/{branch_id}", h.UpdateTenantBranch)
+	r.Get("/billing/overview", h.GetPlatformBillingOverview)
 	r.Get("/payments", h.ListPlatformPayments)
 }
 
@@ -621,6 +622,17 @@ func (h *Handler) ListPlatformPayments(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(payments)
+}
+
+func (h *Handler) GetPlatformBillingOverview(w http.ResponseWriter, r *http.Request) {
+	overview, err := h.service.GetPlatformBillingOverview(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to load billing overview", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(overview)
 }
 
 func (h *Handler) UpdateTenantLifecycle(w http.ResponseWriter, r *http.Request) {

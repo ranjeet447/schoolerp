@@ -18,6 +18,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - `[x]` Quota enforcement upgraded to resolve effective limits from plan/overrides for students, staff, and storage upload checks.
 - `[x]` Temporary/permanent tenant limit override controls added (expiry-based override metadata).
 - `[x]` Critical module lock guardrails added to prevent disabling compliance modules in plan/tenant module payloads.
+- `[x]` Billing overview API + platform billing dashboard cards/trends added (MRR/ARR/churn/trials/renewals mix).
 - `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, branding/domain mapping, branch create/update/activate/deactivate, admin reset/logout, impersonation).
 - `[x]` Signup request moderation UI and API flow added (approve/reject with notes).
 - `[~]` Platform audit coverage expanded for super-admin actions (tenant-management mutation endpoints + signup review + impersonation entry/exit).
@@ -65,8 +66,8 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [x] PL-008 Audit every plan/module/flag mutation.
 
 ## 3) Subscription, Billing, and Payments
-- [ ] BI-001 Subscription overview API (MRR, ARR, churn, trials, renewals).
-- [ ] BI-002 Billing dashboard UI with trends and cohort slices.
+- [x] BI-001 Subscription overview API (MRR, ARR, churn, trials, renewals).
+- [x] BI-002 Billing dashboard UI with trends and cohort slices.
 - [ ] BI-003 Invoice model/endpoints (create, resend, mark paid, export).
 - [ ] BI-004 Credits, refunds, partial refunds, and credit notes.
 - [ ] BI-005 Payment gateway settings management (Razorpay/Stripe provider config).
