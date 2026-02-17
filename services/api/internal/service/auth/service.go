@@ -147,7 +147,8 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 	}
 
 	if err := s.queries.CreateSessionRecord(ctx, user.ID, hashPassword(tokenJTI), expiresAt); err != nil {
-		logger.Warn().Err(err).Str("user_id", user.ID.String()).Msg("auth login warning: unable to create session record")
+		logger.Error().Err(err).Str("user_id", user.ID.String()).Msg("auth login failed: unable to create session record")
+		return nil, errors.New("session store unavailable")
 	}
 
 	logger.Info().

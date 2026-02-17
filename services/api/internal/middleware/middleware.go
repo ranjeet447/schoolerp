@@ -217,12 +217,23 @@ func AuthResolver(next http.Handler) http.Handler {
 				subject = strings.TrimSpace(subject)
 				jti = strings.TrimSpace(jti)
 				if subject == "" || jti == "" {
+					log.Ctx(r.Context()).
+						Warn().
+						Str("auth_user_id", subject).
+						Bool("has_jti", jti != "").
+						Str("path", r.URL.Path).
+						Msg("auth session validation failed: missing subject or jti")
 					http.Error(w, "Unauthorized", http.StatusUnauthorized)
 					return
 				}
 
 				var uid pgtype.UUID
 				if err := uid.Scan(subject); err != nil || !uid.Valid {
+					log.Ctx(r.Context()).
+						Warn().
+						Str("auth_user_id", subject).
+						Str("path", r.URL.Path).
+						Msg("auth session validation failed: invalid subject uuid")
 					http.Error(w, "Unauthorized", http.StatusUnauthorized)
 					return
 				}
@@ -237,7 +248,23 @@ func AuthResolver(next http.Handler) http.Handler {
 					uid,
 					tokenHash,
 				).Scan(&exists)
-				if err != nil || !exists {
+				if err != nil {
+					// This is not an auth failure: it indicates an infrastructure issue (DB connectivity, missing migrations, etc).
+					log.Ctx(r.Context()).
+						Error().
+						Err(err).
+						Str("auth_user_id", subject).
+						Str("path", r.URL.Path).
+						Msg("auth session validation failed: session store unavailable")
+					http.Error(w, "Session store unavailable", http.StatusServiceUnavailable)
+					return
+				}
+				if !exists {
+					log.Ctx(r.Context()).
+						Warn().
+						Str("auth_user_id", subject).
+						Str("path", r.URL.Path).
+						Msg("auth session validation failed: session not found")
 					http.Error(w, "Unauthorized", http.StatusUnauthorized)
 					return
 				}

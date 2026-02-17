@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -97,7 +98,7 @@ func main() {
 	}
 
 	// 1. Database Connection
-	dbURL := os.Getenv("DATABASE_URL")
+	dbURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
 	if dbURL == "" {
 		dbURL = "postgres://schoolerp:password@localhost:5432/schoolerp?sslmode=disable"
 	}
