@@ -41,6 +41,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - `[x]` Risk blocks added (block/release tenant or user with TTL, session revoke, and middleware enforcement).
 - `[x]` Legal docs versioning + forced re-acceptance added (publish Terms/Privacy/DPA versions and gate login until accepted).
 - `[x]` Support ticketing (v1) added (create/list/update tickets with audit logging and support desk UI).
+- `[x]` Support ticket notes added (internal/customer notes with attachment metadata support).
 - `[x]` Tenant plan change flow added (upgrade/downgrade with proration policy and effective time).
 - `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, branding/domain mapping, branch create/update/activate/deactivate, admin reset/logout, impersonation).
 - `[x]` Signup request moderation UI and API flow added (approve/reject with notes).
@@ -126,7 +127,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 
 ## 6) Support Desk & Operations Console
 - [x] OP-001 Ticket model/API (create/assign/tag/close/reopen).
-- [ ] OP-002 Ticket notes (internal/customer-visible) and attachment metadata.
+- [x] OP-002 Ticket notes (internal/customer-visible) and attachment metadata.
 - [ ] OP-003 SLA dashboard and escalation rules.
 - [ ] OP-004 Incident management timeline view.
 - [ ] OP-005 Temporary limit increase controls during incidents.

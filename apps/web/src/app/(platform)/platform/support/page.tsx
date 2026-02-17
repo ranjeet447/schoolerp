@@ -25,6 +25,23 @@ type CreatePayload = {
   due_at?: string;
 };
 
+type NoteAttachment = {
+  name: string;
+  url: string;
+};
+
+type SupportTicketNote = {
+  id: string;
+  ticket_id: string;
+  note_type: string;
+  note: string;
+  attachments: Record<string, any>[];
+  created_by?: string;
+  created_by_email?: string;
+  created_by_name?: string;
+  created_at: string;
+};
+
 export default function PlatformSupportDeskPage() {
   const [rows, setRows] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +59,14 @@ export default function PlatformSupportDeskPage() {
   const [newAssignedTo, setNewAssignedTo] = useState("");
   const [newTags, setNewTags] = useState("");
   const [newDueAt, setNewDueAt] = useState("");
+
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notesTicket, setNotesTicket] = useState<SupportTicket | null>(null);
+  const [notes, setNotes] = useState<SupportTicketNote[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [newNoteType, setNewNoteType] = useState<"internal" | "customer">("internal");
+  const [newNote, setNewNote] = useState("");
+  const [newAttachments, setNewAttachments] = useState<NoteAttachment[]>([]);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -73,6 +98,40 @@ export default function PlatformSupportDeskPage() {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
+
+  const loadNotes = async (ticketId: string) => {
+    setNotesLoading(true);
+    try {
+      const res = await apiClient(`/admin/platform/support/tickets/${ticketId}/notes`);
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      setNotes(Array.isArray(data) ? data : []);
+    } catch (e: any) {
+      setNotes([]);
+      setError(e?.message || "Failed to load ticket notes.");
+    } finally {
+      setNotesLoading(false);
+    }
+  };
+
+  const openNotes = async (ticket: SupportTicket) => {
+    setError("");
+    setMessage("");
+    setNotesTicket(ticket);
+    setNotesOpen(true);
+    setNewNoteType("internal");
+    setNewNote("");
+    setNewAttachments([]);
+    await loadNotes(ticket.id);
+  };
+
+  const closeNotes = () => {
+    setNotesOpen(false);
+    setNotesTicket(null);
+    setNotes([]);
+    setNewNote("");
+    setNewAttachments([]);
+  };
 
   const createTicket = async () => {
     setBusyId("create");
@@ -118,6 +177,51 @@ export default function PlatformSupportDeskPage() {
     } finally {
       setBusyId("");
     }
+  };
+
+  const addTicketNote = async () => {
+    if (!notesTicket) return;
+    setBusyId(`note:${notesTicket.id}`);
+    setError("");
+    setMessage("");
+    try {
+      const note = newNote.trim();
+      if (!note) throw new Error("Note is required.");
+
+      const attachments = newAttachments
+        .map((a) => ({ name: a.name.trim(), url: a.url.trim() }))
+        .filter((a) => a.name || a.url);
+
+      const payload: any = { note_type: newNoteType, note };
+      if (attachments.length) payload.attachments = attachments;
+
+      const res = await apiClient(`/admin/platform/support/tickets/${notesTicket.id}/notes`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await res.text());
+
+      setNewNote("");
+      setNewAttachments([]);
+      setMessage("Note added.");
+      await loadNotes(notesTicket.id);
+    } catch (e: any) {
+      setError(e?.message || "Failed to add note.");
+    } finally {
+      setBusyId("");
+    }
+  };
+
+  const addAttachment = () => {
+    setNewAttachments((prev) => [...prev, { name: "", url: "" }]);
+  };
+
+  const updateAttachment = (idx: number, patch: Partial<NoteAttachment>) => {
+    setNewAttachments((prev) => prev.map((a, i) => (i === idx ? { ...a, ...patch } : a)));
+  };
+
+  const removeAttachment = (idx: number) => {
+    setNewAttachments((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const updateTicket = async (ticketId: string, patch: any) => {
@@ -279,6 +383,13 @@ export default function PlatformSupportDeskPage() {
               </div>
 
               <div className="flex w-full flex-col gap-2 md:w-72">
+                <button
+                  onClick={() => void openNotes(t)}
+                  disabled={busyId === `note:${t.id}`}
+                  className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground hover:bg-accent disabled:opacity-60"
+                >
+                  Notes
+                </button>
                 <select
                   className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
                   value={t.status}
@@ -308,7 +419,136 @@ export default function PlatformSupportDeskPage() {
           </div>
         ))}
       </div>
+
+      {notesOpen && notesTicket && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4">
+          <div className="w-full max-w-3xl overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+            <div className="flex items-start justify-between gap-4 border-b border-border p-4">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-muted-foreground">Ticket</p>
+                <p className="truncate text-sm font-semibold text-foreground">{notesTicket.subject}</p>
+                <p className="mt-1 text-xs text-muted-foreground break-all">ID: {notesTicket.id}</p>
+              </div>
+              <button
+                onClick={closeNotes}
+                className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground hover:bg-accent"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="max-h-[45vh] overflow-y-auto p-4">
+              {notesLoading ? (
+                <div className="text-sm text-muted-foreground">Loading notes...</div>
+              ) : notes.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No notes yet.</div>
+              ) : (
+                <div className="space-y-3">
+                  {notes.map((n) => (
+                    <div key={n.id} className="rounded-lg border border-border bg-background p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="rounded bg-muted px-2 py-0.5 text-xs font-semibold text-foreground">
+                          {n.note_type}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{new Date(n.created_at).toLocaleString()}</span>
+                      </div>
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">{n.note}</p>
+                      {(n.created_by_name || n.created_by_email) && (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          By: {n.created_by_name || n.created_by_email}
+                        </p>
+                      )}
+                      {Array.isArray(n.attachments) && n.attachments.length > 0 && (
+                        <div className="mt-3 space-y-1">
+                          <p className="text-xs font-semibold text-muted-foreground">Attachments</p>
+                          {n.attachments.map((a: any, idx: number) => (
+                            <div key={`${n.id}:att:${idx}`} className="text-xs text-muted-foreground break-all">
+                              {a?.name ? `${a.name}: ` : ""}
+                              {a?.url ? (
+                                <a className="underline hover:text-foreground" href={String(a.url)} target="_blank" rel="noreferrer">
+                                  {String(a.url)}
+                                </a>
+                              ) : (
+                                <span>(no url)</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-border p-4">
+              <div className="grid gap-3">
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <select
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground md:w-60"
+                    value={newNoteType}
+                    onChange={(e) => setNewNoteType(e.target.value as any)}
+                    title="Note type"
+                  >
+                    <option value="internal">Internal note</option>
+                    <option value="customer">Customer visible</option>
+                  </select>
+                  <button
+                    onClick={addAttachment}
+                    className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground hover:bg-accent"
+                  >
+                    Add attachment
+                  </button>
+                </div>
+
+                <textarea
+                  className="min-h-[96px] rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                  placeholder="Write a note..."
+                  value={newNote}
+                  onChange={(e) => setNewNote(e.target.value)}
+                />
+
+                {newAttachments.length > 0 && (
+                  <div className="grid gap-2">
+                    {newAttachments.map((a, idx) => (
+                      <div key={`att:${idx}`} className="grid gap-2 md:grid-cols-5">
+                        <input
+                          className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground md:col-span-2"
+                          placeholder="Name"
+                          value={a.name}
+                          onChange={(e) => updateAttachment(idx, { name: e.target.value })}
+                        />
+                        <input
+                          className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground md:col-span-3"
+                          placeholder="URL"
+                          value={a.url}
+                          onChange={(e) => updateAttachment(idx, { url: e.target.value })}
+                        />
+                        <button
+                          onClick={() => removeAttachment(idx)}
+                          className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground hover:bg-accent md:col-span-5"
+                        >
+                          Remove attachment
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => void addTicketNote()}
+                    disabled={busyId === `note:${notesTicket.id}`}
+                    className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                  >
+                    {busyId === `note:${notesTicket.id}` ? "Saving..." : "Add note"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-

@@ -105,6 +105,8 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Get("/support/tickets", h.ListPlatformSupportTickets)
 	r.Post("/support/tickets", h.CreatePlatformSupportTicket)
 	r.Patch("/support/tickets/{ticket_id}", h.UpdatePlatformSupportTicket)
+	r.Get("/support/tickets/{ticket_id}/notes", h.ListPlatformSupportTicketNotes)
+	r.Post("/support/tickets/{ticket_id}/notes", h.CreatePlatformSupportTicketNote)
 	r.Get("/invoices", h.ListPlatformInvoices)
 	r.Post("/invoices", h.CreatePlatformInvoice)
 	r.Post("/invoices/{invoice_id}/resend", h.ResendPlatformInvoice)
@@ -2136,6 +2138,65 @@ func (h *Handler) UpdatePlatformSupportTicket(w http.ResponseWriter, r *http.Req
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(updated)
+}
+
+func (h *Handler) ListPlatformSupportTicketNotes(w http.ResponseWriter, r *http.Request) {
+	ticketID := chi.URLParam(r, "ticket_id")
+
+	rows, err := h.service.ListPlatformSupportTicketNotes(r.Context(), ticketID)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidSupportTicketID):
+			http.Error(w, "invalid ticket id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrSupportTicketNotFound):
+			http.Error(w, "ticket not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to load ticket notes", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) CreatePlatformSupportTicketNote(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	ticketID := chi.URLParam(r, "ticket_id")
+
+	var req tenant.CreatePlatformSupportTicketNoteParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.CreatedBy = actorID
+
+	created, err := h.service.CreatePlatformSupportTicketNote(r.Context(), ticketID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidSupportTicketID):
+			http.Error(w, "invalid ticket id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidSupportTicketNotePayload):
+			http.Error(w, "Invalid note payload", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrSupportTicketNotFound):
+			http.Error(w, "ticket not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to create ticket note", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.support.ticket_note.create",
+		ResourceType: "support_ticket_note",
+		ResourceID:   created.ID,
+		Reason:       strings.TrimSpace(created.NoteType),
+		After:        created,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(created)
 }
 
 func (h *Handler) GetPlatformSecretsStatus(w http.ResponseWriter, r *http.Request) {
