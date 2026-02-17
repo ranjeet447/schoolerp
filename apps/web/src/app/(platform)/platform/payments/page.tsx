@@ -60,11 +60,27 @@ type PlatformInvoice = {
   external_ref?: string;
 };
 
+type PlatformInvoiceAdjustment = {
+  id: string;
+  invoice_id: string;
+  invoice_number: string;
+  tenant_id: string;
+  tenant_name: string;
+  adjustment_type: string;
+  amount: number;
+  currency: string;
+  status: string;
+  reason?: string;
+  external_ref?: string;
+  created_at: string;
+};
+
 export default function PlatformPaymentsPage() {
   const [rows, setRows] = useState<PlatformPayment[]>([]);
   const [overview, setOverview] = useState<BillingOverview | null>(null);
   const [tenants, setTenants] = useState<TenantOption[]>([]);
   const [invoices, setInvoices] = useState<PlatformInvoice[]>([]);
+  const [adjustments, setAdjustments] = useState<PlatformInvoiceAdjustment[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -97,12 +113,13 @@ export default function PlatformPaymentsPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const [paymentsRes, overviewRes, tenantsRes, invoicesRes, configRes] = await Promise.all([
+      const [paymentsRes, overviewRes, tenantsRes, invoicesRes, configRes, adjustmentsRes] = await Promise.all([
         apiClient("/admin/platform/payments?limit=200"),
         apiClient("/admin/platform/billing/overview"),
         apiClient("/admin/platform/tenants?limit=200"),
         apiClient("/admin/platform/invoices?limit=200"),
         apiClient("/admin/platform/billing/config"),
+        apiClient("/admin/platform/invoice-adjustments?limit=200"),
       ]);
 
       if (paymentsRes.ok) {
@@ -132,6 +149,10 @@ export default function PlatformPaymentsPage() {
           tax_rules: JSON.stringify(configData.tax_rules || {}, null, 2),
           invoice_template: JSON.stringify(configData.invoice_template || {}, null, 2),
         });
+      }
+      if (adjustmentsRes.ok) {
+        const adjustmentData = await adjustmentsRes.json();
+        setAdjustments(Array.isArray(adjustmentData) ? adjustmentData : []);
       }
     } finally {
       setLoading(false);
@@ -241,6 +262,80 @@ export default function PlatformPaymentsPage() {
       setMessage("Invoice export generated (JSON response available from API).");
     } catch (e: any) {
       setError(e?.message || "Failed to export invoice.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const issueRefund = async (invoice: PlatformInvoice) => {
+    const rawAmount = window.prompt(
+      `Refund amount for ${invoice.invoice_number}`,
+      String(invoice.amount_total + invoice.tax_amount)
+    );
+    if (!rawAmount) return;
+    const amount = Math.floor(Number(rawAmount));
+    const reason = window.prompt("Refund reason");
+    if (!reason) return;
+    const reference = window.prompt("Refund reference (optional)") || "";
+
+    setBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error("Refund amount must be a positive number.");
+      }
+      const res = await apiClient(`/admin/platform/invoices/${invoice.id}/refunds`, {
+        method: "POST",
+        body: JSON.stringify({
+          amount,
+          reason,
+          external_ref: reference,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setMessage("Refund recorded.");
+      await load();
+    } catch (e: any) {
+      setError(e?.message || "Failed to create refund.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const issueCreditNote = async (invoice: PlatformInvoice) => {
+    const rawAmount = window.prompt(
+      `Credit note amount for ${invoice.invoice_number}`,
+      String(invoice.amount_total + invoice.tax_amount)
+    );
+    if (!rawAmount) return;
+    const amount = Math.floor(Number(rawAmount));
+    const reason = window.prompt("Credit note reason");
+    if (!reason) return;
+    const applyImmediately = window.confirm("Apply this credit note immediately to the invoice?");
+    const reference = window.prompt("Credit note reference (optional)") || "";
+
+    setBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error("Credit note amount must be a positive number.");
+      }
+      const res = await apiClient(`/admin/platform/invoices/${invoice.id}/credit-notes`, {
+        method: "POST",
+        body: JSON.stringify({
+          amount,
+          reason,
+          apply_immediately: applyImmediately,
+          external_ref: reference,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setMessage("Credit note recorded.");
+      await load();
+    } catch (e: any) {
+      setError(e?.message || "Failed to create credit note.");
     } finally {
       setBusy(false);
     }
@@ -525,8 +620,72 @@ export default function PlatformPaymentsPage() {
                       >
                         Export
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => issueRefund(invoice)}
+                        disabled={busy}
+                        className="rounded border border-amber-600/40 px-2 py-1 text-xs text-amber-700 hover:bg-amber-500/10 disabled:opacity-60 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/20"
+                      >
+                        Refund
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => issueCreditNote(invoice)}
+                        disabled={busy}
+                        className="rounded border border-sky-600/40 px-2 py-1 text-xs text-sky-700 hover:bg-sky-500/10 disabled:opacity-60 dark:border-sky-700 dark:text-sky-200 dark:hover:bg-sky-900/20"
+                      >
+                        Credit Note
+                      </button>
                     </div>
                   </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <div className="border-b border-border px-4 py-3">
+          <h2 className="text-sm font-semibold text-foreground">Recent Adjustments</h2>
+        </div>
+        <table className="min-w-full text-left text-sm">
+          <thead className="bg-muted text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3">Invoice</th>
+              <th className="px-4 py-3">Tenant</th>
+              <th className="px-4 py-3">Type</th>
+              <th className="px-4 py-3">Amount</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Reason</th>
+              <th className="px-4 py-3">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td className="px-4 py-6 text-muted-foreground" colSpan={7}>
+                  Loading adjustments...
+                </td>
+              </tr>
+            ) : adjustments.length === 0 ? (
+              <tr>
+                <td className="px-4 py-6 text-muted-foreground" colSpan={7}>
+                  No adjustments found.
+                </td>
+              </tr>
+            ) : (
+              adjustments.map((adj) => (
+                <tr key={adj.id} className="border-t border-border">
+                  <td className="px-4 py-3 text-foreground">{adj.invoice_number}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{adj.tenant_name}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{adj.adjustment_type}</td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {adj.amount} {adj.currency}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">{adj.status}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{adj.reason || "-"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{new Date(adj.created_at).toLocaleString()}</td>
                 </tr>
               ))
             )}

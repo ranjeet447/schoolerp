@@ -55,7 +55,10 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Post("/invoices", h.CreatePlatformInvoice)
 	r.Post("/invoices/{invoice_id}/resend", h.ResendPlatformInvoice)
 	r.Post("/invoices/{invoice_id}/mark-paid", h.MarkPlatformInvoicePaid)
+	r.Post("/invoices/{invoice_id}/refunds", h.CreatePlatformInvoiceRefund)
+	r.Post("/invoices/{invoice_id}/credit-notes", h.CreatePlatformCreditNote)
 	r.Get("/invoices/{invoice_id}/export", h.ExportPlatformInvoice)
+	r.Get("/invoice-adjustments", h.ListPlatformInvoiceAdjustments)
 	r.Get("/payments", h.ListPlatformPayments)
 }
 
@@ -838,6 +841,122 @@ func (h *Handler) ExportPlatformInvoice(w http.ResponseWriter, r *http.Request) 
 		"format":    "json",
 		"timestamp": time.Now().UTC(),
 	})
+}
+
+func (h *Handler) ListPlatformInvoiceAdjustments(w http.ResponseWriter, r *http.Request) {
+	limit := int32(100)
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = int32(parsed)
+		}
+	}
+	offset := int32(0)
+	if raw := r.URL.Query().Get("offset"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			offset = int32(parsed)
+		}
+	}
+
+	rows, err := h.service.ListPlatformInvoiceAdjustments(r.Context(), tenant.ListPlatformInvoiceAdjustmentsFilters{
+		InvoiceID:      r.URL.Query().Get("invoice_id"),
+		TenantID:       r.URL.Query().Get("tenant_id"),
+		AdjustmentType: r.URL.Query().Get("adjustment_type"),
+		Status:         r.URL.Query().Get("status"),
+		Limit:          limit,
+		Offset:         offset,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidInvoiceID):
+			http.Error(w, "Invalid invoice id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to load invoice adjustments", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) CreatePlatformInvoiceRefund(w http.ResponseWriter, r *http.Request) {
+	invoiceID := chi.URLParam(r, "invoice_id")
+	actorID := middleware.GetUserID(r.Context())
+
+	var req tenant.CreatePlatformInvoiceRefundParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.CreatedBy = actorID
+
+	result, err := h.service.CreatePlatformInvoiceRefund(r.Context(), invoiceID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidInvoiceID):
+			http.Error(w, "Invalid invoice id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidAdjustmentPayload):
+			http.Error(w, "Invalid refund payload", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvoiceNotFound):
+			http.Error(w, "Invoice not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to create refund", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     result.Invoice.TenantID,
+		Action:       "platform.invoice.refund.create",
+		ResourceType: "platform_invoice",
+		ResourceID:   result.Invoice.ID,
+		Reason:       strings.TrimSpace(req.Reason),
+		After:        result,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+func (h *Handler) CreatePlatformCreditNote(w http.ResponseWriter, r *http.Request) {
+	invoiceID := chi.URLParam(r, "invoice_id")
+	actorID := middleware.GetUserID(r.Context())
+
+	var req tenant.CreatePlatformCreditNoteParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.CreatedBy = actorID
+
+	result, err := h.service.CreatePlatformCreditNote(r.Context(), invoiceID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidInvoiceID):
+			http.Error(w, "Invalid invoice id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidAdjustmentPayload):
+			http.Error(w, "Invalid credit note payload", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvoiceNotFound):
+			http.Error(w, "Invoice not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to create credit note", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     result.Invoice.TenantID,
+		Action:       "platform.invoice.credit_note.create",
+		ResourceType: "platform_invoice",
+		ResourceID:   result.Invoice.ID,
+		Reason:       strings.TrimSpace(req.Reason),
+		After:        result,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 func (h *Handler) UpdateTenantLifecycle(w http.ResponseWriter, r *http.Request) {
