@@ -10,10 +10,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/schoolerp/api/internal/db"
-	"github.com/schoolerp/api/internal/service/auth"
 )
 
 type Service struct {
@@ -26,8 +26,8 @@ func NewService(q *db.Queries, pool *pgxpool.Pool) *Service {
 }
 
 type TenantConfig struct {
-	WhiteLabel bool            `json:"white_label"`
-	Branding   BrandingConfig  `json:"branding"`
+	WhiteLabel bool           `json:"white_label"`
+	Branding   BrandingConfig `json:"branding"`
 }
 
 type BrandingConfig struct {
@@ -82,7 +82,7 @@ var SystemPlugins = []PluginMetadata{
 		Config: map[string]interface{}{
 			"enable_teacher_copilot": "boolean",
 			"enable_parent_helpdesk": "boolean",
-			"monthly_budget_cap":    "number",
+			"monthly_budget_cap":     "number",
 		},
 	},
 }
@@ -97,8 +97,8 @@ func (s *Service) GetConfig(ctx context.Context, tenantIDOrSubdomain string) (ma
 	if err := json.Unmarshal(t.Config, &config); err != nil {
 		return nil, err
 	}
-    
-    config["name"] = t.Name
+
+	config["name"] = t.Name
 
 	return config, nil
 }
@@ -198,13 +198,13 @@ func (s *Service) UpdatePluginConfig(ctx context.Context, tenantID string, plugi
 }
 
 type OnboardSchoolParams struct {
-	Name         string `json:"name"`
-	Subdomain    string `json:"subdomain"`
-	Domain       string `json:"domain"`
-	AdminName    string `json:"admin_name"`
-	AdminEmail   string `json:"admin_email"`
-	AdminPhone   string `json:"admin_phone"`
-	Password     string `json:"password"`
+	Name       string `json:"name"`
+	Subdomain  string `json:"subdomain"`
+	Domain     string `json:"domain"`
+	AdminName  string `json:"admin_name"`
+	AdminEmail string `json:"admin_email"`
+	AdminPhone string `json:"admin_phone"`
+	Password   string `json:"password"`
 }
 
 var (
@@ -227,29 +227,29 @@ type PlatformSummary struct {
 }
 
 type PlatformTenant struct {
-	ID               string    `json:"id"`
-	Name             string    `json:"name"`
-	Subdomain        string    `json:"subdomain"`
-	Domain           string    `json:"domain,omitempty"`
-	IsActive         bool      `json:"is_active"`
-	CreatedAt        time.Time `json:"created_at"`
-	LifecycleStatus  string    `json:"lifecycle_status"`
-	PlanCode         string    `json:"plan_code,omitempty"`
-	Region           string    `json:"region,omitempty"`
-	Timezone         string    `json:"timezone,omitempty"`
-	Locale           string    `json:"locale,omitempty"`
-	AcademicYear     string    `json:"academic_year,omitempty"`
-	WhiteLabel       bool      `json:"white_label"`
-	BrandPrimaryColor string   `json:"brand_primary_color,omitempty"`
-	BrandNameOverride string   `json:"brand_name_override,omitempty"`
-	BrandLogoURL      string   `json:"brand_logo_url,omitempty"`
-	CnameTarget      string    `json:"cname_target,omitempty"`
-	SslStatus        string    `json:"ssl_status,omitempty"`
-	BranchCount      int64     `json:"branch_count"`
-	StudentCount     int64     `json:"student_count"`
-	EmployeeCount    int64     `json:"employee_count"`
-	ReceiptCount     int64     `json:"receipt_count"`
-	TotalCollections int64     `json:"total_collections"`
+	ID                string    `json:"id"`
+	Name              string    `json:"name"`
+	Subdomain         string    `json:"subdomain"`
+	Domain            string    `json:"domain,omitempty"`
+	IsActive          bool      `json:"is_active"`
+	CreatedAt         time.Time `json:"created_at"`
+	LifecycleStatus   string    `json:"lifecycle_status"`
+	PlanCode          string    `json:"plan_code,omitempty"`
+	Region            string    `json:"region,omitempty"`
+	Timezone          string    `json:"timezone,omitempty"`
+	Locale            string    `json:"locale,omitempty"`
+	AcademicYear      string    `json:"academic_year,omitempty"`
+	WhiteLabel        bool      `json:"white_label"`
+	BrandPrimaryColor string    `json:"brand_primary_color,omitempty"`
+	BrandNameOverride string    `json:"brand_name_override,omitempty"`
+	BrandLogoURL      string    `json:"brand_logo_url,omitempty"`
+	CnameTarget       string    `json:"cname_target,omitempty"`
+	SslStatus         string    `json:"ssl_status,omitempty"`
+	BranchCount       int64     `json:"branch_count"`
+	StudentCount      int64     `json:"student_count"`
+	EmployeeCount     int64     `json:"employee_count"`
+	ReceiptCount      int64     `json:"receipt_count"`
+	TotalCollections  int64     `json:"total_collections"`
 }
 
 type PlatformPayment struct {
@@ -294,6 +294,11 @@ type UpdateTenantParams struct {
 }
 
 func (s *Service) OnboardSchool(ctx context.Context, params OnboardSchoolParams) (string, error) {
+	_, credentialHash, err := s.validatePasswordAgainstPolicy(ctx, "", params.Password)
+	if err != nil {
+		return "", err
+	}
+
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return "", err
@@ -353,10 +358,21 @@ func (s *Service) OnboardSchool(ctx context.Context, params OnboardSchoolParams)
 		UserID:     uid,
 		Provider:   "password",
 		Identifier: params.AdminEmail,
-		Credential: pgtype.Text{String: auth.HashPasswordForSeed(params.Password), Valid: true},
+		Credential: pgtype.Text{String: credentialHash, Valid: true},
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to create user identity: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO user_credential_history (user_id, provider, credential_hash, created_at)
+		VALUES ($1, 'password', $2, NOW())
+		ON CONFLICT (user_id, provider, credential_hash) DO NOTHING
+	`, uid, credentialHash); err != nil {
+		var pgErr *pgconn.PgError
+		if !errors.As(err, &pgErr) || pgErr.Code != "42P01" {
+			return "", fmt.Errorf("failed to record credential history: %w", err)
+		}
 	}
 
 	// 4. Assign Tenant Admin Role
@@ -366,18 +382,18 @@ func (s *Service) OnboardSchool(ctx context.Context, params OnboardSchoolParams)
 	if err != nil {
 		return "", fmt.Errorf("failed to list roles: %w", err)
 	}
-    
-    var adminRoleID pgtype.UUID
-    for _, r := range roles {
-        if r.Code == "tenant_admin" {
-            adminRoleID = r.ID
-            break
-        }
-    }
 
-    if adminRoleID.Valid == false {
-        return "", fmt.Errorf("tenant_admin role not found")
-    }
+	var adminRoleID pgtype.UUID
+	for _, r := range roles {
+		if r.Code == "tenant_admin" {
+			adminRoleID = r.ID
+			break
+		}
+	}
+
+	if adminRoleID.Valid == false {
+		return "", fmt.Errorf("tenant_admin role not found")
+	}
 
 	err = qtx.AssignRoleToUser(ctx, db.AssignRoleToUserParams{
 		TenantID:  tid,

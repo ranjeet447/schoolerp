@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/schoolerp/api/internal/service/auth"
 )
 
 var (
@@ -153,8 +152,13 @@ func (s *Service) CreatePlatformInternalUser(ctx context.Context, params CreateP
 	if !isValidPlatformRoleCode(roleCode) {
 		return PlatformInternalUser{}, ErrPlatformRoleNotAllowed
 	}
-	if email == "" || !strings.Contains(email, "@") || fullName == "" || len(password) < 8 {
+	if email == "" || !strings.Contains(email, "@") || fullName == "" || password == "" {
 		return PlatformInternalUser{}, ErrInvalidPlatformUserPayload
+	}
+
+	_, credentialHash, err := s.validatePasswordAgainstPolicy(ctx, "", password)
+	if err != nil {
+		return PlatformInternalUser{}, err
 	}
 
 	tx, err := s.db.Begin(ctx)
@@ -196,9 +200,23 @@ func (s *Service) CreatePlatformInternalUser(ctx context.Context, params CreateP
 		`INSERT INTO user_identities (user_id, provider, identifier, credential) VALUES ($1, 'password', $2, $3)`,
 		userID,
 		email,
-		auth.HashPasswordForSeed(password),
+		credentialHash,
 	); err != nil {
 		return PlatformInternalUser{}, err
+	}
+
+	if _, err := tx.Exec(
+		ctx,
+		`INSERT INTO user_credential_history (user_id, provider, credential_hash, created_at)
+		 VALUES ($1, 'password', $2, NOW())
+		 ON CONFLICT (user_id, provider, credential_hash) DO NOTHING`,
+		userID,
+		credentialHash,
+	); err != nil {
+		var pgErr *pgconn.PgError
+		if !errors.As(err, &pgErr) || pgErr.Code != "42P01" {
+			return PlatformInternalUser{}, err
+		}
 	}
 
 	if err := upsertPlatformRoleAssignment(ctx, tx, systemTenantID, userID, roleID); err != nil {

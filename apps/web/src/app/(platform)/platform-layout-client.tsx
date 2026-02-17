@@ -10,6 +10,7 @@ import {
   FileCheck2,
   KeyRound,
   Layers3,
+  LockKeyhole,
   LogOut,
   Menu,
   Shield,
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { href: "/platform/payments", label: "Platform Payments", icon: CreditCard },
   { href: "/platform/internal-users", label: "Internal Users", icon: Users },
   { href: "/platform/security-events", label: "Security Events", icon: Shield },
+  { href: "/platform/password-policy", label: "Password Policy", icon: LockKeyhole },
   { href: "/platform/secrets", label: "Secrets & Keys", icon: KeyRound },
 ];
 

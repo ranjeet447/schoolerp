@@ -87,6 +87,8 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Get("/security/events", h.ListPlatformSecurityEvents)
 	r.Get("/security/retention-policy", h.GetPlatformDataRetentionPolicy)
 	r.Post("/security/retention-policy", h.UpdatePlatformDataRetentionPolicy)
+	r.Get("/security/password-policy", h.GetPlatformPasswordPolicy)
+	r.Post("/security/password-policy", h.UpdatePlatformPasswordPolicy)
 	r.Get("/security/secrets/status", h.GetPlatformSecretsStatus)
 	r.Get("/security/secret-rotations", h.ListPlatformSecretRotationRequests)
 	r.Post("/security/secret-rotations", h.CreatePlatformSecretRotationRequest)
@@ -216,7 +218,14 @@ func (h *Handler) OnboardSchool(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := h.service.OnboardSchool(r.Context(), params)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		switch {
+		case errors.Is(err, tenant.ErrPasswordPolicyViolation):
+			http.Error(w, "Password does not meet the platform password policy", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPasswordReuseNotAllowed):
+			http.Error(w, "Password reuse is not allowed by policy", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to onboard school", http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -1015,6 +1024,10 @@ func (h *Handler) CreatePlatformInternalUser(w http.ResponseWriter, r *http.Requ
 		switch {
 		case errors.Is(err, tenant.ErrInvalidPlatformUserPayload):
 			http.Error(w, "Invalid platform user payload", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPasswordPolicyViolation):
+			http.Error(w, "Password does not meet the platform password policy", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPasswordReuseNotAllowed):
+			http.Error(w, "Password reuse is not allowed by policy", http.StatusBadRequest)
 		case errors.Is(err, tenant.ErrPlatformRoleNotAllowed):
 			http.Error(w, "Invalid platform role", http.StatusBadRequest)
 		case errors.Is(err, tenant.ErrPlatformUserExists):
@@ -1770,6 +1783,48 @@ func (h *Handler) UpdatePlatformDataRetentionPolicy(w http.ResponseWriter, r *ht
 		Action:       "platform.security.retention_policy.update",
 		ResourceType: "platform_security_policy",
 		ResourceID:   "security.data_retention_policy",
+		After:        updated,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
+}
+
+func (h *Handler) GetPlatformPasswordPolicy(w http.ResponseWriter, r *http.Request) {
+	policy, err := h.service.GetPlatformPasswordPolicy(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to load password policy", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(policy)
+}
+
+func (h *Handler) UpdatePlatformPasswordPolicy(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	var req tenant.UpdatePlatformPasswordPolicyParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.UpdatedBy = actorID
+
+	updated, err := h.service.UpdatePlatformPasswordPolicy(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidPasswordPolicy):
+			http.Error(w, "Invalid password policy", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to update password policy", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.security.password_policy.update",
+		ResourceType: "platform_security_policy",
+		ResourceID:   "security.password_policy",
 		After:        updated,
 	})
 
@@ -2720,7 +2775,11 @@ func (h *Handler) ResetTenantAdminPassword(w http.ResponseWriter, r *http.Reques
 		case errors.Is(err, tenant.ErrInvalidTenantID):
 			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
 		case errors.Is(err, tenant.ErrWeakPassword):
-			http.Error(w, "Password must be at least 8 characters", http.StatusBadRequest)
+			http.Error(w, "New password is required", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPasswordPolicyViolation):
+			http.Error(w, "Password does not meet the platform password policy", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPasswordReuseNotAllowed):
+			http.Error(w, "Password reuse is not allowed by policy", http.StatusBadRequest)
 		default:
 			http.Error(w, "Failed to reset tenant admin password", http.StatusInternalServerError)
 		}

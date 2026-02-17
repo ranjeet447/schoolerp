@@ -10,6 +10,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/schoolerp/api/internal/db"
 	"github.com/schoolerp/api/internal/foundation/security"
@@ -1144,13 +1145,54 @@ func (s *Service) UpdateTenantBranding(ctx context.Context, tenantID string, par
 }
 
 func (s *Service) ResetTenantAdminPassword(ctx context.Context, tenantID, newPassword string) (int64, error) {
-	if len(strings.TrimSpace(newPassword)) < 8 {
+	newPassword = strings.TrimSpace(newPassword)
+	if newPassword == "" {
 		return 0, ErrWeakPassword
 	}
 	tid, err := parseTenantUUID(tenantID)
 	if err != nil {
 		return 0, err
 	}
+
+	const selectAdmins = `
+		SELECT DISTINCT ra.user_id
+		FROM role_assignments ra
+		JOIN roles r ON r.id = ra.role_id
+		WHERE ra.tenant_id = $1
+		  AND r.code = 'tenant_admin'
+	`
+	adminRows, err := s.db.Query(ctx, selectAdmins, tid)
+	if err != nil {
+		return 0, err
+	}
+	defer adminRows.Close()
+
+	adminUserIDs := make([]pgtype.UUID, 0, 2)
+	for adminRows.Next() {
+		var uid pgtype.UUID
+		if err := adminRows.Scan(&uid); err != nil {
+			return 0, err
+		}
+		adminUserIDs = append(adminUserIDs, uid)
+	}
+	if err := adminRows.Err(); err != nil {
+		return 0, err
+	}
+
+	var credentialHash string
+	for _, uid := range adminUserIDs {
+		_, hash, err := s.validatePasswordAgainstPolicy(ctx, uid.String(), newPassword)
+		if err != nil {
+			return 0, err
+		}
+		credentialHash = hash
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
 
 	const query = `
 		UPDATE user_identities ui
@@ -1164,8 +1206,44 @@ func (s *Service) ResetTenantAdminPassword(ctx context.Context, tenantID, newPas
 			  AND r.code = 'tenant_admin'
 		  )
 	`
-	tag, err := s.db.Exec(ctx, query, tid, auth.HashPasswordForSeed(strings.TrimSpace(newPassword)))
+	tag, err := tx.Exec(ctx, query, tid, credentialHash)
 	if err != nil {
+		return 0, err
+	}
+
+	// Best-effort: also track credential age when migrations are applied.
+	if _, err := tx.Exec(ctx, `
+		UPDATE user_identities ui
+		SET credential_updated_at = NOW()
+		WHERE ui.provider = 'password'
+		  AND ui.user_id IN (
+			SELECT ra.user_id
+			FROM role_assignments ra
+			JOIN roles r ON r.id = ra.role_id
+			WHERE ra.tenant_id = $1
+			  AND r.code = 'tenant_admin'
+		  )
+	`, tid); err != nil {
+		var pgErr *pgconn.PgError
+		if !errors.As(err, &pgErr) || pgErr.Code != "42703" {
+			return 0, err
+		}
+	}
+
+	for _, uid := range adminUserIDs {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO user_credential_history (user_id, provider, credential_hash, created_at)
+			VALUES ($1, 'password', $2, NOW())
+			ON CONFLICT (user_id, provider, credential_hash) DO NOTHING
+		`, uid, credentialHash); err != nil {
+			var pgErr *pgconn.PgError
+			if !errors.As(err, &pgErr) || pgErr.Code != "42P01" {
+				return 0, err
+			}
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
 		return 0, err
 	}
 	return tag.RowsAffected(), nil

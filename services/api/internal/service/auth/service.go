@@ -11,17 +11,20 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/rs/zerolog/log"
 	"github.com/schoolerp/api/internal/db"
 	"github.com/schoolerp/api/internal/foundation/security"
 )
 
 var (
-	ErrInvalidCredentials = errors.New("invalid email or password")
-	ErrUserNotFound       = errors.New("user not found")
-	ErrUserInactive       = errors.New("user account is inactive")
-	ErrMFARequired        = errors.New("mfa is required for this account")
+	ErrInvalidCredentials      = errors.New("invalid email or password")
+	ErrUserNotFound            = errors.New("user not found")
+	ErrUserInactive            = errors.New("user account is inactive")
+	ErrMFARequired             = errors.New("mfa is required for this account")
 	ErrSessionStoreUnavailable = errors.New("session store unavailable")
+	ErrPasswordExpired         = errors.New("password expired; contact administrator")
 )
 
 type Service struct {
@@ -82,6 +85,10 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 	if identity.Credential.String != hashedInput {
 		logger.Warn().Str("user_id", user.ID.String()).Msg("auth login failed: password mismatch")
 		return nil, ErrInvalidCredentials
+	}
+
+	if err := s.enforcePasswordExpiry(ctx, user.ID.String(), identity.ID); err != nil {
+		return nil, err
 	}
 
 	// 3. Get role and permissions for this user
@@ -206,6 +213,91 @@ func isInternalPlatformRole(roleCode string) bool {
 	default:
 		return false
 	}
+}
+
+type passwordPolicy struct {
+	MinLength    int
+	HistoryCount int
+	MaxAgeDays   int
+}
+
+func defaultPasswordPolicy() passwordPolicy {
+	return passwordPolicy{
+		MinLength:    8,
+		HistoryCount: 0,
+		MaxAgeDays:   0,
+	}
+}
+
+func (s *Service) resolvePasswordPolicy(ctx context.Context) (passwordPolicy, error) {
+	raw, err := s.queries.GetPlatformSettingValue(ctx, "security.password_policy")
+	if err != nil {
+		return passwordPolicy{}, err
+	}
+	if len(raw) == 0 {
+		return defaultPasswordPolicy(), nil
+	}
+
+	out := defaultPasswordPolicy()
+	var payload map[string]interface{}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return out, nil
+	}
+	if v, ok := payload["min_length"].(float64); ok {
+		out.MinLength = int(v)
+	}
+	if v, ok := payload["history_count"].(float64); ok {
+		out.HistoryCount = int(v)
+	}
+	if v, ok := payload["max_age_days"].(float64); ok {
+		out.MaxAgeDays = int(v)
+	}
+
+	if out.MinLength < 8 {
+		out.MinLength = 8
+	}
+	if out.HistoryCount < 0 {
+		out.HistoryCount = 0
+	}
+	if out.MaxAgeDays < 0 {
+		out.MaxAgeDays = 0
+	}
+
+	return out, nil
+}
+
+func (s *Service) enforcePasswordExpiry(ctx context.Context, userID string, identityID pgtype.UUID) error {
+	policy, err := s.resolvePasswordPolicy(ctx)
+	if err != nil {
+		log.Ctx(ctx).Warn().Err(err).Str("user_id", userID).Msg("auth login warning: unable to load password policy")
+		return nil
+	}
+	if policy.MaxAgeDays <= 0 {
+		return nil
+	}
+
+	ts, err := s.queries.GetIdentityCredentialUpdatedAt(ctx, identityID)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "42703" {
+			// Missing migration/column; don't block login in mixed environments.
+			log.Ctx(ctx).Warn().Str("user_id", userID).Msg("auth login warning: credential_updated_at column not available")
+			return nil
+		}
+		log.Ctx(ctx).Warn().Err(err).Str("user_id", userID).Msg("auth login warning: unable to evaluate password expiry")
+		return nil
+	}
+
+	if !ts.Valid {
+		return nil
+	}
+
+	maxAge := time.Duration(policy.MaxAgeDays) * 24 * time.Hour
+	if time.Now().After(ts.Time.Add(maxAge)) {
+		log.Ctx(ctx).Warn().Str("user_id", userID).Msg("auth login blocked: password expired")
+		return ErrPasswordExpired
+	}
+	return nil
 }
 
 func (s *Service) isInternalMFAEnforced(ctx context.Context) (bool, error) {
