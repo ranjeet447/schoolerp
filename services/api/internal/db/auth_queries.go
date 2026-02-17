@@ -79,15 +79,40 @@ type GetUserRoleAssignmentWithPermissionsRow struct {
 // GetUserRoleAssignmentWithPermissions retrieves a user's primary role and permissions
 func (q *Queries) GetUserRoleAssignmentWithPermissions(ctx context.Context, userID pgtype.UUID) (GetUserRoleAssignmentWithPermissionsRow, error) {
 	const query = `
-		SELECT r.code, ra.tenant_id,
-		       COALESCE(array_agg(p.code) FILTER (WHERE p.code IS NOT NULL), '{}') as permissions
-		FROM role_assignments ra
-		JOIN roles r ON r.id = ra.role_id
-		LEFT JOIN role_permissions rp ON rp.role_id = r.id
+		WITH primary_role AS (
+			SELECT
+				ra.role_id,
+				ra.tenant_id,
+				r.code
+			FROM role_assignments ra
+			JOIN roles r ON r.id = ra.role_id
+			WHERE ra.user_id = $1
+			ORDER BY
+				CASE WHEN lower(ra.scope_type) = 'platform' THEN 0 ELSE 1 END,
+				CASE lower(r.code)
+					WHEN 'super_admin' THEN 0
+					WHEN 'support_l2' THEN 1
+					WHEN 'support_l1' THEN 2
+					WHEN 'finance' THEN 3
+					WHEN 'ops' THEN 4
+					WHEN 'developer' THEN 5
+					WHEN 'tenant_admin' THEN 10
+					WHEN 'teacher' THEN 20
+					WHEN 'parent' THEN 30
+					WHEN 'student' THEN 40
+					ELSE 100
+				END,
+				ra.created_at DESC
+			LIMIT 1
+		)
+		SELECT
+			pr.code,
+			pr.tenant_id,
+			COALESCE(array_agg(p.code) FILTER (WHERE p.code IS NOT NULL), '{}') as permissions
+		FROM primary_role pr
+		LEFT JOIN role_permissions rp ON rp.role_id = pr.role_id
 		LEFT JOIN permissions p ON p.id = rp.permission_id
-		WHERE ra.user_id = $1
-		GROUP BY r.code, ra.tenant_id
-		LIMIT 1
+		GROUP BY pr.code, pr.tenant_id
 	`
 
 	row := q.db.QueryRow(ctx, query, userID)
