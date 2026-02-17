@@ -49,6 +49,8 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Post("/tenants/{tenant_id}/branches", h.CreateTenantBranch)
 	r.Patch("/tenants/{tenant_id}/branches/{branch_id}", h.UpdateTenantBranch)
 	r.Get("/billing/overview", h.GetPlatformBillingOverview)
+	r.Get("/billing/config", h.GetPlatformBillingConfig)
+	r.Post("/billing/config", h.UpdatePlatformBillingConfig)
 	r.Get("/invoices", h.ListPlatformInvoices)
 	r.Post("/invoices", h.CreatePlatformInvoice)
 	r.Post("/invoices/{invoice_id}/resend", h.ResendPlatformInvoice)
@@ -640,6 +642,43 @@ func (h *Handler) GetPlatformBillingOverview(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(overview)
+}
+
+func (h *Handler) GetPlatformBillingConfig(w http.ResponseWriter, r *http.Request) {
+	config, err := h.service.GetPlatformBillingConfig(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to load billing config", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(config)
+}
+
+func (h *Handler) UpdatePlatformBillingConfig(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	var req tenant.UpdatePlatformBillingConfigParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.UpdatedBy = actorID
+
+	updated, err := h.service.UpdatePlatformBillingConfig(r.Context(), req)
+	if err != nil {
+		http.Error(w, "Failed to update billing config", http.StatusInternalServerError)
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.billing.config.update",
+		ResourceType: "platform_billing_config",
+		ResourceID:   "billing_config",
+		After:        updated,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
 }
 
 func (h *Handler) ListPlatformInvoices(w http.ResponseWriter, r *http.Request) {

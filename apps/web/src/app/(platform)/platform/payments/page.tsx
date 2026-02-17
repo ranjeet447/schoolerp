@@ -76,15 +76,33 @@ export default function PlatformPaymentsPage() {
     due_date: "",
     currency: "INR",
   });
+  const [billingConfigText, setBillingConfigText] = useState({
+    gateway_settings: "{}",
+    tax_rules: "{}",
+    invoice_template: "{}",
+  });
+
+  const parseJSONMap = (raw: string, label: string) => {
+    try {
+      const value = JSON.parse(raw || "{}");
+      if (!value || Array.isArray(value) || typeof value !== "object") {
+        throw new Error(`${label} must be a JSON object.`);
+      }
+      return value;
+    } catch {
+      throw new Error(`${label} must be valid JSON object.`);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
     try {
-      const [paymentsRes, overviewRes, tenantsRes, invoicesRes] = await Promise.all([
+      const [paymentsRes, overviewRes, tenantsRes, invoicesRes, configRes] = await Promise.all([
         apiClient("/admin/platform/payments?limit=200"),
         apiClient("/admin/platform/billing/overview"),
         apiClient("/admin/platform/tenants?limit=200"),
         apiClient("/admin/platform/invoices?limit=200"),
+        apiClient("/admin/platform/billing/config"),
       ]);
 
       if (paymentsRes.ok) {
@@ -106,6 +124,14 @@ export default function PlatformPaymentsPage() {
       if (invoicesRes.ok) {
         const invoiceData = await invoicesRes.json();
         setInvoices(Array.isArray(invoiceData) ? invoiceData : []);
+      }
+      if (configRes.ok) {
+        const configData = await configRes.json();
+        setBillingConfigText({
+          gateway_settings: JSON.stringify(configData.gateway_settings || {}, null, 2),
+          tax_rules: JSON.stringify(configData.tax_rules || {}, null, 2),
+          invoice_template: JSON.stringify(configData.invoice_template || {}, null, 2),
+        });
       }
     } finally {
       setLoading(false);
@@ -215,6 +241,31 @@ export default function PlatformPaymentsPage() {
       setMessage("Invoice export generated (JSON response available from API).");
     } catch (e: any) {
       setError(e?.message || "Failed to export invoice.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveBillingConfig = async () => {
+    setBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      const payload = {
+        gateway_settings: parseJSONMap(billingConfigText.gateway_settings, "Gateway settings"),
+        tax_rules: parseJSONMap(billingConfigText.tax_rules, "Tax rules"),
+        invoice_template: parseJSONMap(billingConfigText.invoice_template, "Invoice template"),
+      };
+      const res = await apiClient("/admin/platform/billing/config", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await res.text());
+
+      setMessage("Billing configuration updated.");
+      await load();
+    } catch (e: any) {
+      setError(e?.message || "Failed to save billing configuration.");
     } finally {
       setBusy(false);
     }
@@ -367,6 +418,50 @@ export default function PlatformPaymentsPage() {
             Create Invoice
           </button>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <h2 className="text-sm font-semibold text-foreground">Billing Configuration</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Manage payment gateway, GST/VAT rules, and invoice template configuration.
+        </p>
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          <div className="space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Gateway Settings</p>
+            <textarea
+              rows={8}
+              className="w-full rounded border border-input bg-background px-3 py-2 font-mono text-xs text-foreground"
+              value={billingConfigText.gateway_settings}
+              onChange={(e) => setBillingConfigText((p) => ({ ...p, gateway_settings: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tax Rules</p>
+            <textarea
+              rows={8}
+              className="w-full rounded border border-input bg-background px-3 py-2 font-mono text-xs text-foreground"
+              value={billingConfigText.tax_rules}
+              onChange={(e) => setBillingConfigText((p) => ({ ...p, tax_rules: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Invoice Template</p>
+            <textarea
+              rows={8}
+              className="w-full rounded border border-input bg-background px-3 py-2 font-mono text-xs text-foreground"
+              value={billingConfigText.invoice_template}
+              onChange={(e) => setBillingConfigText((p) => ({ ...p, invoice_template: e.target.value }))}
+            />
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={saveBillingConfig}
+          disabled={busy}
+          className="mt-3 rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+        >
+          Save Billing Config
+        </button>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
