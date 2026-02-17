@@ -107,6 +107,10 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Patch("/support/tickets/{ticket_id}", h.UpdatePlatformSupportTicket)
 	r.Get("/support/tickets/{ticket_id}/notes", h.ListPlatformSupportTicketNotes)
 	r.Post("/support/tickets/{ticket_id}/notes", h.CreatePlatformSupportTicketNote)
+	r.Get("/support/sla/policy", h.GetPlatformSupportSLAPolicy)
+	r.Post("/support/sla/policy", h.UpdatePlatformSupportSLAPolicy)
+	r.Get("/support/sla/overview", h.GetPlatformSupportSLAOverview)
+	r.Post("/support/sla/escalations/run", h.RunPlatformSupportSLAEscalations)
 	r.Get("/invoices", h.ListPlatformInvoices)
 	r.Post("/invoices", h.CreatePlatformInvoice)
 	r.Post("/invoices/{invoice_id}/resend", h.ResendPlatformInvoice)
@@ -2197,6 +2201,83 @@ func (h *Handler) CreatePlatformSupportTicketNote(w http.ResponseWriter, r *http
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(created)
+}
+
+func (h *Handler) GetPlatformSupportSLAPolicy(w http.ResponseWriter, r *http.Request) {
+	policy, err := h.service.GetPlatformSupportSLAPolicy(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to load SLA policy", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(policy)
+}
+
+func (h *Handler) UpdatePlatformSupportSLAPolicy(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+
+	before, _ := h.service.GetPlatformSupportSLAPolicy(r.Context())
+
+	var req tenant.UpdatePlatformSupportSLAPolicyParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.UpdatedBy = actorID
+
+	updated, err := h.service.UpdatePlatformSupportSLAPolicy(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidSupportSLAPolicy):
+			http.Error(w, "Invalid SLA policy", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to update SLA policy", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.support.sla_policy.update",
+		ResourceType: "platform_setting",
+		Reason:       "support.sla_policy",
+		Before:       before,
+		After:        updated,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
+}
+
+func (h *Handler) GetPlatformSupportSLAOverview(w http.ResponseWriter, r *http.Request) {
+	overview, err := h.service.GetPlatformSupportSLAOverview(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to load SLA overview", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(overview)
+}
+
+func (h *Handler) RunPlatformSupportSLAEscalations(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+
+	result, err := h.service.RunPlatformSupportSLAEscalations(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to run SLA escalations", http.StatusInternalServerError)
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.support.sla.escalations.run",
+		ResourceType: "support_sla",
+		Reason:       strings.TrimSpace(result.Tag),
+		After:        result,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 func (h *Handler) GetPlatformSecretsStatus(w http.ResponseWriter, r *http.Request) {

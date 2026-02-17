@@ -42,6 +42,27 @@ type SupportTicketNote = {
   created_at: string;
 };
 
+type SupportSLAPolicy = {
+  response_hours: Record<string, number>;
+  resolution_hours: Record<string, number>;
+  escalation?: {
+    enabled?: boolean;
+    tag?: string;
+    bump_priority?: string;
+  };
+  updated_at?: string | null;
+};
+
+type SupportSLAOverview = {
+  open: number;
+  in_progress: number;
+  resolved: number;
+  closed: number;
+  response_overdue: number;
+  resolution_overdue: number;
+  generated_at: string;
+};
+
 export default function PlatformSupportDeskPage() {
   const [rows, setRows] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +88,10 @@ export default function PlatformSupportDeskPage() {
   const [newNoteType, setNewNoteType] = useState<"internal" | "customer">("internal");
   const [newNote, setNewNote] = useState("");
   const [newAttachments, setNewAttachments] = useState<NoteAttachment[]>([]);
+
+  const [slaOverview, setSlaOverview] = useState<SupportSLAOverview | null>(null);
+  const [slaPolicy, setSlaPolicy] = useState<SupportSLAPolicy | null>(null);
+  const [slaDraft, setSlaDraft] = useState<SupportSLAPolicy | null>(null);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -98,6 +123,85 @@ export default function PlatformSupportDeskPage() {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
+
+  const loadSLAPolicy = async () => {
+    try {
+      const res = await apiClient("/admin/platform/support/sla/policy");
+      if (!res.ok) throw new Error(await res.text());
+      const data = (await res.json()) as SupportSLAPolicy;
+      setSlaPolicy(data);
+      setSlaDraft(data);
+    } catch (e: any) {
+      setSlaPolicy(null);
+      setSlaDraft(null);
+      setError(e?.message || "Failed to load SLA policy.");
+    }
+  };
+
+  const loadSLAOverview = async () => {
+    try {
+      const res = await apiClient("/admin/platform/support/sla/overview");
+      if (!res.ok) throw new Error(await res.text());
+      const data = (await res.json()) as SupportSLAOverview;
+      setSlaOverview(data);
+    } catch (e: any) {
+      setSlaOverview(null);
+      setError(e?.message || "Failed to load SLA overview.");
+    }
+  };
+
+  useEffect(() => {
+    void loadSLAPolicy();
+    void loadSLAOverview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const saveSLAPolicy = async () => {
+    if (!slaDraft) return;
+    setBusyId("sla:save");
+    setError("");
+    setMessage("");
+    try {
+      const res = await apiClient("/admin/platform/support/sla/policy", {
+        method: "POST",
+        body: JSON.stringify({
+          response_hours: slaDraft.response_hours || {},
+          resolution_hours: slaDraft.resolution_hours || {},
+          escalation: slaDraft.escalation || {},
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = (await res.json()) as SupportSLAPolicy;
+      setSlaPolicy(data);
+      setSlaDraft(data);
+      setMessage("SLA policy updated.");
+      await loadSLAOverview();
+    } catch (e: any) {
+      setError(e?.message || "Failed to update SLA policy.");
+    } finally {
+      setBusyId("");
+    }
+  };
+
+  const runSLAEscalations = async () => {
+    setBusyId("sla:run");
+    setError("");
+    setMessage("");
+    try {
+      const res = await apiClient("/admin/platform/support/sla/escalations/run", { method: "POST" });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      await loadSLAOverview();
+      await load();
+      setMessage(
+        `Escalations applied. Response: ${data.response_escalated ?? 0}, Resolution: ${data.resolution_escalated ?? 0}.`,
+      );
+    } catch (e: any) {
+      setError(e?.message || "Failed to run SLA escalations.");
+    } finally {
+      setBusyId("");
+    }
+  };
 
   const loadNotes = async (ticketId: string) => {
     setNotesLoading(true);
@@ -258,6 +362,175 @@ export default function PlatformSupportDeskPage() {
         </div>
       )}
       {error && <div className="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-xs font-semibold text-muted-foreground">Open</p>
+          <p className="mt-1 text-2xl font-bold text-foreground">{slaOverview?.open ?? "-"}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-xs font-semibold text-muted-foreground">In progress</p>
+          <p className="mt-1 text-2xl font-bold text-foreground">{slaOverview?.in_progress ?? "-"}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-xs font-semibold text-muted-foreground">Resolved</p>
+          <p className="mt-1 text-2xl font-bold text-foreground">{slaOverview?.resolved ?? "-"}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-xs font-semibold text-muted-foreground">Closed</p>
+          <p className="mt-1 text-2xl font-bold text-foreground">{slaOverview?.closed ?? "-"}</p>
+        </div>
+        <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-4">
+          <p className="text-xs font-semibold text-muted-foreground">Response overdue</p>
+          <p className="mt-1 text-2xl font-bold text-destructive">{slaOverview?.response_overdue ?? "-"}</p>
+        </div>
+        <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-4">
+          <p className="text-xs font-semibold text-muted-foreground">Resolution overdue</p>
+          <p className="mt-1 text-2xl font-bold text-destructive">{slaOverview?.resolution_overdue ?? "-"}</p>
+        </div>
+      </div>
+
+      <details className="rounded-xl border border-border bg-card p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-foreground">SLA Policy & Escalations</summary>
+        <div className="mt-4 grid gap-4">
+          {!slaDraft ? (
+            <div className="text-sm text-muted-foreground">Loading SLA policy...</div>
+          ) : (
+            <>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Response SLA (hours)</p>
+                  <div className="mt-2 grid gap-2 md:grid-cols-2">
+                    {["low", "normal", "high", "critical"].map((k) => (
+                      <label key={`resp:${k}`} className="grid gap-1 text-xs text-muted-foreground">
+                        <span className="capitalize">{k}</span>
+                        <input
+                          type="number"
+                          min={1}
+                          className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                          value={slaDraft.response_hours?.[k] ?? ""}
+                          onChange={(e) =>
+                            setSlaDraft((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    response_hours: {
+                                      ...(prev.response_hours || {}),
+                                      [k]: Math.max(0, Math.floor(Number(e.target.value || "0"))),
+                                    },
+                                  }
+                                : prev,
+                            )
+                          }
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Resolution SLA (hours)</p>
+                  <div className="mt-2 grid gap-2 md:grid-cols-2">
+                    {["low", "normal", "high", "critical"].map((k) => (
+                      <label key={`res:${k}`} className="grid gap-1 text-xs text-muted-foreground">
+                        <span className="capitalize">{k}</span>
+                        <input
+                          type="number"
+                          min={1}
+                          className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                          value={slaDraft.resolution_hours?.[k] ?? ""}
+                          onChange={(e) =>
+                            setSlaDraft((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    resolution_hours: {
+                                      ...(prev.resolution_hours || {}),
+                                      [k]: Math.max(0, Math.floor(Number(e.target.value || "0"))),
+                                    },
+                                  }
+                                : prev,
+                            )
+                          }
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 rounded-lg border border-border bg-background p-3 md:grid-cols-3">
+                <label className="flex items-center gap-2 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={!!slaDraft.escalation?.enabled}
+                    onChange={(e) =>
+                      setSlaDraft((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              escalation: { ...(prev.escalation || {}), enabled: e.target.checked },
+                            }
+                          : prev,
+                      )
+                    }
+                  />
+                  Escalations enabled
+                </label>
+                <input
+                  className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                  placeholder="Escalation tag (e.g. sla_breached)"
+                  value={slaDraft.escalation?.tag || ""}
+                  onChange={(e) =>
+                    setSlaDraft((prev) =>
+                      prev ? { ...prev, escalation: { ...(prev.escalation || {}), tag: e.target.value } } : prev,
+                    )
+                  }
+                />
+                <select
+                  className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                  value={slaDraft.escalation?.bump_priority || ""}
+                  onChange={(e) =>
+                    setSlaDraft((prev) =>
+                      prev
+                        ? { ...prev, escalation: { ...(prev.escalation || {}), bump_priority: e.target.value } }
+                        : prev,
+                    )
+                  }
+                  title="Optional: bump priority on resolution breach"
+                >
+                  <option value="">No bump</option>
+                  <option value="normal">Normal</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-2 md:flex-row md:justify-end">
+                <button
+                  onClick={() => void runSLAEscalations()}
+                  disabled={busyId === "sla:run"}
+                  className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground hover:bg-accent disabled:opacity-60"
+                >
+                  {busyId === "sla:run" ? "Running..." : "Run escalations now"}
+                </button>
+                <button
+                  onClick={() => void saveSLAPolicy()}
+                  disabled={busyId === "sla:save"}
+                  className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                >
+                  {busyId === "sla:save" ? "Saving..." : "Save policy"}
+                </button>
+              </div>
+
+              {slaPolicy?.updated_at && (
+                <p className="text-xs text-muted-foreground">
+                  Last updated: {new Date(slaPolicy.updated_at).toLocaleString()}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      </details>
 
       <div className="grid gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-2">
         <div>
@@ -487,7 +760,7 @@ export default function PlatformSupportDeskPage() {
                   <select
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground md:w-60"
                     value={newNoteType}
-                    onChange={(e) => setNewNoteType(e.target.value as any)}
+                    onChange={(e) => setNewNoteType(e.target.value === "customer" ? "customer" : "internal")}
                     title="Note type"
                   >
                     <option value="internal">Internal note</option>
