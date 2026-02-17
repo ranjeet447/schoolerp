@@ -65,6 +65,10 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Delete("/access/ip-allowlist/{allowlist_id}", h.DeletePlatformIPAllowlist)
 	r.Get("/access/policies", h.GetPlatformSecurityPolicy)
 	r.Post("/access/policies/mfa", h.UpdatePlatformMFAPolicy)
+	r.Get("/access/break-glass/policy", h.GetPlatformBreakGlassPolicy)
+	r.Post("/access/break-glass/policy", h.UpdatePlatformBreakGlassPolicy)
+	r.Post("/access/break-glass/activate", h.ActivateBreakGlass)
+	r.Get("/access/break-glass/events", h.ListBreakGlassEvents)
 	r.Get("/billing/overview", h.GetPlatformBillingOverview)
 	r.Get("/billing/config", h.GetPlatformBillingConfig)
 	r.Post("/billing/config", h.UpdatePlatformBillingConfig)
@@ -1000,6 +1004,112 @@ func (h *Handler) UpdatePlatformMFAPolicy(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(updated)
+}
+
+func (h *Handler) GetPlatformBreakGlassPolicy(w http.ResponseWriter, r *http.Request) {
+	policy, err := h.service.GetPlatformBreakGlassPolicy(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to load break-glass policy", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(policy)
+}
+
+func (h *Handler) UpdatePlatformBreakGlassPolicy(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	var req tenant.UpdatePlatformBreakGlassPolicyParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.UpdatedBy = actorID
+
+	updated, err := h.service.UpdatePlatformBreakGlassPolicy(r.Context(), req)
+	if err != nil {
+		if errors.Is(err, tenant.ErrInvalidBreakGlassDuration) {
+			http.Error(w, "Invalid break-glass policy", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Failed to update break-glass policy", http.StatusInternalServerError)
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.security.break_glass.policy.update",
+		ResourceType: "platform_security_policy",
+		ResourceID:   "security.break_glass_policy",
+		After:        updated,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
+}
+
+func (h *Handler) ActivateBreakGlass(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	var req tenant.BreakGlassActivationParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.ActorUserID = actorID
+
+	result, err := h.service.ActivateBreakGlass(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidBreakGlassReason):
+			http.Error(w, "Break-glass reason is required", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidBreakGlassDuration):
+			http.Error(w, "Invalid break-glass duration", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrBreakGlassTicketRequired):
+			http.Error(w, "Ticket reference is required by break-glass policy", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrBreakGlassDisabled):
+			http.Error(w, "Break-glass policy is disabled", http.StatusForbidden)
+		case errors.Is(err, tenant.ErrBreakGlassCooldown):
+			http.Error(w, "Break-glass request is in cooldown", http.StatusTooManyRequests)
+		default:
+			http.Error(w, "Failed to activate break-glass access", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.security.break_glass.activate",
+		ResourceType: "platform_break_glass",
+		ResourceID:   result.ApprovalID,
+		Reason:       strings.TrimSpace(result.Reason),
+		After:        result,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+func (h *Handler) ListBreakGlassEvents(w http.ResponseWriter, r *http.Request) {
+	limit := int32(100)
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = int32(parsed)
+		}
+	}
+	offset := int32(0)
+	if raw := strings.TrimSpace(r.URL.Query().Get("offset")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			offset = int32(parsed)
+		}
+	}
+
+	rows, err := h.service.ListBreakGlassEvents(r.Context(), limit, offset)
+	if err != nil {
+		http.Error(w, "Failed to load break-glass events", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(rows)
 }
 
 func (h *Handler) ListPlatformPayments(w http.ResponseWriter, r *http.Request) {

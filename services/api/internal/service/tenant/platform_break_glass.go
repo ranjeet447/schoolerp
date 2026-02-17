@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -51,6 +52,20 @@ type BreakGlassActivationResult struct {
 	ActivatedAt     time.Time `json:"activated_at"`
 }
 
+type BreakGlassEvent struct {
+	ID               string     `json:"id"`
+	RequestedBy      string     `json:"requested_by"`
+	RequestedByName  string     `json:"requested_by_name,omitempty"`
+	RequestedByEmail string     `json:"requested_by_email,omitempty"`
+	Status           string     `json:"status"`
+	Reason           string     `json:"reason"`
+	TicketRef        string     `json:"ticket_ref,omitempty"`
+	DurationMinutes  int        `json:"duration_minutes,omitempty"`
+	ExpiresAt        *time.Time `json:"expires_at,omitempty"`
+	ApprovedAt       *time.Time `json:"approved_at,omitempty"`
+	CreatedAt        *time.Time `json:"created_at,omitempty"`
+}
+
 func (s *Service) GetPlatformBreakGlassPolicy(ctx context.Context) (PlatformBreakGlassPolicy, error) {
 	const query = `
 		SELECT value, updated_at
@@ -70,7 +85,10 @@ func (s *Service) GetPlatformBreakGlassPolicy(ctx context.Context) (PlatformBrea
 	var updatedAt pgtype.Timestamptz
 	err := s.db.QueryRow(ctx, query).Scan(&raw, &updatedAt)
 	if err != nil {
-		return defaults, nil
+		if errors.Is(err, pgx.ErrNoRows) {
+			return defaults, nil
+		}
+		return PlatformBreakGlassPolicy{}, err
 	}
 
 	out := defaults
@@ -257,4 +275,89 @@ func (s *Service) ActivateBreakGlass(ctx context.Context, params BreakGlassActiv
 		ExpiresAt:       expiresAt,
 		ActivatedAt:     now,
 	}, nil
+}
+
+func (s *Service) ListBreakGlassEvents(ctx context.Context, limit, offset int32) ([]BreakGlassEvent, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	const query = `
+		SELECT
+			pa.id::text,
+			COALESCE(pa.requested_by::text, '') AS requested_by,
+			COALESCE(u.full_name, '') AS requested_by_name,
+			COALESCE(u.email, '') AS requested_by_email,
+			pa.status,
+			COALESCE(pa.reason, '') AS reason,
+			pa.payload,
+			pa.expires_at,
+			pa.approved_at,
+			pa.created_at
+		FROM platform_action_approvals pa
+		LEFT JOIN users u ON u.id = pa.requested_by
+		WHERE pa.action_type = 'break_glass_access'
+		ORDER BY pa.created_at DESC
+		LIMIT $1 OFFSET $2
+	`
+
+	rows, err := s.db.Query(ctx, query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]BreakGlassEvent, 0)
+	for rows.Next() {
+		var row BreakGlassEvent
+		var payloadJSON []byte
+		var expiresAt pgtype.Timestamptz
+		var approvedAt pgtype.Timestamptz
+		var createdAt pgtype.Timestamptz
+		if err := rows.Scan(
+			&row.ID,
+			&row.RequestedBy,
+			&row.RequestedByName,
+			&row.RequestedByEmail,
+			&row.Status,
+			&row.Reason,
+			&payloadJSON,
+			&expiresAt,
+			&approvedAt,
+			&createdAt,
+		); err != nil {
+			return nil, err
+		}
+
+		if len(payloadJSON) > 0 {
+			var payload map[string]interface{}
+			if err := json.Unmarshal(payloadJSON, &payload); err == nil {
+				if ticket, ok := payload["ticket_ref"].(string); ok {
+					row.TicketRef = strings.TrimSpace(ticket)
+				}
+				if duration, ok := payload["duration_minutes"].(float64); ok {
+					row.DurationMinutes = int(duration)
+				}
+			}
+		}
+		if expiresAt.Valid {
+			v := expiresAt.Time
+			row.ExpiresAt = &v
+		}
+		if approvedAt.Valid {
+			v := approvedAt.Time
+			row.ApprovedAt = &v
+		}
+		if createdAt.Valid {
+			v := createdAt.Time
+			row.CreatedAt = &v
+		}
+
+		out = append(out, row)
+	}
+
+	return out, rows.Err()
 }

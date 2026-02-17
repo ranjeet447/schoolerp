@@ -56,6 +56,28 @@ type PlatformSecurityPolicy = {
   updated_at?: string;
 };
 
+type PlatformBreakGlassPolicy = {
+  enabled: boolean;
+  max_duration_minutes: number;
+  require_ticket: boolean;
+  cooldown_minutes: number;
+  updated_at?: string;
+};
+
+type PlatformBreakGlassEvent = {
+  id: string;
+  requested_by: string;
+  requested_by_name?: string;
+  requested_by_email?: string;
+  status: string;
+  reason: string;
+  ticket_ref?: string;
+  duration_minutes?: number;
+  expires_at?: string;
+  approved_at?: string;
+  created_at?: string;
+};
+
 const ROLE_OPTIONS = [
   "super_admin",
   "support_l1",
@@ -71,7 +93,20 @@ export default function PlatformInternalUsersPage() {
   const [rbacDraft, setRbacDraft] = useState<Record<string, string[]>>({});
   const [ipAllowlist, setIpAllowlist] = useState<PlatformIPAllowlistEntry[]>([]);
   const [securityPolicy, setSecurityPolicy] = useState<PlatformSecurityPolicy | null>(null);
+  const [breakGlassPolicy, setBreakGlassPolicy] = useState<PlatformBreakGlassPolicy | null>(null);
+  const [breakGlassEvents, setBreakGlassEvents] = useState<PlatformBreakGlassEvent[]>([]);
   const [enforceInternalMFA, setEnforceInternalMFA] = useState(false);
+  const [breakGlassDraft, setBreakGlassDraft] = useState({
+    enabled: false,
+    max_duration_minutes: 30,
+    require_ticket: true,
+    cooldown_minutes: 60,
+  });
+  const [breakGlassActivation, setBreakGlassActivation] = useState({
+    reason: "",
+    duration_minutes: 15,
+    ticket_ref: "",
+  });
   const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedUserSessions, setSelectedUserSessions] = useState<PlatformUserSession[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
@@ -106,11 +141,13 @@ export default function PlatformInternalUsersPage() {
       if (roleFilter.trim()) query.set("role_code", roleFilter.trim());
       if (activeFilter === "true" || activeFilter === "false") query.set("is_active", activeFilter);
 
-      const [usersRes, rbacRes, allowlistRes, policyRes] = await Promise.all([
+      const [usersRes, rbacRes, allowlistRes, mfaPolicyRes, breakGlassPolicyRes, breakGlassEventsRes] = await Promise.all([
         apiClient(`/admin/platform/internal-users?${query.toString()}`),
         apiClient("/admin/platform/rbac/templates"),
         apiClient("/admin/platform/access/ip-allowlist"),
         apiClient("/admin/platform/access/policies"),
+        apiClient("/admin/platform/access/break-glass/policy"),
+        apiClient("/admin/platform/access/break-glass/events?limit=100"),
       ]);
       if (!usersRes.ok) throw new Error(await usersRes.text());
 
@@ -135,13 +172,39 @@ export default function PlatformInternalUsersPage() {
       } else {
         setIpAllowlist([]);
       }
-      if (policyRes.ok) {
-        const policyData: PlatformSecurityPolicy = await policyRes.json();
+      if (mfaPolicyRes.ok) {
+        const policyData: PlatformSecurityPolicy = await mfaPolicyRes.json();
         setSecurityPolicy(policyData);
         setEnforceInternalMFA(Boolean(policyData.enforce_internal_mfa));
       } else {
         setSecurityPolicy(null);
         setEnforceInternalMFA(false);
+      }
+
+      if (breakGlassPolicyRes.ok) {
+        const breakGlassData: PlatformBreakGlassPolicy = await breakGlassPolicyRes.json();
+        setBreakGlassPolicy(breakGlassData);
+        setBreakGlassDraft({
+          enabled: Boolean(breakGlassData.enabled),
+          max_duration_minutes: Number(breakGlassData.max_duration_minutes) || 30,
+          require_ticket: Boolean(breakGlassData.require_ticket),
+          cooldown_minutes: Number(breakGlassData.cooldown_minutes) || 0,
+        });
+      } else {
+        setBreakGlassPolicy(null);
+        setBreakGlassDraft({
+          enabled: false,
+          max_duration_minutes: 30,
+          require_ticket: true,
+          cooldown_minutes: 60,
+        });
+      }
+
+      if (breakGlassEventsRes.ok) {
+        const eventsData = await breakGlassEventsRes.json();
+        setBreakGlassEvents(Array.isArray(eventsData) ? eventsData : []);
+      } else {
+        setBreakGlassEvents([]);
       }
     } catch (e: any) {
       setError(e?.message || "Failed to load internal users.");
@@ -379,6 +442,74 @@ export default function PlatformInternalUsersPage() {
       await load();
     } catch (e: any) {
       setError(e?.message || "Failed to update MFA policy.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveBreakGlassPolicy = async () => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const payload = {
+        enabled: breakGlassDraft.enabled,
+        max_duration_minutes: Math.max(1, Math.min(180, Number(breakGlassDraft.max_duration_minutes) || 30)),
+        require_ticket: breakGlassDraft.require_ticket,
+        cooldown_minutes: Math.max(0, Math.min(1440, Number(breakGlassDraft.cooldown_minutes) || 0)),
+      };
+      const res = await apiClient("/admin/platform/access/break-glass/policy", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setMessage("Break-glass policy updated.");
+      await load();
+    } catch (e: any) {
+      setError(e?.message || "Failed to update break-glass policy.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const activateBreakGlass = async () => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      if (!breakGlassActivation.reason.trim()) {
+        throw new Error("Reason is required for break-glass activation.");
+      }
+      const duration = Math.max(
+        1,
+        Math.min(
+          Number(breakGlassDraft.max_duration_minutes) || 30,
+          Number(breakGlassActivation.duration_minutes) || 15,
+        ),
+      );
+      const payload = {
+        reason: breakGlassActivation.reason.trim(),
+        duration_minutes: duration,
+        ticket_ref: breakGlassActivation.ticket_ref.trim(),
+      };
+      const res = await apiClient("/admin/platform/access/break-glass/activate", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const result = await res.json();
+      setMessage(
+        `Break-glass activated until ${result?.expires_at ? new Date(result.expires_at).toLocaleString() : "scheduled expiry"}.`,
+      );
+      setBreakGlassActivation((prev) => ({
+        ...prev,
+        reason: "",
+        ticket_ref: "",
+        duration_minutes: duration,
+      }));
+      await load();
+    } catch (e: any) {
+      setError(e?.message || "Failed to activate break-glass access.");
     } finally {
       setBusy(false);
     }
@@ -653,6 +784,199 @@ export default function PlatformInternalUsersPage() {
         <p className="mt-2 text-xs text-muted-foreground">
           Last updated: {securityPolicy?.updated_at ? new Date(securityPolicy.updated_at).toLocaleString() : "-"}
         </p>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Break-Glass Emergency Policy</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Configure emergency elevated-access guardrails with cooldown and ticket requirements.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={saveBreakGlassPolicy}
+            disabled={busy}
+            className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+          >
+            Save Break-Glass Policy
+          </button>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <label className="flex items-center gap-2 text-sm text-foreground">
+            <input
+              type="checkbox"
+              checked={breakGlassDraft.enabled}
+              onChange={(e) =>
+                setBreakGlassDraft((prev) => ({
+                  ...prev,
+                  enabled: e.target.checked,
+                }))
+              }
+            />
+            Enable break-glass access
+          </label>
+          <label className="flex items-center gap-2 text-sm text-foreground">
+            <input
+              type="checkbox"
+              checked={breakGlassDraft.require_ticket}
+              onChange={(e) =>
+                setBreakGlassDraft((prev) => ({
+                  ...prev,
+                  require_ticket: e.target.checked,
+                }))
+              }
+            />
+            Require ticket reference on activation
+          </label>
+          <label className="text-sm text-foreground">
+            <span className="mb-1 block text-xs text-muted-foreground">Max duration (minutes)</span>
+            <input
+              type="number"
+              min={1}
+              max={180}
+              value={breakGlassDraft.max_duration_minutes}
+              onChange={(e) =>
+                setBreakGlassDraft((prev) => ({
+                  ...prev,
+                  max_duration_minutes: Number(e.target.value) || 1,
+                }))
+              }
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            />
+          </label>
+          <label className="text-sm text-foreground">
+            <span className="mb-1 block text-xs text-muted-foreground">Cooldown (minutes)</span>
+            <input
+              type="number"
+              min={0}
+              max={1440}
+              value={breakGlassDraft.cooldown_minutes}
+              onChange={(e) =>
+                setBreakGlassDraft((prev) => ({
+                  ...prev,
+                  cooldown_minutes: Number(e.target.value) || 0,
+                }))
+              }
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            />
+          </label>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Last updated: {breakGlassPolicy?.updated_at ? new Date(breakGlassPolicy.updated_at).toLocaleString() : "-"}
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <h2 className="text-sm font-semibold text-foreground">Activate Break-Glass Access</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Activation is time-bound and every request is recorded for audit.
+        </p>
+        <div className="mt-3 grid gap-2 md:grid-cols-4">
+          <input
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground md:col-span-2"
+            placeholder="Reason (required)"
+            value={breakGlassActivation.reason}
+            onChange={(e) => setBreakGlassActivation((prev) => ({ ...prev, reason: e.target.value }))}
+          />
+          <input
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+            placeholder="Ticket reference"
+            value={breakGlassActivation.ticket_ref}
+            onChange={(e) => setBreakGlassActivation((prev) => ({ ...prev, ticket_ref: e.target.value }))}
+          />
+          <input
+            type="number"
+            min={1}
+            max={breakGlassDraft.max_duration_minutes || 30}
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            value={breakGlassActivation.duration_minutes}
+            onChange={(e) =>
+              setBreakGlassActivation((prev) => ({
+                ...prev,
+                duration_minutes: Number(e.target.value) || 1,
+              }))
+            }
+          />
+          <button
+            type="button"
+            onClick={activateBreakGlass}
+            disabled={busy || !breakGlassDraft.enabled}
+            className="rounded border border-amber-600/40 px-3 py-2 text-sm text-amber-700 hover:bg-amber-500/10 disabled:opacity-60 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/20"
+          >
+            Activate
+          </button>
+        </div>
+        {!breakGlassDraft.enabled && (
+          <p className="mt-2 text-xs text-amber-700 dark:text-amber-200">
+            Break-glass is currently disabled by policy.
+          </p>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Break-Glass Events</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Monitored activation history with actor, reason, duration, and expiry.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={load}
+            disabled={busy}
+            className="rounded border border-input px-3 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+          >
+            Refresh Events
+          </button>
+        </div>
+        <div className="mt-3 overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead className="bg-muted text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">Requested By</th>
+                <th className="px-3 py-2">Reason</th>
+                <th className="px-3 py-2">Ticket</th>
+                <th className="px-3 py-2">Duration</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Created</th>
+                <th className="px-3 py-2">Expires</th>
+              </tr>
+            </thead>
+            <tbody>
+              {breakGlassEvents.length === 0 ? (
+                <tr>
+                  <td className="px-3 py-4 text-muted-foreground" colSpan={7}>
+                    No break-glass events found.
+                  </td>
+                </tr>
+              ) : (
+                breakGlassEvents.map((event) => (
+                  <tr key={event.id} className="border-t border-border">
+                    <td className="px-3 py-2 text-foreground">
+                      <p className="font-medium">{event.requested_by_name || event.requested_by || "-"}</p>
+                      <p className="text-xs text-muted-foreground">{event.requested_by_email || "-"}</p>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">{event.reason || "-"}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{event.ticket_ref || "-"}</td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {event.duration_minutes ? `${event.duration_minutes}m` : "-"}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">{event.status || "-"}</td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {event.created_at ? new Date(event.created_at).toLocaleString() : "-"}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {event.expires_at ? new Date(event.expires_at).toLocaleString() : "-"}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
