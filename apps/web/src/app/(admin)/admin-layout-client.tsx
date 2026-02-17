@@ -21,6 +21,8 @@ import { RBACService } from '@/lib/auth-service';
 import { usePathname, useRouter } from 'next/navigation';
 import { TenantConfig } from '@/lib/tenant-utils';
 import { useAuth } from '@/components/auth-provider';
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { apiClient } from "@/lib/api-client";
 
 const NAV_ITEMS = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
@@ -45,12 +47,80 @@ export default function AdminLayoutClient({
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const [isImpersonating, setIsImpersonating] = useState(false);
+  const [exitingImpersonation, setExitingImpersonation] = useState(false);
 
   useEffect(() => {
     if (user?.role === 'super_admin') {
       router.replace('/platform/dashboard');
     }
   }, [user?.role, router]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setIsImpersonating(!!localStorage.getItem("impersonator_auth_token"));
+  }, [pathname]);
+
+  const exitImpersonation = async () => {
+    if (typeof window === "undefined" || exitingImpersonation) return;
+    setExitingImpersonation(true);
+
+    const originalToken = localStorage.getItem("impersonator_auth_token") || "";
+    if (!originalToken) {
+      logout();
+      return;
+    }
+
+    const originalRole = localStorage.getItem("impersonator_user_role") || "super_admin";
+    const originalUserID = localStorage.getItem("impersonator_user_id") || "";
+    const originalUserEmail = localStorage.getItem("impersonator_user_email") || "";
+    const originalUserName = localStorage.getItem("impersonator_user_name") || "";
+    const originalTenantID = localStorage.getItem("impersonator_tenant_id") || "";
+
+    const targetTenantID = localStorage.getItem("impersonation_target_tenant_id") || localStorage.getItem("tenant_id") || "";
+    const targetUserID = localStorage.getItem("impersonation_target_user_id") || localStorage.getItem("user_id") || "";
+    const targetUserEmail = localStorage.getItem("impersonation_target_user_email") || localStorage.getItem("user_email") || "";
+    const startedAt = localStorage.getItem("impersonation_started_at") || "";
+    const reason = localStorage.getItem("impersonation_reason") || "manual_exit";
+
+    localStorage.setItem("auth_token", originalToken);
+    localStorage.setItem("user_role", originalRole);
+    localStorage.setItem("user_id", originalUserID);
+    localStorage.setItem("user_email", originalUserEmail);
+    localStorage.setItem("user_name", originalUserName);
+    localStorage.setItem("tenant_id", originalTenantID);
+
+    localStorage.removeItem("impersonator_auth_token");
+    localStorage.removeItem("impersonator_user_role");
+    localStorage.removeItem("impersonator_user_id");
+    localStorage.removeItem("impersonator_user_email");
+    localStorage.removeItem("impersonator_user_name");
+    localStorage.removeItem("impersonator_tenant_id");
+    localStorage.removeItem("impersonation_started_at");
+    localStorage.removeItem("impersonation_reason");
+    localStorage.removeItem("impersonation_target_tenant_id");
+    localStorage.removeItem("impersonation_target_user_id");
+    localStorage.removeItem("impersonation_target_user_email");
+
+    if (targetTenantID) {
+      try {
+        await apiClient(`/admin/platform/tenants/${targetTenantID}/impersonation-exit`, {
+          method: "POST",
+          body: JSON.stringify({
+            reason: "manual_exit",
+            impersonation_notes: reason,
+            target_user_id: targetUserID,
+            target_user_email: targetUserEmail,
+            started_at: startedAt,
+          }),
+        });
+      } catch {
+        // Best effort logging only; session restore should still proceed.
+      }
+    }
+
+    window.location.href = "/platform/dashboard";
+  };
 
   const filteredNavItems = NAV_ITEMS.filter(item => 
     !item.permission || RBACService.hasPermission(item.permission)
@@ -60,13 +130,13 @@ export default function AdminLayoutClient({
   const logoUrl = config?.branding?.logo_url;
 
   return (
-    <div className="flex h-screen bg-slate-900" style={{ 
+    <div className="flex h-screen bg-background text-foreground" style={{ 
       //@ts-ignore
       '--primary-color': config?.branding?.primary_color || '#4f46e5' 
     }}>
       {/* Sidebar */}
-      <aside className="w-64 border-r border-slate-800 bg-slate-900 hidden md:flex md:flex-col">
-        <div className="flex h-16 items-center border-b border-slate-800 px-6">
+      <aside className="w-64 border-r border-border bg-card hidden md:flex md:flex-col">
+        <div className="flex h-16 items-center border-b border-border px-6">
           <Link href="/admin/dashboard" className="flex items-center gap-2 font-bold text-xl text-indigo-400" style={{ color: config?.branding?.primary_color || undefined }}>
             {logoUrl ? (
               <img src={logoUrl} alt="Logo" className="h-8 w-8 object-contain" />
@@ -74,10 +144,10 @@ export default function AdminLayoutClient({
               <GraduationCap className="h-6 w-6" />
             )}
             {!config?.white_label && (
-              <span>School<span className="text-white">ERP</span></span>
+              <span>School<span className="text-foreground">ERP</span></span>
             )}
             {config?.white_label && (
-              <span className="text-white truncate">{schoolName}</span>
+              <span className="text-foreground truncate">{schoolName}</span>
             )}
           </Link>
         </div>
@@ -89,8 +159,8 @@ export default function AdminLayoutClient({
                   href={item.href}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     pathname === item.href 
-                      ? 'bg-indigo-500/10 text-indigo-400 font-bold' 
-                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-accent text-foreground font-semibold' 
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
                   style={pathname === item.href ? { color: config?.branding?.primary_color || undefined, backgroundColor: `${config?.branding?.primary_color}10` || undefined } : {}}
                 >
@@ -102,20 +172,20 @@ export default function AdminLayoutClient({
           </ul>
         </nav>
         
-        <div className="border-t border-slate-800 p-4">
+        <div className="border-t border-border p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-full bg-indigo-500/20 flex items-center justify-center text-xs font-bold text-indigo-400 border border-indigo-500/30" style={{ borderColor: config?.branding?.primary_color ? `${config.branding.primary_color}50` : undefined, color: config?.branding?.primary_color || undefined }}>
                 {user?.name?.[0] || <User className="h-4 w-4" />}
               </div>
               <div className="overflow-hidden">
-                <p className="text-sm font-medium text-white truncate">{user?.name || 'Loading...'}</p>
-                <p className="text-xs text-slate-500 truncate capitalize">{user?.role?.replace('_', ' ') || ''}</p>
+                <p className="text-sm font-medium text-foreground truncate">{user?.name || 'Loading...'}</p>
+                <p className="text-xs text-muted-foreground truncate capitalize">{user?.role?.replace('_', ' ') || ''}</p>
               </div>
             </div>
             <button 
               onClick={() => logout()}
-              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+              className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
               title="Logout"
             >
               <LogOut className="h-4 w-4" />
@@ -126,15 +196,26 @@ export default function AdminLayoutClient({
 
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-6">
-          <Button variant="ghost" size="icon" className="md:hidden text-white">
+        <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
+          <Button variant="ghost" size="icon" className="md:hidden text-foreground">
             <Menu className="h-5 w-5" />
           </Button>
           <div className="ml-auto flex items-center gap-4">
-            <span className="text-sm text-slate-400 font-medium">{schoolName}</span>
+            {isImpersonating && (
+              <button
+                type="button"
+                onClick={exitImpersonation}
+                disabled={exitingImpersonation}
+                className="rounded border border-amber-600/40 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-500/10 disabled:opacity-60 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/20"
+              >
+                {exitingImpersonation ? "Exiting..." : "Exit Impersonation"}
+              </button>
+            )}
+            <ThemeToggle className="text-muted-foreground hover:text-foreground" />
+            <span className="text-sm text-muted-foreground font-medium">{schoolName}</span>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-6 bg-slate-950 text-slate-100">
+        <main className="flex-1 overflow-y-auto p-6 bg-background text-foreground">
           {children}
         </main>
       </div>

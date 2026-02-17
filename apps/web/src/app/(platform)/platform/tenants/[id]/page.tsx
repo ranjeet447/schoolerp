@@ -239,7 +239,18 @@ export default function PlatformTenantDetailPage() {
       });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
+      const now = new Date().toISOString();
       localStorage.setItem("impersonator_auth_token", localStorage.getItem("auth_token") || "");
+      localStorage.setItem("impersonator_user_role", localStorage.getItem("user_role") || "");
+      localStorage.setItem("impersonator_user_id", localStorage.getItem("user_id") || "");
+      localStorage.setItem("impersonator_user_email", localStorage.getItem("user_email") || "");
+      localStorage.setItem("impersonator_user_name", localStorage.getItem("user_name") || "");
+      localStorage.setItem("impersonator_tenant_id", localStorage.getItem("tenant_id") || "");
+      localStorage.setItem("impersonation_started_at", now);
+      localStorage.setItem("impersonation_reason", impersonationReason.trim());
+      localStorage.setItem("impersonation_target_tenant_id", data.target_tenant_id);
+      localStorage.setItem("impersonation_target_user_id", data.target_user_id);
+      localStorage.setItem("impersonation_target_user_email", data.target_user_email);
       localStorage.setItem("auth_token", data.token);
       localStorage.setItem("user_role", "tenant_admin");
       localStorage.setItem("tenant_id", data.target_tenant_id);
@@ -250,8 +261,8 @@ export default function PlatformTenantDetailPage() {
     });
   };
 
-  if (loading) return <div className="text-slate-400">Loading tenant details...</div>;
-  if (!tenant) return <div className="text-red-400">Tenant not found.</div>;
+  if (loading) return <div className="text-muted-foreground">Loading tenant details...</div>;
+  if (!tenant) return <div className="text-destructive">Tenant not found.</div>;
 
   const toggleBranchActive = async (branch: Branch) => {
     setBusyBranchId(branch.id);
@@ -276,55 +287,63 @@ export default function PlatformTenantDetailPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-white">{tenant.name}</h1>
-          <p className="text-slate-400">
+          <h1 className="text-3xl font-bold text-foreground">{tenant.name}</h1>
+          <p className="text-muted-foreground">
             {tenant.subdomain} • {tenant.lifecycle_status} • {tenant.plan_code || "no-plan"}
           </p>
         </div>
         <Link
           href="/platform/tenants"
-          className="rounded border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+          className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           Back to Tenants
         </Link>
       </div>
 
-      {message && <div className="rounded border border-emerald-700 bg-emerald-950/30 p-3 text-sm text-emerald-200">{message}</div>}
-      {error && <div className="rounded border border-red-700 bg-red-950/30 p-3 text-sm text-red-200">{error}</div>}
+      {message && (
+        <div className="rounded border border-emerald-600/40 bg-emerald-500/10 p-3 text-sm text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-200">
+          {message}
+        </div>
+      )}
+      {error && (
+        <div className="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-          <h2 className="font-semibold text-white">Tenant Defaults</h2>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <h2 className="font-semibold text-foreground">Tenant Defaults</h2>
           <form onSubmit={submitDefaults} className="mt-3 space-y-2">
-            <input className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" placeholder="Timezone" value={defaults.timezone} onChange={(e) => setDefaults((p) => ({ ...p, timezone: e.target.value }))} />
-            <input className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" placeholder="Locale" value={defaults.locale} onChange={(e) => setDefaults((p) => ({ ...p, locale: e.target.value }))} />
-            <input className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" placeholder="Academic Year (e.g. 2025-26)" value={defaults.academic_year} onChange={(e) => setDefaults((p) => ({ ...p, academic_year: e.target.value }))} />
-            <input className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" placeholder="Region" value={defaults.region} onChange={(e) => setDefaults((p) => ({ ...p, region: e.target.value }))} />
-            <button disabled={busy} className="rounded bg-cyan-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-60">Save Defaults</button>
+            <input className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="Timezone" value={defaults.timezone} onChange={(e) => setDefaults((p) => ({ ...p, timezone: e.target.value }))} />
+            <input className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="Locale" value={defaults.locale} onChange={(e) => setDefaults((p) => ({ ...p, locale: e.target.value }))} />
+            <input className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="Academic Year (e.g. 2025-26)" value={defaults.academic_year} onChange={(e) => setDefaults((p) => ({ ...p, academic_year: e.target.value }))} />
+            <input className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="Region" value={defaults.region} onChange={(e) => setDefaults((p) => ({ ...p, region: e.target.value }))} />
+            <button disabled={busy} className="rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">Save Defaults</button>
           </form>
         </div>
 
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-          <h2 className="font-semibold text-white">Domain Mapping</h2>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <h2 className="font-semibold text-foreground">Domain Mapping</h2>
           <form onSubmit={submitDomainMapping} className="mt-3 space-y-2">
-            <input className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" placeholder="Custom Domain" value={domainMap.domain} onChange={(e) => setDomainMap((p) => ({ ...p, domain: e.target.value }))} />
-            <input className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" placeholder="CNAME Target" value={domainMap.cname_target} onChange={(e) => setDomainMap((p) => ({ ...p, cname_target: e.target.value }))} />
-            <select className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" value={domainMap.ssl_status} onChange={(e) => setDomainMap((p) => ({ ...p, ssl_status: e.target.value }))}>
+            <input className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="Custom Domain" value={domainMap.domain} onChange={(e) => setDomainMap((p) => ({ ...p, domain: e.target.value }))} />
+            <input className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="CNAME Target" value={domainMap.cname_target} onChange={(e) => setDomainMap((p) => ({ ...p, cname_target: e.target.value }))} />
+            <select className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground" value={domainMap.ssl_status} onChange={(e) => setDomainMap((p) => ({ ...p, ssl_status: e.target.value }))}>
               <option value="">SSL status</option>
               <option value="pending">Pending</option>
               <option value="provisioning">Provisioning</option>
               <option value="active">Active</option>
               <option value="failed">Failed</option>
             </select>
-            <button disabled={busy} className="rounded bg-cyan-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-60">Save Domain Mapping</button>
+            <button disabled={busy} className="rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">Save Domain Mapping</button>
           </form>
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-        <h2 className="font-semibold text-white">Branding</h2>
+      <div className="rounded-xl border border-border bg-card p-4">
+        <h2 className="font-semibold text-foreground">Branding</h2>
         <form onSubmit={submitBranding} className="mt-3 grid gap-2 md:grid-cols-2">
-          <label className="flex items-center gap-2 text-sm text-slate-300 md:col-span-2">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground md:col-span-2">
             <input
               type="checkbox"
               checked={branding.white_label}
@@ -341,26 +360,26 @@ export default function PlatformTenantDetailPage() {
               title="Primary color"
             />
             <input
-              className="flex-1 rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+              className="flex-1 rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
               placeholder="#4f46e5"
               value={branding.primary_color}
               onChange={(e) => setBranding((p) => ({ ...p, primary_color: e.target.value }))}
             />
           </div>
           <input
-            className="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
             placeholder="Name override (display)"
             value={branding.name_override}
             onChange={(e) => setBranding((p) => ({ ...p, name_override: e.target.value }))}
           />
           <input
-            className="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white md:col-span-2"
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground md:col-span-2"
             placeholder="Logo URL"
             value={branding.logo_url}
             onChange={(e) => setBranding((p) => ({ ...p, logo_url: e.target.value }))}
           />
           <div className="md:col-span-2">
-            <button disabled={busy} className="rounded bg-cyan-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-60">
+            <button disabled={busy} className="rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
               Save Branding
             </button>
           </div>
@@ -368,51 +387,65 @@ export default function PlatformTenantDetailPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-          <h2 className="font-semibold text-white">Plan Assignment</h2>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <h2 className="font-semibold text-foreground">Plan Assignment</h2>
           <form onSubmit={submitPlan} className="mt-3 flex gap-2">
-            <input className="flex-1 rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" placeholder="Plan code (basic/pro/enterprise)" value={planCode} onChange={(e) => setPlanCode(e.target.value)} />
-            <button disabled={busy} className="rounded bg-cyan-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-60">Assign</button>
+            <input className="flex-1 rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="Plan code (basic/pro/enterprise)" value={planCode} onChange={(e) => setPlanCode(e.target.value)} />
+            <button disabled={busy} className="rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">Assign</button>
           </form>
         </div>
 
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-          <h2 className="font-semibold text-white">Security Actions</h2>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <h2 className="font-semibold text-foreground">Security Actions</h2>
           <div className="mt-3 space-y-2">
-            <input className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" placeholder="New tenant admin password" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)} />
-            <button onClick={resetAdminPassword} disabled={busy || !newAdminPassword} className="mr-2 rounded border border-amber-700 px-3 py-2 text-sm text-amber-200 disabled:opacity-50">Reset Admin Password</button>
-            <button onClick={forceLogoutUsers} disabled={busy} className="rounded border border-red-700 px-3 py-2 text-sm text-red-200 disabled:opacity-50">Force Logout All Users</button>
+            <input className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="New tenant admin password" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)} />
+            <button onClick={resetAdminPassword} disabled={busy || !newAdminPassword} className="mr-2 rounded border border-amber-600/40 px-3 py-2 text-sm text-amber-700 hover:bg-amber-500/10 disabled:opacity-50 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/20">Reset Admin Password</button>
+            <button onClick={forceLogoutUsers} disabled={busy} className="rounded border border-red-600/40 px-3 py-2 text-sm text-red-700 hover:bg-red-500/10 disabled:opacity-50 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/20">Force Logout All Users</button>
           </div>
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-        <h2 className="font-semibold text-white">Impersonation (Guardrail: reason required)</h2>
+      <div className="rounded-xl border border-border bg-card p-4">
+        <h2 className="font-semibold text-foreground">Impersonation (Guardrail: reason required)</h2>
         <div className="mt-3 flex flex-col gap-2 md:flex-row">
           <input
-            className="flex-1 rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+            className="flex-1 rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
             placeholder="Why do you need to impersonate this tenant admin?"
             value={impersonationReason}
             onChange={(e) => setImpersonationReason(e.target.value)}
           />
-          <button onClick={impersonateTenantAdmin} disabled={busy || !impersonationReason.trim()} className="rounded bg-indigo-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
+          <button onClick={impersonateTenantAdmin} disabled={busy || !impersonationReason.trim()} className="rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
             Login As Tenant Admin
           </button>
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-        <h2 className="font-semibold text-white">Branches</h2>
+      <div className="rounded-xl border border-border bg-card p-4">
+        <h2 className="font-semibold text-foreground">Tenant Region / Shard Migration</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Automated tenant migration is not available in this deployment. Use managed support workflow for controlled migrations.
+        </p>
+        <button
+          type="button"
+          disabled
+          className="mt-3 cursor-not-allowed rounded border border-input px-3 py-2 text-sm text-muted-foreground opacity-70"
+        >
+          Request Managed Migration (Unavailable)
+        </button>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <h2 className="font-semibold text-foreground">Branches</h2>
         <form onSubmit={createBranch} className="mt-3 grid gap-2 md:grid-cols-4">
-          <input className="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" placeholder="Branch Name" value={branchName} onChange={(e) => setBranchName(e.target.value)} />
-          <input className="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" placeholder="Code" value={branchCode} onChange={(e) => setBranchCode(e.target.value)} />
-          <input className="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" placeholder="Address" value={branchAddress} onChange={(e) => setBranchAddress(e.target.value)} />
-          <button disabled={busy} className="rounded bg-cyan-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-60">Create Branch</button>
+          <input className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="Branch Name" value={branchName} onChange={(e) => setBranchName(e.target.value)} />
+          <input className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="Code" value={branchCode} onChange={(e) => setBranchCode(e.target.value)} />
+          <input className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="Address" value={branchAddress} onChange={(e) => setBranchAddress(e.target.value)} />
+          <button disabled={busy} className="rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">Create Branch</button>
         </form>
 
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-left text-sm">
-            <thead className="text-slate-300">
+            <thead className="text-muted-foreground">
               <tr>
                 <th className="py-2">Name</th>
                 <th className="py-2">Code</th>
@@ -424,25 +457,25 @@ export default function PlatformTenantDetailPage() {
             <tbody>
               {branches.length === 0 ? (
                 <tr>
-                  <td className="py-3 text-slate-400" colSpan={5}>
+                  <td className="py-3 text-muted-foreground" colSpan={5}>
                     No branches yet.
                   </td>
                 </tr>
               ) : (
                 branches.map((b) => (
-                  <tr key={b.id} className="border-t border-slate-800">
-                    <td className="py-2 text-white">{b.name}</td>
-                    <td className="py-2 text-slate-300">{b.code}</td>
-                    <td className="py-2 text-slate-300">{b.address || "-"}</td>
-                    <td className="py-2 text-slate-300">{b.is_active ? "Active" : "Inactive"}</td>
+                  <tr key={b.id} className="border-t border-border">
+                    <td className="py-2 text-foreground">{b.name}</td>
+                    <td className="py-2 text-muted-foreground">{b.code}</td>
+                    <td className="py-2 text-muted-foreground">{b.address || "-"}</td>
+                    <td className="py-2 text-muted-foreground">{b.is_active ? "Active" : "Inactive"}</td>
                     <td className="py-2">
                       <button
                         onClick={() => toggleBranchActive(b)}
                         disabled={busy || busyBranchId === b.id}
                         className={`rounded border px-3 py-1 text-xs disabled:opacity-60 ${
                           b.is_active
-                            ? "border-amber-700 text-amber-200 hover:bg-amber-900/20"
-                            : "border-emerald-700 text-emerald-200 hover:bg-emerald-900/20"
+                            ? "border-amber-600/40 text-amber-700 hover:bg-amber-500/10 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/20"
+                            : "border-emerald-600/40 text-emerald-700 hover:bg-emerald-500/10 dark:border-emerald-700 dark:text-emerald-200 dark:hover:bg-emerald-900/20"
                         }`}
                       >
                         {b.is_active ? "Deactivate" : "Activate"}

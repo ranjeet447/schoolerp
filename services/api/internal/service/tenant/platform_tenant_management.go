@@ -111,6 +111,127 @@ type ReviewSignupRequestParams struct {
 	ReviewedBy  string `json:"-"`
 }
 
+type PlatformAuditEntry struct {
+	TenantID     string
+	Action       string
+	ResourceType string
+	ResourceID   string
+	Reason       string
+	Before       any
+	After        any
+}
+
+type ImpersonationExitParams struct {
+	Reason             string `json:"reason"`
+	ImpersonationNotes string `json:"impersonation_notes"`
+	TargetUserID       string `json:"target_user_id"`
+	TargetUserEmail    string `json:"target_user_email"`
+	StartedAt          string `json:"started_at"`
+}
+
+func (s *Service) logPlatformAudit(
+	ctx context.Context,
+	tenantID pgtype.UUID,
+	userID string,
+	action string,
+	resourceType string,
+	resourceID string,
+	reason string,
+	before any,
+	after any,
+) {
+	var actorID pgtype.UUID
+	_ = actorID.Scan(strings.TrimSpace(userID))
+
+	var targetID pgtype.UUID
+	_ = targetID.Scan(strings.TrimSpace(resourceID))
+
+	var beforeJSON []byte
+	if before != nil {
+		if raw, err := json.Marshal(before); err == nil {
+			beforeJSON = raw
+		}
+	}
+	var afterJSON []byte
+	if after != nil {
+		if raw, err := json.Marshal(after); err == nil {
+			afterJSON = raw
+		}
+	}
+
+	_, _ = s.q.CreateAuditLog(ctx, db.CreateAuditLogParams{
+		TenantID:     tenantID,
+		UserID:       actorID,
+		RequestID:    pgtype.Text{},
+		Action:       action,
+		ResourceType: resourceType,
+		ResourceID:   targetID,
+		BeforeState:  beforeJSON,
+		AfterState:   afterJSON,
+		ReasonCode:   pgtype.Text{String: strings.TrimSpace(reason), Valid: strings.TrimSpace(reason) != ""},
+		IpAddress:    pgtype.Text{},
+	})
+}
+
+func (s *Service) RecordPlatformAudit(ctx context.Context, actorUserID string, entry PlatformAuditEntry) {
+	var tid pgtype.UUID
+	_ = tid.Scan(strings.TrimSpace(entry.TenantID))
+
+	resourceID := strings.TrimSpace(entry.ResourceID)
+	if resourceID == "" {
+		resourceID = strings.TrimSpace(entry.TenantID)
+	}
+
+	s.logPlatformAudit(
+		ctx,
+		tid,
+		actorUserID,
+		strings.TrimSpace(entry.Action),
+		strings.TrimSpace(entry.ResourceType),
+		resourceID,
+		strings.TrimSpace(entry.Reason),
+		entry.Before,
+		entry.After,
+	)
+}
+
+func (s *Service) LogImpersonationExit(ctx context.Context, tenantID, actorUserID string, params ImpersonationExitParams) error {
+	if _, err := parseTenantUUID(tenantID); err != nil {
+		return err
+	}
+
+	startedAt := strings.TrimSpace(params.StartedAt)
+	durationMinutes := int64(0)
+	if startedAt != "" {
+		if started, err := time.Parse(time.RFC3339, startedAt); err == nil {
+			durationMinutes = int64(time.Since(started).Minutes())
+			if durationMinutes < 0 {
+				durationMinutes = 0
+			}
+		}
+	}
+
+	s.RecordPlatformAudit(ctx, actorUserID, PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.tenant.impersonation.exit",
+		ResourceType: "tenant",
+		ResourceID:   tenantID,
+		Reason:       strings.TrimSpace(params.Reason),
+		Before: map[string]any{
+			"target_user_id":    strings.TrimSpace(params.TargetUserID),
+			"target_user_email": strings.TrimSpace(params.TargetUserEmail),
+			"started_at":        startedAt,
+		},
+		After: map[string]any{
+			"ended_at":              time.Now().UTC(),
+			"duration_minutes":      durationMinutes,
+			"impersonation_context": strings.TrimSpace(params.ImpersonationNotes),
+		},
+	})
+
+	return nil
+}
+
 func (s *Service) ListPlatformTenantsWithFilters(ctx context.Context, filters TenantDirectoryFilters) ([]PlatformTenant, error) {
 	return s.ListPlatformTenants(ctx, filters)
 }
@@ -437,6 +558,24 @@ func (s *Service) CreateImpersonationToken(ctx context.Context, tenantID, reason
 
 	result.Token = tokenString
 	result.ExpiresAt = expiresAt
+
+	s.logPlatformAudit(
+		ctx,
+		tid,
+		impersonatorUserID,
+		"platform.tenant.impersonate",
+		"tenant",
+		tenantID,
+		strings.TrimSpace(reason),
+		nil,
+		map[string]any{
+			"target_user_id":       result.TargetUserID,
+			"target_user_email":    result.TargetUserEmail,
+			"duration_minutes":     durationMinutes,
+			"impersonation_expiry": expiresAt,
+		},
+	)
+
 	return result, nil
 }
 
@@ -501,6 +640,20 @@ func (s *Service) ReviewSignupRequest(ctx context.Context, signupID string, para
 		return ErrInvalidSignupStatus
 	}
 
+	const lookup = `
+		SELECT status, COALESCE(review_notes, '')
+		FROM tenant_signup_requests
+		WHERE id = $1
+	`
+	var beforeStatus string
+	var beforeNotes string
+	if err := s.db.QueryRow(ctx, lookup, signupID).Scan(&beforeStatus, &beforeNotes); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrSignupRequestNotFound
+		}
+		return err
+	}
+
 	var reviewer pgtype.UUID
 	_ = reviewer.Scan(strings.TrimSpace(params.ReviewedBy))
 
@@ -520,5 +673,24 @@ func (s *Service) ReviewSignupRequest(ctx context.Context, signupID string, para
 	if tag.RowsAffected() == 0 {
 		return ErrSignupRequestNotFound
 	}
+
+	s.logPlatformAudit(
+		ctx,
+		pgtype.UUID{},
+		params.ReviewedBy,
+		"platform.signup.review",
+		"tenant_signup_request",
+		signupID,
+		status,
+		map[string]any{
+			"status":       beforeStatus,
+			"review_notes": beforeNotes,
+		},
+		map[string]any{
+			"status":       status,
+			"review_notes": strings.TrimSpace(params.ReviewNotes),
+		},
+	)
+
 	return nil
 }

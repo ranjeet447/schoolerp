@@ -36,6 +36,7 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Post("/tenants/{tenant_id}/reset-admin-password", h.ResetTenantAdminPassword)
 	r.Post("/tenants/{tenant_id}/force-logout", h.ForceLogoutTenantUsers)
 	r.Post("/tenants/{tenant_id}/impersonate", h.ImpersonateTenantAdmin)
+	r.Post("/tenants/{tenant_id}/impersonation-exit", h.LogImpersonationExit)
 	r.Get("/tenants/{tenant_id}/branches", h.ListTenantBranches)
 	r.Post("/tenants/{tenant_id}/branches", h.CreateTenantBranch)
 	r.Patch("/tenants/{tenant_id}/branches/{branch_id}", h.UpdateTenantBranch)
@@ -285,6 +286,7 @@ func (h *Handler) GetPlatformTenant(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) UpdatePlatformTenant(w http.ResponseWriter, r *http.Request) {
 	tenantID := chi.URLParam(r, "tenant_id")
+	actorID := middleware.GetUserID(r.Context())
 
 	var req tenant.UpdateTenantParams
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -306,6 +308,14 @@ func (h *Handler) UpdatePlatformTenant(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.tenant.update",
+		ResourceType: "tenant",
+		ResourceID:   tenantID,
+		After:        updated,
+	})
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(updated)
@@ -330,6 +340,7 @@ func (h *Handler) ListTenantBranches(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) CreateTenantBranch(w http.ResponseWriter, r *http.Request) {
 	tenantID := chi.URLParam(r, "tenant_id")
+	actorID := middleware.GetUserID(r.Context())
 
 	var req tenant.CreateBranchParams
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -350,6 +361,14 @@ func (h *Handler) CreateTenantBranch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.tenant.branch.create",
+		ResourceType: "branch",
+		ResourceID:   created.ID,
+		After:        created,
+	})
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(created)
@@ -358,6 +377,7 @@ func (h *Handler) CreateTenantBranch(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) UpdateTenantBranch(w http.ResponseWriter, r *http.Request) {
 	tenantID := chi.URLParam(r, "tenant_id")
 	branchID := chi.URLParam(r, "branch_id")
+	actorID := middleware.GetUserID(r.Context())
 
 	var req tenant.UpdateBranchParams
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -381,6 +401,14 @@ func (h *Handler) UpdateTenantBranch(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.tenant.branch.update",
+		ResourceType: "branch",
+		ResourceID:   branchID,
+		After:        updated,
+	})
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(updated)
@@ -406,6 +434,7 @@ func (h *Handler) ListPlatformPayments(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) UpdateTenantLifecycle(w http.ResponseWriter, r *http.Request) {
 	tenantID := chi.URLParam(r, "tenant_id")
+	actorID := middleware.GetUserID(r.Context())
 
 	var req tenant.TenantLifecycleParams
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -427,12 +456,24 @@ func (h *Handler) UpdateTenantLifecycle(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.tenant.lifecycle.update",
+		ResourceType: "tenant",
+		ResourceID:   tenantID,
+		Reason:       strings.TrimSpace(req.Status),
+		After: map[string]any{
+			"status": strings.TrimSpace(req.Status),
+		},
+	})
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
 }
 
 func (h *Handler) UpdateTenantDefaults(w http.ResponseWriter, r *http.Request) {
 	tenantID := chi.URLParam(r, "tenant_id")
+	actorID := middleware.GetUserID(r.Context())
 	var req tenant.TenantDefaultsParams
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -447,6 +488,14 @@ func (h *Handler) UpdateTenantDefaults(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to update tenant defaults", http.StatusInternalServerError)
 		return
 	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.tenant.defaults.update",
+		ResourceType: "tenant",
+		ResourceID:   tenantID,
+		After:        req,
+	})
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
@@ -475,12 +524,27 @@ func (h *Handler) AssignTenantPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.service.RecordPlatformAudit(r.Context(), req.UpdatedBy, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.tenant.plan.assign",
+		ResourceType: "tenant",
+		ResourceID:   tenantID,
+		Reason:       strings.TrimSpace(req.PlanCode),
+		After: map[string]any{
+			"plan_code":     strings.TrimSpace(req.PlanCode),
+			"limits":        req.Limits,
+			"modules":       req.Modules,
+			"feature_flags": req.Flags,
+		},
+	})
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
 }
 
 func (h *Handler) UpdateTenantBranding(w http.ResponseWriter, r *http.Request) {
 	tenantID := chi.URLParam(r, "tenant_id")
+	actorID := middleware.GetUserID(r.Context())
 
 	var req tenant.TenantBrandingParams
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -498,12 +562,21 @@ func (h *Handler) UpdateTenantBranding(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.tenant.branding.update",
+		ResourceType: "tenant",
+		ResourceID:   tenantID,
+		After:        updated,
+	})
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(updated)
 }
 
 func (h *Handler) UpdateTenantDomainMapping(w http.ResponseWriter, r *http.Request) {
 	tenantID := chi.URLParam(r, "tenant_id")
+	actorID := middleware.GetUserID(r.Context())
 	var req tenant.DomainMappingParams
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -520,12 +593,25 @@ func (h *Handler) UpdateTenantDomainMapping(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.tenant.domain.update",
+		ResourceType: "tenant",
+		ResourceID:   tenantID,
+		After: map[string]any{
+			"domain":       strings.TrimSpace(req.Domain),
+			"cname_target": strings.TrimSpace(req.CnameTarget),
+			"ssl_status":   strings.TrimSpace(req.SslStatus),
+		},
+	})
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(updated)
 }
 
 func (h *Handler) ResetTenantAdminPassword(w http.ResponseWriter, r *http.Request) {
 	tenantID := chi.URLParam(r, "tenant_id")
+	actorID := middleware.GetUserID(r.Context())
 	var req struct {
 		NewPassword string `json:"new_password"`
 	}
@@ -547,6 +633,16 @@ func (h *Handler) ResetTenantAdminPassword(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.tenant.admin_password.reset",
+		ResourceType: "tenant",
+		ResourceID:   tenantID,
+		After: map[string]any{
+			"updated_rows": updatedRows,
+		},
+	})
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"status":       "ok",
@@ -556,6 +652,7 @@ func (h *Handler) ResetTenantAdminPassword(w http.ResponseWriter, r *http.Reques
 
 func (h *Handler) ForceLogoutTenantUsers(w http.ResponseWriter, r *http.Request) {
 	tenantID := chi.URLParam(r, "tenant_id")
+	actorID := middleware.GetUserID(r.Context())
 	revoked, err := h.service.ForceLogoutTenantUsers(r.Context(), tenantID)
 	if err != nil {
 		if errors.Is(err, tenant.ErrInvalidTenantID) {
@@ -566,10 +663,20 @@ func (h *Handler) ForceLogoutTenantUsers(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.tenant.force_logout",
+		ResourceType: "tenant",
+		ResourceID:   tenantID,
+		After: map[string]any{
+			"revoked_count": revoked,
+		},
+	})
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"status":         "ok",
-		"revoked_count":  revoked,
+		"status":        "ok",
+		"revoked_count": revoked,
 	})
 }
 
@@ -604,6 +711,29 @@ func (h *Handler) ImpersonateTenantAdmin(w http.ResponseWriter, r *http.Request)
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(result)
+}
+
+func (h *Handler) LogImpersonationExit(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	actorID := middleware.GetUserID(r.Context())
+
+	var req tenant.ImpersonationExitParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.service.LogImpersonationExit(r.Context(), tenantID, actorID, req); err != nil {
+		if errors.Is(err, tenant.ErrInvalidTenantID) {
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Failed to log impersonation exit", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
 }
 
 func (h *Handler) ListSignupRequests(w http.ResponseWriter, r *http.Request) {

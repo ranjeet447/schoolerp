@@ -12,7 +12,9 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 ## Current Progress Snapshot
 - `[x]` Super admin workspace routing enabled (`super_admin -> /platform/dashboard`).
 - `[x]` Platform core pages added: dashboard, tenant directory, tenant detail, platform payments.
-- `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, domain mapping, branch creation, admin reset/logout, impersonation).
+- `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, branding/domain mapping, branch create/update/activate/deactivate, admin reset/logout, impersonation).
+- `[x]` Signup request moderation UI and API flow added (approve/reject with notes).
+- `[~]` Platform audit coverage expanded for super-admin actions (tenant-management mutation endpoints + signup review + impersonation entry/exit).
 - `[~]` Control-plane schema migration added; pending runtime migration in target environments.
 
 ## Execution Order
@@ -37,14 +39,14 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [x] TM-004 Multi-campus/branches API (list/create/update/activate/deactivate).
 - [x] TM-005 Branding and domain mapping API (branding config, CNAME target, SSL status).
 - [x] TM-006 Manual tenant onboarding flow (create tenant + tenant admin + default config).
-- [~] TM-007 Signup request moderation (approve/reject + notes + audit).
+- [x] TM-007 Signup request moderation (approve/reject + notes + audit).
 - [x] TM-008 Tenant actions: activate/suspend/terminate.
 - [x] TM-009 Reset tenant admin password endpoint + force logout all sessions.
 - [x] TM-010 Tenant defaults: timezone, locale, academic year.
 - [x] TM-011 Assign plan and limits to tenant.
 - [x] TM-012 Domain mapping UI and verification status panel.
-- [~] TM-013 Impersonate tenant admin with reason, TTL, revocation, audit trail.
-- [!] TM-014 Tenant region/shard migration workflow (or explicitly mark unsupported with safe messaging).
+- [x] TM-013 Impersonate tenant admin with reason, TTL, explicit exit/restore flow, and audit trail (entry/exit).
+- [x] TM-014 Tenant region/shard migration explicitly marked unsupported with safe messaging in platform UI.
 
 ## 2) Plans, Modules, and Feature Flags
 - [ ] PL-001 Plan model and API (Basic/Pro/Enterprise/custom).
@@ -157,8 +159,8 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [ ] AN-007 High-value tenant flagging and routing.
 
 ## Practical Extras (Required)
-- [ ] EX-001 Impersonation guardrails: reason required, TTL, explicit exit, fully audited.
-- [ ] EX-002 Mandatory audit logging for every super-admin action endpoint.
+- [x] EX-001 Impersonation guardrails: reason required, TTL, explicit exit, fully audited.
+- [~] EX-002 Mandatory audit logging for every super-admin action endpoint.
 - [ ] EX-003 Two-person approval for destructive actions (delete tenant, restore, key rotation).
 - [ ] EX-004 Internal role-based UI segmentation (finance/support/dev/ops scoped views).
 
