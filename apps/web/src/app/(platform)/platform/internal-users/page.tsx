@@ -78,6 +78,22 @@ type PlatformBreakGlassEvent = {
   created_at?: string;
 };
 
+type PlatformAuditLogRow = {
+  id: number;
+  tenant_id: string;
+  tenant_name: string;
+  user_id: string;
+  user_email: string;
+  user_name: string;
+  action: string;
+  resource_type: string;
+  resource_id: string;
+  reason_code: string;
+  request_id: string;
+  ip_address: string;
+  created_at: string;
+};
+
 const ROLE_OPTIONS = [
   "super_admin",
   "support_l1",
@@ -95,6 +111,7 @@ export default function PlatformInternalUsersPage() {
   const [securityPolicy, setSecurityPolicy] = useState<PlatformSecurityPolicy | null>(null);
   const [breakGlassPolicy, setBreakGlassPolicy] = useState<PlatformBreakGlassPolicy | null>(null);
   const [breakGlassEvents, setBreakGlassEvents] = useState<PlatformBreakGlassEvent[]>([]);
+  const [auditRows, setAuditRows] = useState<PlatformAuditLogRow[]>([]);
   const [enforceInternalMFA, setEnforceInternalMFA] = useState(false);
   const [breakGlassDraft, setBreakGlassDraft] = useState({
     enabled: false,
@@ -118,6 +135,13 @@ export default function PlatformInternalUsersPage() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
+  const [auditFilters, setAuditFilters] = useState({
+    tenant_id: "",
+    user_id: "",
+    action: "",
+    created_from: "",
+    created_to: "",
+  });
 
   const [newUser, setNewUser] = useState({
     email: "",
@@ -141,13 +165,22 @@ export default function PlatformInternalUsersPage() {
       if (roleFilter.trim()) query.set("role_code", roleFilter.trim());
       if (activeFilter === "true" || activeFilter === "false") query.set("is_active", activeFilter);
 
-      const [usersRes, rbacRes, allowlistRes, mfaPolicyRes, breakGlassPolicyRes, breakGlassEventsRes] = await Promise.all([
+      const auditQuery = new URLSearchParams();
+      auditQuery.set("limit", "150");
+      if (auditFilters.tenant_id.trim()) auditQuery.set("tenant_id", auditFilters.tenant_id.trim());
+      if (auditFilters.user_id.trim()) auditQuery.set("user_id", auditFilters.user_id.trim());
+      if (auditFilters.action.trim()) auditQuery.set("action", auditFilters.action.trim());
+      if (auditFilters.created_from.trim()) auditQuery.set("created_from", auditFilters.created_from.trim());
+      if (auditFilters.created_to.trim()) auditQuery.set("created_to", auditFilters.created_to.trim());
+
+      const [usersRes, rbacRes, allowlistRes, mfaPolicyRes, breakGlassPolicyRes, breakGlassEventsRes, auditRes] = await Promise.all([
         apiClient(`/admin/platform/internal-users?${query.toString()}`),
         apiClient("/admin/platform/rbac/templates"),
         apiClient("/admin/platform/access/ip-allowlist"),
         apiClient("/admin/platform/access/policies"),
         apiClient("/admin/platform/access/break-glass/policy"),
         apiClient("/admin/platform/access/break-glass/events?limit=100"),
+        apiClient(`/admin/platform/security/audit-logs?${auditQuery.toString()}`),
       ]);
       if (!usersRes.ok) throw new Error(await usersRes.text());
 
@@ -205,6 +238,13 @@ export default function PlatformInternalUsersPage() {
         setBreakGlassEvents(Array.isArray(eventsData) ? eventsData : []);
       } else {
         setBreakGlassEvents([]);
+      }
+
+      if (auditRes.ok) {
+        const auditData = await auditRes.json();
+        setAuditRows(Array.isArray(auditData) ? auditData : []);
+      } else {
+        setAuditRows([]);
       }
     } catch (e: any) {
       setError(e?.message || "Failed to load internal users.");
@@ -971,6 +1011,107 @@ export default function PlatformInternalUsersPage() {
                     <td className="px-3 py-2 text-muted-foreground">
                       {event.expires_at ? new Date(event.expires_at).toLocaleString() : "-"}
                     </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Audit Log Explorer</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Filter platform audit logs by tenant, user, action, and date window.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={load}
+            disabled={busy}
+            className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+          >
+            Apply Audit Filters
+          </button>
+        </div>
+
+        <div className="mt-3 grid gap-2 md:grid-cols-5">
+          <input
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+            placeholder="Tenant ID (UUID)"
+            value={auditFilters.tenant_id}
+            onChange={(e) => setAuditFilters((prev) => ({ ...prev, tenant_id: e.target.value }))}
+          />
+          <input
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+            placeholder="User ID (UUID)"
+            value={auditFilters.user_id}
+            onChange={(e) => setAuditFilters((prev) => ({ ...prev, user_id: e.target.value }))}
+          />
+          <input
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+            placeholder="Action contains..."
+            value={auditFilters.action}
+            onChange={(e) => setAuditFilters((prev) => ({ ...prev, action: e.target.value }))}
+          />
+          <input
+            type="date"
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            value={auditFilters.created_from}
+            onChange={(e) => setAuditFilters((prev) => ({ ...prev, created_from: e.target.value }))}
+          />
+          <input
+            type="date"
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            value={auditFilters.created_to}
+            onChange={(e) => setAuditFilters((prev) => ({ ...prev, created_to: e.target.value }))}
+          />
+        </div>
+
+        <div className="mt-3 overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead className="bg-muted text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">When</th>
+                <th className="px-3 py-2">Action</th>
+                <th className="px-3 py-2">Tenant</th>
+                <th className="px-3 py-2">User</th>
+                <th className="px-3 py-2">Resource</th>
+                <th className="px-3 py-2">Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {auditRows.length === 0 ? (
+                <tr>
+                  <td className="px-3 py-4 text-muted-foreground" colSpan={6}>
+                    No audit records found for current filters.
+                  </td>
+                </tr>
+              ) : (
+                auditRows.map((row) => (
+                  <tr key={row.id} className="border-t border-border">
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {row.created_at ? new Date(row.created_at).toLocaleString() : "-"}
+                    </td>
+                    <td className="px-3 py-2 text-foreground">
+                      <p className="font-medium">{row.action || "-"}</p>
+                      <p className="text-xs text-muted-foreground">{row.request_id || "-"}</p>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      <p>{row.tenant_name || "-"}</p>
+                      <p className="text-xs">{row.tenant_id || "-"}</p>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      <p>{row.user_name || "-"}</p>
+                      <p className="text-xs">{row.user_email || row.user_id || "-"}</p>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      <p>{row.resource_type || "-"}</p>
+                      <p className="text-xs">{row.resource_id || "-"}</p>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">{row.reason_code || "-"}</td>
                   </tr>
                 ))
               )}

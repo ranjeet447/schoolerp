@@ -30,6 +30,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - `[x]` Internal session/token controls added (session listing, revoke single/all, token rotation) with session-backed JWT validation.
 - `[x]` Internal MFA policy enforcement added (platform security policy API/UI + login-time MFA requirement for internal roles).
 - `[x]` Break-glass emergency controls added (policy management, monitored activation with reason/ticket/duration, cooldown enforcement, and event history UI/API with audit logs).
+- `[x]` Platform audit log explorer added (backend filter API + responsive UI filters for tenant/user/action/date and audit table view).
 - `[x]` Tenant plan change flow added (upgrade/downgrade with proration policy and effective time).
 - `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, branding/domain mapping, branch create/update/activate/deactivate, admin reset/logout, impersonation).
 - `[x]` Signup request moderation UI and API flow added (approve/reject with notes).
@@ -102,7 +103,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [x] AC-009 Break-glass admin policy with monitored use and audit.
 
 ## 5) Security, Compliance, and Governance
-- [ ] SG-001 Platform audit log explorer (tenant/user/action/date filters).
+- [x] SG-001 Platform audit log explorer (tenant/user/action/date filters).
 - [ ] SG-002 Audit export (CSV/JSON) with masking policy.
 - [ ] SG-003 Security events stream (anomalies, suspicious access, rate-limit events).
 - [ ] SG-004 Data retention and deletion policy settings.
