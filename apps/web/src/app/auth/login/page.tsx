@@ -45,6 +45,8 @@ export default function LoginPage() {
         toast.success('Sign in successful! Redirecting...');
         // Redirection is handled by the root page or we can force it here
         router.push('/');
+      } else if (result.redirect) {
+        router.push(result.redirect);
       } else {
         toast.error(result.error || 'Invalid credentials. Please try again.');
       }

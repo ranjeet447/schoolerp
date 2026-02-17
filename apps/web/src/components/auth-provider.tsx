@@ -14,7 +14,7 @@ interface AuthContextType {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; redirect?: string; error?: string }>;
   logout: () => void;
   refreshUser: () => void;
 }
@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (result.success) {
       refreshUser();
     }
-    return { success: result.success, error: result.error };
+    return { success: result.success, redirect: result.redirect, error: result.error };
   };
 
   const logout = () => {

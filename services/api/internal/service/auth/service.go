@@ -130,6 +130,86 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 		}
 	}
 
+	missingLegal, err := s.missingLegalAcceptances(ctx, user.ID)
+	if err != nil {
+		logger.Warn().Err(err).Str("user_id", user.ID.String()).Msg("auth login warning: unable to evaluate legal acceptance")
+	} else if len(missingLegal) > 0 {
+		preauth, err := s.mintLegalPreauthToken(user.ID.String())
+		if err != nil {
+			logger.Error().Err(err).Str("user_id", user.ID.String()).Msg("auth login failed: unable to mint legal preauth token")
+			return nil, err
+		}
+		logger.Info().Str("user_id", user.ID.String()).Msg("auth login blocked: legal acceptance required")
+		return nil, &LegalAcceptanceRequiredError{
+			Requirements: missingLegal,
+			PreauthToken: preauth,
+		}
+	}
+
+	return s.mintLoginResult(ctx, user, identity, roleAssignment)
+}
+
+// IssueTokenForUser generates a full auth token for an already-authenticated user (e.g. after pre-auth flows).
+func (s *Service) IssueTokenForUser(ctx context.Context, userID string) (*LoginResult, error) {
+	var uid pgtype.UUID
+	if err := uid.Scan(strings.TrimSpace(userID)); err != nil || !uid.Valid {
+		return nil, ErrUserNotFound
+	}
+
+	user, err := s.queries.GetUserByID(ctx, uid)
+	if err != nil {
+		return nil, ErrUserNotFound
+	}
+	if !user.IsActive.Bool {
+		return nil, ErrUserInactive
+	}
+
+	identity, err := s.queries.GetUserIdentity(ctx, db.GetUserIdentityParams{
+		UserID:   user.ID,
+		Provider: "password",
+	})
+	if err != nil {
+		return nil, ErrInvalidCredentials
+	}
+
+	if err := s.enforcePasswordExpiry(ctx, user.ID.String(), identity.ID); err != nil {
+		return nil, err
+	}
+
+	roleAssignment, err := s.queries.GetUserRoleAssignmentWithPermissions(ctx, user.ID)
+	if err != nil {
+		roleAssignment = db.GetUserRoleAssignmentWithPermissionsRow{
+			RoleCode:    "user",
+			Permissions: []string{},
+		}
+	}
+
+	blocked, err := s.queries.IsPlatformSecurityBlocked(ctx, user.ID, roleAssignment.TenantID)
+	if err == nil && blocked {
+		return nil, ErrAccessBlocked
+	}
+
+	if isInternalPlatformRole(roleAssignment.RoleCode) {
+		enforceMFA, err := s.isInternalMFAEnforced(ctx)
+		if err == nil && enforceMFA {
+			secret, err := s.queries.GetMFASecret(ctx, user.ID)
+			if err != nil || !secret.Enabled.Bool {
+				return nil, ErrMFARequired
+			}
+		}
+	}
+
+	missingLegal, err := s.missingLegalAcceptances(ctx, user.ID)
+	if err == nil && len(missingLegal) > 0 {
+		return nil, &LegalAcceptanceRequiredError{Requirements: missingLegal}
+	}
+
+	return s.mintLoginResult(ctx, user, identity, roleAssignment)
+}
+
+func (s *Service) mintLoginResult(ctx context.Context, user db.AuthUser, identity db.AuthIdentity, roleAssignment db.GetUserRoleAssignmentWithPermissionsRow) (*LoginResult, error) {
+	logger := log.Ctx(ctx)
+
 	// 4. Generate JWT token
 	expiresAt := time.Now().Add(24 * time.Hour) // 24 hour token validity
 	tokenJTI := uuid.Must(uuid.NewV7()).String()
@@ -311,6 +391,189 @@ func (s *Service) enforcePasswordExpiry(ctx context.Context, userID string, iden
 		log.Ctx(ctx).Warn().Str("user_id", userID).Msg("auth login blocked: password expired")
 		return ErrPasswordExpired
 	}
+	return nil
+}
+
+type LegalDocRequirement struct {
+	DocKey      string     `json:"doc_key"`
+	Title       string     `json:"title"`
+	Version     string     `json:"version"`
+	ContentURL  string     `json:"content_url"`
+	PublishedAt *time.Time `json:"published_at,omitempty"`
+}
+
+type LegalAcceptanceRequiredError struct {
+	Requirements []LegalDocRequirement `json:"requirements"`
+	PreauthToken string                `json:"preauth_token,omitempty"`
+}
+
+func (e *LegalAcceptanceRequiredError) Error() string {
+	return "legal acceptance required"
+}
+
+func (s *Service) mintLegalPreauthToken(userID string) (string, error) {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return "", errors.New("invalid user id")
+	}
+
+	jwtSecrets, ok := security.ResolveJWTSecrets()
+	if !ok || len(jwtSecrets) == 0 {
+		return "", errors.New("server authentication is not configured")
+	}
+
+	now := time.Now().UTC()
+	claims := jwt.MapClaims{
+		"sub":     userID,
+		"purpose": "legal_accept",
+		"iat":     now.Unix(),
+		"exp":     now.Add(10 * time.Minute).Unix(),
+		"jti":     uuid.Must(uuid.NewV7()).String(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(jwtSecrets[0]))
+}
+
+func (s *Service) currentLegalRequirements(ctx context.Context) ([]LegalDocRequirement, error) {
+	latest, err := s.queries.ListLatestActiveLegalDocVersions(ctx)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "42P01" {
+			// Migration not applied yet. Fail open.
+			return nil, nil
+		}
+		return nil, err
+	}
+	if len(latest) == 0 {
+		return nil, nil
+	}
+
+	out := make([]LegalDocRequirement, 0, len(latest))
+	for _, row := range latest {
+		if !row.RequiresAcceptance {
+			continue
+		}
+		req := LegalDocRequirement{
+			DocKey:     strings.ToLower(strings.TrimSpace(row.DocKey)),
+			Title:      strings.TrimSpace(row.Title),
+			Version:    strings.TrimSpace(row.Version),
+			ContentURL: strings.TrimSpace(row.ContentURL),
+		}
+		if row.PublishedAt.Valid {
+			v := row.PublishedAt.Time
+			req.PublishedAt = &v
+		}
+		out = append(out, req)
+	}
+	return out, nil
+}
+
+func (s *Service) missingLegalAcceptances(ctx context.Context, userID pgtype.UUID) ([]LegalDocRequirement, error) {
+	requirements, err := s.currentLegalRequirements(ctx)
+	if err != nil || len(requirements) == 0 {
+		return nil, err
+	}
+
+	acceptances, err := s.queries.ListUserLegalAcceptances(ctx, userID)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "42P01" {
+			// Migration not applied yet. Fail open.
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	accepted := make(map[string]map[string]struct{})
+	for _, a := range acceptances {
+		key := strings.ToLower(strings.TrimSpace(a.DocKey))
+		ver := strings.TrimSpace(a.Version)
+		if key == "" || ver == "" {
+			continue
+		}
+		m, ok := accepted[key]
+		if !ok {
+			m = make(map[string]struct{})
+			accepted[key] = m
+		}
+		m[ver] = struct{}{}
+	}
+
+	missing := make([]LegalDocRequirement, 0)
+	for _, req := range requirements {
+		m, ok := accepted[req.DocKey]
+		if !ok {
+			missing = append(missing, req)
+			continue
+		}
+		if _, ok := m[req.Version]; !ok {
+			missing = append(missing, req)
+		}
+	}
+	return missing, nil
+}
+
+type LegalAcceptanceInput struct {
+	DocKey  string `json:"doc_key"`
+	Version string `json:"version"`
+}
+
+func (s *Service) ListCurrentLegalDocs(ctx context.Context) ([]LegalDocRequirement, error) {
+	return s.currentLegalRequirements(ctx)
+}
+
+func (s *Service) AcceptLegalDocs(ctx context.Context, userID string, accept []LegalAcceptanceInput, ipAddress string, userAgent string) error {
+	var uid pgtype.UUID
+	if err := uid.Scan(strings.TrimSpace(userID)); err != nil || !uid.Valid {
+		return ErrUserNotFound
+	}
+
+	requirements, err := s.currentLegalRequirements(ctx)
+	if err != nil {
+		return err
+	}
+	if len(requirements) == 0 {
+		return nil
+	}
+
+	requested := make(map[string]string)
+	for _, item := range accept {
+		key := strings.ToLower(strings.TrimSpace(item.DocKey))
+		ver := strings.TrimSpace(item.Version)
+		if key == "" || ver == "" {
+			continue
+		}
+		requested[key] = ver
+	}
+
+	for _, req := range requirements {
+		ver, ok := requested[req.DocKey]
+		if !ok || strings.TrimSpace(ver) != req.Version {
+			return errors.New("missing required legal acceptance")
+		}
+	}
+
+	for _, req := range requirements {
+		if err := s.queries.CreateUserLegalAcceptance(ctx, db.CreateUserLegalAcceptanceParams{
+			UserID:    uid,
+			DocKey:    req.DocKey,
+			Version:   req.Version,
+			IPAddress: strings.TrimSpace(ipAddress),
+			UserAgent: strings.TrimSpace(userAgent),
+			Metadata: map[string]interface{}{
+				"source": "in_app",
+			},
+		}); err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "42P01" {
+				// Migration not applied; enforcement is disabled in that environment.
+				return nil
+			}
+			return err
+		}
+	}
+
 	return nil
 }
 

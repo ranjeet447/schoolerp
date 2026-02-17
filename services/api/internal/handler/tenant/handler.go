@@ -100,6 +100,8 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Get("/billing/overview", h.GetPlatformBillingOverview)
 	r.Get("/billing/config", h.GetPlatformBillingConfig)
 	r.Post("/billing/config", h.UpdatePlatformBillingConfig)
+	r.Get("/legal/docs", h.ListPlatformLegalDocs)
+	r.Post("/legal/docs", h.CreatePlatformLegalDocVersion)
 	r.Get("/invoices", h.ListPlatformInvoices)
 	r.Post("/invoices", h.CreatePlatformInvoice)
 	r.Post("/invoices/{invoice_id}/resend", h.ResendPlatformInvoice)
@@ -1947,6 +1949,73 @@ func (h *Handler) UpdatePlatformPasswordPolicy(w http.ResponseWriter, r *http.Re
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(updated)
+}
+
+func (h *Handler) ListPlatformLegalDocs(w http.ResponseWriter, r *http.Request) {
+	qp := r.URL.Query()
+
+	limit := int32(200)
+	if raw := strings.TrimSpace(qp.Get("limit")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = int32(parsed)
+		}
+	}
+	offset := int32(0)
+	if raw := strings.TrimSpace(qp.Get("offset")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			offset = int32(parsed)
+		}
+	}
+
+	rows, err := h.service.ListPlatformLegalDocVersions(r.Context(), tenant.PlatformLegalDocFilters{
+		DocKey:          strings.TrimSpace(firstNonEmpty(qp.Get("doc_key"), qp.Get("key"))),
+		IncludeInactive: qp.Get("include_inactive") == "true",
+		Limit:           limit,
+		Offset:          offset,
+	})
+	if err != nil {
+		http.Error(w, "Failed to load legal docs", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) CreatePlatformLegalDocVersion(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+
+	var req tenant.CreatePlatformLegalDocVersionParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.CreatedBy = actorID
+
+	created, err := h.service.CreatePlatformLegalDocVersion(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidLegalDocPayload):
+			http.Error(w, "Invalid legal doc payload", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrLegalDocVersionExists):
+			http.Error(w, "Legal doc version already exists", http.StatusConflict)
+		default:
+			http.Error(w, "Failed to create legal doc version", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.legal.doc_version.create",
+		ResourceType: "legal_doc_version",
+		ResourceID:   created.ID,
+		Reason:       strings.TrimSpace(created.DocKey),
+		After:        created,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(created)
 }
 
 func (h *Handler) GetPlatformSecretsStatus(w http.ResponseWriter, r *http.Request) {

@@ -39,6 +39,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - `[x]` Platform secrets/key rotation workflow added (rotation requests with 2-person approval + execute; JWT + data-encryption multi-key env support; secrets UI page).
 - `[x]` Platform password policy management added (length/reuse/expiry config API/UI; enforced on onboarding and admin resets; expiry evaluated at login).
 - `[x]` Risk blocks added (block/release tenant or user with TTL, session revoke, and middleware enforcement).
+- `[x]` Legal docs versioning + forced re-acceptance added (publish Terms/Privacy/DPA versions and gate login until accepted).
 - `[x]` Tenant plan change flow added (upgrade/downgrade with proration policy and effective time).
 - `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, branding/domain mapping, branch create/update/activate/deactivate, admin reset/logout, impersonation).
 - `[x]` Signup request moderation UI and API flow added (approve/reject with notes).
@@ -120,7 +121,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [x] SG-007 Platform secrets/key rotation workflow.
 - [x] SG-008 Password policy configuration (length/reuse/expiry).
 - [x] SG-009 Risk-based tenant/user block actions.
-- [ ] SG-010 Legal docs versions and forced re-acceptance controls.
+- [x] SG-010 Legal docs versions and forced re-acceptance controls.
 
 ## 6) Support Desk & Operations Console
 - [ ] OP-001 Ticket model/API (create/assign/tag/close/reopen).

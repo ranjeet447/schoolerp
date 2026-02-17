@@ -30,12 +30,21 @@ type UserRoleAssignment struct {
 	TenantID pgtype.UUID
 }
 
-
 // GetUserByEmail retrieves a user by their email address
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (AuthUser, error) {
 	const query = `SELECT id, email, full_name, is_active FROM users WHERE email = $1`
-	
+
 	row := q.db.QueryRow(ctx, query, email)
+	var user AuthUser
+	err := row.Scan(&user.ID, &user.Email, &user.FullName, &user.IsActive)
+	return user, err
+}
+
+// GetUserByID retrieves a user by their id.
+func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (AuthUser, error) {
+	const query = `SELECT id, email, full_name, is_active FROM users WHERE id = $1`
+
+	row := q.db.QueryRow(ctx, query, id)
 	var user AuthUser
 	err := row.Scan(&user.ID, &user.Email, &user.FullName, &user.IsActive)
 	return user, err
@@ -52,14 +61,13 @@ func (q *Queries) GetUserIdentity(ctx context.Context, arg GetUserIdentityParams
 	const query = `SELECT id, user_id, provider, identifier, credential 
 	               FROM user_identities 
 	               WHERE user_id = $1 AND provider = $2`
-	
+
 	row := q.db.QueryRow(ctx, query, arg.UserID, arg.Provider)
 	var identity AuthIdentity
-	err := row.Scan(&identity.ID, &identity.UserID, &identity.Provider, 
+	err := row.Scan(&identity.ID, &identity.UserID, &identity.Provider,
 		&identity.Identifier, &identity.Credential)
 	return identity, err
 }
-
 
 // GetUserRoleAssignmentWithPermissionsRow is the return type for GetUserRoleAssignmentWithPermissions
 type GetUserRoleAssignmentWithPermissionsRow struct {
@@ -81,7 +89,7 @@ func (q *Queries) GetUserRoleAssignmentWithPermissions(ctx context.Context, user
 		GROUP BY r.code, ra.tenant_id
 		LIMIT 1
 	`
-	
+
 	row := q.db.QueryRow(ctx, query, userID)
 	var result GetUserRoleAssignmentWithPermissionsRow
 	err := row.Scan(&result.RoleCode, &result.TenantID, &result.Permissions)
@@ -96,6 +104,7 @@ type UpdateUserLastLoginParams struct {
 	ID       pgtype.UUID
 	Provider string
 }
+
 // ListUsersByTenantRow is the return type for ListUsersByTenant
 type ListUsersByTenantRow struct {
 	ID       pgtype.UUID

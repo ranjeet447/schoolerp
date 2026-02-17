@@ -13,8 +13,10 @@ interface LoginResult {
 
 interface LoginResponse {
   success: boolean;
+  code?: string;
   message?: string;
   data?: LoginResult;
+  meta?: any;
 }
 
 class AuthServiceClass {
@@ -50,6 +52,19 @@ class AuthServiceClass {
       const data: LoginResponse = await response.json();
 
       if (!response.ok || !data.success) {
+        if (data.code === 'legal_acceptance_required' && data.meta?.preauth_token) {
+          try {
+            localStorage.setItem('legal_preauth_token', String(data.meta.preauth_token));
+            localStorage.setItem('legal_requirements', JSON.stringify(data.meta.requirements || []));
+          } catch (e) {
+            // ignore storage failures
+          }
+          return {
+            success: false,
+            redirect: '/auth/legal-accept',
+            error: data.message || 'Legal acceptance required',
+          };
+        }
         return {
           success: false,
           error: data.message || 'Invalid credentials'
@@ -69,6 +84,8 @@ class AuthServiceClass {
         } else {
           localStorage.removeItem('user_permissions');
         }
+        localStorage.removeItem('legal_preauth_token');
+        localStorage.removeItem('legal_requirements');
 
         return {
           success: true,

@@ -8,7 +8,9 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/rs/zerolog/log"
+	"github.com/schoolerp/api/internal/foundation/security"
 	"github.com/schoolerp/api/internal/middleware"
 	"github.com/schoolerp/api/internal/service/auth"
 )
@@ -26,6 +28,8 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/auth/mfa/setup", h.SetupMFA)
 	r.Post("/auth/mfa/enable", h.EnableMFA)
 	r.Post("/auth/mfa/validate", h.ValidateMFA)
+	r.Get("/auth/legal/docs", h.ListLegalDocs)
+	r.Post("/auth/legal/accept", h.AcceptLegalDocs)
 }
 
 // ... Login ...
@@ -126,8 +130,10 @@ type loginRequest struct {
 
 type loginResponse struct {
 	Success bool              `json:"success"`
+	Code    string            `json:"code,omitempty"`
 	Message string            `json:"message,omitempty"`
 	Data    *auth.LoginResult `json:"data,omitempty"`
+	Meta    interface{}       `json:"meta,omitempty"`
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
@@ -196,6 +202,20 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		statusCode := http.StatusUnauthorized
 		eventType := "auth.login_failed"
 		severity := "warning"
+		code := ""
+		var meta interface{}
+
+		var legalErr *auth.LegalAcceptanceRequiredError
+		if errors.As(err, &legalErr) {
+			statusCode = http.StatusForbidden
+			eventType = "auth.legal_acceptance_required"
+			severity = "info"
+			code = "legal_acceptance_required"
+			meta = map[string]interface{}{
+				"requirements":  legalErr.Requirements,
+				"preauth_token": legalErr.PreauthToken,
+			}
+		}
 		if errors.Is(err, auth.ErrMFARequired) {
 			statusCode = http.StatusForbidden
 			eventType = "auth.mfa_required"
@@ -235,7 +255,9 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(statusCode)
 		json.NewEncoder(w).Encode(loginResponse{
 			Success: false,
+			Code:    code,
 			Message: err.Error(),
+			Meta:    meta,
 		})
 		return
 	}
@@ -252,6 +274,125 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		Success: true,
 		Data:    result,
 	})
+}
+
+func (h *Handler) ListLegalDocs(w http.ResponseWriter, r *http.Request) {
+	docs, err := h.svc.ListCurrentLegalDocs(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to load legal docs", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    docs,
+	})
+}
+
+type acceptLegalDocsRequest struct {
+	Accept []auth.LegalAcceptanceInput `json:"accept"`
+}
+
+func (h *Handler) AcceptLegalDocs(w http.ResponseWriter, r *http.Request) {
+	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
+	if !strings.HasPrefix(authHeader, "Bearer ") {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	tokenString := strings.TrimSpace(authHeader[7:])
+	userID, err := parseLegalPreauthToken(tokenString)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req acceptLegalDocsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.svc.AcceptLegalDocs(r.Context(), userID, req.Accept, clientIPForAuth(r), r.UserAgent()); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	result, err := h.svc.IssueTokenForUser(r.Context(), userID)
+	if err != nil {
+		statusCode := http.StatusUnauthorized
+		if errors.Is(err, auth.ErrSessionStoreUnavailable) {
+			statusCode = http.StatusServiceUnavailable
+		} else if errors.Is(err, auth.ErrAccessBlocked) || errors.Is(err, auth.ErrPasswordExpired) || errors.Is(err, auth.ErrMFARequired) {
+			statusCode = http.StatusForbidden
+		}
+
+		var legalErr *auth.LegalAcceptanceRequiredError
+		if errors.As(err, &legalErr) {
+			statusCode = http.StatusForbidden
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(statusCode)
+			_ = json.NewEncoder(w).Encode(loginResponse{
+				Success: false,
+				Code:    "legal_acceptance_required",
+				Message: err.Error(),
+				Meta: map[string]interface{}{
+					"requirements": legalErr.Requirements,
+				},
+			})
+			return
+		}
+
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(loginResponse{
+		Success: true,
+		Data:    result,
+	})
+}
+
+func parseLegalPreauthToken(tokenString string) (string, error) {
+	secrets, configured := security.ResolveJWTSecrets()
+	if !configured || len(secrets) == 0 {
+		return "", errors.New("server authentication is not configured")
+	}
+
+	var token *jwt.Token
+	var err error
+	for _, secret := range secrets {
+		token, err = jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if token.Method != jwt.SigningMethodHS256 {
+				return nil, errors.New("unexpected signing method")
+			}
+			return []byte(secret), nil
+		})
+		if err == nil && token != nil && token.Valid {
+			break
+		}
+	}
+	if err != nil || token == nil || !token.Valid {
+		return "", errors.New("invalid token")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", errors.New("invalid token")
+	}
+
+	purpose, _ := claims["purpose"].(string)
+	if strings.TrimSpace(purpose) != "legal_accept" {
+		return "", errors.New("invalid token")
+	}
+
+	sub, _ := claims["sub"].(string)
+	sub = strings.TrimSpace(sub)
+	if sub == "" {
+		return "", errors.New("invalid token")
+	}
+	return sub, nil
 }
 
 func clientIPForAuth(r *http.Request) string {

@@ -8,6 +8,7 @@ import {
   Ban,
   Building2,
   CreditCard,
+  FileText,
   FileCheck2,
   KeyRound,
   Layers3,
@@ -32,6 +33,7 @@ const NAV_ITEMS = [
   { href: "/platform/security-events", label: "Security Events", icon: Shield },
   { href: "/platform/blocks", label: "Risk Blocks", icon: Ban },
   { href: "/platform/password-policy", label: "Password Policy", icon: LockKeyhole },
+  { href: "/platform/legal", label: "Legal & Policies", icon: FileText },
   { href: "/platform/secrets", label: "Secrets & Keys", icon: KeyRound },
 ];
 
