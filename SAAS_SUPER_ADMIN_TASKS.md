@@ -12,6 +12,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 ## Current Progress Snapshot
 - `[x]` Super admin workspace routing enabled (`super_admin -> /platform/dashboard`).
 - `[x]` Platform core pages added: dashboard, tenant directory, tenant detail, platform payments.
+- `[x]` Platform plan management added: plans API + plans UI (create/edit/clone/status).
 - `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, branding/domain mapping, branch create/update/activate/deactivate, admin reset/logout, impersonation).
 - `[x]` Signup request moderation UI and API flow added (approve/reject with notes).
 - `[~]` Platform audit coverage expanded for super-admin actions (tenant-management mutation endpoints + signup review + impersonation entry/exit).
@@ -49,14 +50,14 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [x] TM-014 Tenant region/shard migration explicitly marked unsupported with safe messaging in platform UI.
 
 ## 2) Plans, Modules, and Feature Flags
-- [ ] PL-001 Plan model and API (Basic/Pro/Enterprise/custom).
-- [ ] PL-002 Plan builder UI (create/edit/clone plans).
+- [x] PL-001 Plan model and API (Basic/Pro/Enterprise/custom).
+- [x] PL-002 Plan builder UI (create/edit/clone plans).
 - [ ] PL-003 Module toggles by plan and by tenant override.
 - [ ] PL-004 Feature flags by tenant/cohort with rollout percentage support.
 - [ ] PL-005 Usage limits model + enforcement hooks for students/staff/storage/modules.
 - [ ] PL-006 Temporary and permanent tenant limit overrides.
 - [ ] PL-007 Critical/compliance modules lock rules (cannot disable when policy-locked).
-- [ ] PL-008 Audit every plan/module/flag mutation.
+- [~] PL-008 Audit every plan/module/flag mutation.
 
 ## 3) Subscription, Billing, and Payments
 - [ ] BI-001 Subscription overview API (MRR, ARR, churn, trials, renewals).

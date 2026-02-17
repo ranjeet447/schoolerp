@@ -7,6 +7,8 @@ import {
   BarChart3,
   Building2,
   CreditCard,
+  FileCheck2,
+  Layers3,
   LogOut,
   Menu,
   Shield,
@@ -14,10 +16,13 @@ import {
 } from "lucide-react";
 import { Button } from "@schoolerp/ui";
 import { useAuth } from "@/components/auth-provider";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const NAV_ITEMS = [
   { href: "/platform/dashboard", label: "Platform Dashboard", icon: BarChart3 },
   { href: "/platform/tenants", label: "Schools & Branches", icon: Building2 },
+  { href: "/platform/plans", label: "Plans & Flags", icon: Layers3 },
+  { href: "/platform/signup-requests", label: "Signup Requests", icon: FileCheck2 },
   { href: "/platform/payments", label: "Platform Payments", icon: CreditCard },
 ];
 
@@ -44,12 +49,12 @@ export default function PlatformLayoutClient({
   }, [isLoading, router, user?.role]);
 
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-100">
-      <aside className="hidden w-72 border-r border-slate-800 bg-slate-900 md:flex md:flex-col">
-        <div className="flex h-16 items-center border-b border-slate-800 px-6">
+    <div className="flex h-screen bg-background text-foreground">
+      <aside className="hidden w-72 border-r border-border bg-card md:flex md:flex-col">
+        <div className="flex h-16 items-center border-b border-border px-6">
           <Link
             href="/platform/dashboard"
-            className="flex items-center gap-3 font-bold text-cyan-400"
+            className="flex items-center gap-3 font-bold text-primary"
           >
             <Shield className="h-6 w-6" />
             <span>Platform Admin</span>
@@ -64,8 +69,8 @@ export default function PlatformLayoutClient({
                   href={item.href}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     pathname === item.href
-                      ? "bg-cyan-500/10 text-cyan-300"
-                      : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                      ? "bg-accent text-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
                   }`}
                 >
                   <item.icon className="h-4 w-4" />
@@ -76,20 +81,20 @@ export default function PlatformLayoutClient({
           </ul>
         </nav>
 
-        <div className="border-t border-slate-800 p-4">
+        <div className="border-t border-border p-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 overflow-hidden">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/20 text-xs font-bold text-cyan-300">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-xs font-bold text-primary">
                 {user?.name?.[0] || <User className="h-4 w-4" />}
               </div>
               <div className="overflow-hidden">
-                <p className="truncate text-sm font-medium text-white">{user?.name || "..."}</p>
-                <p className="truncate text-xs text-slate-400">SaaS Admin</p>
+                <p className="truncate text-sm font-medium text-foreground">{user?.name || "..."}</p>
+                <p className="truncate text-xs text-muted-foreground">SaaS Admin</p>
               </div>
             </div>
             <button
               onClick={() => logout()}
-              className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               title="Logout"
             >
               <LogOut className="h-4 w-4" />
@@ -99,11 +104,14 @@ export default function PlatformLayoutClient({
       </aside>
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-6">
-          <Button variant="ghost" size="icon" className="text-white md:hidden">
+        <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
+          <Button variant="ghost" size="icon" className="text-foreground md:hidden">
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="ml-auto text-sm font-medium text-slate-400">SchoolERP Platform</span>
+          <div className="ml-auto flex items-center gap-2">
+            <ThemeToggle className="text-muted-foreground hover:text-foreground" />
+            <span className="text-sm font-medium text-muted-foreground">SchoolERP Platform</span>
+          </div>
         </header>
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>

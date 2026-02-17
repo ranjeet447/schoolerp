@@ -23,6 +23,10 @@ func NewHandler(service *tenant.Service) *Handler {
 
 func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Get("/summary", h.GetPlatformSummary)
+	r.Get("/plans", h.ListPlatformPlans)
+	r.Post("/plans", h.CreatePlatformPlan)
+	r.Patch("/plans/{plan_id}", h.UpdatePlatformPlan)
+	r.Post("/plans/{plan_id}/clone", h.ClonePlatformPlan)
 	r.Get("/signup-requests", h.ListSignupRequests)
 	r.Post("/signup-requests/{signup_id}/review", h.ReviewSignupRequest)
 	r.Get("/tenants", h.ListPlatformTenants)
@@ -172,6 +176,142 @@ func (h *Handler) GetPlatformSummary(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(summary)
+}
+
+func (h *Handler) ListPlatformPlans(w http.ResponseWriter, r *http.Request) {
+	qp := r.URL.Query()
+	rows, err := h.service.ListPlatformPlans(r.Context(), tenant.PlatformPlanFilters{
+		IncludeInactive: qp.Get("include_inactive") == "true",
+		Search:          firstNonEmpty(qp.Get("q"), qp.Get("search")),
+	})
+	if err != nil {
+		http.Error(w, "Failed to load platform plans", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) CreatePlatformPlan(w http.ResponseWriter, r *http.Request) {
+	var req tenant.CreatePlatformPlanParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.CreatedBy = middleware.GetUserID(r.Context())
+
+	created, err := h.service.CreatePlatformPlan(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidPlanCode):
+			http.Error(w, "Invalid plan code", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidPlanPayload):
+			http.Error(w, "Invalid plan payload", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPlanCodeExists):
+			http.Error(w, "Plan code already exists", http.StatusConflict)
+		default:
+			http.Error(w, "Failed to create platform plan", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), req.CreatedBy, tenant.PlatformAuditEntry{
+		Action:       "platform.plan.create",
+		ResourceType: "platform_plan",
+		ResourceID:   created.ID,
+		Reason:       strings.TrimSpace(created.Code),
+		After:        created,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(created)
+}
+
+func (h *Handler) UpdatePlatformPlan(w http.ResponseWriter, r *http.Request) {
+	planID := chi.URLParam(r, "plan_id")
+	actorID := middleware.GetUserID(r.Context())
+
+	var req tenant.UpdatePlatformPlanParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	updated, err := h.service.UpdatePlatformPlan(r.Context(), planID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidPlanID):
+			http.Error(w, "Invalid plan id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidPlanCode):
+			http.Error(w, "Invalid plan code", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidPlanPayload):
+			http.Error(w, "Invalid plan payload", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPlanNotFound):
+			http.Error(w, "Plan not found", http.StatusNotFound)
+		case errors.Is(err, tenant.ErrPlanCodeExists):
+			http.Error(w, "Plan code already exists", http.StatusConflict)
+		default:
+			http.Error(w, "Failed to update platform plan", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.plan.update",
+		ResourceType: "platform_plan",
+		ResourceID:   updated.ID,
+		Reason:       strings.TrimSpace(updated.Code),
+		After:        updated,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
+}
+
+func (h *Handler) ClonePlatformPlan(w http.ResponseWriter, r *http.Request) {
+	planID := chi.URLParam(r, "plan_id")
+	actorID := middleware.GetUserID(r.Context())
+
+	var req tenant.ClonePlatformPlanParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.CreatedBy = actorID
+
+	created, err := h.service.ClonePlatformPlan(r.Context(), planID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidPlanID):
+			http.Error(w, "Invalid plan id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidPlanCode):
+			http.Error(w, "Invalid plan code", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrPlanNotFound):
+			http.Error(w, "Plan not found", http.StatusNotFound)
+		case errors.Is(err, tenant.ErrPlanCodeExists):
+			http.Error(w, "Plan code already exists", http.StatusConflict)
+		default:
+			http.Error(w, "Failed to clone platform plan", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.plan.clone",
+		ResourceType: "platform_plan",
+		ResourceID:   created.ID,
+		Reason:       strings.TrimSpace(created.Code),
+		After: map[string]any{
+			"source_plan_id": planID,
+			"cloned_plan":    created,
+		},
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(created)
 }
 
 func (h *Handler) ListPlatformTenants(w http.ResponseWriter, r *http.Request) {
