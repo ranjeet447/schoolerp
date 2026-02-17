@@ -36,6 +36,7 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Post("/tenants/{tenant_id}/lifecycle", h.UpdateTenantLifecycle)
 	r.Post("/tenants/{tenant_id}/defaults", h.UpdateTenantDefaults)
 	r.Post("/tenants/{tenant_id}/plan", h.AssignTenantPlan)
+	r.Post("/tenants/{tenant_id}/limit-overrides", h.UpsertTenantLimitOverride)
 	r.Post("/tenants/{tenant_id}/branding", h.UpdateTenantBranding)
 	r.Post("/tenants/{tenant_id}/domain", h.UpdateTenantDomainMapping)
 	r.Post("/tenants/{tenant_id}/reset-admin-password", h.ResetTenantAdminPassword)
@@ -726,6 +727,41 @@ func (h *Handler) AssignTenantPlan(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+}
+
+func (h *Handler) UpsertTenantLimitOverride(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	var req tenant.TenantLimitOverrideParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.UpdatedBy = middleware.GetUserID(r.Context())
+
+	result, err := h.service.UpsertTenantLimitOverride(r.Context(), tenantID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidLimitOverride):
+			http.Error(w, "Invalid limit override payload", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to update tenant limit override", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), req.UpdatedBy, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.tenant.limit_override.upsert",
+		ResourceType: "tenant",
+		ResourceID:   tenantID,
+		Reason:       strings.TrimSpace(result.LimitKey),
+		After:        result,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 func (h *Handler) UpdateTenantBranding(w http.ResponseWriter, r *http.Request) {

@@ -70,6 +70,9 @@ export default function PlatformTenantDetailPage() {
   const [planModulesText, setPlanModulesText] = useState("{}");
   const [planLimitsText, setPlanLimitsText] = useState("{}");
   const [planFlagsText, setPlanFlagsText] = useState("{}");
+  const [limitOverrideKey, setLimitOverrideKey] = useState("students");
+  const [limitOverrideValue, setLimitOverrideValue] = useState("");
+  const [limitOverrideExpiresAt, setLimitOverrideExpiresAt] = useState("");
   const [newAdminPassword, setNewAdminPassword] = useState("");
   const [impersonationReason, setImpersonationReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -227,6 +230,31 @@ export default function PlatformTenantDetailPage() {
       setBranchName("");
       setBranchCode("");
       setBranchAddress("");
+    });
+  };
+
+  const applyLimitOverride = async () => {
+    await action("Limit override", async () => {
+      const limitValue = Number(limitOverrideValue);
+      if (!Number.isFinite(limitValue) || limitValue < 0) {
+        throw new Error("Limit value must be a non-negative number.");
+      }
+
+      const payload: Record<string, unknown> = {
+        limit_key: limitOverrideKey,
+        limit_value: Math.floor(limitValue),
+      };
+      if (limitOverrideExpiresAt.trim()) {
+        payload.expires_at = new Date(limitOverrideExpiresAt).toISOString();
+      }
+
+      const res = await apiClient(`/admin/platform/tenants/${id}/limit-overrides`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setLimitOverrideValue("");
+      setLimitOverrideExpiresAt("");
     });
   };
 
@@ -442,6 +470,46 @@ export default function PlatformTenantDetailPage() {
             >
               Assign Plan & Overrides
             </button>
+
+            <div className="mt-2 rounded border border-border bg-background/40 p-3">
+              <h3 className="text-sm font-medium text-foreground">Tenant Limit Override</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Set permanent overrides by leaving expiry empty, or temporary overrides with an expiry date/time.
+              </p>
+              <div className="mt-2 grid gap-2 md:grid-cols-4">
+                <select
+                  className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+                  value={limitOverrideKey}
+                  onChange={(e) => setLimitOverrideKey(e.target.value)}
+                >
+                  <option value="students">students</option>
+                  <option value="staff">staff</option>
+                  <option value="storage_mb">storage_mb</option>
+                </select>
+                <input
+                  type="number"
+                  min={0}
+                  className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+                  placeholder="Limit value"
+                  value={limitOverrideValue}
+                  onChange={(e) => setLimitOverrideValue(e.target.value)}
+                />
+                <input
+                  type="datetime-local"
+                  className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+                  value={limitOverrideExpiresAt}
+                  onChange={(e) => setLimitOverrideExpiresAt(e.target.value)}
+                />
+                <button
+                  type="button"
+                  disabled={busy || !limitOverrideValue.trim()}
+                  onClick={applyLimitOverride}
+                  className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+                >
+                  Apply Override
+                </button>
+              </div>
+            </div>
           </form>
         </div>
 

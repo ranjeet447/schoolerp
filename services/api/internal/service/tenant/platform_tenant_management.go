@@ -24,6 +24,7 @@ var (
 	ErrInvalidReason          = errors.New("reason is required")
 	ErrInvalidSignupStatus    = errors.New("invalid signup review status")
 	ErrSignupRequestNotFound  = errors.New("signup request not found")
+	ErrInvalidLimitOverride   = errors.New("invalid tenant limit override")
 )
 
 type TenantDirectoryFilters struct {
@@ -73,6 +74,19 @@ type AssignPlanParams struct {
 	Modules   map[string]interface{} `json:"modules"`
 	Flags     map[string]interface{} `json:"feature_flags"`
 	UpdatedBy string                 `json:"-"`
+}
+
+type TenantLimitOverrideParams struct {
+	LimitKey   string `json:"limit_key"`
+	LimitValue int64  `json:"limit_value"`
+	ExpiresAt  string `json:"expires_at"`
+	UpdatedBy  string `json:"-"`
+}
+
+type TenantLimitOverrideResult struct {
+	LimitKey   string `json:"limit_key"`
+	LimitValue int64  `json:"limit_value"`
+	ExpiresAt  string `json:"expires_at,omitempty"`
 }
 
 type ImpersonationParams struct {
@@ -314,6 +328,75 @@ func (s *Service) AssignPlanToTenant(ctx context.Context, tenantID string, param
 	`
 	_, err = s.db.Exec(ctx, upsertSub, tid, planID, overridesJSON, updatedBy)
 	return err
+}
+
+func (s *Service) UpsertTenantLimitOverride(ctx context.Context, tenantID string, params TenantLimitOverrideParams) (TenantLimitOverrideResult, error) {
+	tid, err := parseTenantUUID(tenantID)
+	if err != nil {
+		return TenantLimitOverrideResult{}, err
+	}
+
+	limitKey := strings.TrimSpace(strings.ToLower(params.LimitKey))
+	if limitKey == "" {
+		return TenantLimitOverrideResult{}, ErrInvalidLimitOverride
+	}
+	if params.LimitValue < 0 {
+		return TenantLimitOverrideResult{}, ErrInvalidLimitOverride
+	}
+
+	expiresAt := strings.TrimSpace(params.ExpiresAt)
+	if expiresAt != "" {
+		if _, err := time.Parse(time.RFC3339, expiresAt); err != nil {
+			return TenantLimitOverrideResult{}, ErrInvalidLimitOverride
+		}
+	}
+
+	var updatedBy pgtype.UUID
+	_ = updatedBy.Scan(strings.TrimSpace(params.UpdatedBy))
+
+	const upsert = `
+		INSERT INTO tenant_subscriptions (tenant_id, status, overrides, updated_by)
+		VALUES (
+			$1,
+			'active',
+			jsonb_build_object(
+				'limits', jsonb_build_object($2::text, to_jsonb($3::bigint)),
+				'limit_overrides_meta',
+				CASE
+					WHEN $4::text = '' THEN jsonb_build_object($2::text, 'null'::jsonb)
+					ELSE jsonb_build_object($2::text, jsonb_build_object('expires_at', $4::text))
+				END
+			),
+			$5
+		)
+		ON CONFLICT (tenant_id)
+		DO UPDATE SET
+			overrides = jsonb_set(
+				jsonb_set(
+					COALESCE(tenant_subscriptions.overrides, '{}'::jsonb),
+					ARRAY['limits', $2::text],
+					to_jsonb($3::bigint),
+					TRUE
+				),
+				ARRAY['limit_overrides_meta', $2::text],
+				CASE
+					WHEN $4::text = '' THEN 'null'::jsonb
+					ELSE jsonb_build_object('expires_at', $4::text)
+				END,
+				TRUE
+			),
+			updated_by = EXCLUDED.updated_by,
+			updated_at = NOW()
+	`
+	if _, err := s.db.Exec(ctx, upsert, tid, limitKey, params.LimitValue, expiresAt, updatedBy); err != nil {
+		return TenantLimitOverrideResult{}, err
+	}
+
+	return TenantLimitOverrideResult{
+		LimitKey:   limitKey,
+		LimitValue: params.LimitValue,
+		ExpiresAt:  expiresAt,
+	}, nil
 }
 
 func (s *Service) UpdateTenantDefaults(ctx context.Context, tenantID string, params TenantDefaultsParams) error {

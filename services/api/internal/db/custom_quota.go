@@ -29,6 +29,10 @@ const getEffectiveTenantLimit = `
 SELECT COALESCE(
 	CASE
 		WHEN COALESCE(ts.overrides->'limits'->>$2, '') ~ '^[0-9]+$'
+		     AND (
+				COALESCE(ts.overrides->'limit_overrides_meta'->$2->>'expires_at', '') = ''
+				OR (ts.overrides->'limit_overrides_meta'->$2->>'expires_at')::timestamptz >= NOW()
+			 )
 		THEN (ts.overrides->'limits'->>$2)::BIGINT
 	END,
 	CASE
