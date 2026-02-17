@@ -102,6 +102,9 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Post("/billing/config", h.UpdatePlatformBillingConfig)
 	r.Get("/legal/docs", h.ListPlatformLegalDocs)
 	r.Post("/legal/docs", h.CreatePlatformLegalDocVersion)
+	r.Get("/support/tickets", h.ListPlatformSupportTickets)
+	r.Post("/support/tickets", h.CreatePlatformSupportTicket)
+	r.Patch("/support/tickets/{ticket_id}", h.UpdatePlatformSupportTicket)
 	r.Get("/invoices", h.ListPlatformInvoices)
 	r.Post("/invoices", h.CreatePlatformInvoice)
 	r.Post("/invoices/{invoice_id}/resend", h.ResendPlatformInvoice)
@@ -2016,6 +2019,123 @@ func (h *Handler) CreatePlatformLegalDocVersion(w http.ResponseWriter, r *http.R
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(created)
+}
+
+func (h *Handler) ListPlatformSupportTickets(w http.ResponseWriter, r *http.Request) {
+	qp := r.URL.Query()
+
+	limit := int32(100)
+	if raw := strings.TrimSpace(qp.Get("limit")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = int32(parsed)
+		}
+	}
+	offset := int32(0)
+	if raw := strings.TrimSpace(qp.Get("offset")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			offset = int32(parsed)
+		}
+	}
+
+	rows, err := h.service.ListPlatformSupportTickets(r.Context(), tenant.PlatformSupportTicketFilters{
+		Search:     strings.TrimSpace(firstNonEmpty(qp.Get("q"), qp.Get("search"))),
+		TenantID:   strings.TrimSpace(qp.Get("tenant_id")),
+		Status:     strings.TrimSpace(qp.Get("status")),
+		Priority:   strings.TrimSpace(qp.Get("priority")),
+		AssignedTo: strings.TrimSpace(qp.Get("assigned_to")),
+		Tag:        strings.TrimSpace(qp.Get("tag")),
+		Limit:      limit,
+		Offset:     offset,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "invalid tenant_id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidPlatformUserID):
+			http.Error(w, "invalid assigned_to", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to load support tickets", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) CreatePlatformSupportTicket(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+
+	var req tenant.CreatePlatformSupportTicketParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.CreatedBy = actorID
+
+	created, err := h.service.CreatePlatformSupportTicket(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidSupportTicketPayload):
+			http.Error(w, "Invalid ticket payload", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "invalid tenant_id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidPlatformUserID):
+			http.Error(w, "invalid assigned_to", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to create support ticket", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.support.ticket.create",
+		ResourceType: "support_ticket",
+		ResourceID:   created.ID,
+		Reason:       strings.TrimSpace(created.Priority),
+		After:        created,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(created)
+}
+
+func (h *Handler) UpdatePlatformSupportTicket(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	ticketID := chi.URLParam(r, "ticket_id")
+
+	var req tenant.UpdatePlatformSupportTicketParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	updated, err := h.service.UpdatePlatformSupportTicket(r.Context(), ticketID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidSupportTicketID):
+			http.Error(w, "invalid ticket id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidSupportTicketPayload):
+			http.Error(w, "Invalid ticket payload", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrSupportTicketNotFound):
+			http.Error(w, "ticket not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to update support ticket", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.support.ticket.update",
+		ResourceType: "support_ticket",
+		ResourceID:   updated.ID,
+		Reason:       strings.TrimSpace(updated.Status),
+		After:        updated,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
 }
 
 func (h *Handler) GetPlatformSecretsStatus(w http.ResponseWriter, r *http.Request) {
