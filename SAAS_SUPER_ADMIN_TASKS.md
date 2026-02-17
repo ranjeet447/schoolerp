@@ -23,6 +23,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - `[x]` Tenant trial lifecycle controls added (start/extend/convert to paid with audit logging).
 - `[x]` Billing configuration management added (gateway settings, tax rules, invoice template via platform settings API/UI).
 - `[x]` Invoice adjustments added (refunds, partial refunds, credit notes, and adjustment ledger with audit logging).
+- `[x]` Dunning and lockout controls added (retry/channel rules, grace window controls, and tenant access lock/unlock flows).
 - `[x]` Tenant plan change flow added (upgrade/downgrade with proration policy and effective time).
 - `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, branding/domain mapping, branch create/update/activate/deactivate, admin reset/logout, impersonation).
 - `[x]` Signup request moderation UI and API flow added (approve/reject with notes).
@@ -80,8 +81,8 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [x] BI-007 Trial start/extend/convert flows.
 - [x] BI-008 Upgrade/downgrade flow with proration policy.
 - [x] BI-009 Offline payment recording policy and endpoint.
-- [ ] BI-010 Dunning rules (retry cadence + notification channels).
-- [ ] BI-011 Grace period and lockout controls for non-payment.
+- [x] BI-010 Dunning rules (retry cadence + notification channels).
+- [x] BI-011 Grace period and lockout controls for non-payment.
 
 ## 4) Global User & Access Control (Platform-Level)
 - [ ] AC-001 Internal platform users model (super_admin, support, finance, ops, developer).

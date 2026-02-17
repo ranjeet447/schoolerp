@@ -28,6 +28,8 @@ var (
 	ErrCriticalModuleLocked   = errors.New("critical module cannot be disabled")
 	ErrInvalidTrialAction     = errors.New("invalid trial action")
 	ErrInvalidProrationPolicy = errors.New("invalid proration policy")
+	ErrInvalidDunningRules    = errors.New("invalid dunning rules")
+	ErrInvalidBillingLock     = errors.New("invalid billing lock action")
 )
 
 type TenantDirectoryFilters struct {
@@ -120,6 +122,31 @@ type TenantTrialLifecycleResult struct {
 	TrialStartsAt *time.Time `json:"trial_starts_at,omitempty"`
 	TrialEndsAt   *time.Time `json:"trial_ends_at,omitempty"`
 	RenewsAt      *time.Time `json:"renews_at,omitempty"`
+}
+
+type TenantBillingControls struct {
+	SubscriptionStatus string                 `json:"subscription_status"`
+	DunningRules       map[string]interface{} `json:"dunning_rules"`
+	GracePeriodEndsAt  *time.Time             `json:"grace_period_ends_at,omitempty"`
+	BillingLocked      bool                   `json:"billing_locked"`
+	LockReason         string                 `json:"lock_reason,omitempty"`
+	UpdatedAt          *time.Time             `json:"updated_at,omitempty"`
+}
+
+type TenantDunningRulesParams struct {
+	RetryCadenceDays []int    `json:"retry_cadence_days"`
+	Channels         []string `json:"channels"`
+	MaxRetries       int      `json:"max_retries"`
+	GracePeriodDays  int      `json:"grace_period_days"`
+	LockOnFailure    bool     `json:"lock_on_failure"`
+	UpdatedBy        string   `json:"-"`
+}
+
+type TenantBillingLockParams struct {
+	Action          string `json:"action"`
+	GracePeriodDays int    `json:"grace_period_days"`
+	Reason          string `json:"reason"`
+	UpdatedBy       string `json:"-"`
 }
 
 type ImpersonationParams struct {
@@ -668,6 +695,324 @@ func (s *Service) ManageTenantTrialLifecycle(ctx context.Context, tenantID strin
 	}
 
 	return out, nil
+}
+
+func (s *Service) GetTenantBillingControls(ctx context.Context, tenantID string) (TenantBillingControls, error) {
+	tid, err := parseTenantUUID(tenantID)
+	if err != nil {
+		return TenantBillingControls{}, err
+	}
+
+	const query = `
+		SELECT
+			COALESCE(ts.status, '') AS status,
+			COALESCE(ts.dunning_rules, '{}'::jsonb) AS dunning_rules,
+			ts.grace_period_ends_at,
+			COALESCE(ts.overrides, '{}'::jsonb) AS overrides,
+			ts.updated_at
+		FROM tenant_subscriptions ts
+		WHERE ts.tenant_id = $1
+		LIMIT 1
+	`
+
+	var status string
+	var dunningJSON []byte
+	var graceEnds pgtype.Timestamptz
+	var overridesJSON []byte
+	var updatedAt pgtype.Timestamptz
+
+	err = s.db.QueryRow(ctx, query, tid).Scan(&status, &dunningJSON, &graceEnds, &overridesJSON, &updatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return TenantBillingControls{
+				SubscriptionStatus: "unknown",
+				DunningRules:       map[string]interface{}{},
+			}, nil
+		}
+		return TenantBillingControls{}, err
+	}
+
+	out := TenantBillingControls{
+		SubscriptionStatus: strings.TrimSpace(status),
+		DunningRules:       map[string]interface{}{},
+	}
+	if len(dunningJSON) > 0 {
+		_ = json.Unmarshal(dunningJSON, &out.DunningRules)
+	}
+	if graceEnds.Valid {
+		v := graceEnds.Time
+		out.GracePeriodEndsAt = &v
+	}
+	if updatedAt.Valid {
+		v := updatedAt.Time
+		out.UpdatedAt = &v
+	}
+
+	overrides := map[string]interface{}{}
+	if len(overridesJSON) > 0 {
+		_ = json.Unmarshal(overridesJSON, &overrides)
+	}
+	if lockRaw, ok := overrides["billing_lock"].(map[string]interface{}); ok {
+		if locked, ok := lockRaw["locked"].(bool); ok {
+			out.BillingLocked = locked
+		}
+		if reason, ok := lockRaw["reason"].(string); ok {
+			out.LockReason = strings.TrimSpace(reason)
+		}
+	}
+
+	return out, nil
+}
+
+func (s *Service) UpdateTenantDunningRules(ctx context.Context, tenantID string, params TenantDunningRulesParams) (TenantBillingControls, error) {
+	tid, err := parseTenantUUID(tenantID)
+	if err != nil {
+		return TenantBillingControls{}, err
+	}
+
+	cadence := make([]int, 0, len(params.RetryCadenceDays))
+	for _, day := range params.RetryCadenceDays {
+		if day <= 0 || day > 90 {
+			return TenantBillingControls{}, ErrInvalidDunningRules
+		}
+		cadence = append(cadence, day)
+	}
+	if len(cadence) == 0 {
+		cadence = []int{3, 7, 14}
+	}
+
+	channels := make([]string, 0, len(params.Channels))
+	for _, channel := range params.Channels {
+		c := strings.ToLower(strings.TrimSpace(channel))
+		switch c {
+		case "email", "sms", "whatsapp":
+			channels = append(channels, c)
+		case "":
+		default:
+			return TenantBillingControls{}, ErrInvalidDunningRules
+		}
+	}
+	if len(channels) == 0 {
+		channels = []string{"email"}
+	}
+
+	maxRetries := params.MaxRetries
+	if maxRetries <= 0 {
+		maxRetries = len(cadence)
+	}
+	if maxRetries <= 0 || maxRetries > 20 {
+		return TenantBillingControls{}, ErrInvalidDunningRules
+	}
+
+	graceDays := params.GracePeriodDays
+	if graceDays < 0 || graceDays > 180 {
+		return TenantBillingControls{}, ErrInvalidDunningRules
+	}
+	if graceDays == 0 {
+		graceDays = 7
+	}
+
+	dunningRules := map[string]interface{}{
+		"retry_cadence_days": cadence,
+		"channels":           channels,
+		"max_retries":        maxRetries,
+		"grace_period_days":  graceDays,
+		"lock_on_failure":    params.LockOnFailure,
+		"updated_at":         time.Now().UTC().Format(time.RFC3339),
+	}
+	dunningJSON, err := json.Marshal(dunningRules)
+	if err != nil {
+		return TenantBillingControls{}, err
+	}
+
+	var updatedBy pgtype.UUID
+	_ = updatedBy.Scan(strings.TrimSpace(params.UpdatedBy))
+
+	const upsert = `
+		INSERT INTO tenant_subscriptions (tenant_id, status, dunning_rules, updated_by)
+		VALUES ($1, 'trial', $2, $3)
+		ON CONFLICT (tenant_id)
+		DO UPDATE SET
+			dunning_rules = EXCLUDED.dunning_rules,
+			updated_by = EXCLUDED.updated_by,
+			updated_at = NOW()
+	`
+	if _, err := s.db.Exec(ctx, upsert, tid, dunningJSON, updatedBy); err != nil {
+		return TenantBillingControls{}, err
+	}
+
+	return s.GetTenantBillingControls(ctx, tenantID)
+}
+
+func (s *Service) ManageTenantBillingLock(ctx context.Context, tenantID string, params TenantBillingLockParams) (TenantBillingControls, error) {
+	tid, err := parseTenantUUID(tenantID)
+	if err != nil {
+		return TenantBillingControls{}, err
+	}
+
+	action := strings.ToLower(strings.TrimSpace(params.Action))
+	switch action {
+	case "start_grace", "lock", "unlock":
+	default:
+		return TenantBillingControls{}, ErrInvalidBillingLock
+	}
+
+	var updatedBy pgtype.UUID
+	_ = updatedBy.Scan(strings.TrimSpace(params.UpdatedBy))
+	reason := strings.TrimSpace(params.Reason)
+	now := time.Now().UTC()
+
+	buildLockState := func(locked bool, graceEnds *time.Time) ([]byte, error) {
+		lockState := map[string]interface{}{
+			"locked":     locked,
+			"reason":     reason,
+			"updated_at": now.Format(time.RFC3339),
+		}
+		if locked {
+			lockState["locked_at"] = now.Format(time.RFC3339)
+		} else {
+			lockState["unlocked_at"] = now.Format(time.RFC3339)
+		}
+		if graceEnds != nil {
+			lockState["grace_period_ends_at"] = graceEnds.Format(time.RFC3339)
+		}
+		return json.Marshal(lockState)
+	}
+
+	switch action {
+	case "start_grace":
+		graceDays := params.GracePeriodDays
+		if graceDays <= 0 {
+			graceDays = 7
+		}
+		if graceDays > 180 {
+			return TenantBillingControls{}, ErrInvalidBillingLock
+		}
+		graceEnds := now.Add(time.Duration(graceDays) * 24 * time.Hour)
+		lockJSON, err := buildLockState(false, &graceEnds)
+		if err != nil {
+			return TenantBillingControls{}, err
+		}
+
+		const upsertGrace = `
+			INSERT INTO tenant_subscriptions (
+				tenant_id,
+				status,
+				grace_period_ends_at,
+				overrides,
+				updated_by
+			)
+			VALUES (
+				$1,
+				'active',
+				$2,
+				jsonb_build_object('billing_lock', $3::jsonb),
+				$4
+			)
+			ON CONFLICT (tenant_id)
+			DO UPDATE SET
+				grace_period_ends_at = EXCLUDED.grace_period_ends_at,
+				overrides = jsonb_set(
+					COALESCE(tenant_subscriptions.overrides, '{}'::jsonb),
+					'{billing_lock}',
+					$3::jsonb,
+					TRUE
+				),
+				updated_by = EXCLUDED.updated_by,
+				updated_at = NOW()
+		`
+		if _, err := s.db.Exec(ctx, upsertGrace, tid, pgtype.Timestamptz{Time: graceEnds, Valid: true}, lockJSON, updatedBy); err != nil {
+			return TenantBillingControls{}, err
+		}
+		_, _ = s.db.Exec(ctx, `UPDATE tenants SET is_active = TRUE, updated_at = NOW() WHERE id = $1`, tid)
+
+	case "lock":
+		var graceEnds pgtype.Timestamptz
+		var graceEndsPtr *time.Time
+		if params.GracePeriodDays > 0 {
+			parsed := now.Add(time.Duration(params.GracePeriodDays) * 24 * time.Hour)
+			graceEnds = pgtype.Timestamptz{Time: parsed, Valid: true}
+			graceEndsPtr = &parsed
+		}
+		lockJSON, err := buildLockState(true, graceEndsPtr)
+		if err != nil {
+			return TenantBillingControls{}, err
+		}
+
+		const upsertLock = `
+			INSERT INTO tenant_subscriptions (
+				tenant_id,
+				status,
+				grace_period_ends_at,
+				overrides,
+				updated_by
+			)
+			VALUES (
+				$1,
+				'suspended',
+				$2,
+				jsonb_build_object('billing_lock', $3::jsonb),
+				$4
+			)
+			ON CONFLICT (tenant_id)
+			DO UPDATE SET
+				status = 'suspended',
+				grace_period_ends_at = COALESCE(EXCLUDED.grace_period_ends_at, tenant_subscriptions.grace_period_ends_at),
+				overrides = jsonb_set(
+					COALESCE(tenant_subscriptions.overrides, '{}'::jsonb),
+					'{billing_lock}',
+					$3::jsonb,
+					TRUE
+				),
+				updated_by = EXCLUDED.updated_by,
+				updated_at = NOW()
+		`
+		if _, err := s.db.Exec(ctx, upsertLock, tid, graceEnds, lockJSON, updatedBy); err != nil {
+			return TenantBillingControls{}, err
+		}
+		_, _ = s.db.Exec(ctx, `UPDATE tenants SET is_active = FALSE, updated_at = NOW() WHERE id = $1`, tid)
+
+	case "unlock":
+		lockJSON, err := buildLockState(false, nil)
+		if err != nil {
+			return TenantBillingControls{}, err
+		}
+
+		const upsertUnlock = `
+			INSERT INTO tenant_subscriptions (
+				tenant_id,
+				status,
+				grace_period_ends_at,
+				overrides,
+				updated_by
+			)
+			VALUES (
+				$1,
+				'active',
+				NULL,
+				jsonb_build_object('billing_lock', $2::jsonb),
+				$3
+			)
+			ON CONFLICT (tenant_id)
+			DO UPDATE SET
+				status = 'active',
+				grace_period_ends_at = NULL,
+				overrides = jsonb_set(
+					COALESCE(tenant_subscriptions.overrides, '{}'::jsonb),
+					'{billing_lock}',
+					$2::jsonb,
+					TRUE
+				),
+				updated_by = EXCLUDED.updated_by,
+				updated_at = NOW()
+		`
+		if _, err := s.db.Exec(ctx, upsertUnlock, tid, lockJSON, updatedBy); err != nil {
+			return TenantBillingControls{}, err
+		}
+		_, _ = s.db.Exec(ctx, `UPDATE tenants SET is_active = TRUE, updated_at = NOW() WHERE id = $1`, tid)
+	}
+
+	return s.GetTenantBillingControls(ctx, tenantID)
 }
 
 func (s *Service) UpdateTenantDefaults(ctx context.Context, tenantID string, params TenantDefaultsParams) error {

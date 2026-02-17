@@ -35,12 +35,28 @@ type Branch = {
   is_active: boolean;
 };
 
+type BillingControls = {
+  subscription_status: string;
+  dunning_rules?: {
+    retry_cadence_days?: number[];
+    channels?: string[];
+    max_retries?: number;
+    grace_period_days?: number;
+    lock_on_failure?: boolean;
+  };
+  grace_period_ends_at?: string;
+  billing_locked: boolean;
+  lock_reason?: string;
+  updated_at?: string;
+};
+
 export default function PlatformTenantDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
 
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [billingControls, setBillingControls] = useState<BillingControls | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -77,6 +93,13 @@ export default function PlatformTenantDetailPage() {
   const [limitOverrideExpiresAt, setLimitOverrideExpiresAt] = useState("");
   const [trialDays, setTrialDays] = useState("14");
   const [renewAfterDays, setRenewAfterDays] = useState("30");
+  const [dunningRetryCadence, setDunningRetryCadence] = useState("3,7,14");
+  const [dunningChannels, setDunningChannels] = useState("email");
+  const [dunningMaxRetries, setDunningMaxRetries] = useState("3");
+  const [dunningGraceDays, setDunningGraceDays] = useState("7");
+  const [dunningLockOnFailure, setDunningLockOnFailure] = useState(true);
+  const [billingLockReason, setBillingLockReason] = useState("");
+  const [billingLockGraceDays, setBillingLockGraceDays] = useState("7");
   const [newAdminPassword, setNewAdminPassword] = useState("");
   const [impersonationReason, setImpersonationReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -98,9 +121,10 @@ export default function PlatformTenantDetailPage() {
     setLoading(true);
     setError("");
     try {
-      const [tenantRes, branchesRes] = await Promise.all([
+      const [tenantRes, branchesRes, billingRes] = await Promise.all([
         apiClient(`/admin/platform/tenants/${id}`),
         apiClient(`/admin/platform/tenants/${id}/branches`),
+        apiClient(`/admin/platform/tenants/${id}/billing-controls`),
       ]);
 
       if (!tenantRes.ok) {
@@ -132,6 +156,24 @@ export default function PlatformTenantDetailPage() {
       if (branchesRes.ok) {
         const data = await branchesRes.json();
         setBranches(Array.isArray(data) ? data : []);
+      }
+      if (billingRes.ok) {
+        const billingData: BillingControls = await billingRes.json();
+        setBillingControls(billingData);
+        const rules = billingData.dunning_rules || {};
+        setDunningRetryCadence(
+          Array.isArray(rules.retry_cadence_days) && rules.retry_cadence_days.length > 0
+            ? rules.retry_cadence_days.join(",")
+            : "3,7,14"
+        );
+        setDunningChannels(
+          Array.isArray(rules.channels) && rules.channels.length > 0 ? rules.channels.join(",") : "email"
+        );
+        setDunningMaxRetries(String(rules.max_retries || 3));
+        setDunningGraceDays(String(rules.grace_period_days || 7));
+        setDunningLockOnFailure(rules.lock_on_failure !== false);
+      } else {
+        setBillingControls(null);
       }
     } finally {
       setLoading(false);
@@ -317,6 +359,69 @@ export default function PlatformTenantDetailPage() {
           days: Number.isFinite(days) ? Math.max(1, Math.floor(days)) : 14,
           renew_after_days: Number.isFinite(renewDays) ? Math.max(1, Math.floor(renewDays)) : 30,
         }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+    });
+  };
+
+  const saveDunningRules = async () => {
+    await action("Dunning rules update", async () => {
+      const retryCadenceDays = dunningRetryCadence
+        .split(",")
+        .map((v) => Number(v.trim()))
+        .filter((v) => Number.isFinite(v) && v > 0)
+        .map((v) => Math.floor(v));
+      const channels = dunningChannels
+        .split(",")
+        .map((v) => v.trim().toLowerCase())
+        .filter((v) => v.length > 0);
+      const maxRetries = Math.floor(Number(dunningMaxRetries || "3"));
+      const gracePeriodDays = Math.floor(Number(dunningGraceDays || "7"));
+
+      if (retryCadenceDays.length === 0) {
+        throw new Error("Retry cadence must include at least one positive day value.");
+      }
+      if (channels.length === 0) {
+        throw new Error("At least one dunning channel is required.");
+      }
+      if (!Number.isFinite(maxRetries) || maxRetries <= 0) {
+        throw new Error("Max retries must be a positive number.");
+      }
+      if (!Number.isFinite(gracePeriodDays) || gracePeriodDays <= 0) {
+        throw new Error("Grace period days must be a positive number.");
+      }
+
+      const res = await apiClient(`/admin/platform/tenants/${id}/dunning-rules`, {
+        method: "POST",
+        body: JSON.stringify({
+          retry_cadence_days: retryCadenceDays,
+          channels,
+          max_retries: maxRetries,
+          grace_period_days: gracePeriodDays,
+          lock_on_failure: dunningLockOnFailure,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+    });
+  };
+
+  const manageBillingLock = async (billingAction: "start_grace" | "lock" | "unlock") => {
+    await action("Billing lock control update", async () => {
+      const payload: Record<string, unknown> = {
+        action: billingAction,
+        reason: billingLockReason.trim(),
+      };
+      if (billingAction !== "unlock") {
+        const graceDays = Math.floor(Number(billingLockGraceDays || "7"));
+        if (!Number.isFinite(graceDays) || graceDays <= 0) {
+          throw new Error("Grace period days must be a positive number.");
+        }
+        payload.grace_period_days = graceDays;
+      }
+
+      const res = await apiClient(`/admin/platform/tenants/${id}/billing-lock`, {
+        method: "POST",
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(await res.text());
     });
@@ -645,6 +750,123 @@ export default function PlatformTenantDetailPage() {
             className="rounded border border-emerald-600/40 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-60 dark:border-emerald-700 dark:text-emerald-200 dark:hover:bg-emerald-900/20 md:col-span-4"
           >
             Convert To Paid
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <h2 className="font-semibold text-foreground">Dunning & Non-Payment Controls</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Configure retry cadence/channels and control grace-period lockout behavior for unpaid subscriptions.
+        </p>
+        <div className="mt-3 grid gap-2 md:grid-cols-4">
+          <div className="rounded border border-border bg-background/40 p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Subscription</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">{billingControls?.subscription_status || "unknown"}</p>
+          </div>
+          <div className="rounded border border-border bg-background/40 p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Billing Access</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">{billingControls?.billing_locked ? "Locked" : "Unlocked"}</p>
+          </div>
+          <div className="rounded border border-border bg-background/40 p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Grace Ends</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {billingControls?.grace_period_ends_at
+                ? new Date(billingControls.grace_period_ends_at).toLocaleString()
+                : "-"}
+            </p>
+          </div>
+          <div className="rounded border border-border bg-background/40 p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Lock Reason</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">{billingControls?.lock_reason || "-"}</p>
+          </div>
+        </div>
+
+        <div className="mt-3 grid gap-2 md:grid-cols-5">
+          <input
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+            placeholder="Retry cadence days (e.g. 3,7,14)"
+            value={dunningRetryCadence}
+            onChange={(e) => setDunningRetryCadence(e.target.value)}
+          />
+          <input
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+            placeholder="Channels (email,sms,whatsapp)"
+            value={dunningChannels}
+            onChange={(e) => setDunningChannels(e.target.value)}
+          />
+          <input
+            type="number"
+            min={1}
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            placeholder="Max retries"
+            value={dunningMaxRetries}
+            onChange={(e) => setDunningMaxRetries(e.target.value)}
+          />
+          <input
+            type="number"
+            min={1}
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            placeholder="Grace days"
+            value={dunningGraceDays}
+            onChange={(e) => setDunningGraceDays(e.target.value)}
+          />
+          <button
+            type="button"
+            disabled={busy}
+            onClick={saveDunningRules}
+            className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+          >
+            Save Dunning Rules
+          </button>
+          <label className="md:col-span-5 flex items-center gap-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={dunningLockOnFailure}
+              onChange={(e) => setDunningLockOnFailure(e.target.checked)}
+            />
+            Lock tenant access when max retries are exhausted
+          </label>
+        </div>
+
+        <div className="mt-3 grid gap-2 md:grid-cols-4">
+          <input
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground md:col-span-2"
+            placeholder="Lock/Grace reason"
+            value={billingLockReason}
+            onChange={(e) => setBillingLockReason(e.target.value)}
+          />
+          <input
+            type="number"
+            min={1}
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            placeholder="Grace days"
+            value={billingLockGraceDays}
+            onChange={(e) => setBillingLockGraceDays(e.target.value)}
+          />
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => manageBillingLock("start_grace")}
+            className="rounded border border-indigo-600/40 px-3 py-2 text-sm text-indigo-700 hover:bg-indigo-500/10 disabled:opacity-60 dark:border-indigo-700 dark:text-indigo-200 dark:hover:bg-indigo-900/20"
+          >
+            Start Grace
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => manageBillingLock("lock")}
+            className="rounded border border-red-600/40 px-3 py-2 text-sm text-red-700 hover:bg-red-500/10 disabled:opacity-60 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/20"
+          >
+            Lock Tenant Access
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => manageBillingLock("unlock")}
+            className="rounded border border-emerald-600/40 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-60 dark:border-emerald-700 dark:text-emerald-200 dark:hover:bg-emerald-900/20"
+          >
+            Unlock Access
           </button>
         </div>
       </div>

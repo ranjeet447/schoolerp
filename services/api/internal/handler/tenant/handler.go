@@ -35,6 +35,9 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Patch("/tenants/{tenant_id}", h.UpdatePlatformTenant)
 	r.Post("/tenants/{tenant_id}/lifecycle", h.UpdateTenantLifecycle)
 	r.Post("/tenants/{tenant_id}/trial", h.ManageTenantTrialLifecycle)
+	r.Get("/tenants/{tenant_id}/billing-controls", h.GetTenantBillingControls)
+	r.Post("/tenants/{tenant_id}/dunning-rules", h.UpdateTenantDunningRules)
+	r.Post("/tenants/{tenant_id}/billing-lock", h.ManageTenantBillingLock)
 	r.Post("/tenants/{tenant_id}/defaults", h.UpdateTenantDefaults)
 	r.Post("/tenants/{tenant_id}/plan", h.AssignTenantPlan)
 	r.Post("/tenants/{tenant_id}/plan-change", h.ChangeTenantPlan)
@@ -1034,6 +1037,95 @@ func (h *Handler) ManageTenantTrialLifecycle(w http.ResponseWriter, r *http.Requ
 			"renew_after_days": req.RenewAfterDays,
 			"result":           result,
 		},
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+func (h *Handler) GetTenantBillingControls(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	controls, err := h.service.GetTenantBillingControls(r.Context(), tenantID)
+	if err != nil {
+		if errors.Is(err, tenant.ErrInvalidTenantID) {
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Failed to load billing controls", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(controls)
+}
+
+func (h *Handler) UpdateTenantDunningRules(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	actorID := middleware.GetUserID(r.Context())
+
+	var req tenant.TenantDunningRulesParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.UpdatedBy = actorID
+
+	result, err := h.service.UpdateTenantDunningRules(r.Context(), tenantID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidDunningRules):
+			http.Error(w, "Invalid dunning rules payload", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to update dunning rules", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.tenant.billing.dunning_rules.update",
+		ResourceType: "tenant",
+		ResourceID:   tenantID,
+		After:        result,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+func (h *Handler) ManageTenantBillingLock(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	actorID := middleware.GetUserID(r.Context())
+
+	var req tenant.TenantBillingLockParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.UpdatedBy = actorID
+
+	result, err := h.service.ManageTenantBillingLock(r.Context(), tenantID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidBillingLock):
+			http.Error(w, "Invalid billing lock action", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to update billing lock controls", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.tenant.billing.lock.manage",
+		ResourceType: "tenant",
+		ResourceID:   tenantID,
+		Reason:       strings.TrimSpace(req.Action),
+		After:        result,
 	})
 
 	w.Header().Set("Content-Type", "application/json")
