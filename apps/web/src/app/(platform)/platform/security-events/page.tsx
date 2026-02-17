@@ -23,6 +23,15 @@ type PlatformSecurityEventRow = {
   created_at: string;
 };
 
+type PlatformDataRetentionPolicy = {
+  audit_logs_days: number;
+  security_events_days: number;
+  sessions_days: number;
+  integration_logs_days: number;
+  outbox_events_days: number;
+  updated_at?: string;
+};
+
 type Filters = {
   tenant_id: string;
   user_id: string;
@@ -55,7 +64,17 @@ function severityBadge(severity: string) {
 export default function PlatformSecurityEventsPage() {
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const [rows, setRows] = useState<PlatformSecurityEventRow[]>([]);
+  const [retentionPolicy, setRetentionPolicy] = useState<PlatformDataRetentionPolicy | null>(null);
+  const [retentionDraft, setRetentionDraft] = useState({
+    audit_logs_days: 365,
+    security_events_days: 90,
+    sessions_days: 30,
+    integration_logs_days: 30,
+    outbox_events_days: 30,
+  });
   const [loading, setLoading] = useState(true);
+  const [policyBusy, setPolicyBusy] = useState(false);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   const query = useMemo(() => {
@@ -74,6 +93,7 @@ export default function PlatformSecurityEventsPage() {
   const load = async () => {
     setLoading(true);
     setError("");
+    setMessage("");
     try {
       const res = await apiClient(`/admin/platform/security/events?${query}`);
       if (!res.ok) throw new Error(await res.text());
@@ -87,10 +107,57 @@ export default function PlatformSecurityEventsPage() {
     }
   };
 
+  const loadRetentionPolicy = async () => {
+    try {
+      const res = await apiClient("/admin/platform/security/retention-policy");
+      if (!res.ok) return;
+      const data: PlatformDataRetentionPolicy = await res.json();
+      setRetentionPolicy(data);
+      setRetentionDraft({
+        audit_logs_days: Number(data.audit_logs_days) || 365,
+        security_events_days: Number(data.security_events_days) || 90,
+        sessions_days: Number(data.sessions_days) || 30,
+        integration_logs_days: Number(data.integration_logs_days) || 30,
+        outbox_events_days: Number(data.outbox_events_days) || 30,
+      });
+    } catch {
+      // Keep silent; policy is optional on fresh environments until migrated.
+    }
+  };
+
+  const saveRetentionPolicy = async () => {
+    setPolicyBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await apiClient("/admin/platform/security/retention-policy", {
+        method: "POST",
+        body: JSON.stringify({
+          audit_logs_days: Number(retentionDraft.audit_logs_days) || 0,
+          security_events_days: Number(retentionDraft.security_events_days) || 0,
+          sessions_days: Number(retentionDraft.sessions_days) || 0,
+          integration_logs_days: Number(retentionDraft.integration_logs_days) || 0,
+          outbox_events_days: Number(retentionDraft.outbox_events_days) || 0,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setMessage("Data retention policy updated.");
+      await loadRetentionPolicy();
+    } catch (e: any) {
+      setError(e?.message || "Failed to update retention policy.");
+    } finally {
+      setPolicyBusy(false);
+    }
+  };
+
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
+
+  useEffect(() => {
+    void loadRetentionPolicy();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -101,6 +168,11 @@ export default function PlatformSecurityEventsPage() {
         </p>
       </div>
 
+      {message && (
+        <div className="rounded border border-emerald-600/40 bg-emerald-500/10 p-3 text-sm text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-200">
+          {message}
+        </div>
+      )}
       {error && (
         <div className="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
@@ -108,12 +180,97 @@ export default function PlatformSecurityEventsPage() {
       )}
 
       <div className="rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Data Retention Policy</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Configure recommended retention windows (days) for operational data. Values are stored at platform scope.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={saveRetentionPolicy}
+            disabled={policyBusy}
+            className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+          >
+            Save Policy
+          </button>
+        </div>
+        <div className="mt-4 grid gap-2 md:grid-cols-5">
+          <label className="text-sm text-foreground">
+            <span className="mb-1 block text-xs text-muted-foreground">Audit logs (days)</span>
+            <input
+              type="number"
+              min={1}
+              max={3650}
+              value={retentionDraft.audit_logs_days}
+              onChange={(e) => setRetentionDraft((p) => ({ ...p, audit_logs_days: Number(e.target.value) || 0 }))}
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            />
+          </label>
+          <label className="text-sm text-foreground">
+            <span className="mb-1 block text-xs text-muted-foreground">Security events (days)</span>
+            <input
+              type="number"
+              min={1}
+              max={3650}
+              value={retentionDraft.security_events_days}
+              onChange={(e) =>
+                setRetentionDraft((p) => ({ ...p, security_events_days: Number(e.target.value) || 0 }))
+              }
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            />
+          </label>
+          <label className="text-sm text-foreground">
+            <span className="mb-1 block text-xs text-muted-foreground">Sessions (days)</span>
+            <input
+              type="number"
+              min={1}
+              max={3650}
+              value={retentionDraft.sessions_days}
+              onChange={(e) => setRetentionDraft((p) => ({ ...p, sessions_days: Number(e.target.value) || 0 }))}
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            />
+          </label>
+          <label className="text-sm text-foreground">
+            <span className="mb-1 block text-xs text-muted-foreground">Integration logs (days)</span>
+            <input
+              type="number"
+              min={1}
+              max={3650}
+              value={retentionDraft.integration_logs_days}
+              onChange={(e) =>
+                setRetentionDraft((p) => ({ ...p, integration_logs_days: Number(e.target.value) || 0 }))
+              }
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            />
+          </label>
+          <label className="text-sm text-foreground">
+            <span className="mb-1 block text-xs text-muted-foreground">Outbox events (days)</span>
+            <input
+              type="number"
+              min={1}
+              max={3650}
+              value={retentionDraft.outbox_events_days}
+              onChange={(e) =>
+                setRetentionDraft((p) => ({ ...p, outbox_events_days: Number(e.target.value) || 0 }))
+              }
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            />
+          </label>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Last updated: {retentionPolicy?.updated_at ? new Date(retentionPolicy.updated_at).toLocaleString() : "-"}
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <h2 className="text-sm font-semibold text-foreground">Filters</h2>
           <button
             type="button"
             onClick={() => setFilters(initialFilters)}
-            disabled={loading}
+            disabled={loading || policyBusy}
             className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
           >
             Reset
@@ -286,4 +443,3 @@ export default function PlatformSecurityEventsPage() {
     </div>
   );
 }
-

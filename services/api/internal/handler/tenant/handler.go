@@ -76,6 +76,8 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Get("/security/audit-logs/export", h.ExportPlatformAuditLogs)
 	r.Get("/security/audit-logs", h.ListPlatformAuditLogs)
 	r.Get("/security/events", h.ListPlatformSecurityEvents)
+	r.Get("/security/retention-policy", h.GetPlatformDataRetentionPolicy)
+	r.Post("/security/retention-policy", h.UpdatePlatformDataRetentionPolicy)
 	r.Get("/billing/overview", h.GetPlatformBillingOverview)
 	r.Get("/billing/config", h.GetPlatformBillingConfig)
 	r.Post("/billing/config", h.UpdatePlatformBillingConfig)
@@ -1414,6 +1416,47 @@ func (h *Handler) ListPlatformSecurityEvents(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) GetPlatformDataRetentionPolicy(w http.ResponseWriter, r *http.Request) {
+	policy, err := h.service.GetPlatformDataRetentionPolicy(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to load data retention policy", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(policy)
+}
+
+func (h *Handler) UpdatePlatformDataRetentionPolicy(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	var req tenant.UpdatePlatformDataRetentionPolicyParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.UpdatedBy = actorID
+
+	updated, err := h.service.UpdatePlatformDataRetentionPolicy(r.Context(), req)
+	if err != nil {
+		if errors.Is(err, tenant.ErrInvalidRetentionPolicy) {
+			http.Error(w, "Invalid retention policy", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Failed to update data retention policy", http.StatusInternalServerError)
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.security.retention_policy.update",
+		ResourceType: "platform_security_policy",
+		ResourceID:   "security.data_retention_policy",
+		After:        updated,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
 }
 
 func (h *Handler) ListPlatformPayments(w http.ResponseWriter, r *http.Request) {
