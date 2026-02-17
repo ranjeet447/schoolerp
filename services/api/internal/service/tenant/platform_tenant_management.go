@@ -25,6 +25,7 @@ var (
 	ErrInvalidSignupStatus    = errors.New("invalid signup review status")
 	ErrSignupRequestNotFound  = errors.New("signup request not found")
 	ErrInvalidLimitOverride   = errors.New("invalid tenant limit override")
+	ErrCriticalModuleLocked   = errors.New("critical module cannot be disabled")
 )
 
 type TenantDirectoryFilters struct {
@@ -293,6 +294,9 @@ func (s *Service) AssignPlanToTenant(ctx context.Context, tenantID string, param
 	planCode := strings.TrimSpace(strings.ToLower(params.PlanCode))
 	if planCode == "" {
 		return ErrInvalidPlanCode
+	}
+	if err := ensureCriticalModulesEnabled(params.Modules); err != nil {
+		return err
 	}
 
 	var planID pgtype.UUID

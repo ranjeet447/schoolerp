@@ -208,6 +208,8 @@ func (h *Handler) CreatePlatformPlan(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, tenant.ErrInvalidPlanCode):
 			http.Error(w, "Invalid plan code", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrCriticalModuleLocked):
+			http.Error(w, "Critical compliance module cannot be disabled", http.StatusBadRequest)
 		case errors.Is(err, tenant.ErrInvalidPlanPayload):
 			http.Error(w, "Invalid plan payload", http.StatusBadRequest)
 		case errors.Is(err, tenant.ErrPlanCodeExists):
@@ -248,6 +250,8 @@ func (h *Handler) UpdatePlatformPlan(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid plan id", http.StatusBadRequest)
 		case errors.Is(err, tenant.ErrInvalidPlanCode):
 			http.Error(w, "Invalid plan code", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrCriticalModuleLocked):
+			http.Error(w, "Critical compliance module cannot be disabled", http.StatusBadRequest)
 		case errors.Is(err, tenant.ErrInvalidPlanPayload):
 			http.Error(w, "Invalid plan payload", http.StatusBadRequest)
 		case errors.Is(err, tenant.ErrPlanNotFound):
@@ -703,6 +707,8 @@ func (h *Handler) AssignTenantPlan(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
 		case errors.Is(err, tenant.ErrInvalidPlanCode):
 			http.Error(w, "Invalid plan code", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrCriticalModuleLocked):
+			http.Error(w, "Critical compliance module cannot be disabled", http.StatusBadRequest)
 		case errors.Is(err, tenant.ErrPlanNotFound):
 			http.Error(w, "Plan not found", http.StatusNotFound)
 		default:

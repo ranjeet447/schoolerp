@@ -17,6 +17,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - `[x]` Feature-flag rollout control added (cohort filters + percentage + dry-run/apply).
 - `[~]` Quota enforcement upgraded to resolve effective limits from plan/overrides for students and staff creation hooks.
 - `[x]` Temporary/permanent tenant limit override controls added (expiry-based override metadata).
+- `[x]` Critical module lock guardrails added to prevent disabling compliance modules in plan/tenant module payloads.
 - `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, branding/domain mapping, branch create/update/activate/deactivate, admin reset/logout, impersonation).
 - `[x]` Signup request moderation UI and API flow added (approve/reject with notes).
 - `[~]` Platform audit coverage expanded for super-admin actions (tenant-management mutation endpoints + signup review + impersonation entry/exit).
@@ -60,8 +61,8 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [x] PL-004 Feature flags by tenant/cohort with rollout percentage support.
 - [~] PL-005 Usage limits model + enforcement hooks for students/staff/storage/modules.
 - [x] PL-006 Temporary and permanent tenant limit overrides.
-- [ ] PL-007 Critical/compliance modules lock rules (cannot disable when policy-locked).
-- [~] PL-008 Audit every plan/module/flag mutation.
+- [x] PL-007 Critical/compliance modules lock rules (cannot disable when policy-locked).
+- [x] PL-008 Audit every plan/module/flag mutation.
 
 ## 3) Subscription, Billing, and Payments
 - [ ] BI-001 Subscription overview API (MRR, ARR, churn, trials, renewals).

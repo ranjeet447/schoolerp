@@ -151,6 +151,9 @@ func (s *Service) CreatePlatformPlan(ctx context.Context, params CreatePlatformP
 	if params.PriceMonthly < 0 || params.PriceYearly < 0 {
 		return PlatformPlan{}, fmt.Errorf("%w: price cannot be negative", ErrInvalidPlanPayload)
 	}
+	if err := ensureCriticalModulesEnabled(params.Modules); err != nil {
+		return PlatformPlan{}, err
+	}
 
 	modulesJSON, err := marshalJSONMap(params.Modules)
 	if err != nil {
@@ -271,6 +274,9 @@ func (s *Service) UpdatePlatformPlan(ctx context.Context, planID string, params 
 	}
 
 	if params.Modules != nil {
+		if err := ensureCriticalModulesEnabled(params.Modules); err != nil {
+			return PlatformPlan{}, err
+		}
 		modulesJSON, err := marshalJSONMap(params.Modules)
 		if err != nil {
 			return PlatformPlan{}, err
