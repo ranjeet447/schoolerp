@@ -16,6 +16,23 @@ type PlatformInternalUser = {
   updated_at: string;
 };
 
+type PlatformPermissionTemplate = {
+  code: string;
+  module: string;
+  description: string;
+};
+
+type PlatformRoleTemplate = {
+  role_code: string;
+  role_name: string;
+  permission_codes: string[];
+};
+
+type PlatformRBACMatrix = {
+  roles: PlatformRoleTemplate[];
+  permissions: PlatformPermissionTemplate[];
+};
+
 const ROLE_OPTIONS = [
   "super_admin",
   "support_l1",
@@ -27,6 +44,8 @@ const ROLE_OPTIONS = [
 
 export default function PlatformInternalUsersPage() {
   const [rows, setRows] = useState<PlatformInternalUser[]>([]);
+  const [rbac, setRbac] = useState<PlatformRBACMatrix | null>(null);
+  const [rbacDraft, setRbacDraft] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -53,11 +72,27 @@ export default function PlatformInternalUsersPage() {
       if (roleFilter.trim()) query.set("role_code", roleFilter.trim());
       if (activeFilter === "true" || activeFilter === "false") query.set("is_active", activeFilter);
 
-      const res = await apiClient(`/admin/platform/internal-users?${query.toString()}`);
-      if (!res.ok) throw new Error(await res.text());
+      const [usersRes, rbacRes] = await Promise.all([
+        apiClient(`/admin/platform/internal-users?${query.toString()}`),
+        apiClient("/admin/platform/rbac/templates"),
+      ]);
+      if (!usersRes.ok) throw new Error(await usersRes.text());
 
-      const data = await res.json();
-      setRows(Array.isArray(data) ? data : []);
+      const usersData = await usersRes.json();
+      setRows(Array.isArray(usersData) ? usersData : []);
+
+      if (rbacRes.ok) {
+        const rbacData: PlatformRBACMatrix = await rbacRes.json();
+        setRbac(rbacData);
+        const draft: Record<string, string[]> = {};
+        for (const role of rbacData.roles || []) {
+          draft[role.role_code] = Array.isArray(role.permission_codes) ? [...role.permission_codes] : [];
+        }
+        setRbacDraft(draft);
+      } else {
+        setRbac(null);
+        setRbacDraft({});
+      }
     } catch (e: any) {
       setError(e?.message || "Failed to load internal users.");
     } finally {
@@ -119,6 +154,36 @@ export default function PlatformInternalUsersPage() {
       await load();
     } catch (e: any) {
       setError(e?.message || "Failed to update internal user.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleRolePermission = (roleCode: string, permissionCode: string, checked: boolean) => {
+    setRbacDraft((prev) => {
+      const current = new Set(prev[roleCode] || []);
+      if (checked) current.add(permissionCode);
+      else current.delete(permissionCode);
+      return { ...prev, [roleCode]: Array.from(current).sort() };
+    });
+  };
+
+  const saveRolePermissions = async (roleCode: string) => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await apiClient(`/admin/platform/rbac/templates/${roleCode}/permissions`, {
+        method: "POST",
+        body: JSON.stringify({
+          permission_codes: rbacDraft[roleCode] || [],
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setMessage(`Permissions updated for ${roleCode}.`);
+      await load();
+    } catch (e: any) {
+      setError(e?.message || "Failed to update role permissions.");
     } finally {
       setBusy(false);
     }
@@ -224,6 +289,62 @@ export default function PlatformInternalUsersPage() {
           >
             Apply Filters
           </button>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <h2 className="text-sm font-semibold text-foreground">Platform RBAC Templates</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Configure permission matrix for internal role templates.
+        </p>
+        <div className="mt-3 space-y-4">
+          {!rbac || rbac.roles.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No RBAC role templates available.</p>
+          ) : (
+            rbac.roles.map((role) => (
+              <div key={role.role_code} className="rounded-lg border border-border p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-foreground">{role.role_name}</p>
+                    <p className="text-xs text-muted-foreground">{role.role_code}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => saveRolePermissions(role.role_code)}
+                    disabled={busy}
+                    className="rounded border border-input px-3 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+                  >
+                    Save Permissions
+                  </button>
+                </div>
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  {(rbac.permissions || []).map((permission) => {
+                    const checked = (rbacDraft[role.role_code] || []).includes(permission.code);
+                    return (
+                      <label
+                        key={`${role.role_code}-${permission.code}`}
+                        className="flex items-start gap-2 rounded border border-border bg-background/40 px-2 py-2 text-xs text-foreground"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) =>
+                            toggleRolePermission(role.role_code, permission.code, e.target.checked)
+                          }
+                        />
+                        <span>
+                          <span className="block font-medium">{permission.code}</span>
+                          <span className="block text-[11px] text-muted-foreground">
+                            {permission.description || permission.module}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

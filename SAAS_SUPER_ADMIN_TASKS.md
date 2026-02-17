@@ -25,6 +25,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - `[x]` Invoice adjustments added (refunds, partial refunds, credit notes, and adjustment ledger with audit logging).
 - `[x]` Dunning and lockout controls added (retry/channel rules, grace window controls, and tenant access lock/unlock flows).
 - `[x]` Internal platform user management added (create/list/update users with platform role assignment and active-state controls).
+- `[x]` Platform RBAC role template matrix added (platform permission catalog + per-role template editing in UI/API).
 - `[x]` Tenant plan change flow added (upgrade/downgrade with proration policy and effective time).
 - `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, branding/domain mapping, branch create/update/activate/deactivate, admin reset/logout, impersonation).
 - `[x]` Signup request moderation UI and API flow added (approve/reject with notes).
@@ -87,7 +88,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 
 ## 4) Global User & Access Control (Platform-Level)
 - [x] AC-001 Internal platform users model (super_admin, support, finance, ops, developer).
-- [ ] AC-002 Platform RBAC templates and permission matrix.
+- [x] AC-002 Platform RBAC templates and permission matrix.
 - [x] AC-003 Internal admin management UI (create/edit/disable users).
 - [x] AC-004 Assign/revoke platform roles and permissions.
 - [ ] AC-005 MFA/2FA enforcement policy for platform users.

@@ -54,6 +54,8 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Get("/internal-users", h.ListPlatformInternalUsers)
 	r.Post("/internal-users", h.CreatePlatformInternalUser)
 	r.Patch("/internal-users/{user_id}", h.UpdatePlatformInternalUser)
+	r.Get("/rbac/templates", h.ListPlatformRBACTemplates)
+	r.Post("/rbac/templates/{role_code}/permissions", h.UpdatePlatformRolePermissions)
 	r.Get("/billing/overview", h.GetPlatformBillingOverview)
 	r.Get("/billing/config", h.GetPlatformBillingConfig)
 	r.Post("/billing/config", h.UpdatePlatformBillingConfig)
@@ -728,6 +730,53 @@ func (h *Handler) UpdatePlatformInternalUser(w http.ResponseWriter, r *http.Requ
 		ResourceType: "platform_user",
 		ResourceID:   updated.ID,
 		Reason:       strings.TrimSpace(updated.RoleCode),
+		After:        updated,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
+}
+
+func (h *Handler) ListPlatformRBACTemplates(w http.ResponseWriter, r *http.Request) {
+	matrix, err := h.service.ListPlatformRBACTemplates(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to load RBAC templates", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(matrix)
+}
+
+func (h *Handler) UpdatePlatformRolePermissions(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+	roleCode := chi.URLParam(r, "role_code")
+
+	var req tenant.UpdatePlatformRolePermissionsParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.UpdatedBy = actorID
+
+	updated, err := h.service.UpdatePlatformRolePermissions(r.Context(), roleCode, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidRBACRoleCode):
+			http.Error(w, "Invalid role code", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidRBACPermissionCode):
+			http.Error(w, "Invalid permission codes", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to update role permissions", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		Action:       "platform.rbac.role_permissions.update",
+		ResourceType: "platform_role",
+		ResourceID:   strings.TrimSpace(roleCode),
+		Reason:       strings.TrimSpace(roleCode),
 		After:        updated,
 	})
 
