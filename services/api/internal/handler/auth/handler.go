@@ -201,6 +201,11 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 			eventType = "auth.mfa_required"
 			severity = "info"
 		}
+		if errors.Is(err, auth.ErrSessionStoreUnavailable) {
+			statusCode = http.StatusServiceUnavailable
+			eventType = "auth.session_store_unavailable"
+			severity = "critical"
+		}
 		middleware.RecordSecurityEvent(r.Context(), middleware.SecurityEvent{
 			EventType:  eventType,
 			Severity:   severity,

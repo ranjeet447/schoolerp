@@ -21,6 +21,7 @@ var (
 	ErrUserNotFound       = errors.New("user not found")
 	ErrUserInactive       = errors.New("user account is inactive")
 	ErrMFARequired        = errors.New("mfa is required for this account")
+	ErrSessionStoreUnavailable = errors.New("session store unavailable")
 )
 
 type Service struct {
@@ -148,7 +149,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 
 	if err := s.queries.CreateSessionRecord(ctx, user.ID, hashPassword(tokenJTI), expiresAt); err != nil {
 		logger.Error().Err(err).Str("user_id", user.ID.String()).Msg("auth login failed: unable to create session record")
-		return nil, errors.New("session store unavailable")
+		return nil, ErrSessionStoreUnavailable
 	}
 
 	logger.Info().
