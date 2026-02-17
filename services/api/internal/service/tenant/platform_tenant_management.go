@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/schoolerp/api/internal/db"
@@ -1237,6 +1238,10 @@ func (s *Service) CreateImpersonationToken(ctx context.Context, tenantID, reason
 	}
 	jwtSecret := jwtSecrets[0]
 
+	// Session-backed auth requires a token ID and a persisted session record, otherwise
+	// the middleware will reject the token with 401.
+	tokenJTI := uuid.Must(uuid.NewV7()).String()
+
 	expiresAt := time.Now().Add(time.Duration(durationMinutes) * time.Minute)
 	claims := jwt.MapClaims{
 		"sub":                  result.TargetUserID,
@@ -1248,11 +1253,20 @@ func (s *Service) CreateImpersonationToken(ctx context.Context, tenantID, reason
 		"impersonation_reason": strings.TrimSpace(reason),
 		"iat":                  time.Now().Unix(),
 		"exp":                  expiresAt.Unix(),
+		"jti":                  tokenJTI,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString([]byte(jwtSecret))
 	if err != nil {
+		return ImpersonationResult{}, err
+	}
+
+	var targetUserUUID pgtype.UUID
+	if err := targetUserUUID.Scan(strings.TrimSpace(result.TargetUserID)); err != nil || !targetUserUUID.Valid {
+		return ImpersonationResult{}, errors.New("invalid impersonation target user id")
+	}
+	if err := s.q.CreateSessionRecord(ctx, targetUserUUID, auth.HashPasswordForSeed(tokenJTI), expiresAt); err != nil {
 		return ImpersonationResult{}, err
 	}
 
