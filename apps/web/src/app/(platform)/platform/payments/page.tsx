@@ -40,33 +40,185 @@ type BillingOverview = {
   generated_at: string;
 };
 
+type TenantOption = {
+  id: string;
+  name: string;
+};
+
+type PlatformInvoice = {
+  id: string;
+  invoice_number: string;
+  tenant_id: string;
+  tenant_name: string;
+  currency: string;
+  amount_total: number;
+  tax_amount: number;
+  status: string;
+  due_date?: string;
+  issued_at?: string;
+  paid_at?: string;
+  external_ref?: string;
+};
+
 export default function PlatformPaymentsPage() {
   const [rows, setRows] = useState<PlatformPayment[]>([]);
   const [overview, setOverview] = useState<BillingOverview | null>(null);
+  const [tenants, setTenants] = useState<TenantOption[]>([]);
+  const [invoices, setInvoices] = useState<PlatformInvoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [newInvoice, setNewInvoice] = useState({
+    tenant_id: "",
+    amount_total: "",
+    tax_amount: "0",
+    due_date: "",
+    currency: "INR",
+  });
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [paymentsRes, overviewRes, tenantsRes, invoicesRes] = await Promise.all([
+        apiClient("/admin/platform/payments?limit=200"),
+        apiClient("/admin/platform/billing/overview"),
+        apiClient("/admin/platform/tenants?limit=200"),
+        apiClient("/admin/platform/invoices?limit=200"),
+      ]);
+
+      if (paymentsRes.ok) {
+        const payments = await paymentsRes.json();
+        setRows(Array.isArray(payments) ? payments : []);
+      }
+      if (overviewRes.ok) {
+        const summary = await overviewRes.json();
+        setOverview(summary);
+      }
+      if (tenantsRes.ok) {
+        const tenantsData = await tenantsRes.json();
+        setTenants(
+          Array.isArray(tenantsData)
+            ? tenantsData.map((t) => ({ id: t.id, name: t.name }))
+            : []
+        );
+      }
+      if (invoicesRes.ok) {
+        const invoiceData = await invoicesRes.json();
+        setInvoices(Array.isArray(invoiceData) ? invoiceData : []);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const [paymentsRes, overviewRes] = await Promise.all([
-          apiClient("/admin/platform/payments?limit=200"),
-          apiClient("/admin/platform/billing/overview"),
-        ]);
-
-        if (paymentsRes.ok) {
-          const payments = await paymentsRes.json();
-          setRows(Array.isArray(payments) ? payments : []);
-        }
-        if (overviewRes.ok) {
-          const summary = await overviewRes.json();
-          setOverview(summary);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
     void load();
   }, []);
+
+  const createInvoice = async () => {
+    setBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      const amount = Number(newInvoice.amount_total);
+      const tax = Number(newInvoice.tax_amount || 0);
+      if (!newInvoice.tenant_id || !Number.isFinite(amount) || amount <= 0 || !Number.isFinite(tax) || tax < 0) {
+        throw new Error("Valid tenant, amount, and tax are required.");
+      }
+
+      const dueDate = newInvoice.due_date ? new Date(newInvoice.due_date).toISOString() : "";
+      const payload = {
+        tenant_id: newInvoice.tenant_id,
+        currency: newInvoice.currency || "INR",
+        amount_total: Math.floor(amount),
+        tax_amount: Math.floor(tax),
+        due_date: dueDate,
+        line_items: [
+          {
+            code: "subscription",
+            description: "Platform subscription invoice",
+            amount: Math.floor(amount),
+          },
+        ],
+      };
+
+      const res = await apiClient("/admin/platform/invoices", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await res.text());
+
+      setMessage("Invoice created.");
+      setNewInvoice({
+        tenant_id: "",
+        amount_total: "",
+        tax_amount: "0",
+        due_date: "",
+        currency: "INR",
+      });
+      await load();
+    } catch (e: any) {
+      setError(e?.message || "Failed to create invoice.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resendInvoice = async (invoiceId: string) => {
+    setBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      const res = await apiClient(`/admin/platform/invoices/${invoiceId}/resend`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setMessage("Invoice resend recorded.");
+      await load();
+    } catch (e: any) {
+      setError(e?.message || "Failed to resend invoice.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const markInvoicePaid = async (invoiceId: string) => {
+    setBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      const res = await apiClient(`/admin/platform/invoices/${invoiceId}/mark-paid`, {
+        method: "POST",
+        body: JSON.stringify({
+          payment_mode: "offline",
+          reference: `manual-${Date.now()}`,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setMessage("Invoice marked paid (offline).");
+      await load();
+    } catch (e: any) {
+      setError(e?.message || "Failed to mark invoice paid.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const exportInvoice = async (invoiceId: string) => {
+    setBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      const res = await apiClient(`/admin/platform/invoices/${invoiceId}/export`);
+      if (!res.ok) throw new Error(await res.text());
+      setMessage("Invoice export generated (JSON response available from API).");
+    } catch (e: any) {
+      setError(e?.message || "Failed to export invoice.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -74,6 +226,17 @@ export default function PlatformPaymentsPage() {
         <h1 className="text-3xl font-bold text-foreground">Billing & Payments</h1>
         <p className="text-muted-foreground">Platform subscription health, collections, and payment activity.</p>
       </div>
+
+      {message && (
+        <div className="rounded border border-emerald-600/40 bg-emerald-500/10 p-3 text-sm text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-200">
+          {message}
+        </div>
+      )}
+      {error && (
+        <div className="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-border bg-card p-4">
@@ -156,6 +319,124 @@ export default function PlatformPaymentsPage() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <h2 className="text-sm font-semibold text-foreground">Create Invoice</h2>
+        <div className="mt-3 grid gap-2 md:grid-cols-5">
+          <select
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            value={newInvoice.tenant_id}
+            onChange={(e) => setNewInvoice((p) => ({ ...p, tenant_id: e.target.value }))}
+          >
+            <option value="">Select tenant</option>
+            {tenants.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            min={1}
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            placeholder="Amount total"
+            value={newInvoice.amount_total}
+            onChange={(e) => setNewInvoice((p) => ({ ...p, amount_total: e.target.value }))}
+          />
+          <input
+            type="number"
+            min={0}
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            placeholder="Tax amount"
+            value={newInvoice.tax_amount}
+            onChange={(e) => setNewInvoice((p) => ({ ...p, tax_amount: e.target.value }))}
+          />
+          <input
+            type="datetime-local"
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            value={newInvoice.due_date}
+            onChange={(e) => setNewInvoice((p) => ({ ...p, due_date: e.target.value }))}
+          />
+          <button
+            type="button"
+            onClick={createInvoice}
+            disabled={busy}
+            className="rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+          >
+            Create Invoice
+          </button>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <table className="min-w-full text-left text-sm">
+          <thead className="bg-muted text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3">Invoice</th>
+              <th className="px-4 py-3">Tenant</th>
+              <th className="px-4 py-3">Amount</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Due</th>
+              <th className="px-4 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td className="px-4 py-6 text-muted-foreground" colSpan={6}>
+                  Loading invoices...
+                </td>
+              </tr>
+            ) : invoices.length === 0 ? (
+              <tr>
+                <td className="px-4 py-6 text-muted-foreground" colSpan={6}>
+                  No invoices found.
+                </td>
+              </tr>
+            ) : (
+              invoices.map((invoice) => (
+                <tr key={invoice.id} className="border-t border-border">
+                  <td className="px-4 py-3 text-foreground">{invoice.invoice_number}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{invoice.tenant_name}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{invoice.amount_total}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{invoice.status}</td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {invoice.due_date ? new Date(invoice.due_date).toLocaleString() : "-"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => resendInvoice(invoice.id)}
+                        disabled={busy}
+                        className="rounded border border-input px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+                      >
+                        Resend
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => markInvoicePaid(invoice.id)}
+                        disabled={busy || invoice.status === "paid"}
+                        className="rounded border border-emerald-600/40 px-2 py-1 text-xs text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-60 dark:border-emerald-700 dark:text-emerald-200 dark:hover:bg-emerald-900/20"
+                      >
+                        Mark Paid
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => exportInvoice(invoice.id)}
+                        disabled={busy}
+                        className="rounded border border-indigo-600/40 px-2 py-1 text-xs text-indigo-700 hover:bg-indigo-500/10 disabled:opacity-60 dark:border-indigo-700 dark:text-indigo-200 dark:hover:bg-indigo-900/20"
+                      >
+                        Export
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-border bg-card">

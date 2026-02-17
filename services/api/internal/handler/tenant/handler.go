@@ -47,6 +47,11 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Post("/tenants/{tenant_id}/branches", h.CreateTenantBranch)
 	r.Patch("/tenants/{tenant_id}/branches/{branch_id}", h.UpdateTenantBranch)
 	r.Get("/billing/overview", h.GetPlatformBillingOverview)
+	r.Get("/invoices", h.ListPlatformInvoices)
+	r.Post("/invoices", h.CreatePlatformInvoice)
+	r.Post("/invoices/{invoice_id}/resend", h.ResendPlatformInvoice)
+	r.Post("/invoices/{invoice_id}/mark-paid", h.MarkPlatformInvoicePaid)
+	r.Get("/invoices/{invoice_id}/export", h.ExportPlatformInvoice)
 	r.Get("/payments", h.ListPlatformPayments)
 }
 
@@ -633,6 +638,165 @@ func (h *Handler) GetPlatformBillingOverview(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(overview)
+}
+
+func (h *Handler) ListPlatformInvoices(w http.ResponseWriter, r *http.Request) {
+	limit := int32(100)
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = int32(parsed)
+		}
+	}
+	offset := int32(0)
+	if raw := r.URL.Query().Get("offset"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			offset = int32(parsed)
+		}
+	}
+
+	rows, err := h.service.ListPlatformInvoices(r.Context(), tenant.ListPlatformInvoicesFilters{
+		TenantID: r.URL.Query().Get("tenant_id"),
+		Status:   r.URL.Query().Get("status"),
+		Limit:    limit,
+		Offset:   offset,
+	})
+	if err != nil {
+		http.Error(w, "Failed to load platform invoices", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) CreatePlatformInvoice(w http.ResponseWriter, r *http.Request) {
+	var req tenant.CreatePlatformInvoiceParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.CreatedBy = middleware.GetUserID(r.Context())
+
+	created, err := h.service.CreatePlatformInvoice(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidInvoicePayload):
+			http.Error(w, "Invalid invoice payload", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to create platform invoice", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), req.CreatedBy, tenant.PlatformAuditEntry{
+		TenantID:     created.TenantID,
+		Action:       "platform.invoice.create",
+		ResourceType: "platform_invoice",
+		ResourceID:   created.ID,
+		Reason:       created.InvoiceNumber,
+		After:        created,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(created)
+}
+
+func (h *Handler) ResendPlatformInvoice(w http.ResponseWriter, r *http.Request) {
+	invoiceID := chi.URLParam(r, "invoice_id")
+	actorID := middleware.GetUserID(r.Context())
+
+	row, err := h.service.ResendPlatformInvoice(r.Context(), invoiceID)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidInvoiceID):
+			http.Error(w, "Invalid invoice id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvoiceNotFound):
+			http.Error(w, "Invoice not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to resend invoice", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     row.TenantID,
+		Action:       "platform.invoice.resend",
+		ResourceType: "platform_invoice",
+		ResourceID:   row.ID,
+		Reason:       row.InvoiceNumber,
+		After:        row,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(row)
+}
+
+func (h *Handler) MarkPlatformInvoicePaid(w http.ResponseWriter, r *http.Request) {
+	invoiceID := chi.URLParam(r, "invoice_id")
+	actorID := middleware.GetUserID(r.Context())
+
+	var req tenant.MarkPlatformInvoicePaidParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	row, err := h.service.MarkPlatformInvoicePaid(r.Context(), invoiceID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidInvoiceID):
+			http.Error(w, "Invalid invoice id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidInvoicePayload):
+			http.Error(w, "Invalid invoice payment payload", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvoiceNotFound):
+			http.Error(w, "Invoice not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to mark invoice paid", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     row.TenantID,
+		Action:       "platform.invoice.mark_paid",
+		ResourceType: "platform_invoice",
+		ResourceID:   row.ID,
+		Reason:       strings.TrimSpace(req.PaymentMode),
+		After: map[string]any{
+			"invoice": row,
+			"payment": req,
+		},
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(row)
+}
+
+func (h *Handler) ExportPlatformInvoice(w http.ResponseWriter, r *http.Request) {
+	invoiceID := chi.URLParam(r, "invoice_id")
+	row, err := h.service.ExportPlatformInvoice(r.Context(), invoiceID)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidInvoiceID):
+			http.Error(w, "Invalid invoice id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvoiceNotFound):
+			http.Error(w, "Invoice not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to export invoice", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"invoice":   row,
+		"exported":  true,
+		"format":    "json",
+		"timestamp": time.Now().UTC(),
+	})
 }
 
 func (h *Handler) UpdateTenantLifecycle(w http.ResponseWriter, r *http.Request) {
