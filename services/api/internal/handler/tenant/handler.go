@@ -59,6 +59,10 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Get("/tenants/{tenant_id}/exports", h.ListTenantDataExports)
 	r.Post("/tenants/{tenant_id}/exports", h.CreateTenantDataExport)
 	r.Get("/tenants/{tenant_id}/exports/{export_id}/download", h.DownloadTenantDataExport)
+	r.Get("/tenants/{tenant_id}/deletion-requests", h.ListTenantDeletionRequests)
+	r.Post("/tenants/{tenant_id}/deletion-requests", h.CreateTenantDeletionRequest)
+	r.Post("/tenants/{tenant_id}/deletion-requests/{request_id}/review", h.ReviewTenantDeletionRequest)
+	r.Post("/tenants/{tenant_id}/deletion-requests/{request_id}/execute", h.ExecuteTenantDeletionRequest)
 	r.Get("/internal-users", h.ListPlatformInternalUsers)
 	r.Post("/internal-users", h.CreatePlatformInternalUser)
 	r.Patch("/internal-users/{user_id}", h.UpdatePlatformInternalUser)
@@ -780,6 +784,179 @@ func (h *Handler) DownloadTenantDataExport(w http.ResponseWriter, r *http.Reques
 			"total_rows": totalRows,
 		},
 	})
+}
+
+func (h *Handler) ListTenantDeletionRequests(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+
+	limit := int32(50)
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = int32(parsed)
+		}
+	}
+	offset := int32(0)
+	if raw := strings.TrimSpace(r.URL.Query().Get("offset")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			offset = int32(parsed)
+		}
+	}
+
+	rows, err := h.service.ListTenantDeletionRequests(r.Context(), tenantID, limit, offset)
+	if err != nil {
+		if errors.Is(err, tenant.ErrInvalidTenantID) {
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Failed to load tenant deletion requests", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) CreateTenantDeletionRequest(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	actorID := middleware.GetUserID(r.Context())
+
+	var req tenant.CreateTenantDeletionRequestParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.RequestedBy = actorID
+
+	created, err := h.service.CreateTenantDeletionRequest(r.Context(), tenantID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrDeletionReasonRequired):
+			http.Error(w, "Deletion reason is required", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrDeletionAlreadyInProgress):
+			http.Error(w, "A deletion request already exists for this tenant", http.StatusConflict)
+		default:
+			http.Error(w, "Failed to create tenant deletion request", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.security.tenant_deletion.request",
+		ResourceType: "tenant_deletion",
+		ResourceID:   created.ID,
+		Reason:       strings.TrimSpace(req.Reason),
+		After:        created,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(created)
+}
+
+func (h *Handler) ReviewTenantDeletionRequest(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	requestID := chi.URLParam(r, "request_id")
+	actorID := middleware.GetUserID(r.Context())
+
+	var req tenant.ReviewTenantDeletionRequestParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.ReviewedBy = actorID
+
+	updated, err := h.service.ReviewTenantDeletionRequest(r.Context(), tenantID, requestID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidDeletionRequestID):
+			http.Error(w, "Invalid deletion request id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrDeletionRequestNotFound):
+			http.Error(w, "Deletion request not found", http.StatusNotFound)
+		case errors.Is(err, tenant.ErrDeletionInvalidDecision):
+			http.Error(w, "Invalid review decision (use approve|reject)", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrDeletionNotPending):
+			http.Error(w, "Deletion request is not pending", http.StatusConflict)
+		case errors.Is(err, tenant.ErrDeletionSelfApproval):
+			http.Error(w, "Cannot approve your own deletion request", http.StatusForbidden)
+		default:
+			http.Error(w, "Failed to review tenant deletion request", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	action := "platform.security.tenant_deletion.review"
+	if strings.EqualFold(strings.TrimSpace(req.Decision), "approve") {
+		action = "platform.security.tenant_deletion.approve"
+	}
+	if strings.EqualFold(strings.TrimSpace(req.Decision), "reject") {
+		action = "platform.security.tenant_deletion.reject"
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       action,
+		ResourceType: "tenant_deletion",
+		ResourceID:   strings.TrimSpace(requestID),
+		Reason:       strings.TrimSpace(req.Notes),
+		After:        updated,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
+}
+
+func (h *Handler) ExecuteTenantDeletionRequest(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	requestID := chi.URLParam(r, "request_id")
+	actorID := middleware.GetUserID(r.Context())
+
+	var req tenant.ExecuteTenantDeletionParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	req.ExecutedBy = actorID
+
+	if err := h.service.ExecuteTenantDeletion(r.Context(), tenantID, requestID, req); err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrInvalidDeletionRequestID):
+			http.Error(w, "Invalid deletion request id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrDeletionRequestNotFound):
+			http.Error(w, "Deletion request not found", http.StatusNotFound)
+		case errors.Is(err, tenant.ErrDeletionConfirmationRequired):
+			http.Error(w, "Deletion confirmation is required", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrDeletionInvalidConfirmation):
+			http.Error(w, "Deletion confirmation did not match", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrDeletionNotApproved):
+			http.Error(w, "Deletion request is not approved", http.StatusConflict)
+		case errors.Is(err, tenant.ErrDeletionCooldownActive):
+			http.Error(w, "Deletion request is still in cooldown", http.StatusConflict)
+		case errors.Is(err, tenant.ErrDeletionAlreadyExecuted):
+			http.Error(w, "Deletion request is already executed", http.StatusConflict)
+		default:
+			http.Error(w, "Failed to execute tenant deletion request", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	updated, _ := h.service.GetTenantDeletionRequest(r.Context(), tenantID, requestID)
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.security.tenant_deletion.execute",
+		ResourceType: "tenant_deletion",
+		ResourceID:   strings.TrimSpace(requestID),
+		After:        updated,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
 }
 
 func (h *Handler) ListPlatformInternalUsers(w http.ResponseWriter, r *http.Request) {

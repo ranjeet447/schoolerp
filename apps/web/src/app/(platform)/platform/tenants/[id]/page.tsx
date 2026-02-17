@@ -74,6 +74,30 @@ type TenantExportRequest = {
   completed_at?: string;
 };
 
+type TenantDeletionRequest = {
+  id: string;
+  tenant_id: string;
+  status: string;
+  requested_by: string;
+  requested_by_name?: string;
+  requested_by_email?: string;
+  approved_by?: string;
+  approved_by_name?: string;
+  approved_by_email?: string;
+  payload?: {
+    reason?: string;
+    notes?: string;
+    cooldown_hours?: number;
+    requested_at?: string;
+    approved_at?: string;
+    execute_after?: string;
+    executed_at?: string;
+  };
+  created_at: string;
+  approved_at?: string;
+  execute_after?: string;
+};
+
 export default function PlatformTenantDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -82,6 +106,7 @@ export default function PlatformTenantDetailPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [billingControls, setBillingControls] = useState<BillingControls | null>(null);
   const [exports, setExports] = useState<TenantExportRequest[]>([]);
+  const [deletionRequests, setDeletionRequests] = useState<TenantDeletionRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -131,9 +156,14 @@ export default function PlatformTenantDetailPage() {
   const [exportIncludeUsers, setExportIncludeUsers] = useState(true);
   const [exportIncludeTables, setExportIncludeTables] = useState("");
   const [exportExcludeTables, setExportExcludeTables] = useState("");
+  const [deletionReason, setDeletionReason] = useState("");
+  const [deletionCooldownHours, setDeletionCooldownHours] = useState("24");
+  const [deletionConfirmation, setDeletionConfirmation] = useState("");
+  const [deletionReviewNotes, setDeletionReviewNotes] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [busyBranchId, setBusyBranchId] = useState("");
   const [busyExportId, setBusyExportId] = useState("");
+  const [busyDeletionRequestId, setBusyDeletionRequestId] = useState("");
 
   const parseJSONObject = (raw: string, label: string) => {
     try {
@@ -151,11 +181,12 @@ export default function PlatformTenantDetailPage() {
     setLoading(true);
     setError("");
     try {
-      const [tenantRes, branchesRes, billingRes, exportsRes] = await Promise.all([
+      const [tenantRes, branchesRes, billingRes, exportsRes, deletionsRes] = await Promise.all([
         apiClient(`/admin/platform/tenants/${id}`),
         apiClient(`/admin/platform/tenants/${id}/branches`),
         apiClient(`/admin/platform/tenants/${id}/billing-controls`),
         apiClient(`/admin/platform/tenants/${id}/exports?limit=20`),
+        apiClient(`/admin/platform/tenants/${id}/deletion-requests?limit=20`),
       ]);
 
       if (!tenantRes.ok) {
@@ -212,6 +243,13 @@ export default function PlatformTenantDetailPage() {
         setExports(Array.isArray(exportData) ? exportData : []);
       } else {
         setExports([]);
+      }
+
+      if (deletionsRes.ok) {
+        const deletionData = await deletionsRes.json();
+        setDeletionRequests(Array.isArray(deletionData) ? deletionData : []);
+      } else {
+        setDeletionRequests([]);
       }
     } finally {
       setLoading(false);
@@ -555,6 +593,74 @@ export default function PlatformTenantDetailPage() {
       setError(e?.message || "Failed to download export.");
     } finally {
       setBusyExportId("");
+    }
+  };
+
+  const requestTenantDeletion = async () => {
+    await action("Tenant deletion request", async () => {
+      if (!deletionReason.trim()) {
+        throw new Error("Deletion reason is required.");
+      }
+
+      const cooldown = Math.floor(Number(deletionCooldownHours || "24"));
+      if (!Number.isFinite(cooldown) || cooldown <= 0) {
+        throw new Error("Cooldown hours must be a positive number.");
+      }
+
+      const res = await apiClient(`/admin/platform/tenants/${id}/deletion-requests`, {
+        method: "POST",
+        body: JSON.stringify({
+          reason: deletionReason.trim(),
+          cooldown_hours: cooldown,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+
+      setDeletionReason("");
+      setDeletionCooldownHours("24");
+    });
+  };
+
+  const reviewTenantDeletion = async (requestId: string, decision: "approve" | "reject") => {
+    setBusyDeletionRequestId(requestId);
+    try {
+      await action(`Tenant deletion ${decision}`, async () => {
+        const notes = (deletionReviewNotes[requestId] || "").trim();
+        const res = await apiClient(`/admin/platform/tenants/${id}/deletion-requests/${requestId}/review`, {
+          method: "POST",
+          body: JSON.stringify({ decision, notes }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+
+        setDeletionReviewNotes((prev) => {
+          const next = { ...prev };
+          delete next[requestId];
+          return next;
+        });
+      });
+    } finally {
+      setBusyDeletionRequestId("");
+    }
+  };
+
+  const executeTenantDeletion = async (requestId: string) => {
+    setBusyDeletionRequestId(requestId);
+    try {
+      await action("Tenant deletion execute", async () => {
+        const confirmation = deletionConfirmation.trim();
+        if (!confirmation) {
+          throw new Error(`Confirmation is required: DELETE ${id}`);
+        }
+
+        const res = await apiClient(`/admin/platform/tenants/${id}/deletion-requests/${requestId}/execute`, {
+          method: "POST",
+          body: JSON.stringify({ confirmation }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        setDeletionConfirmation("");
+      });
+    } finally {
+      setBusyDeletionRequestId("");
     }
   };
 
@@ -1087,6 +1193,152 @@ export default function PlatformTenantDetailPage() {
                       </button>
                       {ex.payload?.error && (
                         <p className="mt-1 text-xs text-red-700 dark:text-red-200">{ex.payload.error}</p>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-red-600/40 bg-card p-4 dark:border-red-700/50">
+        <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 className="font-semibold text-foreground">Danger Zone: Tenant Deletion (Soft Close)</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Two-person approval required. Execute will set the tenant lifecycle to <span className="font-medium">closed</span> (access disabled) and is logged in the platform audit trail.
+            </p>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Confirmation required: <span className="font-mono">DELETE {id}</span>
+          </div>
+        </div>
+
+        <div className="mt-3 grid gap-2 md:grid-cols-6">
+          <input
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground md:col-span-3"
+            placeholder="Reason (required)"
+            value={deletionReason}
+            onChange={(e) => setDeletionReason(e.target.value)}
+          />
+          <input
+            type="number"
+            min={1}
+            max={168}
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground md:col-span-1"
+            placeholder="Cooldown"
+            value={deletionCooldownHours}
+            onChange={(e) => setDeletionCooldownHours(e.target.value)}
+          />
+          <button
+            type="button"
+            onClick={requestTenantDeletion}
+            disabled={busy || !deletionReason.trim()}
+            className="rounded border border-red-600/40 px-3 py-2 text-sm text-red-700 hover:bg-red-500/10 disabled:opacity-60 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/20 md:col-span-2"
+          >
+            Request Deletion
+          </button>
+        </div>
+
+        <div className="mt-3 grid gap-2 md:grid-cols-6">
+          <input
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground md:col-span-3"
+            placeholder={`Type confirmation: DELETE ${id}`}
+            value={deletionConfirmation}
+            onChange={(e) => setDeletionConfirmation(e.target.value)}
+          />
+        </div>
+
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead className="text-muted-foreground">
+              <tr>
+                <th className="py-2">Created</th>
+                <th className="py-2">Status</th>
+                <th className="py-2">Reason</th>
+                <th className="py-2">Requested By</th>
+                <th className="py-2">Approved By</th>
+                <th className="py-2">Execute After</th>
+                <th className="py-2">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {deletionRequests.length === 0 ? (
+                <tr>
+                  <td className="py-3 text-muted-foreground" colSpan={7}>
+                    No deletion requests yet.
+                  </td>
+                </tr>
+              ) : (
+                deletionRequests.map((req) => (
+                  <tr key={req.id} className="border-t border-border">
+                    <td className="py-2 text-muted-foreground">
+                      {req.created_at ? new Date(req.created_at).toLocaleString() : "-"}
+                    </td>
+                    <td className="py-2 text-muted-foreground">{req.status}</td>
+                    <td className="py-2 text-muted-foreground">
+                      <p>{req.payload?.reason || "-"}</p>
+                      {req.payload?.notes && <p className="mt-1 text-xs">Notes: {req.payload.notes}</p>}
+                      {req.payload?.executed_at && (
+                        <p className="mt-1 text-xs">
+                          Executed: {new Date(req.payload.executed_at).toLocaleString()}
+                        </p>
+                      )}
+                    </td>
+                    <td className="py-2 text-muted-foreground">
+                      <p>{req.requested_by_name || "-"}</p>
+                      <p className="text-xs">{req.requested_by_email || req.requested_by || "-"}</p>
+                    </td>
+                    <td className="py-2 text-muted-foreground">
+                      <p>{req.approved_by_name || "-"}</p>
+                      <p className="text-xs">{req.approved_by_email || req.approved_by || "-"}</p>
+                    </td>
+                    <td className="py-2 text-muted-foreground">
+                      {req.execute_after ? new Date(req.execute_after).toLocaleString() : "-"}
+                    </td>
+                    <td className="py-2">
+                      {req.status === "pending" ? (
+                        <div className="flex flex-col gap-2">
+                          <input
+                            className="w-full rounded border border-input bg-background px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground"
+                            placeholder="Review notes (optional)"
+                            value={deletionReviewNotes[req.id] || ""}
+                            onChange={(e) =>
+                              setDeletionReviewNotes((prev) => ({ ...prev, [req.id]: e.target.value }))
+                            }
+                          />
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void reviewTenantDeletion(req.id, "approve")}
+                              disabled={busy || busyDeletionRequestId === req.id}
+                              className="rounded border border-emerald-600/40 px-3 py-1 text-xs text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-60 dark:border-emerald-700 dark:text-emerald-200 dark:hover:bg-emerald-900/20"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void reviewTenantDeletion(req.id, "reject")}
+                              disabled={busy || busyDeletionRequestId === req.id}
+                              className="rounded border border-red-600/40 px-3 py-1 text-xs text-red-700 hover:bg-red-500/10 disabled:opacity-60 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/20"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+                      ) : req.status === "approved" ? (
+                        <button
+                          type="button"
+                          onClick={() => void executeTenantDeletion(req.id)}
+                          disabled={busy || busyDeletionRequestId === req.id || !deletionConfirmation.trim()}
+                          className="rounded border border-red-600/40 px-3 py-1 text-xs text-red-700 hover:bg-red-500/10 disabled:opacity-60 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/20"
+                        >
+                          Execute
+                        </button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
                       )}
                     </td>
                   </tr>

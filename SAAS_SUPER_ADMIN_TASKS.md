@@ -35,6 +35,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - `[x]` Security events stream added (record CORS denials, auth rate-limit blocks, login failures/MFA requirement, and IP allowlist blocks; listable via platform UI page).
 - `[x]` Data retention policy settings added (platform-scoped retention window config API/UI with audit logging).
 - `[x]` Tenant data export workflow added (request/list/download ZIP NDJSON exports per tenant with audit trail; safe defaults and restricted-table allowlist).
+- `[x]` Tenant deletion workflow added (request/list/approve/reject/execute with typed confirmation and cooldown; executes safe soft-close).
 - `[x]` Tenant plan change flow added (upgrade/downgrade with proration policy and effective time).
 - `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, branding/domain mapping, branch create/update/activate/deactivate, admin reset/logout, impersonation).
 - `[x]` Signup request moderation UI and API flow added (approve/reject with notes).
@@ -112,7 +113,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [x] SG-003 Security events stream (anomalies, suspicious access, rate-limit events).
 - [x] SG-004 Data retention and deletion policy settings.
 - [x] SG-005 Tenant data export workflow (compliance request).
-- [ ] SG-006 Tenant deletion workflow with cooldown + approvals.
+- [x] SG-006 Tenant deletion workflow with cooldown + approvals.
 - [ ] SG-007 Platform secrets/key rotation workflow.
 - [ ] SG-008 Password policy configuration (length/reuse/expiry).
 - [ ] SG-009 Risk-based tenant/user block actions.
@@ -185,7 +186,7 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 ## Practical Extras (Required)
 - [x] EX-001 Impersonation guardrails: reason required, TTL, explicit exit, fully audited.
 - [~] EX-002 Mandatory audit logging for every super-admin action endpoint.
-- [ ] EX-003 Two-person approval for destructive actions (delete tenant, restore, key rotation).
+- [~] EX-003 Two-person approval for destructive actions (delete tenant, restore, key rotation).
 - [ ] EX-004 Internal role-based UI segmentation (finance/support/dev/ops scoped views).
 
 ## Definition of Done (Global)
