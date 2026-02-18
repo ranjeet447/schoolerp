@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -27,6 +28,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/visitors/check-out/{id}", h.VisitorCheckOut)
 		r.Get("/visitors/logs", h.ListVisitorLogs)
 		r.Post("/broadcasts", h.SendBroadcast)
+		r.Get("/broadcasts", h.ListBroadcasts)
 		r.Get("/pickups/{student_id}", h.ListPickupAuths)
 		r.Post("/pickups", h.CreatePickupAuth)
 	})
@@ -46,7 +48,11 @@ func (h *Handler) CreateIncident(w http.ResponseWriter, r *http.Request) {
 		ParentVisibility bool      `json:"parent_visibility"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.StudentID) == "" || strings.TrimSpace(req.Category) == "" || strings.TrimSpace(req.Title) == "" {
+		http.Error(w, "student_id, category, and title are required", http.StatusBadRequest)
 		return
 	}
 
@@ -62,6 +68,11 @@ func (h *Handler) CreateIncident(w http.ResponseWriter, r *http.Request) {
 		ParentVisibility: req.ParentVisibility,
 	})
 	if err != nil {
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "required") || strings.Contains(errMsg, "invalid") {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -92,13 +103,22 @@ func (h *Handler) VisitorCheckIn(w http.ResponseWriter, r *http.Request) {
 
 	var req safetyservice.VisitorCheckInParams
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.FullName) == "" || strings.TrimSpace(req.Phone) == "" || strings.TrimSpace(req.Purpose) == "" {
+		http.Error(w, "full_name, phone, and purpose are required", http.StatusBadRequest)
 		return
 	}
 	req.TenantID = tenantID
 
 	log, err := h.svc.VisitorCheckIn(r.Context(), req)
 	if err != nil {
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "required") || strings.Contains(errMsg, "invalid") {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -115,10 +135,24 @@ func (h *Handler) VisitorCheckOut(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Remarks string `json:"remarks"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if r.Body != nil {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err.Error() != "EOF" {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+	}
 
 	log, err := h.svc.VisitorCheckOut(r.Context(), tenantID, logID, req.Remarks)
 	if err != nil {
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "invalid") {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if strings.Contains(errMsg, "no rows") || strings.Contains(errMsg, "not found") {
+			http.Error(w, "visitor log not found", http.StatusNotFound)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -148,13 +182,22 @@ func (h *Handler) CreatePickupAuth(w http.ResponseWriter, r *http.Request) {
 
 	var req safetyservice.CreatePickupAuthParams
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.StudentID) == "" || strings.TrimSpace(req.Name) == "" || strings.TrimSpace(req.Phone) == "" {
+		http.Error(w, "student_id, name, and phone are required", http.StatusBadRequest)
 		return
 	}
 	req.TenantID = tenantID
 
 	auth, err := h.svc.CreatePickupAuth(r.Context(), req)
 	if err != nil {
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "required") || strings.Contains(errMsg, "invalid") {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -188,7 +231,15 @@ func (h *Handler) SendBroadcast(w http.ResponseWriter, r *http.Request) {
 		TargetRoles []string `json:"target_roles"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.Message) == "" {
+		http.Error(w, "message is required", http.StatusBadRequest)
+		return
+	}
+	if len(req.TargetRoles) == 0 {
+		http.Error(w, "target_roles is required", http.StatusBadRequest)
 		return
 	}
 
@@ -200,6 +251,11 @@ func (h *Handler) SendBroadcast(w http.ResponseWriter, r *http.Request) {
 		TargetRoles: req.TargetRoles,
 	})
 	if err != nil {
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "required") || strings.Contains(errMsg, "invalid") || strings.Contains(errMsg, "channel") {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -207,4 +263,27 @@ func (h *Handler) SendBroadcast(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
 	json.NewEncoder(w).Encode(broadcast)
+}
+
+func (h *Handler) ListBroadcasts(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if limit == 0 {
+		limit = 50
+	}
+
+	broadcasts, err := h.svc.ListBroadcasts(r.Context(), tenantID, int32(limit), int32(offset))
+	if err != nil {
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "invalid") {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(broadcasts)
 }

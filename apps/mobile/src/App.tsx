@@ -13,6 +13,10 @@ export default function App() {
 
   useEffect(() => {
     const init = async () => {
+      let backButtonHandle: { remove: () => Promise<void> } | null = null;
+      let networkStatusHandle: { remove: () => Promise<void> } | null = null;
+      let appURLHandle: { remove: () => Promise<void> } | null = null;
+
       if (Capacitor.isNativePlatform()) {
         try {
           await StatusBar.setStyle({ style: Style.Light });
@@ -20,7 +24,7 @@ export default function App() {
         } catch { /* web fallback */ }
 
         // Handle Android back button
-        CapApp.addListener('backButton', async ({ canGoBack }) => {
+        backButtonHandle = await CapApp.addListener('backButton', async ({ canGoBack }) => {
           if (canGoBack) {
             window.history.back();
           } else {
@@ -29,17 +33,23 @@ export default function App() {
         });
 
         // Network status listener
-        Network.addListener('networkStatusChange', status => {
+        networkStatusHandle = await Network.addListener('networkStatusChange', status => {
           setIsConnected(status.connected);
         });
         const status = await Network.getStatus();
         setIsConnected(status.connected);
 
         // App URL listener (deep links)
-        CapApp.addListener('appUrlOpen', async (/* { url } */) => {
+        appURLHandle = await CapApp.addListener('appUrlOpen', async (/* { url } */) => {
            // Handle deep links if needed, or let webview handle it
            // For now, we trust the webview to handle routing
         });
+
+        return () => {
+          backButtonHandle?.remove();
+          networkStatusHandle?.remove();
+          appURLHandle?.remove();
+        }
       }
 
       try {
@@ -52,13 +62,13 @@ export default function App() {
       setReady(true);
     };
 
-    init();
+    let cleanup: (() => void) | undefined;
+    init().then((fn) => {
+      cleanup = fn;
+    });
 
     return () => {
-        if (Capacitor.isNativePlatform()) {
-             Network.removeAllListeners();
-             CapApp.removeAllListeners();
-        }
+      cleanup?.();
     }
   }, []);
 
@@ -116,10 +126,23 @@ export default function App() {
        )
   }
 
-  // Native: serve dist/ via Capacitor
-  if (Capacitor.isNativePlatform()) {
-    // We redirect to root just in case, but really Capacitor handles this via webDir
-    return null; 
+  // Native: explicitly wrap SchoolERP web app for parity with web shell behavior.
+  if (Capacitor.isNativePlatform() && !WEB_APP_URL) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        padding: '20px',
+        textAlign: 'center',
+        fontFamily: 'Inter, sans-serif',
+      }}>
+        <h2 style={{ marginBottom: '10px' }}>App Configuration Required</h2>
+        <p style={{ color: '#666' }}>Set VITE_WEB_APP_URL to your SchoolERP web URL.</p>
+      </div>
+    );
   }
 
   // Web/Dev: usage iframe

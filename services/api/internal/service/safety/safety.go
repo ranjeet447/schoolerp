@@ -2,9 +2,12 @@ package safety
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/schoolerp/api/internal/db"
 	"github.com/schoolerp/api/internal/foundation/audit"
@@ -37,12 +40,31 @@ type CreateIncidentParams struct {
 }
 
 func (s *Service) CreateIncident(ctx context.Context, p CreateIncidentParams) (db.DisciplineIncident, error) {
+	if strings.TrimSpace(p.StudentID) == "" {
+		return db.DisciplineIncident{}, errors.New("student_id is required")
+	}
+	if strings.TrimSpace(p.Category) == "" {
+		return db.DisciplineIncident{}, errors.New("category is required")
+	}
+	if strings.TrimSpace(p.Title) == "" {
+		return db.DisciplineIncident{}, errors.New("title is required")
+	}
+	if p.IncidentDate.IsZero() {
+		p.IncidentDate = time.Now()
+	}
+
 	tID := pgtype.UUID{}
-	tID.Scan(p.TenantID)
+	if err := tID.Scan(p.TenantID); err != nil {
+		return db.DisciplineIncident{}, errors.New("invalid tenant_id")
+	}
 	sID := pgtype.UUID{}
-	sID.Scan(p.StudentID)
+	if err := sID.Scan(p.StudentID); err != nil {
+		return db.DisciplineIncident{}, errors.New("invalid student_id")
+	}
 	rID := pgtype.UUID{}
-	rID.Scan(p.ReporterID)
+	if err := rID.Scan(p.ReporterID); err != nil {
+		return db.DisciplineIncident{}, errors.New("invalid reporter_id")
+	}
 
 	incident, err := s.q.CreateDisciplineIncident(ctx, db.CreateDisciplineIncidentParams{
 		TenantID:         tID,
@@ -98,8 +120,20 @@ type VisitorCheckInParams struct {
 }
 
 func (s *Service) VisitorCheckIn(ctx context.Context, p VisitorCheckInParams) (db.VisitorLog, error) {
+	if strings.TrimSpace(p.FullName) == "" {
+		return db.VisitorLog{}, errors.New("full_name is required")
+	}
+	if strings.TrimSpace(p.Phone) == "" {
+		return db.VisitorLog{}, errors.New("phone is required")
+	}
+	if strings.TrimSpace(p.Purpose) == "" {
+		return db.VisitorLog{}, errors.New("purpose is required")
+	}
+
 	tID := pgtype.UUID{}
-	tID.Scan(p.TenantID)
+	if err := tID.Scan(p.TenantID); err != nil {
+		return db.VisitorLog{}, errors.New("invalid tenant_id")
+	}
 
 	// 1. Get or Create Visitor
 	visitor, err := s.q.GetVisitorByPhone(ctx, db.GetVisitorByPhoneParams{
@@ -107,6 +141,10 @@ func (s *Service) VisitorCheckIn(ctx context.Context, p VisitorCheckInParams) (d
 		Phone:    p.Phone,
 	})
 	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return db.VisitorLog{}, fmt.Errorf("failed to lookup visitor: %w", err)
+		}
+
 		// Encrypt ID Number
 		encryptedID := p.IDNumber
 		if p.IDNumber != "" {
@@ -134,7 +172,9 @@ func (s *Service) VisitorCheckIn(ctx context.Context, p VisitorCheckInParams) (d
 	// 2. Create Visitor Log
 	cpID := pgtype.UUID{}
 	if p.ContactPersonID != "" {
-		cpID.Scan(p.ContactPersonID)
+		if err := cpID.Scan(p.ContactPersonID); err != nil {
+			return db.VisitorLog{}, errors.New("invalid contact_person_id")
+		}
 	}
 
 	log, err := s.q.CreateVisitorLog(ctx, db.CreateVisitorLogParams{
@@ -153,9 +193,13 @@ func (s *Service) VisitorCheckIn(ctx context.Context, p VisitorCheckInParams) (d
 
 func (s *Service) VisitorCheckOut(ctx context.Context, tenantID, logID, remarks string) (db.VisitorLog, error) {
 	tID := pgtype.UUID{}
-	tID.Scan(tenantID)
+	if err := tID.Scan(tenantID); err != nil {
+		return db.VisitorLog{}, errors.New("invalid tenant_id")
+	}
 	lID := pgtype.UUID{}
-	lID.Scan(logID)
+	if err := lID.Scan(logID); err != nil {
+		return db.VisitorLog{}, errors.New("invalid log_id")
+	}
 
 	return s.q.CheckOutVisitor(ctx, db.CheckOutVisitorParams{
 		ID:       lID,
@@ -186,10 +230,27 @@ type CreatePickupAuthParams struct {
 }
 
 func (s *Service) CreatePickupAuth(ctx context.Context, p CreatePickupAuthParams) (db.PickupAuthorization, error) {
+	if strings.TrimSpace(p.StudentID) == "" {
+		return db.PickupAuthorization{}, errors.New("student_id is required")
+	}
+	if strings.TrimSpace(p.Name) == "" {
+		return db.PickupAuthorization{}, errors.New("name is required")
+	}
+	if strings.TrimSpace(p.Relationship) == "" {
+		return db.PickupAuthorization{}, errors.New("relationship is required")
+	}
+	if strings.TrimSpace(p.Phone) == "" {
+		return db.PickupAuthorization{}, errors.New("phone is required")
+	}
+
 	tID := pgtype.UUID{}
-	tID.Scan(p.TenantID)
+	if err := tID.Scan(p.TenantID); err != nil {
+		return db.PickupAuthorization{}, errors.New("invalid tenant_id")
+	}
 	sID := pgtype.UUID{}
-	sID.Scan(p.StudentID)
+	if err := sID.Scan(p.StudentID); err != nil {
+		return db.PickupAuthorization{}, errors.New("invalid student_id")
+	}
 
 	return s.q.CreatePickupAuthorization(ctx, db.CreatePickupAuthorizationParams{
 		TenantID:     tID,
@@ -203,9 +264,13 @@ func (s *Service) CreatePickupAuth(ctx context.Context, p CreatePickupAuthParams
 
 func (s *Service) ListPickupAuths(ctx context.Context, tenantID, studentID string) ([]db.PickupAuthorization, error) {
 	tID := pgtype.UUID{}
-	tID.Scan(tenantID)
+	if err := tID.Scan(tenantID); err != nil {
+		return nil, errors.New("invalid tenant_id")
+	}
 	sID := pgtype.UUID{}
-	sID.Scan(studentID)
+	if err := sID.Scan(studentID); err != nil {
+		return nil, errors.New("invalid student_id")
+	}
 
 	return s.q.ListPickupAuthorizations(ctx, db.ListPickupAuthorizationsParams{
 		TenantID:  tID,
@@ -224,10 +289,26 @@ type SendBroadcastParams struct {
 }
 
 func (s *Service) SendBroadcast(ctx context.Context, p SendBroadcastParams) (db.EmergencyBroadcast, error) {
+	if strings.TrimSpace(p.Message) == "" {
+		return db.EmergencyBroadcast{}, errors.New("message is required")
+	}
+	switch p.Channel {
+	case "sms", "email", "push", "whatsapp", "in_app":
+	default:
+		return db.EmergencyBroadcast{}, errors.New("channel must be one of: sms, email, push, whatsapp, in_app")
+	}
+	if len(p.TargetRoles) == 0 {
+		return db.EmergencyBroadcast{}, errors.New("target_roles is required")
+	}
+
 	tID := pgtype.UUID{}
-	tID.Scan(p.TenantID)
+	if err := tID.Scan(p.TenantID); err != nil {
+		return db.EmergencyBroadcast{}, errors.New("invalid tenant_id")
+	}
 	cID := pgtype.UUID{}
-	cID.Scan(p.CreatorID)
+	if err := cID.Scan(p.CreatorID); err != nil {
+		return db.EmergencyBroadcast{}, errors.New("invalid creator_id")
+	}
 
 	broadcast, err := s.q.CreateEmergencyBroadcast(ctx, db.CreateEmergencyBroadcastParams{
 		TenantID:    tID,
@@ -254,4 +335,16 @@ func (s *Service) SendBroadcast(ctx context.Context, p SendBroadcastParams) (db.
 	})
 
 	return broadcast, nil
+}
+
+func (s *Service) ListBroadcasts(ctx context.Context, tenantID string, limit, offset int32) ([]db.ListEmergencyBroadcastsRow, error) {
+	tID := pgtype.UUID{}
+	if err := tID.Scan(tenantID); err != nil {
+		return nil, errors.New("invalid tenant_id")
+	}
+	return s.q.ListEmergencyBroadcasts(ctx, db.ListEmergencyBroadcastsParams{
+		TenantID: tID,
+		Limit:    limit,
+		Offset:   offset,
+	})
 }
