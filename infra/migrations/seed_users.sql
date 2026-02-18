@@ -75,7 +75,7 @@ VALUES ('019c4d42-49ca-767c-b3bd-b1a7faf5ad04', 'saas_admin@schoolerp.com', 'Saa
 ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO user_identities (id, user_id, provider, identifier, credential)
-VALUES ('019c4d42-49ca-7593-ad83-721b9b43bc23', '019c4d42-49ca-767c-b3bd-b1a7faf5ad04', 'password', 'saas_admin@schoolerp.com', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f')
+VALUES ('019c4d42-49ca-7593-ad83-721b9b43bc23', (SELECT id FROM users WHERE email = 'saas_admin@schoolerp.com'), 'password', 'saas_admin@schoolerp.com', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f')
 ON CONFLICT (provider, identifier) DO UPDATE
 SET
     user_id = EXCLUDED.user_id,
@@ -87,7 +87,7 @@ VALUES ('019c4d42-49ca-70b0-a772-e58913e13446', 'admin@demo.school', 'Demo Schoo
 ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO user_identities (id, user_id, provider, identifier, credential)
-VALUES ('019c4d42-49ca-7fe1-bc66-a780c450ccff', '019c4d42-49ca-70b0-a772-e58913e13446', 'password', 'admin@demo.school', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f')
+VALUES ('019c4d42-49ca-7fe1-bc66-a780c450ccff', (SELECT id FROM users WHERE email = 'admin@demo.school'), 'password', 'admin@demo.school', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f')
 ON CONFLICT (provider, identifier) DO UPDATE
 SET
     user_id = EXCLUDED.user_id,
@@ -99,7 +99,7 @@ VALUES ('019c4d42-49ca-765c-a638-deef0366aff8', 'teacher@demo.school', 'Demo Tea
 ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO user_identities (id, user_id, provider, identifier, credential)
-VALUES ('019c4d42-49ca-7c90-8765-83d01b1de50a', '019c4d42-49ca-765c-a638-deef0366aff8', 'password', 'teacher@demo.school', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f')
+VALUES ('019c4d42-49ca-7c90-8765-83d01b1de50a', (SELECT id FROM users WHERE email = 'teacher@demo.school'), 'password', 'teacher@demo.school', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f')
 ON CONFLICT (provider, identifier) DO UPDATE
 SET
     user_id = EXCLUDED.user_id,
@@ -111,7 +111,7 @@ VALUES ('3b74529c-6f73-4f3f-bde2-5811765ffdf7', 'admin@school.edu.in', 'School A
 ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO user_identities (id, user_id, provider, identifier, credential)
-VALUES ('fca9a6cf-66c0-4c59-b8b2-061d5dd180cc', '3b74529c-6f73-4f3f-bde2-5811765ffdf7', 'password', 'admin@school.edu.in', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f')
+VALUES ('fca9a6cf-66c0-4c59-b8b2-061d5dd180cc', (SELECT id FROM users WHERE email = 'admin@school.edu.in'), 'password', 'admin@school.edu.in', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f')
 ON CONFLICT (provider, identifier) DO UPDATE
 SET
     user_id = EXCLUDED.user_id,
@@ -120,19 +120,19 @@ SET
 -- 6. ASSIGN ROLES
 -- Note: SaaS Admin assigned to Platform Tenant (v7 mapping)
 INSERT INTO role_assignments (id, tenant_id, user_id, role_id, scope_type)
-VALUES ('019c4d42-49ca-73e1-be64-56377f64b05b', '019c4d42-49ca-7e0a-b047-86336ebac7ae', '019c4d42-49ca-767c-b3bd-b1a7faf5ad04', '019c4d42-49ca-7166-9de9-5e97220dc819', 'platform')
+VALUES ('019c4d42-49ca-73e1-be64-56377f64b05b', '019c4d42-49ca-7e0a-b047-86336ebac7ae', (SELECT id FROM users WHERE email = 'saas_admin@schoolerp.com'), '019c4d42-49ca-7166-9de9-5e97220dc819', 'platform')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO role_assignments (id, tenant_id, user_id, role_id, scope_type)
-VALUES ('019c4d42-49ca-79d3-9605-35dd2d160a39', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', '019c4d42-49ca-70b0-a772-e58913e13446', '019c4d42-49ca-744e-8547-8071d51aef0d', 'tenant')
+VALUES ('019c4d42-49ca-79d3-9605-35dd2d160a39', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', (SELECT id FROM users WHERE email = 'admin@demo.school'), '019c4d42-49ca-744e-8547-8071d51aef0d', 'tenant')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO role_assignments (id, tenant_id, user_id, role_id, scope_type)
-VALUES ('019c4d42-49ca-7442-b328-d20c9de8a543', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', '019c4d42-49ca-765c-a638-deef0366aff8', '019c4d42-49ca-7279-8903-5dd40619d787', 'tenant')
+VALUES ('019c4d42-49ca-7442-b328-d20c9de8a543', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', (SELECT id FROM users WHERE email = 'teacher@demo.school'), '019c4d42-49ca-7279-8903-5dd40619d787', 'tenant')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO role_assignments (id, tenant_id, user_id, role_id, scope_type)
-VALUES ('11dd08d1-93f1-4ab6-8f25-ffdcf08f06e2', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', '3b74529c-6f73-4f3f-bde2-5811765ffdf7', '019c4d42-49ca-744e-8547-8071d51aef0d', 'tenant')
+VALUES ('11dd08d1-93f1-4ab6-8f25-ffdcf08f06e2', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', (SELECT id FROM users WHERE email = 'admin@school.edu.in'), '019c4d42-49ca-744e-8547-8071d51aef0d', 'tenant')
 ON CONFLICT DO NOTHING;
 
 COMMIT;

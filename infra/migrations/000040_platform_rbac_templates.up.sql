@@ -51,6 +51,9 @@ INSERT INTO permissions (code, module, description) VALUES
   ('platform:dev.manage', 'platform', 'Access developer-only tooling and controls'),
   ('platform:integrations.manage', 'platform', 'Manage API keys, webhooks, and integrations'),
   ('platform:monitoring.read', 'platform', 'View monitoring and system health dashboards'),
+  ('platform:settings.write', 'platform', 'Manage platform-wide settings and templates'),
+  ('platform:marketing.write', 'platform', 'Manage platform announcements and changelogs'),
+  ('platform:analytics.read', 'platform', 'View business and platform analytics dashboard'),
   ('platform:data.export', 'platform', 'Run tenant/platform exports'),
   ('platform:data.restore', 'platform', 'Run restore and destructive data workflows')
 ON CONFLICT (code) DO NOTHING;

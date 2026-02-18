@@ -129,6 +129,21 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 	r.Get("/invoices/{invoice_id}/export", h.ExportPlatformInvoice)
 	r.Get("/invoice-adjustments", h.ListPlatformInvoiceAdjustments)
 	r.Get("/payments", h.ListPlatformPayments)
+
+	// Platform Extras (Sections 7-12)
+	r.Get("/settings/notifications", h.GetPlatformNotificationSettings)
+	r.Post("/settings/notifications", h.UpdatePlatformNotificationSettings)
+	r.Get("/settings/notification-templates", h.ListNotificationTemplates)
+	r.Get("/settings/document-templates", h.ListDocumentTemplates)
+	r.Get("/monitoring/health", h.GetPlatformHealth)
+	r.Get("/monitoring/queue", h.GetQueueHealth)
+	r.Get("/integrations/webhooks", h.ListPlatformWebhooks)
+	r.Get("/integrations/logs", h.ListIntegrationLogs)
+	r.Get("/integrations/health", h.GetIntegrationHealth)
+	r.Get("/marketing/announcements", h.ListAnnouncements)
+	r.Post("/marketing/announcements", h.CreateAnnouncement)
+	r.Get("/marketing/changelogs", h.ListChangelogs)
+	r.Get("/analytics/metrics", h.GetPlatformAnalytics)
 }
 
 func (h *Handler) GetConfig(w http.ResponseWriter, r *http.Request) {
@@ -686,7 +701,7 @@ func (h *Handler) UpdateTenantBranch(w http.ResponseWriter, r *http.Request) {
 		TenantID:     tenantID,
 		Action:       "platform.tenant.branch.update",
 		ResourceType: "branch",
-		ResourceID:   branchID,
+		ResourceID:   updated.ID,
 		After:        updated,
 	})
 
@@ -3644,6 +3659,15 @@ func (h *Handler) ImpersonateTenantAdmin(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	actorID := middleware.GetUserID(r.Context())
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.security.impersonate",
+		ResourceType: "tenant_admin",
+		ResourceID:   tenantID,
+		Reason:       req.Reason,
+	})
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(result)
 }
@@ -3666,6 +3690,15 @@ func (h *Handler) LogImpersonationExit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to log impersonation exit", http.StatusInternalServerError)
 		return
 	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.security.impersonate.exit",
+		ResourceType: "tenant_admin",
+		ResourceID:   tenantID,
+		Reason:       req.Reason,
+		After:        req,
+	})
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
@@ -3711,6 +3744,186 @@ func (h *Handler) ReviewSignupRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.service.RecordPlatformAudit(r.Context(), req.ReviewedBy, tenant.PlatformAuditEntry{
+		Action:       "platform.signup.review",
+		ResourceType: "signup_request",
+		ResourceID:   signupID,
+		Reason:       req.ReviewNotes,
+		After: map[string]any{
+			"status": req.Status,
+		},
+	})
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+}
+
+func (h *Handler) GetPlatformNotificationSettings(w http.ResponseWriter, r *http.Request) {
+	settings, err := h.service.GetPlatformNotificationSettings(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to load notification settings", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(settings)
+}
+
+func (h *Handler) UpdatePlatformNotificationSettings(w http.ResponseWriter, r *http.Request) {
+	var settings tenant.PlatformNotificationSettings
+	if err := json.NewDecoder(r.Body).Decode(&settings); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	updatedBy := middleware.GetUserID(r.Context())
+	if err := h.service.UpdatePlatformNotificationSettings(r.Context(), settings, updatedBy); err != nil {
+		http.Error(w, "Failed to update notification settings", http.StatusInternalServerError)
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), updatedBy, tenant.PlatformAuditEntry{
+		Action:       "platform.settings.notifications_update",
+		ResourceType: "platform_settings",
+		ResourceID:   "global_notifications",
+		After:        settings,
+	})
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+func (h *Handler) ListNotificationTemplates(w http.ResponseWriter, r *http.Request) {
+	templates, err := h.service.ListNotificationTemplates(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to load notification templates", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(templates)
+}
+
+func (h *Handler) ListDocumentTemplates(w http.ResponseWriter, r *http.Request) {
+	templates, err := h.service.ListDocumentTemplates(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to load document templates", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(templates)
+}
+
+func (h *Handler) GetPlatformHealth(w http.ResponseWriter, r *http.Request) {
+	health, err := h.service.GetPlatformHealth(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to load platform health", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(health)
+}
+
+func (h *Handler) GetQueueHealth(w http.ResponseWriter, r *http.Request) {
+	health, err := h.service.GetQueueHealth(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to load queue health", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(health)
+}
+
+func (h *Handler) ListPlatformWebhooks(w http.ResponseWriter, r *http.Request) {
+	tenantID := r.URL.Query().Get("tenant_id")
+	var tidPtr *string
+	if tenantID != "" {
+		tidPtr = &tenantID
+	}
+	webhooks, err := h.service.ListPlatformWebhooks(r.Context(), tidPtr)
+	if err != nil {
+		http.Error(w, "Failed to load webhooks", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(webhooks)
+}
+
+func (h *Handler) ListIntegrationLogs(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 {
+		limit = 50
+	}
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	logs, err := h.service.ListIntegrationLogs(r.Context(), limit, offset)
+	if err != nil {
+		http.Error(w, "Failed to load integration logs", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(logs)
+}
+
+func (h *Handler) GetIntegrationHealth(w http.ResponseWriter, r *http.Request) {
+	health, err := h.service.GetIntegrationHealth(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to load integration health", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(health)
+}
+
+func (h *Handler) ListAnnouncements(w http.ResponseWriter, r *http.Request) {
+	list, err := h.service.ListAnnouncements(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to load announcements", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(list)
+}
+
+func (h *Handler) CreateAnnouncement(w http.ResponseWriter, r *http.Request) {
+	var a tenant.PlatformAnnouncement
+	if err := json.NewDecoder(r.Body).Decode(&a); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	creatorID := middleware.GetUserID(r.Context())
+	id, err := h.service.CreateAnnouncement(r.Context(), a, creatorID)
+	if err != nil {
+		http.Error(w, "Failed to create announcement", http.StatusInternalServerError)
+		return
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), creatorID, tenant.PlatformAuditEntry{
+		Action:       "platform.marketing.announcement_create",
+		ResourceType: "announcement",
+		ResourceID:   id.String(),
+		After:        a,
+	})
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"id": id.String()})
+}
+
+func (h *Handler) ListChangelogs(w http.ResponseWriter, r *http.Request) {
+	list, err := h.service.ListChangelogs(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to load changelogs", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(list)
+}
+
+func (h *Handler) GetPlatformAnalytics(w http.ResponseWriter, r *http.Request) {
+	metric := r.URL.Query().Get("metric")
+	days, _ := strconv.Atoi(r.URL.Query().Get("days"))
+	if days <= 0 {
+		days = 30
+	}
+	analytics, err := h.service.GetPlatformAnalytics(r.Context(), metric, days)
+	if err != nil {
+		http.Error(w, "Failed to load analytics", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(analytics)
 }

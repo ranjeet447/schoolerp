@@ -925,6 +925,14 @@ func parseTenantUUID(rawTenantID string) (pgtype.UUID, error) {
 	return tid, nil
 }
 
+func parseUserUUID(rawUserID string) (pgtype.UUID, error) {
+	var uid pgtype.UUID
+	if err := uid.Scan(strings.TrimSpace(rawUserID)); err != nil || !uid.Valid {
+		return pgtype.UUID{}, errors.New("invalid user id")
+	}
+	return uid, nil
+}
+
 func ensureTenantDefaultRoles(ctx context.Context, tx pgx.Tx, tenantID pgtype.UUID) error {
 	// Clone baseline templates into tenant-scoped roles (editable). Idempotent.
 	const templateQuery = `

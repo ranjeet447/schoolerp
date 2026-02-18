@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Activity,
   AlertTriangle,
   BarChart3,
   Ban,
@@ -11,34 +12,48 @@ import {
   CreditCard,
   FileText,
   FileCheck2,
+  LayoutGrid,
   LifeBuoy,
   KeyRound,
   Layers3,
+  Link as LinkIcon,
   LockKeyhole,
   LogOut,
+  Megaphone,
   Menu,
+  PieChart,
+  Settings,
+  Search,
   Shield,
+  ShieldCheck,
   User,
   Users,
 } from "lucide-react";
 import { Button } from "@schoolerp/ui";
 import { useAuth } from "@/components/auth-provider";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { RBACService } from "@/lib/auth-service";
 
 const NAV_ITEMS = [
-  { href: "/platform/dashboard", label: "Platform Dashboard", icon: BarChart3 },
-  { href: "/platform/tenants", label: "Schools & Branches", icon: Building2 },
-  { href: "/platform/plans", label: "Plans & Flags", icon: Layers3 },
-  { href: "/platform/signup-requests", label: "Signup Requests", icon: FileCheck2 },
-  { href: "/platform/support", label: "Support Desk", icon: LifeBuoy },
-  { href: "/platform/incidents", label: "Incidents", icon: AlertTriangle },
-  { href: "/platform/payments", label: "Platform Payments", icon: CreditCard },
-  { href: "/platform/internal-users", label: "Internal Users", icon: Users },
-  { href: "/platform/security-events", label: "Security Events", icon: Shield },
-  { href: "/platform/blocks", label: "Risk Blocks", icon: Ban },
-  { href: "/platform/password-policy", label: "Password Policy", icon: LockKeyhole },
-  { href: "/platform/legal", label: "Legal & Policies", icon: FileText },
-  { href: "/platform/secrets", label: "Secrets & Keys", icon: KeyRound },
+  { href: "/platform/dashboard", label: "Platform Dashboard", icon: BarChart3, permission: "platform:analytics.read" },
+  { href: "/platform/analytics", label: "Business Analytics", icon: PieChart, permission: "platform:analytics.read" },
+  { href: "/platform/tenants", label: "Schools & Branches", icon: Building2, permission: "platform:tenants.read" },
+  { href: "/platform/plans", label: "Plans & Flags", icon: Layers3, permission: "platform:plans.read" },
+  { href: "/platform/signup-requests", label: "Signup Requests", icon: FileCheck2, permission: "platform:tenants.write" },
+  { href: "/platform/support", label: "Support Desk", icon: LifeBuoy, permission: "platform:support.read" },
+  { href: "/platform/incidents", label: "Incidents", icon: AlertTriangle, permission: "platform:incidents.read" },
+  { href: "/platform/payments", label: "Platform Payments", icon: CreditCard, permission: "platform:billing.read" },
+  { href: "/platform/marketing", label: "Marketing & Ops", icon: Megaphone, permission: "platform:marketing.write" },
+  { href: "/platform/settings", label: "Platform Settings", icon: Settings, permission: "platform:settings.write" },
+  { href: "/platform/integrations", label: "Integrations & API", icon: LinkIcon, permission: "platform:integrations.read" },
+  { href: "/platform/audit-logs", label: "Audit Explorer", icon: ShieldCheck, permission: "platform:audit.read" },
+  { href: "/platform/monitoring", label: "System Health", icon: Activity, permission: "platform:monitoring.read" },
+  { href: "/platform/internal-users", label: "Internal Users", icon: Users, permission: "platform:users.read" },
+  { href: "/platform/security-events", label: "Security Events", icon: Shield, permission: "platform:security.read" },
+  { href: "/platform/blocks", label: "Risk Blocks", icon: Ban, permission: "platform:security.write" },
+  { href: "/platform/password-policy", label: "Password Policy", icon: LockKeyhole, permission: "platform:settings.write" },
+  { href: "/platform/legal", label: "Legal & Policies", icon: FileText, permission: "platform:settings.write" },
+  { href: "/platform/secrets", label: "Secrets & Keys", icon: KeyRound, permission: "platform:security.write" },
 ];
 
 export default function PlatformLayoutClient({
@@ -78,7 +93,7 @@ export default function PlatformLayoutClient({
 
         <nav className="flex-1 overflow-y-auto py-4">
           <ul className="space-y-1 px-3">
-            {NAV_ITEMS.map((item) => (
+            {NAV_ITEMS.filter((item) => !item.permission || RBACService.hasPermission(item.permission)).map((item) => (
               <li key={item.href}>
                 <Link
                   href={item.href}

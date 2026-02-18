@@ -3,6 +3,32 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { apiClient } from "@/lib/api-client";
+import { 
+  Building2, 
+  Search, 
+  MapPin, 
+  Users, 
+  Calendar,
+  Layers,
+  ArrowRight,
+  Filter,
+  RefreshCw,
+  Plus
+} from "lucide-react";
+import { 
+  Button, 
+  Input, 
+  Card, 
+  CardContent, 
+  Badge,
+  Select,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@schoolerp/ui";
 
 type PlatformTenant = {
   id: string;
@@ -103,216 +129,194 @@ export default function PlatformTenantsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+    <div className="space-y-8 pb-10">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Tenant Management</h1>
-          <p className="text-muted-foreground">Search, filter, and manage school organizations on the platform.</p>
+          <h1 className="text-4xl font-black tracking-tight text-foreground">Tenant Ecosystem</h1>
+          <p className="mt-1 text-lg text-muted-foreground">Manage school registrations, lifecycle states, and resource mapping.</p>
         </div>
-        <Link
-          href="/platform/tenants/new"
-          className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-        >
-          Create Tenant
-        </Link>
+        <Button asChild size="lg" className="shadow-lg shadow-primary/20">
+          <Link href="/platform/tenants/new">
+            <Plus className="mr-2 h-5 w-5" />
+            Add New School
+          </Link>
+        </Button>
       </div>
 
-      <div className="grid gap-3 rounded-xl border border-border bg-card p-4 md:grid-cols-6">
-        <input
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-          placeholder="Search tenant/subdomain"
-          value={filters.search}
-          onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value, offset: 0 }))}
-        />
-        <input
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-          placeholder="Plan code (e.g. pro)"
-          value={filters.plan_code}
-          onChange={(e) => setFilters((prev) => ({ ...prev, plan_code: e.target.value, offset: 0 }))}
-        />
-        <select
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
-          value={filters.status}
-          onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value, offset: 0 }))}
-        >
-          <option value="">All statuses</option>
-          <option value="trial">Trial</option>
-          <option value="active">Active</option>
-          <option value="suspended">Suspended</option>
-          <option value="closed">Closed</option>
-        </select>
-        <input
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-          placeholder="Region"
-          value={filters.region}
-          onChange={(e) => setFilters((prev) => ({ ...prev, region: e.target.value, offset: 0 }))}
-        />
-        <input
-          type="date"
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
-          value={filters.created_from}
-          onChange={(e) => setFilters((prev) => ({ ...prev, created_from: e.target.value, offset: 0 }))}
-          title="Created from"
-        />
-        <input
-          type="date"
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
-          value={filters.created_to}
-          onChange={(e) => setFilters((prev) => ({ ...prev, created_to: e.target.value, offset: 0 }))}
-          title="Created to"
-        />
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={filters.include_inactive}
-            onChange={(e) => setFilters((prev) => ({ ...prev, include_inactive: e.target.checked, offset: 0 }))}
-          />
-          Include inactive
-        </label>
-      </div>
+      <Card className="border-none shadow-sm">
+        <CardContent className="p-6">
+          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+            <div className="relative col-span-2">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search by school or domain..."
+                className="pl-10"
+                value={filters.search}
+                onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value, offset: 0 }))}
+              />
+            </div>
+            
+            <Input
+              placeholder="Plan (e.g. pro)"
+              value={filters.plan_code}
+              onChange={(e) => setFilters((prev) => ({ ...prev, plan_code: e.target.value, offset: 0 }))}
+            />
 
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
-            value={filters.sort}
-            onChange={(e) => setFilters((prev) => ({ ...prev, sort: e.target.value, offset: 0 }))}
-            title="Sort"
-          >
-            <option value="created_at">Sort: Created</option>
-            <option value="name">Sort: Name</option>
-            <option value="subdomain">Sort: Subdomain</option>
-          </select>
-          <select
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
-            value={filters.order}
-            onChange={(e) => setFilters((prev) => ({ ...prev, order: e.target.value, offset: 0 }))}
-            title="Order"
-          >
-            <option value="desc">Desc</option>
-            <option value="asc">Asc</option>
-          </select>
-          <select
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
-            value={filters.limit}
-            onChange={(e) => setFilters((prev) => ({ ...prev, limit: Number(e.target.value) || 50, offset: 0 }))}
-            title="Page size"
-          >
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-            <option value={200}>200</option>
-          </select>
-          <button
-            className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
-            onClick={() => setFilters(initialFilters)}
-            disabled={loading}
-          >
-            Reset
-          </button>
+            <Select
+              value={filters.status}
+              onValueChange={(v) => setFilters((prev) => ({ ...prev, status: v, offset: 0 }))}
+            >
+              <option value="">Status: All</option>
+              <option value="trial">Trial</option>
+              <option value="active">Active</option>
+              <option value="suspended">Suspended</option>
+              <option value="closed">Closed</option>
+            </Select>
+
+            <Input
+              placeholder="Region"
+              value={filters.region}
+              onChange={(e) => setFilters((prev) => ({ ...prev, region: e.target.value, offset: 0 }))}
+            />
+
+            <Button variant="outline" className="w-full" onClick={() => setFilters(initialFilters)}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Clear
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between px-1">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
+          <Filter className="h-4 w-4" />
+          <span>Active Filters Applied</span>
+          {filters.search && <Badge variant="secondary">Search: {filters.search}</Badge>}
+          {filters.status && <Badge variant="secondary">Status: {filters.status}</Badge>}
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>
-            Showing {rows.length === 0 ? 0 : filters.offset + 1}-{filters.offset + rows.length}
-          </span>
-          <button
-            className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
-            onClick={() => setFilters((p) => ({ ...p, offset: Math.max(0, p.offset - p.limit) }))}
-            disabled={loading || filters.offset <= 0}
-          >
-            Prev
-          </button>
-          <button
-            className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
-            onClick={() => setFilters((p) => ({ ...p, offset: p.offset + p.limit }))}
-            disabled={loading || rows.length < filters.limit}
-          >
-            Next
-          </button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9"
+              onClick={() => setFilters((p) => ({ ...p, offset: Math.max(0, p.offset - p.limit) }))}
+              disabled={loading || filters.offset <= 0}
+            >
+              <ArrowRight className="h-4 w-4 rotate-180" />
+            </Button>
+            <div className="mx-2 text-sm font-bold min-w-[60px] text-center">
+              {filters.offset / filters.limit + 1}
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9"
+              onClick={() => setFilters((p) => ({ ...p, offset: p.offset + p.limit }))}
+              disabled={loading || rows.length < filters.limit}
+            >
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-border bg-card">
-        <table className="min-w-full text-left text-sm">
-          <thead className="bg-muted text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Tenant</th>
-              <th className="px-4 py-3">Plan</th>
-              <th className="px-4 py-3">Lifecycle</th>
-              <th className="px-4 py-3">Region</th>
-              <th className="px-4 py-3">Usage</th>
-              <th className="px-4 py-3">Created</th>
-              <th className="px-4 py-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+      <Card className="border-none shadow-sm overflow-hidden">
+        <Table>
+          <TableHeader className="bg-muted/50">
+            <TableRow>
+              <TableHead className="w-[300px]">School Information</TableHead>
+              <TableHead>Service Plan</TableHead>
+              <TableHead>Lifecycle</TableHead>
+              <TableHead>Geography</TableHead>
+              <TableHead>Metrics</TableHead>
+              <TableHead className="text-right pr-6">Management</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {loading ? (
-              <tr>
-                <td className="px-4 py-6 text-muted-foreground" colSpan={7}>
-                  Loading tenants...
-                </td>
-              </tr>
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell colSpan={6} className="h-16 animate-pulse bg-muted/20" />
+                </TableRow>
+              ))
             ) : rows.length === 0 ? (
-              <tr>
-                <td className="px-4 py-6 text-muted-foreground" colSpan={7}>
-                  No tenants found.
-                </td>
-              </tr>
+              <TableRow>
+                <TableCell colSpan={6} className="h-40 text-center text-muted-foreground italic">
+                  No institutional tenants found matching your current matrix criteria.
+                </TableCell>
+              </TableRow>
             ) : (
               rows.map((t) => (
-                <tr key={t.id} className="border-t border-border">
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-foreground">{t.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {t.subdomain}
-                      {t.domain ? ` • ${t.domain}` : ""}
+                <TableRow key={t.id} className="group transition-colors hover:bg-muted/30">
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-lg bg-primary/5 p-2 text-primary group-hover:bg-primary/10">
+                        <Building2 className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-foreground">{t.name}</div>
+                        <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                          {t.subdomain}.schoolerp.com
+                        </div>
+                      </div>
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{t.plan_code || "-"}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{t.lifecycle_status || "-"}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{t.region || "-"}</td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {t.student_count} students • {t.employee_count} staff • {t.branch_count} branches
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{new Date(t.created_at).toLocaleDateString()}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      <Link
-                        href={`/platform/tenants/${t.id}`}
-                        className="rounded border border-input px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
-                      >
-                        Open
-                      </Link>
-                      <button
-                        onClick={() => updateLifecycle(t.id, "active")}
-                        disabled={busyTenantId === t.id}
-                        className="rounded border border-emerald-600/40 px-2 py-1 text-xs text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-60 dark:border-emerald-700 dark:text-emerald-200 dark:hover:bg-emerald-900/20"
-                      >
-                        Activate
-                      </button>
-                      <button
-                        onClick={() => updateLifecycle(t.id, "suspended")}
-                        disabled={busyTenantId === t.id}
-                        className="rounded border border-amber-600/40 px-2 py-1 text-xs text-amber-700 hover:bg-amber-500/10 disabled:opacity-60 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/20"
-                      >
-                        Suspend
-                      </button>
-                      <button
-                        onClick={() => updateLifecycle(t.id, "closed")}
-                        disabled={busyTenantId === t.id}
-                        className="rounded border border-red-600/40 px-2 py-1 text-xs text-red-700 hover:bg-red-500/10 disabled:opacity-60 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/20"
-                      >
-                        Close
-                      </button>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="font-semibold uppercase text-xs">{t.plan_code || "N/A"}</span>
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                  <TableCell>
+                    <Badge 
+                      variant={t.lifecycle_status === 'active' ? 'default' : t.lifecycle_status === 'suspended' ? 'outline' : 'secondary'}
+                      className="capitalize font-bold text-[10px]"
+                    >
+                      {t.lifecycle_status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                      <MapPin className="h-3.5 w-3.5" />
+                      {t.region || "Global"}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-3 text-xs font-bold">
+                      <div className="flex items-center gap-1.5" title="Students">
+                        <Users className="h-3.5 w-3.5 text-indigo-500" />
+                        {t.student_count}
+                      </div>
+                      <div className="flex items-center gap-1.5" title="Revenue">
+                        <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                        ₹{t.total_collections.toLocaleString()}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right pr-6">
+                    <div className="flex items-center justify-end gap-2">
+                       <Button asChild variant="secondary" size="sm" className="h-8">
+                         <Link href={`/platform/tenants/${t.id}`}>Open Panel</Link>
+                       </Button>
+                       <Select 
+                         value={t.lifecycle_status} 
+                         onValueChange={(v) => updateLifecycle(t.id, v)}
+                         disabled={busyTenantId === t.id}
+                       >
+                         <option value="active">Active</option>
+                         <option value="suspended">Suspend</option>
+                         <option value="closed">Close</option>
+                       </Select>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </Card>
     </div>
   );
 }

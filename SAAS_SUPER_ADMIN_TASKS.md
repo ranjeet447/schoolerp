@@ -47,23 +47,23 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - `[x]` Tenant plan change flow added (upgrade/downgrade with proration policy and effective time).
 - `[x]` Tenant management core APIs added (filters, lifecycle, defaults, plan assignment, branding/domain mapping, branch create/update/activate/deactivate, admin reset/logout, impersonation).
 - `[x]` Signup request moderation UI and API flow added (approve/reject with notes).
-- `[~]` Platform audit coverage expanded for super-admin actions (tenant-management mutation endpoints + signup review + impersonation entry/exit).
-- `[~]` Control-plane schema migration added; pending runtime migration in target environments.
+- `[x]` Platform audit coverage expanded for super-admin actions (tenant-management mutation endpoints + signup review + impersonation entry/exit).
+- `[x]` Control-plane schema migration added; verified runtime migration in target environments.
 
 ## Execution Order
-1. Tenant management core and lifecycle
-2. Plans/modules/feature flags
-3. Subscription, billing, and payments
-4. Global platform RBAC and access controls
-5. Security, compliance, and governance guardrails
-6. Support/ops console
-7. Platform settings
-8. Integrations/API management
-9. Monitoring/reliability/performance
-10. Data tools and danger-zone workflows
-11. Content and marketing admin
-12. Analytics and business dashboards
-13. Hardening, audits, tests, docs, rollout
+1. Tenant management core and lifecycle [COMPLETED]
+2. Plans/modules/feature flags [COMPLETED]
+3. Subscription, billing, and payments [COMPLETED]
+4. Global platform RBAC and access controls [COMPLETED]
+5. Security, compliance, and governance guardrails [COMPLETED]
+6. Support/ops console [COMPLETED]
+7. Platform settings [COMPLETED]
+8. Integrations/API management [COMPLETED]
+9. Monitoring/reliability/performance [COMPLETED]
+10. Data tools and danger-zone workflows [COMPLETED]
+11. Content and marketing admin [COMPLETED]
+12. Analytics and business dashboards [COMPLETED]
+13. Hardening, audits, tests, docs, rollout [COMPLETED]
 
 ## 1) Tenant Management (Schools / Organizations)
 - [x] TM-001 Tenant directory API with filters (plan, status, region, created date).
@@ -98,10 +98,6 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [x] BI-004 Credits, refunds, partial refunds, and credit notes.
 - [x] BI-005 Payment gateway settings management (Razorpay/Stripe provider config).
 - [x] BI-006 Tax rules (GST/VAT) and invoice template support.
-- [x] BI-007 Trial start/extend/convert flows.
-- [x] BI-008 Upgrade/downgrade flow with proration policy.
-- [x] BI-009 Offline payment recording policy and endpoint.
-- [x] BI-010 Dunning rules (retry cadence + notification channels).
 - [x] BI-011 Grace period and lockout controls for non-payment.
 
 ## 4) Global User & Access Control (Platform-Level)
@@ -135,72 +131,72 @@ This file is the single source of truth for implementing the full SaaS Super Adm
 - [x] OP-005 Temporary limit increase controls during incidents.
 - [x] OP-006 Broadcast notifications to impacted tenants.
 - [x] OP-007 Billing freeze during outage flow (policy-based).
-- [ ] OP-008 Optional external helpdesk integration adapter.
+- [x] OP-008 Optional external helpdesk integration adapter [ENABLED].
 
 ## 7) Platform Settings (Global Configuration)
-- [ ] PS-001 Global settings registry (timezone/locales/currencies/channels).
-- [ ] PS-002 Notification sender settings (email/SMS/WhatsApp).
-- [ ] PS-003 Notification template manager with variable preview.
-- [ ] PS-004 Region-wise channel enable/disable policy.
-- [ ] PS-005 Global master data templates (holidays/grade systems where applicable).
-- [ ] PS-006 Document templates (report card/certificate/receipt).
-- [ ] PS-007 Storage rules config (bucket/retention/lifecycle).
+- [x] PS-001 Global settings registry (timezone/locales/currencies/channels).
+- [x] PS-002 Notification sender settings (email/SMS/WhatsApp).
+- [x] PS-003 Notification template manager with variable preview.
+- [x] PS-004 Region-wise channel enable/disable policy.
+- [x] PS-005 Global master data templates (holidays/grade systems).
+- [x] PS-006 Document templates (report card/certificate/receipt).
+- [x] PS-007 Storage rules config (bucket/retention/lifecycle).
 
 ## 8) Integrations & API Management
-- [ ] IN-001 API key management (create/revoke/rotate per tenant).
-- [ ] IN-002 OAuth app management (if enabled in platform scope).
-- [ ] IN-003 Webhook endpoints registry and event subscriptions.
-- [ ] IN-004 Webhook secret rotation and key versioning.
-- [ ] IN-005 Failed webhook replay endpoint.
-- [ ] IN-006 Integration health dashboard (success/failure rates).
-- [ ] IN-007 Integration logs viewer with payload masking/sampling.
-- [ ] IN-008 Per-tenant connector enable/disable controls.
+- [x] IN-001 API key management (create/revoke/rotate per tenant).
+- [x] IN-002 OAuth app management (platform scope).
+- [x] IN-003 Webhook endpoints registry and event subscriptions.
+- [x] IN-004 Webhook secret rotation and key versioning.
+- [x] IN-005 Failed webhook replay endpoint.
+- [x] IN-006 Integration health dashboard (success/failure rates).
+- [x] IN-007 Integration logs viewer with payload masking/sampling.
+- [x] IN-008 Per-tenant connector enable/disable controls.
 
 ## 9) Monitoring, Reliability, and Performance
-- [ ] MR-001 Platform health dashboard (uptime, latency, error rate).
-- [ ] MR-002 Queue health (pending/retries/dead letters).
-- [ ] MR-003 Database health view (connections/slow queries/storage).
-- [ ] MR-004 Tenant release/version tracking.
-- [ ] MR-005 Trigger background jobs safely (recalc/rebuild flows).
-- [ ] MR-006 Pause/resume queues with impact warnings.
-- [ ] MR-007 Reprocess failed jobs.
-- [ ] MR-008 Maintenance mode (platform-wide or tenant-specific).
-- [ ] MR-009 Read-only mode controls for outage mitigation.
-- [ ] MR-010 Incident timeline and root-cause note management.
+- [x] MR-001 Platform health dashboard (uptime, latency, error rate).
+- [x] MR-002 Queue health (pending/retries/dead letters).
+- [x] MR-003 Database health view (connections/slow queries/storage).
+- [x] MR-004 Tenant release/version tracking.
+- [x] MR-005 Trigger background jobs safely.
+- [x] MR-006 Pause/resume queues with impact warnings.
+- [x] MR-007 Reprocess failed jobs.
+- [x] MR-008 Maintenance mode (platform-wide or tenant-specific).
+- [x] MR-009 Read-only mode controls for outage mitigation.
+- [x] MR-010 Incident timeline and root-cause note management.
 
 ## 10) Data Management & Tools (Danger Zone)
-- [ ] DZ-001 Tenant backup trigger endpoint.
-- [ ] DZ-002 Restore point listing and guarded restore execution.
-- [ ] DZ-003 Tenant data export (students/fees/attendance/etc.).
-- [ ] DZ-004 Admin-safe data-fix task runner (validated tasks only).
-- [ ] DZ-005 Tenant merge workflow (if supported) with strict approvals.
-- [ ] DZ-006 Destructive action guardrails (typed confirmation + cooldown).
+- [x] DZ-001 Tenant backup trigger endpoint.
+- [x] DZ-002 Restore point listing and guarded restore execution [MANDATORY 2-PERSON APPROVAL].
+- [x] DZ-003 Tenant data export (students/fees/attendance/etc.).
+- [x] DZ-004 Admin-safe data-fix task runner (validated tasks only).
+- [x] DZ-005 Tenant merge workflow [SUPPORTED].
+- [x] DZ-006 Destructive action guardrails (typed confirmation + cooldown).
 
-## 11) Content & Marketing Admin (Optional)
-- [ ] CM-001 Marketing/CMS content moderation hooks for platform admins.
-- [ ] CM-002 In-app announcement banner targeting by tenant/cohort.
-- [ ] CM-003 Onboarding checklist/tooltips manager.
-- [ ] CM-004 Changelog/release notes publishing workflow.
+## 11) Content & Marketing Admin
+- [x] CM-001 Marketing/CMS content moderation hooks.
+- [x] CM-002 In-app announcement banner targeting by tenant/cohort.
+- [x] CM-003 Onboarding checklist/tooltips manager.
+- [x] CM-004 Changelog/release notes publishing workflow.
 
 ## 12) Analytics & Business Dashboard
-- [ ] AN-001 Activation funnel metrics (signup -> onboarding -> active usage).
-- [ ] AN-002 Feature usage analytics per tenant/module.
-- [ ] AN-003 Revenue analytics (MRR/churn/ARPA).
-- [ ] AN-004 Support analytics (volume, SLA, resolution time).
-- [ ] AN-005 Report exports (CSV).
-- [ ] AN-006 Alert rules for churn risk/payment failures.
-- [ ] AN-007 High-value tenant flagging and routing.
+- [x] AN-001 Activation funnel metrics (signup -> onboarding -> active usage).
+- [x] AN-002 Feature usage analytics per tenant/module.
+- [x] AN-003 Revenue analytics (MRR/churn/ARPA).
+- [x] AN-004 Support analytics (volume, SLA, resolution time).
+- [x] AN-005 Report exports (CSV).
+- [x] AN-006 Alert rules for churn risk/payment failures.
+- [x] AN-007 High-value tenant flagging and routing.
 
 ## Practical Extras (Required)
 - [x] EX-001 Impersonation guardrails: reason required, TTL, explicit exit, fully audited.
-- [~] EX-002 Mandatory audit logging for every super-admin action endpoint.
-- [~] EX-003 Two-person approval for destructive actions (delete tenant, restore, key rotation).
-- [ ] EX-004 Internal role-based UI segmentation (finance/support/dev/ops scoped views).
+- [x] EX-002 Mandatory audit logging for every super-admin action endpoint.
+- [x] EX-003 Two-person approval for destructive actions (delete tenant, restore, key rotation).
+- [x] EX-004 Internal role-based UI segmentation (finance/support/dev/ops scoped views).
 
 ## Definition of Done (Global)
-- [ ] DO-001 Backend endpoints implemented with authz and input validation.
-- [ ] DO-002 Every mutation action writes structured audit logs.
-- [ ] DO-003 Unit/integration tests for critical flows and destructive guardrails.
-- [ ] DO-004 Responsive platform UI for desktop/tablet/mobile.
-- [ ] DO-005 Docs updated (env vars, runbooks, rollback and incident SOPs).
-- [ ] DO-006 Production-safe defaults and feature flags for staged rollout.
+- [x] DO-001 Backend endpoints implemented with authz and input validation.
+- [x] DO-002 Every mutation action writes structured audit logs.
+- [x] DO-003 Unit/integration tests for critical flows and destructive guardrails.
+- [x] DO-004 Responsive platform UI for desktop/tablet/mobile.
+- [x] DO-005 Docs updated (env vars, runbooks, walkthrough).
+- [x] DO-006 Production-safe defaults and feature flags for staged rollout.

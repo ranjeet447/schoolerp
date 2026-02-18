@@ -181,7 +181,7 @@ func (s *Service) CreatePlatformInternalUser(ctx context.Context, params CreateP
 	if err == nil {
 		return PlatformInternalUser{}, ErrPlatformUserExists
 	}
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	if !errors.Is(err, pgx.ErrNoRows) {
 		return PlatformInternalUser{}, err
 	}
 

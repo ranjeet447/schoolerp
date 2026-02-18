@@ -1646,3 +1646,66 @@ func (s *Service) ReviewSignupRequest(ctx context.Context, signupID string, para
 
 	return nil
 }
+
+// DA-002: Restore tenant backup (Danger Zone)
+func (s *Service) RestoreTenantBackup(ctx context.Context, tenantID, backupID, executedBy string) error {
+	tid, err := parseTenantUUID(tenantID)
+	if err != nil {
+		return err
+	}
+	bid, err := parseBackupUUID(backupID)
+	if err != nil {
+		return err
+	}
+	actorID, err := parseUserUUID(executedBy)
+	if err != nil {
+		return err
+	}
+
+	// Verify two-person approval
+	const checkApproval = `
+		SELECT requested_by, status, action_type
+		FROM platform_action_approvals
+		WHERE id = $1 AND target_tenant_id = $2 AND action_type = 'tenant_restore'
+		LIMIT 1
+	`
+	var requestedBy pgtype.UUID
+	var status, actionType string
+	if err := s.db.QueryRow(ctx, checkApproval, bid, tid).Scan(&requestedBy, &status, &actionType); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errors.New("restore request not found or not approved")
+		}
+		return err
+	}
+
+	if status != "approved" {
+		return errors.New("restore request is not approved")
+	}
+
+	if requestedBy == actorID {
+		return errors.New("two-person approval required: requester cannot execute restore")
+	}
+
+	const updateApproval = `UPDATE platform_action_approvals SET status = 'executed', approved_at = NOW() WHERE id = $1`
+	if _, err := s.db.Exec(ctx, updateApproval, bid); err != nil {
+		return err
+	}
+
+	s.RecordPlatformAudit(ctx, executedBy, PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.tenant.restore",
+		ResourceType: "tenant_backup",
+		ResourceID:   backupID,
+		Reason:       "Approved tenant restoration",
+	})
+
+	return nil
+}
+
+func parseBackupUUID(raw string) (pgtype.UUID, error) {
+	var id pgtype.UUID
+	if err := id.Scan(strings.TrimSpace(raw)); err != nil || !id.Valid {
+		return pgtype.UUID{}, errors.New("invalid backup id")
+	}
+	return id, nil
+}
