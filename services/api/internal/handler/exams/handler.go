@@ -3,8 +3,11 @@ package exams
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/schoolerp/api/internal/middleware"
 	examservice "github.com/schoolerp/api/internal/service/exams"
 )
@@ -22,6 +25,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/", h.Create)
 		r.Get("/", h.List)
 		r.Get("/{id}", h.Get)
+		r.Post("/{id}/subjects", h.AddSubject)
 		r.Get("/{id}/subjects", h.ListSubjects)
 		r.Get("/{id}/subjects/{subjectId}/marks", h.GetMarks)
 		r.Post("/{id}/subjects/{subjectId}/marks", h.UpsertMarks)
@@ -42,19 +46,48 @@ func (h *Handler) RegisterParentRoutes(r chi.Router) {
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name string `json:"name"`
-		AYID string `json:"academic_year_id"`
-		// Start/End dates can be added here
+		Name      string `json:"name"`
+		AYID      string `json:"academic_year_id"`
+		StartDate string `json:"start_date"`
+		EndDate   string `json:"end_date"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request", http.StatusBadRequest)
 		return
 	}
 
+	name := strings.TrimSpace(req.Name)
+	ayID := strings.TrimSpace(req.AYID)
+	if name == "" || ayID == "" {
+		http.Error(w, "name and academic_year_id are required", http.StatusBadRequest)
+		return
+	}
+
+	var start pgtype.Date
+	var end pgtype.Date
+	if strings.TrimSpace(req.StartDate) != "" {
+		parsed, err := time.Parse("2006-01-02", strings.TrimSpace(req.StartDate))
+		if err != nil {
+			http.Error(w, "invalid start_date format, expected YYYY-MM-DD", http.StatusBadRequest)
+			return
+		}
+		start = pgtype.Date{Time: parsed, Valid: true}
+	}
+	if strings.TrimSpace(req.EndDate) != "" {
+		parsed, err := time.Parse("2006-01-02", strings.TrimSpace(req.EndDate))
+		if err != nil {
+			http.Error(w, "invalid end_date format, expected YYYY-MM-DD", http.StatusBadRequest)
+			return
+		}
+		end = pgtype.Date{Time: parsed, Valid: true}
+	}
+
 	exam, err := h.svc.CreateExam(r.Context(), examservice.CreateExamParams{
 		TenantID:  middleware.GetTenantID(r.Context()),
-		AYID:      req.AYID,
-		Name:      req.Name,
+		AYID:      ayID,
+		Name:      name,
+		Start:     start,
+		End:       end,
 		UserID:    middleware.GetUserID(r.Context()),
 		RequestID: middleware.GetReqID(r.Context()),
 		IP:        r.RemoteAddr,
@@ -64,6 +97,8 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(exam)
 }
 
@@ -119,6 +154,14 @@ func (h *Handler) UpsertMarks(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid request", http.StatusBadRequest)
 		return
 	}
+	if strings.TrimSpace(req.StudentID) == "" {
+		http.Error(w, "student_id is required", http.StatusBadRequest)
+		return
+	}
+	if req.Marks < 0 {
+		http.Error(w, "marks cannot be negative", http.StatusBadRequest)
+		return
+	}
 
 	err := h.svc.UpsertMarks(r.Context(), examservice.UpsertMarksParams{
 		TenantID:  middleware.GetTenantID(r.Context()),
@@ -131,11 +174,72 @@ func (h *Handler) UpsertMarks(w http.ResponseWriter, r *http.Request) {
 		IP:        r.RemoteAddr,
 	})
 	if err != nil {
+		if strings.Contains(err.Error(), "locked") {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) AddSubject(w http.ResponseWriter, r *http.Request) {
+	examID := strings.TrimSpace(chi.URLParam(r, "id"))
+	if examID == "" {
+		http.Error(w, "exam id is required", http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		SubjectID string `json:"subject_id"`
+		MaxMarks  int32  `json:"max_marks"`
+		ExamDate  string `json:"exam_date"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	subjectID := strings.TrimSpace(req.SubjectID)
+	if subjectID == "" {
+		http.Error(w, "subject_id is required", http.StatusBadRequest)
+		return
+	}
+	if req.MaxMarks <= 0 {
+		http.Error(w, "max_marks must be greater than 0", http.StatusBadRequest)
+		return
+	}
+
+	var examDate pgtype.Date
+	if strings.TrimSpace(req.ExamDate) != "" {
+		parsed, err := time.Parse("2006-01-02", strings.TrimSpace(req.ExamDate))
+		if err != nil {
+			http.Error(w, "invalid exam_date format, expected YYYY-MM-DD", http.StatusBadRequest)
+			return
+		}
+		examDate = pgtype.Date{Time: parsed, Valid: true}
+	}
+
+	err := h.svc.AddSubject(
+		r.Context(),
+		middleware.GetTenantID(r.Context()),
+		examID,
+		subjectID,
+		req.MaxMarks,
+		examDate,
+		middleware.GetUserID(r.Context()),
+		middleware.GetReqID(r.Context()),
+		r.RemoteAddr,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
 }
 
 func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
@@ -170,6 +274,10 @@ func (h *Handler) UpsertScale(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid request", http.StatusBadRequest)
 		return
 	}
+	if strings.TrimSpace(req.Label) == "" {
+		http.Error(w, "grade_label is required", http.StatusBadRequest)
+		return
+	}
 
 	err := h.svc.UpsertGradingScale(r.Context(), middleware.GetTenantID(r.Context()), req.Min, req.Max, req.Label, req.Point)
 	if err != nil {
@@ -181,12 +289,16 @@ func (h *Handler) UpsertScale(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) UpsertWeight(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		AYID     string  `json:"academic_year_id"`
-		Type     string  `json:"exam_type"`
+		AYID       string  `json:"academic_year_id"`
+		Type       string  `json:"exam_type"`
 		Percentage float64 `json:"weight_percentage"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.AYID) == "" || strings.TrimSpace(req.Type) == "" {
+		http.Error(w, "academic_year_id and exam_type are required", http.StatusBadRequest)
 		return
 	}
 
@@ -214,4 +326,3 @@ func (h *Handler) CalculateAggregates(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 }
-

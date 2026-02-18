@@ -63,7 +63,7 @@ export default function ParentResultsPage() {
         }
         grouped.get(examName)?.results.push({
           name: String(row.subject_name || row.subject || "Subject"),
-          marks: Number(row.marks ?? row.score ?? 0),
+          marks: Number(row.marks_obtained ?? row.marks ?? row.score ?? 0),
           maxMarks: Number(row.max_marks ?? row.maxMarks ?? 100),
         })
       }
