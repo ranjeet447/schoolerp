@@ -4,32 +4,82 @@ import { useState, useEffect } from "react"
 import { 
   Button, Card, CardContent, CardHeader, CardTitle, 
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-  Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
 import { AdmissionEnquiry } from "@/types/admission"
 import { format } from "date-fns"
 import { toast } from "sonner"
+import { Loader2, RefreshCw } from "lucide-react"
+
+const textValue = (value: unknown) => {
+  if (typeof value === "string") return value
+  if (value && typeof value === "object" && "String" in value) {
+    const str = (value as { String?: string }).String
+    return typeof str === "string" ? str : ""
+  }
+  return ""
+}
+
+const uuidValue = (value: unknown) => {
+  if (typeof value === "string") return value
+  if (value && typeof value === "object" && "Bytes" in value) {
+    const bytes = (value as { Bytes?: unknown }).Bytes
+    if (typeof bytes === "string") return bytes
+  }
+  return ""
+}
+
+const dateValue = (value: unknown) => {
+  if (typeof value === "string") return value
+  if (value && typeof value === "object" && "Time" in value) {
+    const time = (value as { Time?: string }).Time
+    return typeof time === "string" ? time : ""
+  }
+  return ""
+}
+
+const normalizeEnquiry = (item: any): AdmissionEnquiry => ({
+  id: uuidValue(item?.id),
+  tenant_id: uuidValue(item?.tenant_id),
+  parent_name: item?.parent_name || "",
+  email: textValue(item?.email),
+  phone: item?.phone || "",
+  student_name: item?.student_name || "",
+  grade_interested: item?.grade_interested || "",
+  academic_year: item?.academic_year || "",
+  source: textValue(item?.source),
+  status: (item?.status || "open") as AdmissionEnquiry["status"],
+  notes: textValue(item?.notes),
+  created_at: dateValue(item?.created_at),
+  updated_at: dateValue(item?.updated_at),
+})
 
 export default function AdminEnquiriesPage() {
   const [enquiries, setEnquiries] = useState<AdmissionEnquiry[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [creatingForID, setCreatingForID] = useState("")
 
   useEffect(() => {
     fetchEnquiries()
   }, [])
 
-  const fetchEnquiries = async () => {
-    setLoading(true)
+  const fetchEnquiries = async (silent = false) => {
+    if (silent) setRefreshing(true)
+    else setLoading(true)
     try {
       const res = await apiClient("/admin/admissions/enquiries?limit=50")
       if (res.ok) {
-        setEnquiries(await res.json() || [])
+        const payload = await res.json()
+        const rows = Array.isArray(payload) ? payload : []
+        setEnquiries(rows.map(normalizeEnquiry))
       }
     } catch (err) {
       console.error(err)
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
@@ -48,14 +98,39 @@ export default function AdminEnquiriesPage() {
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'open': return 'default'
-      case 'contacted': return 'secondary'
-      case 'interview_scheduled': return 'outline'
-      case 'converted': return 'default' // Using default (primary) for success mostly
-      case 'rejected': return 'destructive'
-      default: return 'outline'
+  const createApplication = async (enquiry: AdmissionEnquiry) => {
+    setCreatingForID(enquiry.id)
+    try {
+      const body = {
+        enquiry_id: enquiry.id,
+        data: {
+          parent_name: enquiry.parent_name,
+          student_name: enquiry.student_name,
+          grade_interested: enquiry.grade_interested,
+          academic_year: enquiry.academic_year,
+          phone: enquiry.phone,
+          email: enquiry.email,
+          notes: enquiry.notes,
+        },
+      }
+
+      const res = await apiClient("/admin/admissions/applications", {
+        method: "POST",
+        body: JSON.stringify(body),
+      })
+
+      if (!res.ok) {
+        const msg = await res.text()
+        throw new Error(msg || "Failed to create application")
+      }
+
+      await updateStatus(enquiry.id, "converted")
+      toast.success("Application created from enquiry")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to create application"
+      toast.error(message)
+    } finally {
+      setCreatingForID("")
     }
   }
 
@@ -66,6 +141,9 @@ export default function AdminEnquiriesPage() {
           <h1 className="text-3xl font-bold tracking-tight">Admission Enquiries</h1>
           <p className="text-muted-foreground">Manage incoming enquiries from the public portal.</p>
         </div>
+        <Button variant="outline" onClick={() => fetchEnquiries(true)} disabled={refreshing} className="gap-2">
+          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} /> Refresh
+        </Button>
       </div>
 
       <Card>
@@ -82,18 +160,20 @@ export default function AdminEnquiriesPage() {
                 <TableHead>Grade</TableHead>
                 <TableHead>Contact</TableHead>
                 <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
                     Loading enquiries...
                   </TableCell>
                 </TableRow>
               ) : enquiries.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No enquiries found.
                   </TableCell>
                 </TableRow>
@@ -101,7 +181,7 @@ export default function AdminEnquiriesPage() {
                 enquiries.map((enquiry) => (
                   <TableRow key={enquiry.id}>
                     <TableCell className="font-mono text-xs text-muted-foreground">
-                        {format(new Date(enquiry.created_at), 'MMM d, yyyy')}
+                        {enquiry.created_at ? format(new Date(enquiry.created_at), 'MMM d, yyyy') : '-'}
                     </TableCell>
                     <TableCell className="font-medium">{enquiry.parent_name}</TableCell>
                     <TableCell>{enquiry.student_name}</TableCell>
@@ -128,6 +208,18 @@ export default function AdminEnquiriesPage() {
                                 <SelectItem value="rejected">Rejected</SelectItem>
                             </SelectContent>
                         </Select>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => createApplication(enquiry)}
+                        disabled={creatingForID === enquiry.id || enquiry.status === "converted"}
+                        className="gap-2"
+                      >
+                        {creatingForID === enquiry.id && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                        {enquiry.status === "converted" ? "Converted" : "Create Application"}
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))

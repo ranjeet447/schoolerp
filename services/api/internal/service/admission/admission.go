@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -137,7 +138,7 @@ func (s *AdmissionService) CreateApplication(ctx context.Context, tenantID, enqu
 		TenantID:          tID,
 		EnquiryID:         eID,
 		ApplicationNumber: appNum,
-		Status:            "draft",
+		Status:            "submitted",
 		FormData:          jsonBytes,
 		Documents:         []byte("[]"),
 	})
@@ -170,6 +171,10 @@ func (s *AdmissionService) ListApplications(ctx context.Context, tenantID, statu
 }
 
 func (s *AdmissionService) RecordFeePayment(ctx context.Context, tenantID, appID string, amount int64, ref, userID, ip string) error {
+	if amount <= 0 {
+		return fmt.Errorf("amount must be greater than zero")
+	}
+
 	tID := pgtype.UUID{}
 	tID.Scan(tenantID)
 	aID := pgtype.UUID{}
@@ -182,7 +187,7 @@ func (s *AdmissionService) RecordFeePayment(ctx context.Context, tenantID, appID
 		TenantID:             tID,
 		ProcessingFeeAmount:  pgtype.Int8{Int64: amount, Valid: true},
 		ProcessingFeeStatus:  pgtype.Text{String: "paid", Valid: true},
-		PaymentReference:     pgtype.Text{String: ref, Valid: true},
+		PaymentReference:     pgtype.Text{String: strings.TrimSpace(ref), Valid: strings.TrimSpace(ref) != ""},
 	})
 	if err != nil {
 		return err
@@ -310,8 +315,16 @@ func (s *AdmissionService) AcceptApplication(ctx context.Context, tenantID, id, 
 		return err
 	}
 
-	if app.Status == "accepted" {
-		return fmt.Errorf("application already accepted")
+	if app.Status == "admitted" {
+		return fmt.Errorf("application already admitted")
+	}
+
+	if app.ProcessingFeeStatus.String != "paid" {
+		return fmt.Errorf("cannot admit student: processing fee is not paid")
+	}
+
+	if strings.TrimSpace(sectionID) == "" {
+		return fmt.Errorf("section is required")
 	}
 
 	// 1. Create Student record in SIS
@@ -334,6 +347,6 @@ func (s *AdmissionService) AcceptApplication(ctx context.Context, tenantID, id, 
 	}
 
 	// 2. Update Application Status
-	return s.UpdateApplicationStatus(ctx, tenantID, id, "accepted", userID, ip)
+	return s.UpdateApplicationStatus(ctx, tenantID, id, "admitted", userID, ip)
 }
 

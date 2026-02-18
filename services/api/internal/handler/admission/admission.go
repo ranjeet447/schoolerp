@@ -193,11 +193,34 @@ type updateStatusReq struct {
 	Status string `json:"status"`
 }
 
+func isValidEnquiryStatus(status string) bool {
+	switch status {
+	case "open", "contacted", "interview_scheduled", "converted", "rejected":
+		return true
+	default:
+		return false
+	}
+}
+
+func isValidApplicationStatus(status string) bool {
+	switch status {
+	case "submitted", "review", "assessment", "offered", "admitted", "declined":
+		return true
+	default:
+		return false
+	}
+}
+
 func (h *Handler) UpdateEnquiryStatus(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	var req updateStatusReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if !isValidEnquiryStatus(strings.TrimSpace(req.Status)) {
+		http.Error(w, "invalid enquiry status", http.StatusBadRequest)
 		return
 	}
 
@@ -218,6 +241,11 @@ func (h *Handler) CreateApplication(w http.ResponseWriter, r *http.Request) {
 	var req createAppReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if strings.TrimSpace(req.EnquiryID) == "" {
+		http.Error(w, "enquiry_id is required", http.StatusBadRequest)
 		return
 	}
 
@@ -285,6 +313,11 @@ func (h *Handler) UpdateApplicationStatus(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if !isValidApplicationStatus(strings.TrimSpace(req.Status)) {
+		http.Error(w, "invalid application status", http.StatusBadRequest)
+		return
+	}
+
 	err := h.svc.UpdateApplicationStatus(r.Context(), middleware.GetTenantID(r.Context()), id, req.Status, middleware.GetUserID(r.Context()), r.RemoteAddr)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -310,7 +343,7 @@ func (h *Handler) AcceptApplication(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	respondJSON(w, http.StatusOK, map[string]string{"message": "application accepted and student created"})
+	respondJSON(w, http.StatusOK, map[string]string{"message": "application admitted and student created"})
 }
 func (h *Handler) AttachDocument(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")

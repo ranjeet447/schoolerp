@@ -19,7 +19,7 @@ export interface AdmissionApplication {
   tenant_id: string
   enquiry_id?: string
   application_number: string
-  status: 'draft' | 'submitted' | 'review' | 'assessment' | 'offered' | 'admitted' | 'declined'
+  status: 'submitted' | 'review' | 'assessment' | 'offered' | 'admitted' | 'declined'
   form_data: Record<string, any>
   documents: any[]
   reviewed_by?: string
@@ -28,4 +28,7 @@ export interface AdmissionApplication {
   parent_name?: string
   student_name?: string
   grade_interested?: string
+  processing_fee_amount?: number
+  processing_fee_status?: string
+  payment_reference?: string
 }

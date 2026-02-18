@@ -11,6 +11,7 @@ import {
   CalendarDays,
   FileText,
   FileCheck2,
+  ClipboardList,
   Settings,
   Menu,
   LogOut,
@@ -29,6 +30,7 @@ import { apiClient } from "@/lib/api-client";
 const NAV_ITEMS = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
   { href: '/admin/students', label: 'Students', icon: Users, permission: 'sis:read' },
+  { href: '/admin/admissions/enquiries', label: 'Admissions', icon: ClipboardList, permission: 'sis:read' },
   { href: '/admin/attendance', label: 'Attendance', icon: CalendarCheck, permission: 'attendance:read' },
   { href: '/admin/timetable', label: 'Timetable', icon: CalendarDays, permission: 'attendance:read' },
   { href: '/admin/finance', label: 'Fees & Finance', icon: Banknote, permission: 'fees:read' },
