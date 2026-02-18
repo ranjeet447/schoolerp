@@ -3,7 +3,10 @@ package attendance
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -31,9 +34,11 @@ type MarkAttendanceParams struct {
 	ClassSectionID string
 	Date           time.Time
 	Entries        []AttendanceEntry
-	
+	OverrideReason string
+
 	// Context
 	UserID    string
+	Role      string
 	RequestID string
 	IP        string
 }
@@ -44,31 +49,102 @@ type AttendanceEntry struct {
 	Remarks   string
 }
 
-func (s *Service) MarkAttendance(ctx context.Context, p MarkAttendanceParams) error {
-	// 0. Acquire Lock to prevent concurrent edits for this class/date
-	// different teachers might try to mark simultaneously
-	// We use the DB-based lock service. ResourceID is combination of Class+Date.
-	resourceID := fmt.Sprintf("attendance:%s:%s", p.ClassSectionID, p.Date.Format("2006-01-02"))
-	_, err := s.locks.Lock(ctx, p.TenantID, "attendance", &resourceID, p.UserID, "Marking Attendance")
+var errAttendanceApprovalRequired = errors.New("attendance change requires approval")
+
+func IsApprovalRequiredError(err error) bool {
+	return errors.Is(err, errAttendanceApprovalRequired)
+}
+
+func (s *Service) getAttendanceRuleConfig(ctx context.Context, tenantID, role string) (map[string]any, error) {
+	decision, err := s.policy.Evaluate(ctx, policy.Context{
+		TenantID: tenantID,
+		Module:   "attendance",
+		Action:   "settings",
+		Role:     role,
+	})
 	if err != nil {
-		return fmt.Errorf("could not acquire lock (resource busy): %w", err)
+		return nil, err
 	}
-	// Ensure we unlock after operation (or defer it, though DB locks might persist if not cleared. 
-	// The current lock service implementation seems to create a persistent lock record. 
-	// For a critical section, we want to hold it just during the transaction or operation.
-	// If the intention of `locks` foundation is persistent locks (like "Attendance Locked for Month"), we should check existence.
-	// If it's for concurrency control, we should delete it after.
-	// Assumption: This foundation service is for persistent business locks (e.g. "Result Locked"). 
-	// For concurrency, we might want to just rely on DB transaction isolation or a separate Redis redis_lock.
-	// Given the instructions "Wire policy/locks/approvals", and the `locks` package provided, 
-	// it's likely intended for Business Locking.
-	// However, the plan said "Acquire lock... to prevent concurrent edits". 
-	// I will treat it as a critical section and Release (Delete) it at the end.
-	defer s.locks.Unlock(ctx, p.TenantID, "attendance", &resourceID)
-	
-	// Check if already locked by someone else effectively handled by CreateLock unique constraint if it exists,
-	// or we should check IsLocked first. 
-	// But `CreateLock` likely fails if duplicate. Let's assume `Lock` tries to create and errors if exists.
+	if decision.Config == nil {
+		return map[string]any{}, nil
+	}
+	return decision.Config, nil
+}
+
+func boolConfig(config map[string]any, key string, fallback bool) bool {
+	value, ok := config[key]
+	if !ok {
+		return fallback
+	}
+	b, ok := value.(bool)
+	if !ok {
+		return fallback
+	}
+	return b
+}
+
+func intConfig(config map[string]any, key string, fallback int) int {
+	value, ok := config[key]
+	if !ok {
+		return fallback
+	}
+	switch v := value.(type) {
+	case float64:
+		return int(v)
+	case int:
+		return v
+	case string:
+		parsed, err := strconv.Atoi(v)
+		if err == nil {
+			return parsed
+		}
+	}
+	return fallback
+}
+
+func isPastConfiguredLockDate(target, now time.Time) bool {
+	if now.Day() < 5 {
+		return false
+	}
+
+	startOfCurrentMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	targetMonth := time.Date(target.Year(), target.Month(), 1, 0, 0, 0, 0, target.Location())
+	return targetMonth.Before(startOfCurrentMonth)
+}
+
+func attendanceEntryStatusAllowed(status string) bool {
+	switch status {
+	case "present", "absent", "late", "excused":
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *Service) MarkAttendance(ctx context.Context, p MarkAttendanceParams) error {
+	if strings.TrimSpace(p.ClassSectionID) == "" {
+		return errors.New("class_section_id is required")
+	}
+	if len(p.Entries) == 0 {
+		return errors.New("attendance entries are required")
+	}
+
+	for _, e := range p.Entries {
+		if strings.TrimSpace(e.StudentID) == "" {
+			return errors.New("student_id is required for all attendance entries")
+		}
+		if !attendanceEntryStatusAllowed(strings.TrimSpace(e.Status)) {
+			return fmt.Errorf("invalid attendance status: %s", e.Status)
+		}
+	}
+
+	locked, err := s.locks.IsLocked(ctx, p.TenantID, "attendance", nil)
+	if err != nil {
+		return err
+	}
+	if locked {
+		return errors.New("attendance module is locked")
+	}
 
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(p.TenantID)
@@ -79,19 +155,70 @@ func (s *Service) MarkAttendance(ctx context.Context, p MarkAttendanceParams) er
 	uUUID := pgtype.UUID{}
 	uUUID.Scan(p.UserID)
 
-	// 1. Policy Check: Can we mark for this date?
-	// For Release 1: Allow marking for today or past dates within X hours.
-	decision, err := s.policy.Evaluate(ctx, policy.Context{
+	markDecision, err := s.policy.Evaluate(ctx, policy.Context{
 		TenantID: p.TenantID,
 		Module:   "attendance",
 		Action:   "mark",
-		Role:     "teacher", // In real implementation, pass actual role
+		Role:     p.Role,
 	})
 	if err != nil {
 		return err
 	}
-	if !decision.Allowed {
-		return fmt.Errorf("action denied: %s", decision.DenialReason)
+	if !markDecision.Allowed {
+		return fmt.Errorf("action denied: %s", markDecision.DenialReason)
+	}
+
+	ruleConfig, err := s.getAttendanceRuleConfig(ctx, p.TenantID, p.Role)
+	if err != nil {
+		return err
+	}
+
+	editWindowHours := intConfig(ruleConfig, "edit_window_hours", 48)
+	requireReasonForEdits := boolConfig(ruleConfig, "require_reason_for_edits", false) || markDecision.ReasonRequired
+	lockPreviousMonths := boolConfig(ruleConfig, "lock_previous_months", false)
+	requireApprovalAfterWindow := boolConfig(ruleConfig, "require_approval_after_window", false) || markDecision.RequiresApproval
+
+	_, err = s.q.GetAttendanceSession(ctx, db.GetAttendanceSessionParams{
+		TenantID:       tUUID,
+		ClassSectionID: csUUID,
+		Date:           pgtype.Date{Time: p.Date, Valid: true},
+	})
+	isEdit := err == nil
+
+	now := time.Now()
+	hoursSinceDate := now.Sub(time.Date(p.Date.Year(), p.Date.Month(), p.Date.Day(), 23, 59, 59, 0, now.Location())).Hours()
+	outsideWindow := isEdit && editWindowHours >= 0 && hoursSinceDate > float64(editWindowHours)
+	monthLocked := lockPreviousMonths && isPastConfiguredLockDate(p.Date, now)
+
+	reason := strings.TrimSpace(p.OverrideReason)
+	if (outsideWindow || monthLocked || (isEdit && requireReasonForEdits)) && reason == "" {
+		return errors.New("override_reason is required for attendance override")
+	}
+
+	if outsideWindow || monthLocked || requireApprovalAfterWindow {
+		approvalPayload := map[string]any{
+			"class_section_id": p.ClassSectionID,
+			"date":             p.Date.Format("2006-01-02"),
+			"reason":           reason,
+			"entries":          p.Entries,
+			"outside_window":   outsideWindow,
+			"month_locked":     monthLocked,
+		}
+		if _, createErr := s.approvals.CreateRequest(ctx, p.TenantID, p.UserID, "attendance", "attendance_override", p.ClassSectionID, approvalPayload); createErr != nil {
+			return createErr
+		}
+
+		s.audit.Log(ctx, audit.Entry{
+			TenantID:     tUUID,
+			UserID:       uUUID,
+			RequestID:    p.RequestID,
+			Action:       "attendance_override_requested",
+			ResourceType: "attendance_session",
+			ReasonCode:   reason,
+			IPAddress:    p.IP,
+		})
+
+		return errAttendanceApprovalRequired
 	}
 
 	// 2. Create/Update Session
@@ -138,6 +265,7 @@ func (s *Service) MarkAttendance(ctx context.Context, p MarkAttendanceParams) er
 		Action:       "mark_attendance",
 		ResourceType: "attendance_session",
 		ResourceID:   session.ID,
+		ReasonCode:   reason,
 		IPAddress:    p.IP,
 	})
 
@@ -210,3 +338,22 @@ func (s *Service) GetDailyStats(ctx context.Context, tenantID string, date time.
 	})
 }
 
+func (s *Service) GetEmergencyLockStatus(ctx context.Context, tenantID string) (bool, error) {
+	return s.locks.IsLocked(ctx, tenantID, "attendance", nil)
+}
+
+func (s *Service) EnableEmergencyLock(ctx context.Context, tenantID, userID, reason string) error {
+	locked, err := s.GetEmergencyLockStatus(ctx, tenantID)
+	if err != nil {
+		return err
+	}
+	if locked {
+		return nil
+	}
+	_, err = s.locks.Lock(ctx, tenantID, "attendance", nil, userID, reason)
+	return err
+}
+
+func (s *Service) DisableEmergencyLock(ctx context.Context, tenantID string) error {
+	return s.locks.Unlock(ctx, tenantID, "attendance", nil)
+}

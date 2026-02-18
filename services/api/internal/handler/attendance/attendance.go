@@ -3,6 +3,7 @@ package attendance
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -25,6 +26,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/mark", h.MarkAttendance)
 		r.Get("/policies", h.ListPolicies)
 		r.Post("/policies", h.UpdatePolicy)
+		r.Get("/locks/emergency", h.GetEmergencyLockStatus)
+		r.Post("/locks/emergency", h.EnableEmergencyLock)
+		r.Delete("/locks/emergency", h.DisableEmergencyLock)
 	})
 	r.Route("/leaves", func(r chi.Router) {
 		r.Get("/", h.ListLeaves)
@@ -41,6 +45,7 @@ func (h *Handler) MarkAttendance(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ClassSectionID string                          `json:"class_section_id"`
 		Date           string                          `json:"date"`
+		OverrideReason string                          `json:"override_reason"`
 		Entries        []attendservice.AttendanceEntry `json:"entries"`
 	}
 
@@ -49,19 +54,42 @@ func (h *Handler) MarkAttendance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	date, _ := time.Parse("2006-01-02", req.Date)
+	if strings.TrimSpace(req.ClassSectionID) == "" {
+		http.Error(w, "class_section_id is required", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.Date) == "" {
+		http.Error(w, "date is required", http.StatusBadRequest)
+		return
+	}
+
+	date, err := time.Parse("2006-01-02", req.Date)
+	if err != nil {
+		http.Error(w, "invalid date format, expected YYYY-MM-DD", http.StatusBadRequest)
+		return
+	}
 
 	p := attendservice.MarkAttendanceParams{
 		TenantID:       middleware.GetTenantID(r.Context()),
 		ClassSectionID: req.ClassSectionID,
 		Date:           date,
 		Entries:        req.Entries,
+		OverrideReason: req.OverrideReason,
 		UserID:         middleware.GetUserID(r.Context()),
+		Role:           middleware.GetRole(r.Context()),
 		RequestID:      middleware.GetReqID(r.Context()),
 		IP:             r.RemoteAddr,
 	}
 
 	if err := h.svc.MarkAttendance(r.Context(), p); err != nil {
+		if attendservice.IsApprovalRequiredError(err) {
+			http.Error(w, err.Error(), http.StatusAccepted)
+			return
+		}
+		if strings.Contains(err.Error(), "required") || strings.Contains(err.Error(), "invalid") || strings.Contains(err.Error(), "denied") {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -166,6 +194,12 @@ func (h *Handler) ListPolicies(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdatePolicy(w http.ResponseWriter, r *http.Request) {
+	role := middleware.GetRole(r.Context())
+	if role != "tenant_admin" && role != "super_admin" {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
 	var req struct {
 		Module   string          `json:"module"`
 		Action   string          `json:"action"`
@@ -176,6 +210,10 @@ func (h *Handler) UpdatePolicy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid request", http.StatusBadRequest)
 		return
 	}
+	if strings.TrimSpace(req.Module) == "" || strings.TrimSpace(req.Action) == "" {
+		http.Error(w, "module and action are required", http.StatusBadRequest)
+		return
+	}
 
 	tenantID := middleware.GetTenantID(r.Context())
 	policy, err := h.svc.UpdatePolicy(r.Context(), tenantID, req.Module, req.Action, req.Logic, req.IsActive)
@@ -184,6 +222,60 @@ func (h *Handler) UpdatePolicy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	json.NewEncoder(w).Encode(policy)
+}
+
+func (h *Handler) GetEmergencyLockStatus(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	locked, err := h.svc.GetEmergencyLockStatus(r.Context(), tenantID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]bool{"locked": locked})
+}
+
+func (h *Handler) EnableEmergencyLock(w http.ResponseWriter, r *http.Request) {
+	role := middleware.GetRole(r.Context())
+	if role != "tenant_admin" && role != "super_admin" {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err.Error() != "EOF" {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	tenantID := middleware.GetTenantID(r.Context())
+	userID := middleware.GetUserID(r.Context())
+	reason := strings.TrimSpace(req.Reason)
+	if reason == "" {
+		reason = "Emergency attendance lock"
+	}
+
+	if err := h.svc.EnableEmergencyLock(r.Context(), tenantID, userID, reason); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "locked"})
+}
+
+func (h *Handler) DisableEmergencyLock(w http.ResponseWriter, r *http.Request) {
+	role := middleware.GetRole(r.Context())
+	if role != "tenant_admin" && role != "super_admin" {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	tenantID := middleware.GetTenantID(r.Context())
+	if err := h.svc.DisableEmergencyLock(r.Context(), tenantID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "unlocked"})
 }
 
 func (h *Handler) GetDailyStats(w http.ResponseWriter, r *http.Request) {

@@ -11,6 +11,7 @@ export default function TeacherAttendancePage() {
   const [students, setStudents] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [session, setSession] = useState<any>(null)
+  const [overrideReason, setOverrideReason] = useState("")
   
   // Fetch students/session for the selected class
   useEffect(() => {
@@ -57,6 +58,7 @@ export default function TeacherAttendancePage() {
         body: JSON.stringify({
           class_section_id: classSectionID,
           date,
+          override_reason: overrideReason,
           entries: students.map(s => ({
             student_id: s.id,
             status: s.status,
@@ -66,10 +68,18 @@ export default function TeacherAttendancePage() {
       })
       if (res.ok) {
         toast.success("Attendance submitted successfully")
+        setOverrideReason("")
         fetchSession()
+      } else {
+        const message = await res.text()
+        if (res.status === 202) {
+          toast.info(message || "Attendance override request submitted for approval")
+        } else {
+          throw new Error(message || "Failed to submit attendance")
+        }
       }
     } catch (err) {
-      toast.error("Failed to submit attendance")
+      toast.error(err instanceof Error ? err.message : "Failed to submit attendance")
     } finally {
       setLoading(false)
     }
@@ -88,7 +98,8 @@ export default function TeacherAttendancePage() {
         <CardHeader>
           <CardTitle>Selection</CardTitle>
         </CardHeader>
-        <CardContent className="flex gap-4">
+        <CardContent className="space-y-4">
+          <div className="flex gap-4">
           <div className="w-64">
             <Select onValueChange={setClassSectionID}>
               <SelectTrigger>
@@ -107,6 +118,17 @@ export default function TeacherAttendancePage() {
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Override Reason (required for policy overrides)</label>
+            <textarea
+              className="w-full min-h-[72px] rounded-md border px-3 py-2 text-sm"
+              placeholder="Provide reason when editing locked or out-of-window attendance"
+              value={overrideReason}
+              onChange={(e) => setOverrideReason(e.target.value)}
+              disabled={loading}
+            />
+          </div>
         </CardContent>
       </Card>
 
