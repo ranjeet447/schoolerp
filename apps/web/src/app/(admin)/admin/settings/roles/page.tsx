@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Shield, 
   Plus, 
@@ -11,13 +10,30 @@ import {
   X,
   Lock,
   Unlock,
-  Users,
   Settings,
-  ChevronDown,
   Save,
-  AlertTriangle
+  RefreshCw,
+  Search,
+  Loader2,
+  Info
 } from 'lucide-react';
-import { Button, Input, Label } from '@schoolerp/ui';
+import {
+  Button,
+  Input,
+  Label,
+  Badge,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Switch
+} from '@schoolerp/ui';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 
@@ -38,6 +54,11 @@ interface Permission {
   description: string;
 }
 
+function canTenantManageSystemRole(roleCode: string): boolean {
+  const code = roleCode.trim().toLowerCase();
+  return code === 'teacher' || code === 'parent' || code === 'student';
+}
+
 // Group permissions by module
 function groupPermissionsByModule(permissions: Permission[]): Record<string, Permission[]> {
   return permissions.reduce((acc, perm) => {
@@ -50,6 +71,9 @@ export default function RolesSettingsPage() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -60,31 +84,44 @@ export default function RolesSettingsPage() {
   const [formDescription, setFormDescription] = useState('');
   const [formPermissions, setFormPermissions] = useState<string[]>([]);
 
-  const fetchData = async () => {
+  const fetchData = async (silent = false) => {
+    if (silent) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    setError('');
     try {
       const [rolesRes, permsRes] = await Promise.all([
         apiClient('/admin/roles'),
         apiClient('/admin/permissions'),
       ]);
 
-      if (rolesRes.ok) {
-        const rolesData = await rolesRes.json();
-        setRoles(rolesData || []);
+      if (!rolesRes.ok) {
+        const msg = await rolesRes.text();
+        throw new Error(msg || 'Failed to load roles');
       }
-      if (permsRes.ok) {
-        const permsData = await permsRes.json();
-        setPermissions(permsData || []);
+      if (!permsRes.ok) {
+        const msg = await permsRes.text();
+        throw new Error(msg || 'Failed to load permissions');
       }
+
+      const rolesData = await rolesRes.json();
+      const permsData = await permsRes.json();
+      setRoles(rolesData || []);
+      setPermissions(permsData || []);
     } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load roles data');
+      const message = error instanceof Error ? error.message : 'Failed to load roles data';
+      setError(message);
+      if (silent) toast.error(message);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(false);
   }, []);
 
   const openCreateModal = () => {
@@ -97,7 +134,7 @@ export default function RolesSettingsPage() {
   };
 
   const openEditModal = (role: Role) => {
-    if (role.is_system) {
+    if (role.is_system && !canTenantManageSystemRole(role.code)) {
       toast.error('System roles cannot be edited');
       return;
     }
@@ -136,7 +173,7 @@ export default function RolesSettingsPage() {
       if (res.ok) {
         toast.success(editingRole ? 'Role updated!' : 'Role created!');
         setShowModal(false);
-        fetchData();
+        fetchData(true);
       } else {
         const error = await res.text();
         toast.error(error || 'Failed to save role');
@@ -155,7 +192,7 @@ export default function RolesSettingsPage() {
       if (res.ok) {
         toast.success('Role deleted');
         setDeleteConfirm(null);
-        fetchData();
+        fetchData(true);
       } else {
         const error = await res.text();
         toast.error(error || 'Failed to delete role');
@@ -174,266 +211,219 @@ export default function RolesSettingsPage() {
   };
 
   const groupedPermissions = groupPermissionsByModule(permissions);
+  const filteredRoles = roles.filter((role) => {
+    const value = query.trim().toLowerCase();
+    if (!value) return true;
+    return (
+      role.name.toLowerCase().includes(value) ||
+      role.code.toLowerCase().includes(value) ||
+      role.description.toLowerCase().includes(value)
+    );
+  });
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+    <div className="mx-auto max-w-7xl space-y-6 p-6">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <Shield className="h-8 w-8 text-indigo-400" />
+          <h1 className="flex items-center gap-2 text-2xl font-bold">
+            <Shield className="h-6 w-6 text-primary" />
             Role Management
           </h1>
-          <p className="text-slate-400 mt-1">
-            Create custom roles and assign permissions for your school staff
+          <p className="mt-1 text-sm text-muted-foreground">
+            Define role permissions for your tenant. Editable system roles: teacher, parent, student.
           </p>
         </div>
-        <Button onClick={openCreateModal} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500">
-          <Plus className="h-4 w-4" />
-          Create Role
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => fetchData(true)} disabled={refreshing} className="gap-2">
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button onClick={openCreateModal} className="gap-2">
+            <Plus className="h-4 w-4" />
+            New Role
+          </Button>
+        </div>
       </div>
 
-      {/* Roles Table */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-slate-900/50">
+      <Card>
+        <CardHeader className="space-y-4">
+          <div className="rounded-md border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
+            <div className="mb-1 flex items-center gap-2 font-medium text-foreground">
+              <Info className="h-3.5 w-3.5" />
+              Access policy
+            </div>
+            Tenant Admin can manage custom roles and system role permissions for teacher, parent, and student. Other system roles remain read-only.
+          </div>
+          <div className="relative max-w-md">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search roles by name, code, description"
+              className="pl-9"
+            />
+          </div>
+          {error && (
+            <CardDescription className="text-red-600 dark:text-red-400">{error}</CardDescription>
+          )}
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
             <tr>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Role</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Code</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Type</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Permissions</th>
-              <th className="px-6 py-4 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">Actions</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Role</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Code</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Type</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Permissions</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">Actions</th>
             </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-700/50">
-            {roles.map((role) => (
-              <tr key={role.id} className="hover:bg-slate-700/30 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    {role.is_system ? (
-                      <Lock className="h-5 w-5 text-amber-500" />
-                    ) : (
-                      <Unlock className="h-5 w-5 text-green-500" />
-                    )}
-                    <div>
-                      <div className="font-medium text-white">{role.name}</div>
-                      <div className="text-sm text-slate-400">{role.description}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <code className="px-2 py-1 bg-slate-900/50 rounded text-sm text-indigo-300">{role.code}</code>
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                    role.is_system 
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                      : 'bg-green-500/20 text-green-300 border border-green-500/30'
-                  }`}>
-                    {role.is_system ? 'System' : 'Custom'}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex flex-wrap gap-1">
-                    {(role.permissions || []).slice(0, 3).map((perm) => (
-                      <span key={perm} className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded text-xs">
-                        {perm}
-                      </span>
-                    ))}
-                    {(role.permissions || []).length > 3 && (
-                      <span className="px-2 py-0.5 bg-slate-600/50 text-slate-300 rounded text-xs">
-                        +{role.permissions.length - 3} more
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      onClick={() => openEditModal(role)}
-                      disabled={role.is_system}
-                      className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title={role.is_system ? 'System roles cannot be edited' : 'Edit role'}
-                    >
-                      <Edit2 className="h-4 w-4 text-slate-400" />
-                    </button>
-                    {deleteConfirm === role.id ? (
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleDelete(role.id)}
-                          className="p-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-colors"
-                        >
-                          <Check className="h-4 w-4 text-red-400" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirm(null)}
-                          className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
-                        >
-                          <X className="h-4 w-4 text-slate-400" />
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setDeleteConfirm(role.id)}
-                        disabled={role.is_system}
-                        className="p-2 hover:bg-red-500/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title={role.is_system ? 'System roles cannot be deleted' : 'Delete role'}
-                      >
-                        <Trash2 className="h-4 w-4 text-slate-400" />
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {filteredRoles.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">No roles match your search.</td>
+                </tr>
+              ) : (
+                filteredRoles.map((role) => {
+                  const editable = !role.is_system || canTenantManageSystemRole(role.code);
+                  return (
+                    <tr key={role.id} className="border-t border-border/70">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {role.is_system ? <Lock className="h-4 w-4 text-amber-500" /> : <Unlock className="h-4 w-4 text-emerald-500" />}
+                          <div>
+                            <div className="font-medium">{role.name}</div>
+                            <div className="text-xs text-muted-foreground">{role.description || 'No description'}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <code className="rounded bg-muted px-2 py-1 text-xs">{role.code}</code>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant={role.is_system ? 'secondary' : 'default'}>
+                          {role.is_system ? 'System' : 'Custom'}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">{(role.permissions || []).length} assigned</td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="inline-flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openEditModal(role)}
+                            disabled={!editable}
+                            title={editable ? 'Edit role' : 'System role cannot be edited'}
+                          >
+                            <Edit2 className="mr-1 h-3.5 w-3.5" />
+                            Edit
+                          </Button>
+                          {deleteConfirm === role.id ? (
+                            <>
+                              <Button size="sm" variant="destructive" onClick={() => handleDelete(role.id)}>
+                                <Check className="mr-1 h-3.5 w-3.5" />Confirm
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => setDeleteConfirm(null)}>
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setDeleteConfirm(role.id)}
+                              disabled={role.is_system}
+                              title={role.is_system ? 'System roles cannot be deleted' : 'Delete role'}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
 
-      {/* Create/Edit Modal */}
-      <AnimatePresence>
-        {showModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden"
-            >
-              <div className="p-6 border-b border-slate-700 flex items-center justify-between">
-                <h2 className="text-xl font-bold text-white">
-                  {editingRole ? 'Edit Role' : 'Create New Role'}
-                </h2>
-                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-slate-700/50 rounded-lg">
-                  <X className="h-5 w-5 text-slate-400" />
-                </button>
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{editingRole ? 'Edit Role' : 'Create Role'}</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="max-h-[75vh] overflow-y-auto">
+              <div className="mb-4 grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label className="mb-2 block">Role Name</Label>
+                  <Input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="e.g. Lab Assistant" required />
+                </div>
+                <div>
+                  <Label className="mb-2 block">Role Code</Label>
+                  <Input
+                    value={formCode}
+                    onChange={(e) => setFormCode(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
+                    placeholder="e.g. lab_assistant"
+                    disabled={!!editingRole}
+                    required
+                  />
+                </div>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-6 overflow-y-auto max-h-[calc(85vh-140px)]">
-                <div className="space-y-4 mb-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-slate-300 mb-2 block">Role Name</Label>
-                      <Input
-                        value={formName}
-                        onChange={(e) => setFormName(e.target.value)}
-                        placeholder="e.g. Lab Assistant"
-                        className="bg-slate-900/50 border-slate-600 text-white"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-slate-300 mb-2 block">Role Code</Label>
-                      <Input
-                        value={formCode}
-                        onChange={(e) => setFormCode(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
-                        placeholder="e.g. lab_assistant"
-                        className="bg-slate-900/50 border-slate-600 text-white"
-                        disabled={!!editingRole}
-                        required
-                      />
-                      {editingRole && (
-                        <p className="text-xs text-slate-500 mt-1">Code cannot be changed</p>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-slate-300 mb-2 block">Description</Label>
-                    <Input
-                      value={formDescription}
-                      onChange={(e) => setFormDescription(e.target.value)}
-                      placeholder="Brief description of this role..."
-                      className="bg-slate-900/50 border-slate-600 text-white"
-                    />
-                  </div>
-                </div>
+              <div className="mb-4">
+                <Label className="mb-2 block">Description</Label>
+                <Input value={formDescription} onChange={(e) => setFormDescription(e.target.value)} placeholder="Brief description" />
+              </div>
 
-                {/* Permission Picker */}
-                <div>
-                  <Label className="text-slate-300 mb-3 block flex items-center gap-2">
-                    <Settings className="h-4 w-4" />
-                    Permissions
-                  </Label>
-                  <div className="space-y-4">
-                    {Object.entries(groupedPermissions).map(([module, perms]) => (
-                      <div key={module} className="bg-slate-900/30 rounded-lg p-4">
-                        <h4 className="font-medium text-indigo-300 mb-3 uppercase text-sm tracking-wide">{module}</h4>
-                        <div className="grid grid-cols-2 gap-2">
-                          {perms.map((perm) => (
-                            <label
-                              key={perm.code}
-                              className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
-                                formPermissions.includes(perm.code)
-                                  ? 'bg-indigo-500/20 border border-indigo-500/30'
-                                  : 'hover:bg-slate-700/30 border border-transparent'
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={formPermissions.includes(perm.code)}
-                                onChange={() => togglePermission(perm.code)}
-                                className="sr-only"
-                              />
-                              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                                formPermissions.includes(perm.code)
-                                  ? 'bg-indigo-500 border-indigo-500'
-                                  : 'border-slate-500'
-                              }`}>
-                                {formPermissions.includes(perm.code) && (
-                                  <Check className="h-3 w-3 text-white" />
-                                )}
-                              </div>
-                              <div>
-                                <div className="text-sm text-white">{perm.code}</div>
-                                <div className="text-xs text-slate-400">{perm.description}</div>
-                              </div>
-                            </label>
-                          ))}
-                        </div>
+              <div>
+                <Label className="mb-2 flex items-center gap-2">
+                  <Settings className="h-4 w-4" /> Permissions
+                </Label>
+                <div className="space-y-3">
+                  {Object.entries(groupedPermissions).map(([module, perms]) => (
+                    <div key={module} className="rounded border p-3">
+                      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{module}</h4>
+                      <div className="grid gap-2 md:grid-cols-2">
+                        {perms.map((perm) => (
+                          <label key={perm.code} className="flex cursor-pointer items-start gap-3 rounded p-2 hover:bg-muted/60">
+                            <Switch
+                              checked={formPermissions.includes(perm.code)}
+                              onCheckedChange={() => togglePermission(perm.code)}
+                              className="mt-0.5"
+                            />
+                            <div>
+                              <div className="text-sm font-medium">{perm.code}</div>
+                              <div className="text-xs text-muted-foreground">{perm.description}</div>
+                            </div>
+                          </label>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))}
                 </div>
-              </form>
+              </div>
 
-              <div className="p-6 border-t border-slate-700 flex items-center justify-end gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowModal(false)}
-                  className="border-slate-600 text-slate-300 hover:bg-slate-700/50"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  onClick={handleSubmit}
-                  className="bg-indigo-600 hover:bg-indigo-500 flex items-center gap-2"
-                >
+              <DialogFooter className="mt-4 border-t pt-4">
+                <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
+                <Button type="submit" className="gap-2">
                   <Save className="h-4 w-4" />
                   {editingRole ? 'Update Role' : 'Create Role'}
                 </Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

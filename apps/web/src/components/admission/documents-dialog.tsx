@@ -3,7 +3,8 @@
 import { useState } from "react"
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, 
-  Button, Input, Label, Table, TableBody, TableCell, TableHead, TableHeader, TableRow
+  Button, Input, Label, Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@schoolerp/ui"
 import { FileText, Upload, Trash2, Loader2 } from "lucide-react"
 import { AdmissionApplication } from "@/types/admission"
@@ -95,17 +96,18 @@ export function ApplicationDocumentsDialog({ application, open, onOpenChange, on
           <div className="grid grid-cols-3 gap-4 p-4 border rounded-lg bg-slate-50">
             <div className="space-y-2">
               <Label>Type</Label>
-              <select 
-                className="w-full p-2 border rounded-md bg-white text-sm"
-                value={newDoc.type}
-                onChange={(e) => setNewDoc({...newDoc, type: e.target.value})}
-              >
-                <option>ID Proof</option>
-                <option>Birth Certificate</option>
-                <option>Previous Report Card</option>
-                <option>Transfer Certificate</option>
-                <option>Others</option>
-              </select>
+              <Select value={newDoc.type} onValueChange={(value) => setNewDoc({ ...newDoc, type: value })}>
+                <SelectTrigger className="bg-white">
+                  <SelectValue placeholder="Select document type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ID Proof">ID Proof</SelectItem>
+                  <SelectItem value="Birth Certificate">Birth Certificate</SelectItem>
+                  <SelectItem value="Previous Report Card">Previous Report Card</SelectItem>
+                  <SelectItem value="Transfer Certificate">Transfer Certificate</SelectItem>
+                  <SelectItem value="Others">Others</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Select File</Label>

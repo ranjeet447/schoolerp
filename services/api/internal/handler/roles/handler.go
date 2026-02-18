@@ -20,14 +20,21 @@ func NewHandler(svc *roles.Service) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(r chi.Router) {
-	r.Get("/roles", h.List)
-	r.Post("/roles", h.Create)
-	r.Get("/roles/{id}", h.Get)
-	r.Put("/roles/{id}", h.Update)
-	r.Delete("/roles/{id}", h.Delete)
-	r.Get("/permissions", h.ListPermissions)
-	r.Get("/roles/users", h.ListUsers)
-	r.Post("/roles/assign", h.AssignRole)
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.PermissionGuard("tenant:roles:manage"))
+		r.Get("/roles", h.List)
+		r.Post("/roles", h.Create)
+		r.Get("/roles/{id}", h.Get)
+		r.Put("/roles/{id}", h.Update)
+		r.Delete("/roles/{id}", h.Delete)
+		r.Get("/permissions", h.ListPermissions)
+	})
+
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.PermissionGuard("tenant:users:manage"))
+		r.Get("/roles/users", h.ListUsers)
+		r.Post("/roles/assign", h.AssignRole)
+	})
 }
 
 // List returns all roles for the current tenant
@@ -126,6 +133,13 @@ type updateRoleRequest struct {
 
 // Update updates an existing custom role
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
+	tenantIDStr := middleware.GetTenantID(r.Context())
+	tenantID, err := parseUUID(tenantIDStr)
+	if err != nil {
+		http.Error(w, "invalid tenant id", http.StatusBadRequest)
+		return
+	}
+
 	idStr := chi.URLParam(r, "id")
 	roleID, err := parseUUID(idStr)
 	if err != nil {
@@ -140,6 +154,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	role, err := h.svc.UpdateRole(r.Context(), roles.UpdateRoleParams{
+		TenantID:    tenantID,
 		RoleID:      roleID,
 		Name:        req.Name,
 		Description: req.Description,
@@ -164,6 +179,13 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 
 // Delete deletes a custom role
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
+	tenantIDStr := middleware.GetTenantID(r.Context())
+	tenantID, err := parseUUID(tenantIDStr)
+	if err != nil {
+		http.Error(w, "invalid tenant id", http.StatusBadRequest)
+		return
+	}
+
 	idStr := chi.URLParam(r, "id")
 	roleID, err := parseUUID(idStr)
 	if err != nil {
@@ -171,7 +193,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.svc.DeleteRole(r.Context(), roleID)
+	err = h.svc.DeleteRole(r.Context(), tenantID, roleID)
 	if err != nil {
 		if err == roles.ErrRoleNotFound {
 			http.Error(w, "role not found", http.StatusNotFound)

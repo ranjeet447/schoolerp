@@ -14,6 +14,7 @@ import {
 } from "@schoolerp/ui"
 import { Input } from "@schoolerp/ui"
 import { Label } from "@schoolerp/ui"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@schoolerp/ui"
 import { Plus } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
@@ -22,13 +23,14 @@ export function AddStudentDialog() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [gender, setGender] = useState("male")
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setLoading(true)
     
     const formData = new FormData(event.currentTarget)
-    const data = Object.fromEntries(formData)
+    const data = { ...Object.fromEntries(formData), gender }
 
     try {
       const res = await apiClient('/admin/students', {
@@ -42,6 +44,7 @@ export function AddStudentDialog() {
       }
       
       setOpen(false)
+      setGender("male")
       toast.success('Student created successfully')
       router.refresh()
     } catch (error: any) {
@@ -96,11 +99,18 @@ export function AddStudentDialog() {
                 <Label htmlFor="gender" className="text-right">
                 Gender
                 </Label>
-                <select id="gender" name="gender" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm col-span-3">
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                </select>
+                <div className="col-span-3">
+                  <Select value={gender} onValueChange={setGender}>
+                    <SelectTrigger id="gender">
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="dob" className="text-right">

@@ -82,10 +82,11 @@ export default function PortfolioPage() {
               <p className="text-sm text-muted-foreground">No groups created yet.</p>
             ) : (
               groups.map(g => (
-                <button 
+                <Button 
                   key={g.id} 
                   onClick={() => { setSelectedGroup(g); fetchAnalytics(g.id); }}
-                  className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                  variant="ghost"
+                  className={`h-auto w-full justify-start rounded-lg border p-3 text-left transition-colors ${
                     selectedGroup?.id === g.id ? 'bg-primary/5 border-primary' : 'hover:bg-muted'
                   }`}
                 >
@@ -93,7 +94,7 @@ export default function PortfolioPage() {
                     <Building2 className="w-4 h-4" />
                     <span className="font-medium">{g.name}</span>
                   </div>
-                </button>
+                </Button>
               ))
             )}
           </CardContent>

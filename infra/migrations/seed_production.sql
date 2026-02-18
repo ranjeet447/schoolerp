@@ -55,6 +55,10 @@ INSERT INTO roles (id, tenant_id, name, code, is_system) VALUES
 INSERT INTO role_permissions (role_id, permission_id) 
 SELECT '019c4d42-49ca-744e-8547-8071d51aef0d', id FROM permissions;
 
+-- Super Admin gets all permissions (including platform)
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT '019c4d42-49ca-7166-9de9-5e97220dc819', id FROM permissions;
+
 -- 5. USERS (Lines 31-34)
 -- SaaS Admin
 INSERT INTO users (id, email, phone, full_name, is_active) 

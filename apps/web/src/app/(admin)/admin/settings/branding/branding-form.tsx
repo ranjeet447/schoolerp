@@ -76,7 +76,7 @@ export default function BrandingForm({ initialConfig }: BrandingFormProps) {
           <div className="grid gap-2">
             <Label htmlFor="primary-color" className="text-slate-300">Primary Branding Color</Label>
             <div className="flex items-center gap-4">
-              <input 
+              <Input 
                 type="color" 
                 id="primary-color"
                 value={config.branding.primary_color}

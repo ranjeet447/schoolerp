@@ -183,13 +183,14 @@ export default function AdminLayoutClient({
                 <p className="text-xs text-muted-foreground truncate capitalize">{user?.role?.replace('_', ' ') || ''}</p>
               </div>
             </div>
-            <button 
+            <Button 
+              variant="ghost"
+              size="icon"
               onClick={() => logout()}
-              className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
               title="Logout"
             >
               <LogOut className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         </div>
       </aside>
@@ -202,14 +203,16 @@ export default function AdminLayoutClient({
           </Button>
           <div className="ml-auto flex items-center gap-4">
             {isImpersonating && (
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={exitImpersonation}
                 disabled={exitingImpersonation}
-                className="rounded border border-amber-600/40 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-500/10 disabled:opacity-60 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/20"
+                className="border-amber-600/40 text-xs font-medium text-amber-700 hover:bg-amber-500/10 disabled:opacity-60 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/20"
               >
                 {exitingImpersonation ? "Exiting..." : "Exit Impersonation"}
-              </button>
+              </Button>
             )}
             <ThemeToggle className="text-muted-foreground hover:text-foreground" />
             <span className="text-sm text-muted-foreground font-medium">{schoolName}</span>

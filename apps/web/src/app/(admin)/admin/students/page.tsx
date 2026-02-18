@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { StudentTable } from '@/components/students/student-table';
-import { Button } from "@schoolerp/ui";
+import { Button, Input } from "@schoolerp/ui";
 import { columns, Student } from '@/components/students/columns';
 import { AddStudentDialog } from '@/components/students/add-student-dialog';
 import { ImportStudentWizard } from '@/components/students/import-wizard';
@@ -17,6 +17,7 @@ import {
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const loadStudents = async () => {
@@ -44,6 +45,15 @@ export default function StudentsPage() {
 
     loadStudents();
   }, []);
+
+  const filteredStudents = students.filter((student) => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return true;
+    const name = String(student.full_name || "").toLowerCase();
+    const admissionNumber = String((student as { admission_no?: string }).admission_no || "").toLowerCase();
+    const className = String((student as { class_name?: string }).class_name || "").toLowerCase();
+    return name.includes(query) || admissionNumber.includes(query) || className.includes(query);
+  });
 
   return (
     <div className="space-y-6">
@@ -74,8 +84,10 @@ export default function StudentsPage() {
         <div className="p-6 border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="relative group flex-1 max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
-            <input
+            <Input
               placeholder="Search by name, roll no, or class..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full h-11 pl-11 bg-slate-800/50 border border-white/5 rounded-xl text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
             />
           </div>
@@ -89,7 +101,7 @@ export default function StudentsPage() {
           </div>
         </div>
 
-        <StudentTable columns={columns} data={students} />
+        <StudentTable columns={columns} data={filteredStudents} />
         {loading && (
           <div className="p-4 text-sm text-slate-400">Loading students...</div>
         )}

@@ -124,6 +124,23 @@ func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) error {
 	return err
 }
 
+// UpdateRoleByIDParams are the params for UpdateRoleByID
+type UpdateRoleByIDParams struct {
+	ID          pgtype.UUID
+	Name        string
+	Description string
+}
+
+// UpdateRoleByID updates role metadata by id (authorization is enforced in service layer)
+func (q *Queries) UpdateRoleByID(ctx context.Context, arg UpdateRoleByIDParams) error {
+	const query = `
+		UPDATE roles SET name = $2, description = $3, updated_at = NOW()
+		WHERE id = $1
+	`
+	_, err := q.db.Exec(ctx, query, arg.ID, arg.Name, arg.Description)
+	return err
+}
+
 // DeleteRole deletes a custom role (not system roles)
 func (q *Queries) DeleteRole(ctx context.Context, roleID pgtype.UUID) error {
 	const query = `DELETE FROM roles WHERE id = $1 AND is_system = FALSE`
@@ -161,7 +178,12 @@ func (q *Queries) SetRolePermissions(ctx context.Context, arg SetRolePermissions
 
 // ListAllPermissions retrieves all available permissions
 func (q *Queries) ListAllPermissions(ctx context.Context) ([]PermissionInfo, error) {
-	const query = `SELECT id, code, module, description FROM permissions ORDER BY module, code`
+	const query = `
+		SELECT id, code, module, description
+		FROM permissions
+		WHERE code NOT LIKE 'platform:%'
+		ORDER BY module, code
+	`
 
 	rows, err := q.db.Query(ctx, query)
 	if err != nil {

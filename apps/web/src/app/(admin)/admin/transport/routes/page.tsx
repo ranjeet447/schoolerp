@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@schoolerp/ui"
 export default function RoutesPage() {
   const [routes, setRoutes] = useState<Route[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string>("")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null)
 
@@ -24,14 +25,18 @@ export default function RoutesPage() {
 
   const fetchRoutes = async () => {
     setLoading(true)
+    setError("")
     try {
       const res = await apiClient("/admin/transport/routes")
       if (res.ok) {
         const data = await res.json()
         setRoutes(data || [])
+      } else {
+        const msg = await res.text()
+        setError(msg || "Failed to fetch routes")
       }
     } catch (err) {
-      console.error(err)
+      setError("Failed to fetch routes")
     } finally {
       setLoading(false)
     }
@@ -46,6 +51,10 @@ export default function RoutesPage() {
     setSelectedRoute(null)
     setDialogOpen(true)
   }
+
+  const assignedVehicleCount = routes.filter((route) => !!route.vehicle_number).length
+  const assignedDriverCount = routes.filter((route) => !!route.driver_name).length
+  const unassignedCount = routes.filter((route) => !route.vehicle_number || !route.driver_name).length
 
   return (
     <div className="p-6 space-y-6">
@@ -68,9 +77,15 @@ export default function RoutesPage() {
             </TabsTrigger>
             <TabsTrigger value="tracking" className="gap-2">
                 <Navigation className="w-4 h-4 text-primary" />
-                Live Tracking (Mock)
+                Operations Status
             </TabsTrigger>
         </TabsList>
+
+        {error && (
+          <Card>
+            <CardContent className="pt-6 text-sm text-red-600 dark:text-red-400">{error}</CardContent>
+          </Card>
+        )}
 
         <TabsContent value="list" className="space-y-4">
             <Card>
@@ -144,48 +159,35 @@ export default function RoutesPage() {
         </TabsContent>
 
         <TabsContent value="tracking">
-            <Card className="h-[600px] overflow-hidden bg-slate-50 relative border-dashed">
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-center space-y-4">
-                    <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center animate-pulse">
-                        <Navigation className="w-12 h-12 text-primary rotate-45" />
-                    </div>
-                    <div className="space-y-2">
-                        <h3 className="text-xl font-bold">GPS Simulation Active</h3>
-                        <p className="text-muted-foreground max-w-md mx-auto">
-                            In a production environment, this view would integrate with a maps provider (Google/Mapbox)
-                            to show real-time vehicle positions from installed GPS hardware.
-                        </p>
-                    </div>
-                    
-                    {/* Visual Mock of vehicles moving */}
-                    <div className="w-full max-w-lg h-32 bg-white rounded-lg border shadow-sm p-4 relative overflow-hidden mt-8">
-                        <div className="absolute top-1/2 left-0 right-0 h-1 bg-slate-100 -translate-y-1/2" />
-                        
-                        {routes.slice(0, 3).map((r, i) => (
-                            <div 
-                                key={r.id}
-                                className="absolute flex flex-col items-center animate-bounce"
-                                style={{ 
-                                    left: `${20 + (i * 30)}%`, 
-                                    top: '40%',
-                                    animationDelay: `${i * 0.5}s`,
-                                    animationDuration: '3s'
-                                }}
-                            >
-                                <Bus className="w-6 h-6 text-primary" />
-                                <span className="text-[10px] font-bold bg-white px-1 border rounded">{r.name}</span>
-                            </div>
-                        ))}
-                    </div>
-
-                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                      3 Vehicles Online
-                    </Badge>
-                </div>
-                
-                {/* Mock Grid Lines */}
-                <div className="absolute inset-0 pointer-events-none opacity-[0.05]" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Assigned Vehicles</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">{assignedVehicleCount}</div>
+                <p className="text-sm text-muted-foreground">Routes with a linked vehicle</p>
+              </CardContent>
             </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Assigned Drivers</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">{assignedDriverCount}</div>
+                <p className="text-sm text-muted-foreground">Routes with a linked driver</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Needs Assignment</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">{unassignedCount}</div>
+                <p className="text-sm text-muted-foreground">Routes missing vehicle or driver</p>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 

@@ -3,6 +3,7 @@ package roles
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/schoolerp/api/internal/db"
@@ -132,6 +133,7 @@ func (s *Service) CreateRole(ctx context.Context, params CreateRoleParams) (*Rol
 
 // UpdateRoleParams are the params for updating a role
 type UpdateRoleParams struct {
+	TenantID    pgtype.UUID
 	RoleID      pgtype.UUID
 	Name        string
 	Description string
@@ -140,18 +142,72 @@ type UpdateRoleParams struct {
 
 // UpdateRole updates an existing custom role
 func (s *Service) UpdateRole(ctx context.Context, params UpdateRoleParams) (*Role, error) {
+	if !params.TenantID.Valid {
+		return nil, ErrRoleNotFound
+	}
+
+	rolesForTenant, err := s.queries.ListRolesByTenant(ctx, params.TenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	accessible := false
+	for i := range rolesForTenant {
+		r := rolesForTenant[i]
+		if r.ID.Valid && r.ID.Bytes == params.RoleID.Bytes {
+			accessible = true
+		}
+	}
+	if !accessible {
+		return nil, ErrRoleNotFound
+	}
+
 	// Check if role exists and is not a system role
 	existing, err := s.queries.GetRoleByID(ctx, params.RoleID)
 	if err != nil {
 		return nil, ErrRoleNotFound
 	}
-	if existing.IsSystem {
-		return nil, ErrSystemRole
+
+	targetRoleID := params.RoleID
+
+	if existing.TenantID.Valid && existing.TenantID.Bytes == params.TenantID.Bytes {
+		if existing.IsSystem && !canTenantManageSystemRole(existing.Code) {
+			return nil, ErrSystemRole
+		}
+	} else {
+		if !canTenantManageSystemRole(existing.Code) {
+			return nil, ErrSystemRole
+		}
+
+		var existingTenantRoleID *pgtype.UUID
+		for i := range rolesForTenant {
+			r := rolesForTenant[i]
+			if r.TenantID.Valid && r.TenantID.Bytes == params.TenantID.Bytes && strings.EqualFold(r.Code, existing.Code) {
+				id := r.ID
+				existingTenantRoleID = &id
+				break
+			}
+		}
+
+		if existingTenantRoleID != nil {
+			targetRoleID = *existingTenantRoleID
+		} else {
+			createdRole, err := s.queries.CreateRole(ctx, db.CreateRoleParams{
+				TenantID:    params.TenantID,
+				Name:        existing.Name,
+				Code:        existing.Code,
+				Description: existing.Description.String,
+			})
+			if err != nil {
+				return nil, err
+			}
+			targetRoleID = createdRole.ID
+		}
 	}
 
 	// Update the role
-	err = s.queries.UpdateRole(ctx, db.UpdateRoleParams{
-		ID:          params.RoleID,
+	err = s.queries.UpdateRoleByID(ctx, db.UpdateRoleByIDParams{
+		ID:          targetRoleID,
 		Name:        params.Name,
 		Description: params.Description,
 	})
@@ -161,24 +217,47 @@ func (s *Service) UpdateRole(ctx context.Context, params UpdateRoleParams) (*Rol
 
 	// Update permissions
 	err = s.queries.SetRolePermissions(ctx, db.SetRolePermissionsParams{
-		RoleID:          params.RoleID,
+		RoleID:          targetRoleID,
 		PermissionCodes: params.Permissions,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return s.GetRole(ctx, params.RoleID)
+	return s.GetRole(ctx, targetRoleID)
 }
 
 // DeleteRole deletes a custom role
-func (s *Service) DeleteRole(ctx context.Context, roleID pgtype.UUID) error {
+func (s *Service) DeleteRole(ctx context.Context, tenantID, roleID pgtype.UUID) error {
+	if !tenantID.Valid {
+		return ErrRoleNotFound
+	}
+
+	rolesForTenant, err := s.queries.ListRolesByTenant(ctx, tenantID)
+	if err != nil {
+		return err
+	}
+
+	accessible := false
+	for _, r := range rolesForTenant {
+		if r.ID.Valid && r.ID.Bytes == roleID.Bytes {
+			accessible = true
+			break
+		}
+	}
+	if !accessible {
+		return ErrRoleNotFound
+	}
+
 	// Check if role exists and is not a system role
 	existing, err := s.queries.GetRoleByID(ctx, roleID)
 	if err != nil {
 		return ErrRoleNotFound
 	}
 	if existing.IsSystem {
+		return ErrSystemRole
+	}
+	if !existing.TenantID.Valid || existing.TenantID.Bytes != tenantID.Bytes {
 		return ErrSystemRole
 	}
 
@@ -202,6 +281,15 @@ func (s *Service) ListPermissions(ctx context.Context) ([]Permission, error) {
 		}
 	}
 	return perms, nil
+}
+
+func canTenantManageSystemRole(roleCode string) bool {
+	switch strings.ToLower(strings.TrimSpace(roleCode)) {
+	case "teacher", "parent", "student":
+		return true
+	default:
+		return false
+	}
 }
 
 // AssignRoleToUser assigns a role to a user within a tenant

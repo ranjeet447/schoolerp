@@ -6,7 +6,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
   Badge, Input
 } from "@schoolerp/ui"
-import { Plus, BookOpen, Search, Filter } from "lucide-react"
+import { Plus, BookOpen, Search, RefreshCw } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { Book } from "@/types/library"
 import { BookDialog } from "@/components/library/book-dialog"
@@ -14,6 +14,8 @@ import { BookDialog } from "@/components/library/book-dialog"
 export default function BooksPage() {
   const [books, setBooks] = useState<Book[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedBook, setSelectedBook] = useState<Book | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
@@ -22,18 +24,22 @@ export default function BooksPage() {
     fetchBooks()
   }, [])
 
-  const fetchBooks = async () => {
-    setLoading(true)
+  const fetchBooks = async (silent = false) => {
+    if (silent) setRefreshing(true)
+    else setLoading(true)
+    setError("")
     try {
       const res = await apiClient("/admin/library/books?limit=50")
-      if (res.ok) {
-        const data = await res.json()
-        setBooks(data || [])
+      if (!res.ok) {
+        throw new Error(await res.text() || "Failed to load library books")
       }
+      const data = await res.json()
+      setBooks(data || [])
     } catch (err) {
-      console.error(err)
+      setError(err instanceof Error ? err.message : "Failed to load library books")
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
@@ -53,6 +59,9 @@ export default function BooksPage() {
     book.publisher?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  const availableCopies = books.reduce((sum, book) => sum + (book.available_copies || 0), 0)
+  const totalCopies = books.reduce((sum, book) => sum + (book.total_copies || 0), 0)
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -61,14 +70,47 @@ export default function BooksPage() {
           <p className="text-muted-foreground">Manage books, periodicals, and digital assets.</p>
         </div>
         <div className="flex gap-2">
-            <Button variant="outline">
-                <Filter className="w-4 h-4 mr-2" /> Filter
+            <Button variant="outline" onClick={() => fetchBooks(true)} disabled={refreshing} className="gap-2">
+                <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} /> Refresh
             </Button>
             <Button onClick={handleCreate} className="gap-2">
             <Plus className="w-4 h-4" />
             Add Book
             </Button>
         </div>
+      </div>
+
+      {error && (
+        <Card>
+          <CardContent className="pt-6 text-sm text-red-600 dark:text-red-400">{error}</CardContent>
+        </Card>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Catalog Size</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{books.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Available Copies</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{availableCopies}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Copies</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalCopies}</div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>

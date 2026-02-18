@@ -6,7 +6,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
   Badge, Input
 } from "@schoolerp/ui"
-import { AlertTriangle, Plus, Search, Package } from "lucide-react"
+import { AlertTriangle, Plus, Search, Package, RefreshCw } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { InventoryItem } from "@/types/inventory"
 import { ItemDialog } from "@/components/inventory/item-dialog"
@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils"
 export default function ItemsPage() {
   const [items, setItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState("")
   const [search, setSearch] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
@@ -23,17 +25,21 @@ export default function ItemsPage() {
     fetchItems()
   }, [])
 
-  const fetchItems = async () => {
-    setLoading(true)
+  const fetchItems = async (silent = false) => {
+    if (silent) setRefreshing(true)
+    else setLoading(true)
+    setError("")
     try {
       const res = await apiClient("/admin/inventory/items")
-      if (res.ok) {
-        setItems(await res.json() || [])
+      if (!res.ok) {
+        throw new Error(await res.text() || "Failed to fetch inventory items")
       }
+      setItems(await res.json() || [])
     } catch (err) {
-      console.error(err)
+      setError(err instanceof Error ? err.message : "Failed to fetch inventory items")
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
@@ -61,10 +67,21 @@ export default function ItemsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Item Master</h1>
           <p className="text-muted-foreground">Manage your school's inventory catalog.</p>
         </div>
-        <Button onClick={handleCreate} className="gap-2">
-            <Plus className="w-4 h-4" /> Add Item
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => fetchItems(true)} disabled={refreshing} className="gap-2">
+            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} /> Refresh
+          </Button>
+          <Button onClick={handleCreate} className="gap-2">
+              <Plus className="w-4 h-4" /> Add Item
+          </Button>
+        </div>
       </div>
+
+      {error && (
+        <Card>
+          <CardContent className="pt-6 text-sm text-red-600 dark:text-red-400">{error}</CardContent>
+        </Card>
+      )}
 
       <div className="grid md:grid-cols-3 gap-6">
           <Card className="md:col-span-2">
