@@ -203,7 +203,7 @@ func main() {
 	rolesHandler := roleshandler.NewHandler(rolesService)
 	fileHandler := files.NewHandler(fileService)
 	tenantHandler := tenant.NewHandler(tenantService)
-	aiHandler := aihandler.NewAIHandler(aiService)
+	aiHandler := aihandler.NewAIHandler(aiService, querier)
 	marketingHandler := marketing.NewHandler(marketingService)
 
 	r := chi.NewRouter()
