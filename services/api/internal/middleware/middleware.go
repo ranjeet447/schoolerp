@@ -30,7 +30,8 @@ const (
 	TenantIDKey contextKey = "tenant_id"
 	UserIDKey   contextKey = "user_id"
 	RoleKey     contextKey = "role"
-	LocaleKey   contextKey = "locale"
+	LocaleKey      contextKey = "locale"
+	PermissionsKey contextKey = "permissions"
 )
 
 // GetReqID returns the request ID from the context
@@ -68,6 +69,14 @@ func GetLocale(ctx context.Context) string {
 		return val
 	}
 	return "en"
+}
+
+// GetPermissions returns the user permissions from the context
+func GetPermissions(ctx context.Context) []string {
+	if val, ok := ctx.Value(PermissionsKey).([]string); ok {
+		return val
+	}
+	return []string{}
 }
 
 // RequestIDPropagation ensures the X-Request-ID is sent back in the response header
@@ -210,6 +219,15 @@ func AuthResolver(next http.Handler) http.Handler {
 			}
 			if tenantID, ok := claims["tenant_id"].(string); ok {
 				ctx = context.WithValue(ctx, TenantIDKey, tenantID)
+			}
+			if perms, ok := claims["permissions"].([]interface{}); ok {
+				pStrings := make([]string, 0, len(perms))
+				for _, p := range perms {
+					if s, ok := p.(string); ok {
+						pStrings = append(pStrings, s)
+					}
+				}
+				ctx = context.WithValue(ctx, PermissionsKey, pStrings)
 			}
 
 			if sessionPool != nil {
@@ -360,6 +378,31 @@ func RoleGuard(allowedRoles ...string) func(http.Handler) http.Handler {
 
 			// Provide slightly more detail for debugging, but generically 403
 			http.Error(w, "Forbidden: Insufficient Permissions", http.StatusForbidden)
+		})
+	}
+}
+
+// PermissionGuard enforces that the authenticated user has the required permission
+func PermissionGuard(requiredPermission string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			permissions := GetPermissions(r.Context())
+
+			for _, p := range permissions {
+				if p == requiredPermission {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
+			// Fallback: check if user is super_admin (they have all permissions by default conceptually, 
+			// though we should still prefer explicit mapping in token)
+			if GetRole(r.Context()) == "super_admin" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			http.Error(w, "Forbidden: Missing Permission "+requiredPermission, http.StatusForbidden)
 		})
 	}
 }

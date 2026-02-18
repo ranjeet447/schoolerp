@@ -34,26 +34,50 @@ import { useAuth } from "@/components/auth-provider";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { RBACService } from "@/lib/auth-service";
 
-const NAV_ITEMS = [
-  { href: "/platform/dashboard", label: "Platform Dashboard", icon: BarChart3, permission: "platform:analytics.read" },
-  { href: "/platform/analytics", label: "Business Analytics", icon: PieChart, permission: "platform:analytics.read" },
-  { href: "/platform/tenants", label: "Schools & Branches", icon: Building2, permission: "platform:tenants.read" },
-  { href: "/platform/plans", label: "Plans & Flags", icon: Layers3, permission: "platform:plans.read" },
-  { href: "/platform/signup-requests", label: "Signup Requests", icon: FileCheck2, permission: "platform:tenants.write" },
-  { href: "/platform/support", label: "Support Desk", icon: LifeBuoy, permission: "platform:support.read" },
-  { href: "/platform/incidents", label: "Incidents", icon: AlertTriangle, permission: "platform:incidents.read" },
-  { href: "/platform/payments", label: "Platform Payments", icon: CreditCard, permission: "platform:billing.read" },
-  { href: "/platform/marketing", label: "Marketing & Ops", icon: Megaphone, permission: "platform:marketing.write" },
-  { href: "/platform/settings", label: "Platform Settings", icon: Settings, permission: "platform:settings.write" },
-  { href: "/platform/integrations", label: "Integrations & API", icon: LinkIcon, permission: "platform:integrations.read" },
-  { href: "/platform/audit-logs", label: "Audit Explorer", icon: ShieldCheck, permission: "platform:audit.read" },
-  { href: "/platform/monitoring", label: "System Health", icon: Activity, permission: "platform:monitoring.read" },
-  { href: "/platform/internal-users", label: "Internal Users", icon: Users, permission: "platform:users.read" },
-  { href: "/platform/security-events", label: "Security Events", icon: Shield, permission: "platform:security.read" },
-  { href: "/platform/blocks", label: "Risk Blocks", icon: Ban, permission: "platform:security.write" },
-  { href: "/platform/password-policy", label: "Password Policy", icon: LockKeyhole, permission: "platform:settings.write" },
-  { href: "/platform/legal", label: "Legal & Policies", icon: FileText, permission: "platform:settings.write" },
-  { href: "/platform/secrets", label: "Secrets & Keys", icon: KeyRound, permission: "platform:security.write" },
+const NAV_GROUPS = [
+  {
+    title: "Intelligence",
+    items: [
+      { href: "/platform/dashboard", label: "Pulse Dashboard", icon: BarChart3, permission: "platform:analytics.read" },
+      { href: "/platform/analytics", label: "Revenue Analytics", icon: PieChart, permission: "platform:analytics.read" },
+    ],
+  },
+  {
+    title: "Portfolio",
+    items: [
+      { href: "/platform/tenants", label: "SaaS Tenants", icon: Building2, permission: "platform:tenants.read" },
+      { href: "/platform/plans", label: "Product Plans", icon: Layers3, permission: "platform:plans.read" },
+      { href: "/platform/signup-requests", label: "Onboarding Queue", icon: FileCheck2, permission: "platform:tenants.write" },
+      { href: "/platform/payments", label: "Global Collections", icon: CreditCard, permission: "platform:billing.read" },
+    ],
+  },
+  {
+    title: "Ops & Support",
+    items: [
+      { href: "/platform/support", label: "Customer Support", icon: LifeBuoy, permission: "platform:support.read" },
+      { href: "/platform/incidents", label: "Service Incidents", icon: AlertTriangle, permission: "platform:incidents.read" },
+      { href: "/platform/marketing", label: "Communications", icon: Megaphone, permission: "platform:marketing.write" },
+    ],
+  },
+  {
+    title: "Infrastructure",
+    items: [
+      { href: "/platform/integrations", label: "Gateway & API", icon: LinkIcon, permission: "platform:integrations.read" },
+      { href: "/platform/monitoring", label: "System Telemetry", icon: Activity, permission: "platform:monitoring.read" },
+      { href: "/platform/settings", label: "Global Config", icon: Settings, permission: "platform:settings.write" },
+    ],
+  },
+  {
+    title: "Security & Trust",
+    items: [
+      { href: "/platform/internal-users", label: "Access Control", icon: ShieldCheck, permission: "platform:user.read" },
+      { href: "/platform/security-events", label: "Threat Intel", icon: Shield, permission: "platform:security.read" },
+      { href: "/platform/audit-logs", label: "Audit Trails", icon: FileText, permission: "platform:audit.read" },
+      { href: "/platform/blocks", label: "Risk Mitigation", icon: Ban, permission: "platform:security.write" },
+      { href: "/platform/password-policy", label: "Governance", icon: LockKeyhole, permission: "platform:settings.write" },
+      { href: "/platform/secrets", label: "Secret Management", icon: KeyRound, permission: "platform:security.write" },
+    ],
+  },
 ];
 
 export default function PlatformLayoutClient({
@@ -91,24 +115,41 @@ export default function PlatformLayoutClient({
           </Link>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-4">
-          <ul className="space-y-1 px-3">
-            {NAV_ITEMS.filter((item) => !item.permission || RBACService.hasPermission(item.permission)).map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    pathname === item.href
-                      ? "bg-accent text-foreground"
-                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                  }`}
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
+        <nav className="flex-1 overflow-y-auto py-6">
+          <div className="space-y-6 px-4">
+            {NAV_GROUPS.map((group) => {
+              const visibleItems = group.items.filter(
+                (item) => !item.permission || RBACService.hasPermission(item.permission)
+              );
+
+              if (visibleItems.length === 0) return null;
+
+              return (
+                <div key={group.title} className="space-y-2">
+                  <h3 className="px-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                    {group.title}
+                  </h3>
+                  <ul className="space-y-1">
+                    {visibleItems.map((item) => (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
+                            pathname === item.href
+                              ? "bg-primary/10 text-primary shadow-sm"
+                              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                          }`}
+                        >
+                          <item.icon className={`h-4 w-4 ${pathname === item.href ? "text-primary" : "text-muted-foreground/70"}`} />
+                          <span>{item.label}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
         </nav>
 
         <div className="border-t border-border p-4">

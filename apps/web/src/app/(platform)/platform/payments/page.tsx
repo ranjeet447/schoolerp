@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@schoolerp/ui";
+import { BarChart3, FileText, Settings } from "lucide-react";
 
 type PlatformPayment = {
   id: string;
@@ -384,6 +386,15 @@ export default function PlatformPaymentsPage() {
         </div>
       )}
 
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
+          <TabsTrigger value="overview" className="gap-2"><BarChart3 className="h-4 w-4" /><span className="hidden sm:inline">Overview</span></TabsTrigger>
+          <TabsTrigger value="invoices" className="gap-2"><FileText className="h-4 w-4" /><span className="hidden sm:inline">Invoices</span></TabsTrigger>
+          <TabsTrigger value="config" className="gap-2"><Settings className="h-4 w-4" /><span className="hidden sm:inline">Configuration</span></TabsTrigger>
+        </TabsList>
+
+      <TabsContent value="overview" className="space-y-6">
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">MRR</p>
@@ -466,7 +477,9 @@ export default function PlatformPaymentsPage() {
           </table>
         </div>
       </div>
+      </TabsContent>
 
+      <TabsContent value="invoices" className="space-y-6">
       <div className="rounded-xl border border-border bg-card p-4">
         <h2 className="text-sm font-semibold text-foreground">Create Invoice</h2>
         <div className="mt-3 grid gap-2 md:grid-cols-5">
@@ -513,50 +526,6 @@ export default function PlatformPaymentsPage() {
             Create Invoice
           </button>
         </div>
-      </div>
-
-      <div className="rounded-xl border border-border bg-card p-4">
-        <h2 className="text-sm font-semibold text-foreground">Billing Configuration</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage payment gateway, GST/VAT rules, and invoice template configuration.
-        </p>
-        <div className="mt-3 grid gap-3 md:grid-cols-3">
-          <div className="space-y-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Gateway Settings</p>
-            <textarea
-              rows={8}
-              className="w-full rounded border border-input bg-background px-3 py-2 font-mono text-xs text-foreground"
-              value={billingConfigText.gateway_settings}
-              onChange={(e) => setBillingConfigText((p) => ({ ...p, gateway_settings: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tax Rules</p>
-            <textarea
-              rows={8}
-              className="w-full rounded border border-input bg-background px-3 py-2 font-mono text-xs text-foreground"
-              value={billingConfigText.tax_rules}
-              onChange={(e) => setBillingConfigText((p) => ({ ...p, tax_rules: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Invoice Template</p>
-            <textarea
-              rows={8}
-              className="w-full rounded border border-input bg-background px-3 py-2 font-mono text-xs text-foreground"
-              value={billingConfigText.invoice_template}
-              onChange={(e) => setBillingConfigText((p) => ({ ...p, invoice_template: e.target.value }))}
-            />
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={saveBillingConfig}
-          disabled={busy}
-          className="mt-3 rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-        >
-          Save Billing Config
-        </button>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
@@ -733,6 +702,54 @@ export default function PlatformPaymentsPage() {
           </tbody>
         </table>
       </div>
+      </TabsContent>
+
+      <TabsContent value="config" className="space-y-6">
+      <div className="rounded-xl border border-border bg-card p-4">
+        <h2 className="text-sm font-semibold text-foreground">Billing Configuration</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Manage payment gateway, GST/VAT rules, and invoice template configuration.
+        </p>
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          <div className="space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Gateway Settings</p>
+            <textarea
+              rows={8}
+              className="w-full rounded border border-input bg-background px-3 py-2 font-mono text-xs text-foreground"
+              value={billingConfigText.gateway_settings}
+              onChange={(e) => setBillingConfigText((p) => ({ ...p, gateway_settings: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tax Rules</p>
+            <textarea
+              rows={8}
+              className="w-full rounded border border-input bg-background px-3 py-2 font-mono text-xs text-foreground"
+              value={billingConfigText.tax_rules}
+              onChange={(e) => setBillingConfigText((p) => ({ ...p, tax_rules: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Invoice Template</p>
+            <textarea
+              rows={8}
+              className="w-full rounded border border-input bg-background px-3 py-2 font-mono text-xs text-foreground"
+              value={billingConfigText.invoice_template}
+              onChange={(e) => setBillingConfigText((p) => ({ ...p, invoice_template: e.target.value }))}
+            />
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={saveBillingConfig}
+          disabled={busy}
+          className="mt-3 rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+        >
+          Save Billing Config
+        </button>
+      </div>
+      </TabsContent>
+      </Tabs>
     </div>
   );
 }

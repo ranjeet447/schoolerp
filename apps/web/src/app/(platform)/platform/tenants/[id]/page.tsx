@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@schoolerp/ui";
+import { Settings, CreditCard, GitBranch, Database } from "lucide-react";
 
 type Tenant = {
   id: string;
@@ -760,6 +762,16 @@ export default function PlatformTenantDetailPage() {
         </div>
       )}
 
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
+          <TabsTrigger value="overview" className="gap-2"><Settings className="h-4 w-4" /><span className="hidden sm:inline">Overview</span></TabsTrigger>
+          <TabsTrigger value="billing" className="gap-2"><CreditCard className="h-4 w-4" /><span className="hidden sm:inline">Plan & Billing</span></TabsTrigger>
+          <TabsTrigger value="branches" className="gap-2"><GitBranch className="h-4 w-4" /><span className="hidden sm:inline">Branches</span></TabsTrigger>
+          <TabsTrigger value="dataops" className="gap-2"><Database className="h-4 w-4" /><span className="hidden sm:inline">Data Ops</span></TabsTrigger>
+        </TabsList>
+
+      <TabsContent value="overview" className="space-y-6">
+
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-4">
           <h2 className="font-semibold text-foreground">Tenant Defaults</h2>
@@ -834,7 +846,9 @@ export default function PlatformTenantDetailPage() {
           </div>
         </form>
       </div>
+      </TabsContent>
 
+      <TabsContent value="billing" className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-4">
           <h2 className="font-semibold text-foreground">Plan Assignment</h2>
@@ -1191,7 +1205,9 @@ export default function PlatformTenantDetailPage() {
           </div>
         </div>
       </div>
+      </TabsContent>
 
+      <TabsContent value="dataops" className="space-y-6">
       <div className="rounded-xl border border-border bg-card p-4">
         <h2 className="font-semibold text-foreground">Impersonation (Guardrail: reason required)</h2>
         <div className="mt-3 flex flex-col gap-2 md:flex-row">
@@ -1462,7 +1478,9 @@ export default function PlatformTenantDetailPage() {
           </table>
         </div>
       </div>
+      </TabsContent>
 
+      <TabsContent value="branches" className="space-y-6">
       <div className="rounded-xl border border-border bg-card p-4">
         <h2 className="font-semibold text-foreground">Tenant Region / Shard Migration</h2>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -1531,6 +1549,8 @@ export default function PlatformTenantDetailPage() {
           </table>
         </div>
       </div>
+      </TabsContent>
+      </Tabs>
     </div>
   );
 }

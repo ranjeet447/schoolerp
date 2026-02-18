@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@schoolerp/ui";
+import { PackageOpen, Flag } from "lucide-react";
 
 type PlatformPlan = {
   id: string;
@@ -313,6 +315,13 @@ export default function PlatformPlansPage() {
         </div>
       )}
 
+      <Tabs defaultValue="plans" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-flex">
+          <TabsTrigger value="plans" className="gap-2"><PackageOpen className="h-4 w-4" /><span className="hidden sm:inline">Plans</span></TabsTrigger>
+          <TabsTrigger value="rollout" className="gap-2"><Flag className="h-4 w-4" /><span className="hidden sm:inline">Feature Rollout</span></TabsTrigger>
+        </TabsList>
+
+      <TabsContent value="plans" className="space-y-6">
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 md:flex-row md:items-center md:justify-between">
         <div className="flex flex-1 flex-col gap-2 md:flex-row">
           <input
@@ -569,6 +578,9 @@ export default function PlatformPlansPage() {
         </form>
       )}
 
+      </TabsContent>
+
+      <TabsContent value="rollout" className="space-y-6">
       <form onSubmit={rolloutFeatureFlag} className="space-y-3 rounded-xl border border-border bg-card p-4">
         <h2 className="text-lg font-semibold text-foreground">Feature Flag Rollout</h2>
         <p className="text-sm text-muted-foreground">
@@ -646,6 +658,8 @@ export default function PlatformPlansPage() {
           Execute Rollout
         </button>
       </form>
+      </TabsContent>
+      </Tabs>
     </div>
   );
 }
