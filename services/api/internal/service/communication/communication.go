@@ -2,9 +2,11 @@ package communication
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/schoolerp/api/internal/db"
 	"github.com/schoolerp/api/internal/foundation/audit"
@@ -25,14 +27,14 @@ func NewService(q db.Querier, audit *audit.Logger) *Service {
 // PTM Management
 
 type CreatePTMEventParams struct {
-	TenantID             string
-	Title                string
-	Description          string
-	EventDate            time.Time
-	StartTime            time.Time
-	EndTime              time.Time
-	SlotDurationMinutes  int32
-	TeacherID            string
+	TenantID            string
+	Title               string
+	Description         string
+	EventDate           time.Time
+	StartTime           time.Time
+	EndTime             time.Time
+	SlotDurationMinutes int32
+	TeacherID           string
 }
 
 func (s *Service) CreatePTMEvent(ctx context.Context, p CreatePTMEventParams) (db.PtmEvent, error) {
@@ -60,7 +62,7 @@ func (s *Service) CreatePTMEvent(ctx context.Context, p CreatePTMEventParams) (d
 	current := p.StartTime
 	for current.Before(p.EndTime) && current.Add(duration).Before(p.EndTime.Add(time.Second)) {
 		next := current.Add(duration)
-		
+
 		_, _ = s.q.CreatePTMSlot(ctx, db.CreatePTMSlotParams{
 			EventID:   event.ID,
 			StartTime: pgtype.Time{Microseconds: int64(current.Hour()*3600+current.Minute()*60) * 1e6, Valid: true},
@@ -126,11 +128,11 @@ func (s *Service) SendMessage(ctx context.Context, tenantID string, p SendMessag
 		// Quiet Hours Check
 		nowTime := time.Now()
 		currentMinutes := nowTime.Hour()*60 + nowTime.Minute()
-		
+
 		if settings.QuietHoursStart.Valid && settings.QuietHoursEnd.Valid {
 			startMin := int(settings.QuietHoursStart.Microseconds / 1e6 / 60)
 			endMin := int(settings.QuietHoursEnd.Microseconds / 1e6 / 60)
-			
+
 			inQuietHours := false
 			if startMin < endMin {
 				inQuietHours = currentMinutes >= startMin && currentMinutes < endMin
@@ -174,4 +176,105 @@ func (s *Service) GetChatHistory(ctx context.Context, roomID string, limit, offs
 		Limit:  limit,
 		Offset: offset,
 	})
+}
+
+func (s *Service) GetChatModerationSettings(ctx context.Context, tenantID string) (db.ChatModerationSetting, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+
+	settings, err := s.q.GetChatModerationSettings(ctx, tID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return db.ChatModerationSetting{
+				TenantID:        tID,
+				QuietHoursStart: pgtype.Time{Microseconds: 22 * 60 * 60 * 1e6, Valid: true},
+				QuietHoursEnd:   pgtype.Time{Microseconds: 7 * 60 * 60 * 1e6, Valid: true},
+				BlockedKeywords: []string{},
+				IsEnabled:       pgtype.Bool{Bool: false, Valid: true},
+			}, nil
+		}
+		return db.ChatModerationSetting{}, err
+	}
+
+	return settings, nil
+}
+
+func parseClockToPgTime(clock string) (pgtype.Time, error) {
+	parsed, err := time.Parse("15:04", clock)
+	if err != nil {
+		return pgtype.Time{}, err
+	}
+	microseconds := int64(parsed.Hour()*3600+parsed.Minute()*60) * 1e6
+	return pgtype.Time{Microseconds: microseconds, Valid: true}, nil
+}
+
+func (s *Service) UpsertChatModerationSettings(ctx context.Context, tenantID, quietStart, quietEnd string, blocked []string, enabled bool) (db.ChatModerationSetting, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+
+	start, err := parseClockToPgTime(quietStart)
+	if err != nil {
+		return db.ChatModerationSetting{}, err
+	}
+	end, err := parseClockToPgTime(quietEnd)
+	if err != nil {
+		return db.ChatModerationSetting{}, err
+	}
+
+	return s.q.UpsertChatModerationSettings(ctx, db.UpsertChatModerationSettingsParams{
+		TenantID:        tID,
+		QuietHoursStart: start,
+		QuietHoursEnd:   end,
+		BlockedKeywords: blocked,
+		IsEnabled:       pgtype.Bool{Bool: enabled, Valid: true},
+	})
+}
+
+func (s *Service) ListChatRooms(ctx context.Context, tenantID, userID string) ([]db.ListStudentChatRoomsRow, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	uID := pgtype.UUID{}
+	uID.Scan(userID)
+
+	return s.q.ListStudentChatRooms(ctx, db.ListStudentChatRoomsParams{
+		UserID:   uID,
+		TenantID: tID,
+	})
+}
+
+func (s *Service) ListMessagingEvents(ctx context.Context, tenantID, eventTypeFilter, statusFilter string, limit, offset int32) ([]db.Outbox, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+
+	events, err := s.q.ListOutboxEvents(ctx, db.ListOutboxEventsParams{
+		TenantID:    tID,
+		OffsetCount: offset,
+		LimitCount:  limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if eventTypeFilter == "" && statusFilter == "" {
+		return events, nil
+	}
+
+	normalizedEventType := strings.ToLower(strings.TrimSpace(eventTypeFilter))
+	normalizedStatus := strings.ToLower(strings.TrimSpace(statusFilter))
+	filtered := make([]db.Outbox, 0, len(events))
+
+	for _, event := range events {
+		if normalizedEventType != "" && !strings.Contains(strings.ToLower(event.EventType), normalizedEventType) {
+			continue
+		}
+		if normalizedStatus != "" {
+			status := strings.ToLower(strings.TrimSpace(event.Status))
+			if status != normalizedStatus {
+				continue
+			}
+		}
+		filtered = append(filtered, event)
+	}
+
+	return filtered, nil
 }
