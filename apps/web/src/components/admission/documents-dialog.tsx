@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, 
   Button, Input, Label, Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -22,8 +22,33 @@ export function ApplicationDocumentsDialog({ application, open, onOpenChange, on
   const [loading, setLoading] = useState(false)
   const [newDoc, setNewDoc] = useState({ name: "", type: "ID Proof" })
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [docTypes, setDocTypes] = useState<string[]>(["ID Proof", "Birth Certificate", "Previous Report Card", "Transfer Certificate", "Others"])
   
   const [docs, setDocs] = useState<any[]>(application?.documents || [])
+
+  const fetchDocumentTypes = async () => {
+    try {
+      const res = await apiClient("/admin/admissions/settings/document-types")
+      if (!res.ok) return
+      const payload = await res.json()
+      const types = Array.isArray(payload?.document_types) ? payload.document_types : []
+      if (types.length > 0) {
+        setDocTypes(types)
+        if (!types.includes(newDoc.type)) {
+          setNewDoc((prev) => ({ ...prev, type: types[0] }))
+        }
+      }
+    } catch {
+      // keep fallback list
+    }
+  }
+
+  useEffect(() => {
+    if (!open) return
+    setDocs(application?.documents || [])
+    fetchDocumentTypes()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, application?.id])
 
   const handleUpload = async () => {
     if (!selectedFile || !newDoc.type) {
@@ -79,10 +104,25 @@ export function ApplicationDocumentsDialog({ application, open, onOpenChange, on
     }
   }
 
-  const removeDoc = (index: number) => {
-    // In a real app, call a DELETE endpoint
-    setDocs(docs.filter((_, i) => i !== index))
-    toast.info("Document removed from view (not deleted from server)")
+  const removeDoc = async (index: number) => {
+    if (!application?.id) return
+    setLoading(true)
+    try {
+      const res = await apiClient(`/admin/admissions/applications/${application.id}/documents/${index}`, {
+        method: "DELETE",
+      })
+      if (!res.ok) {
+        const msg = await res.text()
+        throw new Error(msg || "Failed to remove document")
+      }
+      setDocs(docs.filter((_, i) => i !== index))
+      toast.success("Document removed")
+      onSuccess()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove document")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -101,11 +141,9 @@ export function ApplicationDocumentsDialog({ application, open, onOpenChange, on
                   <SelectValue placeholder="Select document type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ID Proof">ID Proof</SelectItem>
-                  <SelectItem value="Birth Certificate">Birth Certificate</SelectItem>
-                  <SelectItem value="Previous Report Card">Previous Report Card</SelectItem>
-                  <SelectItem value="Transfer Certificate">Transfer Certificate</SelectItem>
-                  <SelectItem value="Others">Others</SelectItem>
+                  {docTypes.map((type) => (
+                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -160,7 +198,7 @@ export function ApplicationDocumentsDialog({ application, open, onOpenChange, on
                                 {doc.attached_at ? new Date(doc.attached_at).toLocaleDateString() : 'N/A'}
                             </TableCell>
                             <TableCell className="text-right">
-                                <Button variant="ghost" size="sm" onClick={() => removeDoc(idx)}>
+                                <Button variant="ghost" size="sm" onClick={() => removeDoc(idx)} disabled={loading}>
                                     <Trash2 className="w-4 h-4 text-destructive" />
                                 </Button>
                             </TableCell>

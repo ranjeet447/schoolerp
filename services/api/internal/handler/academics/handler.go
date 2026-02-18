@@ -3,6 +3,7 @@ package academics
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -20,7 +21,19 @@ func NewHandler(svc *academicservice.Service) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(r chi.Router) {
+	r.Route("/certificates", func(r chi.Router) {
+		r.Get("/requests", h.ListCertificateRequests)
+		r.Post("/requests", h.CreateCertificateRequest)
+		r.Post("/requests/{id}/status", h.UpdateCertificateRequestStatus)
+	})
+
+	r.Route("/timetable", func(r chi.Router) {
+		r.Get("/", h.GetTimetable)
+		r.Put("/", h.SaveTimetable)
+	})
+
 	r.Route("/homework", func(r chi.Router) {
+		r.Get("/options", h.ListHomeworkOptions)
 		r.Post("/", h.CreateHomework)
 		r.Get("/section/{sectionId}", h.ListHomeworkForSection)
 		r.Get("/{id}/submissions", h.ListSubmissions)
@@ -37,6 +50,126 @@ func (h *Handler) RegisterStudentRoutes(r chi.Router) {
 		r.Get("/", h.GetHomeworkForStudent)
 		r.Post("/{id}/submit", h.SubmitHomework)
 	})
+}
+
+func (h *Handler) ListHomeworkOptions(w http.ResponseWriter, r *http.Request) {
+	options, err := h.svc.ListHomeworkOptions(r.Context(), middleware.GetTenantID(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sort.SliceStable(options.ClassSections, func(i, j int) bool {
+		return options.ClassSections[i].Label < options.ClassSections[j].Label
+	})
+	sort.SliceStable(options.Subjects, func(i, j int) bool {
+		return options.Subjects[i].Name < options.Subjects[j].Name
+	})
+
+	json.NewEncoder(w).Encode(options)
+}
+
+func (h *Handler) ListCertificateRequests(w http.ResponseWriter, r *http.Request) {
+	status := r.URL.Query().Get("status")
+	list, err := h.svc.ListCertificateRequests(r.Context(), middleware.GetTenantID(r.Context()), status)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(list)
+}
+
+func (h *Handler) CreateCertificateRequest(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		StudentID   string                         `json:"student_id"`
+		Type        academicservice.CertificateType `json:"type"`
+		Reason      string                         `json:"reason"`
+		RequestedOn string                         `json:"requested_on"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	item, err := h.svc.CreateCertificateRequest(r.Context(), academicservice.CreateCertificateRequestParams{
+		TenantID:    middleware.GetTenantID(r.Context()),
+		StudentID:   req.StudentID,
+		Type:        req.Type,
+		Reason:      req.Reason,
+		RequestedOn: req.RequestedOn,
+		UserID:      middleware.GetUserID(r.Context()),
+		RequestID:   middleware.GetReqID(r.Context()),
+		IP:          r.RemoteAddr,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	json.NewEncoder(w).Encode(item)
+}
+
+func (h *Handler) UpdateCertificateRequestStatus(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var req struct {
+		Status  academicservice.CertificateStatus `json:"status"`
+		Remarks string                           `json:"remarks"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	updated, err := h.svc.UpdateCertificateRequestStatus(
+		r.Context(),
+		middleware.GetTenantID(r.Context()),
+		id,
+		req.Status,
+		req.Remarks,
+		middleware.GetUserID(r.Context()),
+		middleware.GetReqID(r.Context()),
+		r.RemoteAddr,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	json.NewEncoder(w).Encode(updated)
+}
+
+func (h *Handler) GetTimetable(w http.ResponseWriter, r *http.Request) {
+	entries, err := h.svc.GetTimetable(r.Context(), middleware.GetTenantID(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]any{
+		"entries": entries,
+	})
+}
+
+func (h *Handler) SaveTimetable(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Entries []academicservice.TimetableEntry `json:"entries"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.svc.SaveTimetable(
+		r.Context(),
+		middleware.GetTenantID(r.Context()),
+		middleware.GetUserID(r.Context()),
+		middleware.GetReqID(r.Context()),
+		r.RemoteAddr,
+		req.Entries,
+	); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *Handler) CreateHomework(w http.ResponseWriter, r *http.Request) {

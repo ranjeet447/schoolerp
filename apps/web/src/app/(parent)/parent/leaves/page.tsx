@@ -15,6 +15,38 @@ export default function ParentLeavePage() {
   const [toDate, setToDate] = useState("")
   const [reason, setReason] = useState("")
 
+  const mapLeave = (leave: any) => ({
+    id: String(leave.id),
+    studentName: String(leave.full_name || leave.studentName || "Student"),
+    admissionNumber: String(leave.admission_number || leave.admissionNumber || "-"),
+    from: leave.from_date ? String(leave.from_date).slice(0, 10) : "",
+    to: leave.to_date ? String(leave.to_date).slice(0, 10) : "",
+    reason: String(leave.reason || ""),
+    status: String(leave.status || "pending"),
+  })
+
+  const loadLeaves = async (targetChildID: string) => {
+    if (!targetChildID) {
+      setLeaves([])
+      return
+    }
+
+    try {
+      const res = await apiClient(`/parent/leaves?student_id=${encodeURIComponent(targetChildID)}`)
+      if (!res.ok) {
+        const msg = await res.text()
+        throw new Error(msg || "Failed to load leave requests")
+      }
+
+      const payload = await res.json()
+      const data = Array.isArray(payload) ? payload : payload?.data || []
+      setLeaves(data.map(mapLeave))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to load leave requests")
+      setLeaves([])
+    }
+  }
+
   useEffect(() => {
     const loadChildren = async () => {
       setBootstrapping(true)
@@ -29,11 +61,16 @@ export default function ParentLeavePage() {
         const data = Array.isArray(payload) ? payload : payload?.data || []
         setChildren(data)
         if (data.length > 0) {
-          setSelectedChildID(String(data[0].id))
+          const childID = String(data[0].id)
+          setSelectedChildID(childID)
+          await loadLeaves(childID)
+        } else {
+          setLeaves([])
         }
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to load children")
         setChildren([])
+        setLeaves([])
       } finally {
         setBootstrapping(false)
       }
@@ -41,6 +78,11 @@ export default function ParentLeavePage() {
 
     loadChildren()
   }, [])
+
+  useEffect(() => {
+    if (!selectedChildID || bootstrapping) return
+    void loadLeaves(selectedChildID)
+  }, [selectedChildID, bootstrapping])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -68,20 +110,7 @@ export default function ParentLeavePage() {
         throw new Error(msg || "Failed to submit leave request")
       }
 
-      const created = await res.json()
-      const selectedChild = children.find((child) => String(child.id) === selectedChildID)
-      setLeaves((prev) => [
-        {
-          id: String(created?.id || `local-${Date.now()}`),
-          studentName: selectedChild?.full_name || "Student",
-          admissionNumber: selectedChild?.admission_number || "-",
-          from: fromDate,
-          to: toDate,
-          reason,
-          status: String(created?.status || "pending"),
-        },
-        ...prev,
-      ])
+      await loadLeaves(selectedChildID)
 
       setFromDate("")
       setToDate("")

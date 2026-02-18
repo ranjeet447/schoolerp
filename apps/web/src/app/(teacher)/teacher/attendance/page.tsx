@@ -5,20 +5,50 @@ import { AttendanceGrid, AttendanceStatus, Button, Card, CardContent, CardHeader
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 
+type ClassSectionOption = {
+  id: string
+  class_name: string
+  name: string
+  label: string
+}
+
 export default function TeacherAttendancePage() {
   const [classSectionID, setClassSectionID] = useState("")
   const [date, setDate] = useState(new Date().toISOString().split("T")[0])
   const [students, setStudents] = useState<any[]>([])
+  const [classSections, setClassSections] = useState<ClassSectionOption[]>([])
   const [loading, setLoading] = useState(false)
   const [session, setSession] = useState<any>(null)
   const [overrideReason, setOverrideReason] = useState("")
   
   // Fetch students/session for the selected class
   useEffect(() => {
+    fetchClassSections()
+  }, [])
+
+  useEffect(() => {
     if (classSectionID) {
       fetchSession()
     }
   }, [classSectionID, date])
+
+  const fetchClassSections = async () => {
+    try {
+      const res = await apiClient("/teacher/attendance/class-sections")
+      if (!res.ok) {
+        throw new Error((await res.text()) || "Failed to load class sections")
+      }
+      const data = await res.json()
+      const rows = Array.isArray(data) ? data : []
+      setClassSections(rows)
+      if (rows.length > 0) {
+        setClassSectionID((current) => current || String(rows[0].id || ""))
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to load class sections")
+      setClassSections([])
+    }
+  }
 
   const fetchSession = async () => {
     setLoading(true)
@@ -101,14 +131,14 @@ export default function TeacherAttendancePage() {
         <CardContent className="space-y-4">
           <div className="flex gap-4">
           <div className="w-64">
-            <Select onValueChange={setClassSectionID}>
+            <Select value={classSectionID} onValueChange={setClassSectionID}>
               <SelectTrigger>
                 <SelectValue placeholder="Select Class & Section" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="cs-1">Grade 10 - A</SelectItem>
-                <SelectItem value="cs-2">Grade 10 - B</SelectItem>
-                <SelectItem value="cs-3">Grade 9 - A</SelectItem>
+                {classSections.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>{item.label || `${item.class_name} - ${item.name}`}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

@@ -43,3 +43,7 @@ coverage/
 services/api/api
 services/worker/worker
 internal/db/db.go.tmp
+
+# Playwright
+**/playwright-report/
+**/test-results/

@@ -95,7 +95,6 @@ export default function TimetablePage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
 
-  const [rawConfig, setRawConfig] = useState<Record<string, any>>({})
   const [classes, setClasses] = useState<ClassRow[]>([])
   const [sections, setSections] = useState<SectionRow[]>([])
   const [subjects, setSubjects] = useState<SubjectRow[]>([])
@@ -171,34 +170,32 @@ export default function TimetablePage() {
     setError("")
 
     try {
-      const [configRes, classesRes, subjectsRes, usersRes] = await Promise.all([
-        apiClient("/tenants/config"),
+      const [timetableRes, classesRes, subjectsRes, usersRes] = await Promise.all([
+        apiClient("/admin/timetable"),
         apiClient("/admin/academic-structure/classes"),
         apiClient("/admin/academic-structure/subjects"),
         apiClient("/admin/roles/users"),
       ])
 
-      if (!configRes.ok) throw new Error((await configRes.text()) || "Failed to load tenant config")
+      if (!timetableRes.ok) throw new Error((await timetableRes.text()) || "Failed to load timetable")
       if (!classesRes.ok) throw new Error((await classesRes.text()) || "Failed to load classes")
       if (!subjectsRes.ok) throw new Error((await subjectsRes.text()) || "Failed to load subjects")
       if (!usersRes.ok) throw new Error((await usersRes.text()) || "Failed to load users")
 
-      const configData = await configRes.json()
+      const timetableData = await timetableRes.json()
       const classesData = await classesRes.json()
       const subjectsData = await subjectsRes.json()
       const usersData = await usersRes.json()
 
-      const cfg = (configData?.config || {}) as Record<string, any>
       const loadedClasses = Array.isArray(classesData) ? classesData : []
       const loadedSubjects = Array.isArray(subjectsData) ? subjectsData : []
       const loadedUsers = Array.isArray(usersData) ? usersData : []
 
-      setRawConfig(cfg)
       setClasses(loadedClasses)
       setSubjects(loadedSubjects)
       setTeachers(loadedUsers.filter((user: UserRoleRow) => textValue(user.role_code).toLowerCase() === "teacher"))
 
-      const timetableEntries = Array.isArray(cfg?.timetable?.entries) ? cfg.timetable.entries : []
+      const timetableEntries = Array.isArray(timetableData?.entries) ? timetableData.entries : []
       setEntries(timetableEntries)
 
       const firstClassID = loadedClasses.length > 0 ? uuidValue(loadedClasses[0].id) : ""
@@ -253,26 +250,15 @@ export default function TimetablePage() {
     setSaving(true)
     setError("")
     try {
-      const nextConfig = {
-        ...rawConfig,
-        timetable: {
-          ...(rawConfig?.timetable || {}),
-          entries,
-          updated_at: new Date().toISOString(),
-        },
-      }
-
-      const res = await apiClient("/admin/tenants/config", {
-        method: "POST",
-        body: JSON.stringify({ config: nextConfig }),
+      const res = await apiClient("/admin/timetable", {
+        method: "PUT",
+        body: JSON.stringify({ entries }),
       })
 
       if (!res.ok) {
         const msg = await res.text()
         throw new Error(msg || "Failed to save timetable")
       }
-
-      setRawConfig(nextConfig)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to save timetable"
       setError(message)

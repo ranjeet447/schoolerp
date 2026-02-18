@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/schoolerp/api/internal/foundation/ai"
 )
@@ -13,13 +14,31 @@ type Service struct {
 }
 
 func NewService() (*Service, error) {
-	apiKey := os.Getenv("OPENAI_API_KEY")
+	providerRaw := strings.ToLower(strings.TrimSpace(os.Getenv("AI_PROVIDER")))
+	provider := ai.ProviderOpenAI
+	apiKeyEnv := "OPENAI_API_KEY"
+
+	switch providerRaw {
+	case "", "openai":
+		provider = ai.ProviderOpenAI
+		apiKeyEnv = "OPENAI_API_KEY"
+	case "anthropic":
+		provider = ai.ProviderAnthropic
+		apiKeyEnv = "ANTHROPIC_API_KEY"
+	case "gemini":
+		provider = ai.ProviderGemini
+		apiKeyEnv = "GEMINI_API_KEY"
+	default:
+		return nil, fmt.Errorf("unsupported AI_PROVIDER %q; expected openai, anthropic, or gemini", providerRaw)
+	}
+
+	apiKey := strings.TrimSpace(os.Getenv(apiKeyEnv))
 	if apiKey == "" {
-		return nil, fmt.Errorf("OPENAI_API_KEY not set")
+		return nil, fmt.Errorf("%s not set", apiKeyEnv)
 	}
 
 	return &Service{
-		client: ai.NewClient(ai.ProviderOpenAI, apiKey),
+		client: ai.NewClient(provider, apiKey),
 	}, nil
 }
 

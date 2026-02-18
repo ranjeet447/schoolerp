@@ -1,10 +1,20 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Textarea } from "@schoolerp/ui"
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
+
+type HomeworkClassSectionOption = {
+  id: string
+  label: string
+}
+
+type HomeworkSubjectOption = {
+  id: string
+  name: string
+}
 
 export default function TeacherHomeworkPage() {
   const [classSectionID, setClassSectionID] = useState("")
@@ -13,8 +23,38 @@ export default function TeacherHomeworkPage() {
   const [description, setDescription] = useState("")
   const [dueDate, setDueDate] = useState("")
   const [homework, setHomework] = useState<any[]>([])
+  const [classSections, setClassSections] = useState<HomeworkClassSectionOption[]>([])
+  const [subjects, setSubjects] = useState<HomeworkSubjectOption[]>([])
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(false)
+
+  const fetchOptions = async () => {
+    try {
+      const res = await apiClient("/teacher/homework/options")
+      if (!res.ok) {
+        const msg = await res.text()
+        throw new Error(msg || "Failed to load homework options")
+      }
+
+      const payload = await res.json()
+      const sections = Array.isArray(payload?.class_sections) ? payload.class_sections : []
+      const subjectRows = Array.isArray(payload?.subjects) ? payload.subjects : []
+
+      setClassSections(sections)
+      setSubjects(subjectRows)
+
+      if (sections.length > 0) {
+        setClassSectionID((current) => current || String(sections[0].id || ""))
+      }
+      if (subjectRows.length > 0) {
+        setSubjectID((current) => current || String(subjectRows[0].id || ""))
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to load homework options")
+      setClassSections([])
+      setSubjects([])
+    }
+  }
 
   const fetchHomework = async (sectionID: string) => {
     if (!sectionID) {
@@ -37,6 +77,10 @@ export default function TeacherHomeworkPage() {
       setFetching(false)
     }
   }
+
+  useEffect(() => {
+    fetchOptions()
+  }, [])
 
   useEffect(() => {
     if (classSectionID) fetchHomework(classSectionID)
@@ -90,12 +134,30 @@ export default function TeacherHomeworkPage() {
           <CardContent>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="space-y-2">
-                <Label>Class Section ID</Label>
-                <Input placeholder="UUID of class section" value={classSectionID} onChange={(e) => setClassSectionID(e.target.value)} required />
+                <Label>Class Section</Label>
+                <Select value={classSectionID} onValueChange={setClassSectionID}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select class & section" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {classSections.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label>Subject ID</Label>
-                <Input placeholder="UUID of subject" value={subjectID} onChange={(e) => setSubjectID(e.target.value)} required />
+                <Label>Subject</Label>
+                <Select value={subjectID} onValueChange={setSubjectID}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select subject" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subjects.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Title</Label>

@@ -12,6 +12,7 @@ import {
 import { Button, Input } from '@schoolerp/ui';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { apiClient } from '@/lib/api-client';
 
 export default function ForgetPasswordPage() {
   const [email, setEmail] = useState('');
@@ -20,14 +21,32 @@ export default function ForgetPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!email.trim()) {
+      toast.error('Email is required');
+      return;
+    }
+
     setLoading(true);
 
-    // Mock functionality for now
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    setSubmitted(true);
-    setLoading(false);
-    toast.success('Reset link sent to your email!');
+    try {
+      const res = await apiClient('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email: email.trim() }),
+      });
+
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || 'Failed to process password reset request');
+      }
+
+      setSubmitted(true);
+      toast.success('If your account exists, a reset link has been sent.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to process password reset request');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

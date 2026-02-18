@@ -115,29 +115,64 @@ func (c *Consumer) handleEvent(ctx context.Context, event db.Outbox) error {
 		if message == "" {
 			return nil
 		}
-		// Placeholder: broadcast delivery should fan out to tenant users via the notification adapter.
-		return c.notif.SendPush(ctx, "all_users", title, message)
+		return c.sendTenantPush(ctx, event.TenantID, title, message)
 
 	case "attendance.absent":
 		var payload map[string]interface{}
-		json.Unmarshal(event.Payload, &payload)
-		// Stub: Resolve student name and parent contact
-		return c.notif.SendSMS(ctx, "+91XXXXXXXXXX", "Your child is absent today.")
+		_ = json.Unmarshal(event.Payload, &payload)
+
+		studentID := strings.TrimSpace(readString(payload, "student_id"))
+		if studentID == "" {
+			return nil
+		}
+
+		phone, studentName, err := c.resolveGuardianPhone(ctx, event.TenantID, studentID)
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(phone) == "" {
+			log.Printf("[Worker] no guardian phone found for absent event student %s", studentID)
+			return nil
+		}
+
+		message := "Your child is marked absent today."
+		if strings.TrimSpace(studentName) != "" {
+			message = fmt.Sprintf("%s is marked absent today.", studentName)
+		}
+		return c.notif.SendSMS(ctx, phone, message)
 
 	case "fee.paid":
-		return c.notif.SendWhatsApp(ctx, "+91XXXXXXXXXX", "Fee payment received. Thank you!")
+		var payload map[string]interface{}
+		_ = json.Unmarshal(event.Payload, &payload)
+		contact := strings.TrimSpace(readNestedString(payload, "payload", "payment", "entity", "contact"))
+		if contact == "" {
+			log.Printf("[Worker] fee.paid event missing contact, skipping delivery for event %s", event.ID)
+			return nil
+		}
+		return c.notif.SendWhatsApp(ctx, contact, "Fee payment received. Thank you!")
 
 	case "notice.published":
 		var payload map[string]interface{}
 		json.Unmarshal(event.Payload, &payload)
 		title, _ := payload["title"].(string)
-		return c.notif.SendPush(ctx, "all_users", "New Notice: "+title, "Check the portal for details.")
+		return c.sendTenantPush(ctx, event.TenantID, "New Notice: "+strings.TrimSpace(title), "Check the portal for details.")
 
 	case "payslip.generated":
 		var payload map[string]interface{}
-		json.Unmarshal(event.Payload, &payload)
-		log.Printf("[Worker] Generating PDF for payslip: %v", payload["payslip_id"])
-		// Stub: Generate PDF logic
+		_ = json.Unmarshal(event.Payload, &payload)
+		if payload == nil {
+			payload = map[string]interface{}{}
+		}
+		payloadBytes, _ := json.Marshal(payload)
+		_, err := c.q.CreatePDFJob(ctx, db.CreatePDFJobParams{
+			TenantID:     event.TenantID,
+			TemplateCode: "payslip",
+			Payload:      payloadBytes,
+		})
+		if err != nil {
+			return err
+		}
+		log.Printf("[Worker] Enqueued payslip PDF job for event: %s", event.ID)
 		return nil
 
 	default:
@@ -145,4 +180,134 @@ func (c *Consumer) handleEvent(ctx context.Context, event db.Outbox) error {
 	}
 
 	return nil
+}
+
+func readString(payload map[string]interface{}, key string) string {
+	if payload == nil {
+		return ""
+	}
+	v, _ := payload[key].(string)
+	return v
+}
+
+func readNestedString(payload map[string]interface{}, keys ...string) string {
+	current := any(payload)
+	for _, key := range keys {
+		object, ok := current.(map[string]interface{})
+		if !ok {
+			return ""
+		}
+		current = object[key]
+	}
+	v, _ := current.(string)
+	return v
+}
+
+func (c *Consumer) resolveGuardianPhone(ctx context.Context, tenantID pgtype.UUID, studentID string) (string, string, error) {
+	studentUUID := pgtype.UUID{}
+	if err := studentUUID.Scan(studentID); err != nil {
+		return "", "", nil
+	}
+
+	studentName := ""
+	if student, err := c.q.GetStudent(ctx, db.GetStudentParams{ID: studentUUID, TenantID: tenantID}); err == nil {
+		studentName = student.FullName
+	}
+
+	guardians, err := c.q.GetStudentGuardians(ctx, studentUUID)
+	if err != nil {
+		return "", studentName, err
+	}
+
+	primaryPhone := ""
+	fallbackPhone := ""
+	for _, guardian := range guardians {
+		phone := strings.TrimSpace(guardian.Phone)
+		if phone == "" {
+			continue
+		}
+		if fallbackPhone == "" {
+			fallbackPhone = phone
+		}
+		if guardian.IsPrimary.Valid && guardian.IsPrimary.Bool {
+			primaryPhone = phone
+			break
+		}
+	}
+
+	if primaryPhone != "" {
+		return primaryPhone, studentName, nil
+	}
+	return fallbackPhone, studentName, nil
+}
+
+func (c *Consumer) sendTenantPush(ctx context.Context, tenantID pgtype.UUID, title, message string) error {
+	if strings.TrimSpace(message) == "" {
+		return nil
+	}
+
+	recipients, err := c.tenantPushRecipients(ctx, tenantID)
+	if err != nil {
+		return err
+	}
+	if len(recipients) == 0 {
+		log.Printf("[Worker] no push recipients found for tenant %s", tenantID.String())
+		return nil
+	}
+
+	failed := 0
+	for _, recipient := range recipients {
+		if sendErr := c.notif.SendPush(ctx, recipient, title, message); sendErr != nil {
+			failed++
+			log.Printf("[Worker] push send failed to recipient %s: %v", recipient, sendErr)
+		}
+	}
+
+	if failed == len(recipients) {
+		return fmt.Errorf("failed to deliver push to all recipients")
+	}
+
+	return nil
+}
+
+func (c *Consumer) tenantPushRecipients(ctx context.Context, tenantID pgtype.UUID) ([]string, error) {
+	unique := map[string]bool{}
+
+	students, err := c.q.ListStudents(ctx, db.ListStudentsParams{
+		TenantID: tenantID,
+		Limit:    10000,
+		Offset:   0,
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, student := range students {
+		if !student.ID.Valid {
+			continue
+		}
+		unique[student.ID.String()] = true
+	}
+
+	employees, err := c.q.ListEmployees(ctx, db.ListEmployeesParams{
+		TenantID: tenantID,
+		Limit:    10000,
+		Offset:   0,
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, employee := range employees {
+		if !employee.UserID.Valid {
+			continue
+		}
+		unique[employee.UserID.String()] = true
+	}
+
+	out := make([]string, 0, len(unique))
+	for id := range unique {
+		if strings.TrimSpace(id) != "" {
+			out = append(out, id)
+		}
+	}
+	return out, nil
 }

@@ -6,7 +6,7 @@ import {
   Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
-import { Book } from "@/types/library"
+import { Author, Book, Category } from "@/types/library"
 import { toast } from "sonner"
 
 interface BookDialogProps {
@@ -18,8 +18,61 @@ interface BookDialogProps {
 
 export function BookDialog({ open, onOpenChange, onSuccess, book }: BookDialogProps) {
   const [loading, setLoading] = useState(false)
-  
-  // TODO: Fetch categories and authors dynamically
+  const [depsLoading, setDepsLoading] = useState(false)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [authors, setAuthors] = useState<Author[]>([])
+
+  const bytesToUuid = (bytes: number[]) => {
+    if (bytes.length !== 16) return ""
+    const hex = bytes.map((b) => b.toString(16).padStart(2, "0")).join("")
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+  }
+
+  const idValue = (value: unknown) => {
+    if (typeof value === "string") return value
+    if (value && typeof value === "object" && "Bytes" in value) {
+      const bytes = (value as { Bytes?: unknown }).Bytes
+      if (Array.isArray(bytes) && bytes.every((item) => typeof item === "number")) {
+        return bytesToUuid(bytes as number[])
+      }
+    }
+    return ""
+  }
+
+  const fetchDependencies = async () => {
+    setDepsLoading(true)
+    try {
+      const [categoriesRes, authorsRes] = await Promise.all([
+        apiClient("/admin/library/categories"),
+        apiClient("/admin/library/authors"),
+      ])
+
+      if (categoriesRes.ok) {
+        const data = await categoriesRes.json()
+        setCategories(Array.isArray(data) ? data : [])
+      } else {
+        setCategories([])
+      }
+
+      if (authorsRes.ok) {
+        const data = await authorsRes.json()
+        setAuthors(Array.isArray(data) ? data : [])
+      } else {
+        setAuthors([])
+      }
+    } catch {
+      toast.error("Failed to load library categories/authors")
+      setCategories([])
+      setAuthors([])
+    } finally {
+      setDepsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!open) return
+    fetchDependencies()
+  }, [open])
   
   const [formData, setFormData] = useState({
     title: "",
@@ -155,6 +208,52 @@ export function BookDialog({ open, onOpenChange, onSuccess, book }: BookDialogPr
                 min="1"
                 required
               />
+            </div>
+
+             <div className="space-y-2">
+              <Label>Category</Label>
+              <Select
+                value={formData.category_id}
+                onValueChange={(val) => setFormData({...formData, category_id: val})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={depsLoading ? "Loading categories..." : "Select category"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => {
+                    const categoryID = idValue(category.id)
+                    if (!categoryID) return null
+                    return (
+                      <SelectItem key={categoryID} value={categoryID}>
+                        {category.name}
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Author</Label>
+              <Select
+                value={formData.author_id}
+                onValueChange={(val) => setFormData({...formData, author_id: val})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={depsLoading ? "Loading authors..." : "Select author"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {authors.map((author) => {
+                    const authorID = idValue(author.id)
+                    if (!authorID) return null
+                    return (
+                      <SelectItem key={authorID} value={authorID}>
+                        {author.name}
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
             </div>
 
              <div className="space-y-2">

@@ -2,6 +2,7 @@ package safety
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -323,7 +324,18 @@ func (s *Service) SendBroadcast(ctx context.Context, p SendBroadcastParams) (db.
 	}
 
 	// Produce Outbox Events for delivery
-	// s.q.CreateOutboxEvent(...) // TODO: Integrate with outbox
+	payload, _ := json.Marshal(map[string]interface{}{
+		"broadcast_id": broadcast.ID,
+		"message":      broadcast.Message,
+		"channel":      broadcast.Channel,
+		"target_roles": broadcast.TargetRoles,
+		"created_by":   broadcast.CreatedBy,
+	})
+	_, _ = s.q.CreateOutboxEvent(ctx, db.CreateOutboxEventParams{
+		TenantID:  tID,
+		EventType: "safety.broadcast.created",
+		Payload:   payload,
+	})
 
 	_ = s.audit.Log(ctx, audit.Entry{
 		TenantID:     tID,

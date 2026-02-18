@@ -3,6 +3,7 @@ package attendance
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -22,6 +23,7 @@ func NewHandler(svc *attendservice.Service) *Handler {
 func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Route("/attendance", func(r chi.Router) {
 		r.Get("/sessions", h.GetSession)
+		r.Get("/class-sections", h.ListClassSections)
 		r.Get("/stats", h.GetDailyStats)
 		r.Post("/mark", h.MarkAttendance)
 		r.Get("/policies", h.ListPolicies)
@@ -38,6 +40,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 }
 
 func (h *Handler) RegisterParentRoutes(r chi.Router) {
+	r.Get("/leaves", h.ListParentLeaves)
 	r.Post("/leaves", h.CreateLeave)
 }
 
@@ -116,6 +119,21 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Handler) ListClassSections(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	items, err := h.svc.ListClassSections(r.Context(), tenantID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sort.SliceStable(items, func(i, j int) bool {
+		return items[i].Label < items[j].Label
+	})
+
+	json.NewEncoder(w).Encode(items)
+}
+
 func (h *Handler) CreateLeave(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		StudentID string `json:"student_id"`
@@ -147,6 +165,21 @@ func (h *Handler) ListLeaves(w http.ResponseWriter, r *http.Request) {
 	tenantID := middleware.GetTenantID(r.Context())
 
 	leaves, err := h.svc.ListLeaves(r.Context(), tenantID, status)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(leaves)
+}
+
+func (h *Handler) ListParentLeaves(w http.ResponseWriter, r *http.Request) {
+	status := r.URL.Query().Get("status")
+	studentID := r.URL.Query().Get("student_id")
+	tenantID := middleware.GetTenantID(r.Context())
+	userID := middleware.GetUserID(r.Context())
+
+	leaves, err := h.svc.ListLeavesForParent(r.Context(), tenantID, userID, status, studentID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

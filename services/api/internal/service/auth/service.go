@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/rs/zerolog/log"
@@ -40,6 +41,27 @@ func NewService(queries *db.Queries) *Service {
 		MFA:     NewMFAService(queries),
 		IPGuard: NewIPGuard(queries),
 	}
+}
+
+func (s *Service) GetMFAAccountLabel(ctx context.Context, userID string) (string, error) {
+	uID := pgtype.UUID{}
+	if err := uID.Scan(userID); err != nil {
+		return "", err
+	}
+
+	user, err := s.queries.GetUserByID(ctx, uID)
+	if err != nil {
+		return "", err
+	}
+
+	if strings.TrimSpace(user.Email.String) != "" {
+		return strings.TrimSpace(user.Email.String), nil
+	}
+	if strings.TrimSpace(user.FullName) != "" {
+		return strings.TrimSpace(user.FullName), nil
+	}
+
+	return "SchoolERP User", nil
 }
 
 // LoginResult contains the JWT token and user info after successful auth
@@ -205,6 +227,46 @@ func (s *Service) IssueTokenForUser(ctx context.Context, userID string) (*LoginR
 	}
 
 	return s.mintLoginResult(ctx, user, identity, roleAssignment)
+}
+
+func (s *Service) InitiatePasswordReset(ctx context.Context, email, ipAddress, userAgent string) error {
+	normalizedEmail := strings.ToLower(strings.TrimSpace(email))
+	if normalizedEmail == "" {
+		return errors.New("email is required")
+	}
+
+	user, err := s.queries.GetUserByEmail(ctx, normalizedEmail)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+
+	roleAssignment, err := s.queries.GetUserRoleAssignmentWithPermissions(ctx, user.ID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"user_id":    user.ID,
+		"tenant_id":  roleAssignment.TenantID,
+		"email":      normalizedEmail,
+		"ip_address": ipAddress,
+		"user_agent": userAgent,
+		"requested_at": time.Now().UTC().Format(time.RFC3339),
+	})
+
+	_, _ = s.queries.CreateOutboxEvent(ctx, db.CreateOutboxEventParams{
+		TenantID:  roleAssignment.TenantID,
+		EventType: "auth.password_reset.requested",
+		Payload:   payload,
+	})
+
+	return nil
 }
 
 func (s *Service) mintLoginResult(ctx context.Context, user db.AuthUser, identity db.AuthIdentity, roleAssignment db.GetUserRoleAssignmentWithPermissionsRow) (*LoginResult, error) {

@@ -20,7 +20,37 @@ type mockFinanceQuerier struct {
 }
 
 func (m *mockFinanceQuerier) CreatePaymentOrder(ctx context.Context, arg db.CreatePaymentOrderParams) (db.PaymentOrder, error) {
-	return db.PaymentOrder{ID: pgtype.UUID{Bytes: [16]byte{1}, Valid: true}}, nil
+	return db.PaymentOrder{
+		ID:          pgtype.UUID{Bytes: [16]byte{1}, Valid: true},
+		TenantID:    arg.TenantID,
+		StudentID:   arg.StudentID,
+		Amount:      arg.Amount,
+		ExternalRef: arg.ExternalRef,
+		Status:      pgtype.Text{String: "pending", Valid: true},
+	}, nil
+}
+
+func (m *mockFinanceQuerier) UpdatePaymentOrderStatus(ctx context.Context, arg db.UpdatePaymentOrderStatusParams) (db.PaymentOrder, error) {
+	return db.PaymentOrder{
+		ID:          arg.ID,
+		TenantID:    arg.TenantID,
+		StudentID:   pgtype.UUID{Bytes: [16]byte{2}, Valid: true},
+		Amount:      1000,
+		ExternalRef: arg.ExternalRef,
+		Status:      arg.Status,
+	}, nil
+}
+
+func (m *mockFinanceQuerier) GetPaymentOrder(ctx context.Context, arg db.GetPaymentOrderParams) (db.PaymentOrder, error) {
+	return db.PaymentOrder{
+		ID:          arg.ID,
+		TenantID:    arg.TenantID,
+		StudentID:   pgtype.UUID{Bytes: [16]byte{3}, Valid: true},
+		Amount:      1000,
+		Mode:        "online",
+		Status:      pgtype.Text{String: "pending", Valid: true},
+		ExternalRef: pgtype.Text{String: "order_00000000-0000-0000-0000-000000000001", Valid: true},
+	}, nil
 }
 
 func (m *mockFinanceQuerier) LogPaymentEvent(ctx context.Context, arg db.LogPaymentEventParams) (db.PaymentEvent, error) {
@@ -78,7 +108,7 @@ func TestProcessPaymentWebhook(t *testing.T) {
 	svc := NewService(mock, auditLogger, policyEval, locksSvc, provider)
 	
 	secret := "test_secret"
-	body := []byte(`{"event":"payment.captured","payload":{"payment":{"entity":{"id":"pay_123","amount":1000}}}}`)
+	body := []byte(`{"event":"payment.captured","payload":{"payment":{"entity":{"id":"pay_123","order_id":"order_00000000-0000-0000-0000-000000000001","amount":1000}}}}`)
 	
 	h := hmac.New(sha256.New, []byte(secret))
 	h.Write(body)

@@ -1,13 +1,18 @@
 package finance
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/schoolerp/api/internal/db"
 )
@@ -24,10 +29,48 @@ type RazorpayProvider struct {
 }
 
 func (r *RazorpayProvider) CreateOrder(ctx context.Context, amount int64, currency string, receiptID string) (string, error) {
-	// In a real implementation, we would use an HTTP client to call Razorpay's API
-	// For this task, I'll implement the logic assuming the environment has the keys.
-	// Mocking the external call but structure matches production.
-	return fmt.Sprintf("order_%s", receiptID), nil
+	if strings.TrimSpace(r.KeyID) == "" || strings.TrimSpace(r.KeySecret) == "" {
+		return fmt.Sprintf("order_%s", receiptID), nil
+	}
+
+	body, err := json.Marshal(map[string]interface{}{
+		"amount":   amount,
+		"currency": currency,
+		"receipt":  receiptID,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.razorpay.com/v1/orders", bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	req.SetBasicAuth(r.KeyID, r.KeySecret)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := (&http.Client{}).Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("razorpay order create failed: %s", strings.TrimSpace(string(respBody)))
+	}
+
+	var parsed struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(respBody, &parsed); err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(parsed.ID) == "" {
+		return "", fmt.Errorf("razorpay order create response missing id")
+	}
+
+	return parsed.ID, nil
 }
 
 func (r *RazorpayProvider) VerifyWebhookSignature(body []byte, signature string, secret string) bool {
@@ -37,6 +80,32 @@ func (r *RazorpayProvider) VerifyWebhookSignature(body []byte, signature string,
 	return expected == signature
 }
 
+func pgUUIDToString(v pgtype.UUID) (string, error) {
+	if !v.Valid {
+		return "", fmt.Errorf("invalid uuid value")
+	}
+	id, err := uuid.FromBytes(v.Bytes[:])
+	if err != nil {
+		return "", err
+	}
+	return id.String(), nil
+}
+
+func resolveInternalOrderID(orderID string) (pgtype.UUID, error) {
+	trimmed := strings.TrimSpace(orderID)
+	if trimmed == "" {
+		return pgtype.UUID{}, fmt.Errorf("missing order_id in payment event")
+	}
+
+	trimmed = strings.TrimPrefix(trimmed, "order_")
+
+	orderUUID := pgtype.UUID{}
+	if err := orderUUID.Scan(trimmed); err != nil {
+		return pgtype.UUID{}, fmt.Errorf("unable to resolve internal order id from gateway order_id %q: %w", orderID, err)
+	}
+
+	return orderUUID, nil
+}
 
 func (s *Service) CreateOnlineOrder(ctx context.Context, tenantID, studentID string, amount int64) (db.PaymentOrder, error) {
 	tUUID := pgtype.UUID{}
@@ -46,18 +115,39 @@ func (s *Service) CreateOnlineOrder(ctx context.Context, tenantID, studentID str
 
 	// 1. Create Internal Order
 	order, err := s.q.CreatePaymentOrder(ctx, db.CreatePaymentOrderParams{
-		TenantID:  tUUID,
-		StudentID: sUUID,
-		Amount:    amount,
-		Mode:      "online",
+		TenantID:    tUUID,
+		StudentID:   sUUID,
+		Amount:      amount,
+		Mode:        "online",
+		ExternalRef: pgtype.Text{},
 	})
 	if err != nil {
 		return db.PaymentOrder{}, err
 	}
 
-	// 2. Register with Razorpay (Stubbed)
-	// externalRef, err := s.payment.CreateOrder(ctx, amount, "INR", order.ID.String())
-	// ... update order with externalRef
+	if s.payment == nil {
+		return order, nil
+	}
+
+	internalOrderID, err := pgUUIDToString(order.ID)
+	if err != nil {
+		return db.PaymentOrder{}, err
+	}
+
+	externalRef, err := s.payment.CreateOrder(ctx, amount, "INR", internalOrderID)
+	if err != nil {
+		return db.PaymentOrder{}, err
+	}
+
+	order, err = s.q.UpdatePaymentOrderStatus(ctx, db.UpdatePaymentOrderStatusParams{
+		ID:          order.ID,
+		TenantID:    tUUID,
+		Status:      pgtype.Text{String: "pending", Valid: true},
+		ExternalRef: pgtype.Text{String: externalRef, Valid: true},
+	})
+	if err != nil {
+		return db.PaymentOrder{}, err
+	}
 
 	return order, nil
 }
@@ -112,19 +202,29 @@ func (s *Service) ProcessPaymentWebhook(ctx context.Context, tenantID, eventID s
 			return err
 		}
 
-		// Find the order
-		// Razorpay sends order.entity.receipt which is our internal order ID
-		// In fallback, we use order_id to find the payment_order record
-		
-		// For Release 1, we'll assume we can find the order and student
-		// Mock finding student and order for receipt issuance
-		// In real app: order, _ := s.q.GetPaymentOrderByExternalRef(ctx, event.Payload.Payment.Entity.OrderID)
-		
+		orderUUID, err := resolveInternalOrderID(event.Payload.Payment.Entity.OrderID)
+		if err != nil {
+			return err
+		}
+
+		order, err := s.q.GetPaymentOrder(ctx, db.GetPaymentOrderParams{
+			ID:       orderUUID,
+			TenantID: tUUID,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to resolve payment order for webhook: %w", err)
+		}
+
+		studentID, err := pgUUIDToString(order.StudentID)
+		if err != nil {
+			return err
+		}
+
 		// Issue Auto Receipt
 		_, err = s.IssueReceipt(ctx, IssueReceiptParams{
 			TenantID:       tenantID,
-			StudentID:      "fcc75681-6967-4638-867c-9ef1c990fc7e", // Stubbed for now
-			Amount:         event.Payload.Payment.Entity.Amount / 100, // Razorpay in paise
+			StudentID:      studentID,
+			Amount:         order.Amount,
 			Mode:           "online",
 			TransactionRef: event.Payload.Payment.Entity.ID,
 			UserID:         "00000000-0000-0000-0000-000000000000", // System
@@ -132,6 +232,16 @@ func (s *Service) ProcessPaymentWebhook(ctx context.Context, tenantID, eventID s
 		})
 		if err != nil {
 			return fmt.Errorf("failed to issue auto-receipt: %w", err)
+		}
+
+		_, err = s.q.UpdatePaymentOrderStatus(ctx, db.UpdatePaymentOrderStatusParams{
+			ID:          order.ID,
+			TenantID:    tUUID,
+			Status:      pgtype.Text{String: "paid", Valid: true},
+			ExternalRef: order.ExternalRef,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to mark payment order paid: %w", err)
 		}
 
 		// 5. Outbox Event for Notification

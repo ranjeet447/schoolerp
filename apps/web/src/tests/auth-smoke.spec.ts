@@ -5,30 +5,30 @@ test.describe('Auth Smoke Tests', () => {
   test('Login page loads correctly', async ({ page }) => {
     await page.goto('/auth/login');
     await expect(page.locator('h2')).toContainText('Welcome Back');
-    await expect(page.locator('button:has-text("Sign In")')).toBeVisible();
+    await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
   });
 
   test('Quick access buttons work', async ({ page }) => {
     await page.goto('/auth/login');
 
     // Click Admin quick access
-    await page.click('button:has-text("Admin")');
-    await expect(page.locator('input[type="email"]')).toHaveValue('admin@school.edu.in');
+    await page.getByRole('button', { name: 'Admin' }).click();
+    await expect(page.getByPlaceholder('admin@school.edu.in')).toHaveValue('admin@school.edu.in');
 
     // Click Teacher quick access
-    await page.click('button:has-text("Teacher")');
-    await expect(page.locator('input[type="email"]')).toHaveValue('teacher@school.edu.in');
+    await page.getByRole('button', { name: 'Teacher' }).click();
+    await expect(page.getByPlaceholder('admin@school.edu.in')).toHaveValue('teacher@school.edu.in');
   });
 
   test('Invalid login shows toast error', async ({ page }) => {
     await page.goto('/auth/login');
 
-    await page.fill('input[id="email"]', 'wrong@school.edu.in');
-    await page.fill('input[id="password"]', 'wrongpassword');
-    await page.click('button:has-text("Sign In")');
+    await page.getByPlaceholder('admin@school.edu.in').fill('wrong@school.edu.in');
+    await page.getByPlaceholder('••••••••').fill('wrongpassword');
+    await page.getByRole('button', { name: /sign in/i }).click();
 
     // Wait for toast (Sonner)
-    await expect(page.locator('text=Invalid credentials')).toBeVisible();
+    await expect(page.getByText(/invalid credentials/i)).toBeVisible();
   });
 
 });

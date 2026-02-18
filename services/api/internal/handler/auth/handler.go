@@ -25,6 +25,7 @@ func NewHandler(svc *auth.Service) *Handler {
 
 func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/auth/login", h.Login)
+	r.Post("/auth/forgot-password", h.ForgotPassword)
 	r.Post("/auth/mfa/setup", h.SetupMFA)
 	r.Post("/auth/mfa/enable", h.EnableMFA)
 	r.Post("/auth/mfa/validate", h.ValidateMFA)
@@ -43,12 +44,13 @@ func (h *Handler) SetupMFA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// We need email for AccountName in TOTP
-	// Ideally we fetch user from DB or claims.
-	// For now, let's pass a placeholder or fetch it.
-	// Simplest: "SchoolERP User"
+	accountLabel, err := h.svc.GetMFAAccountLabel(r.Context(), userID)
+	if err != nil {
+		http.Error(w, "Unable to resolve user account", http.StatusInternalServerError)
+		return
+	}
 
-	config, err := h.svc.MFA.GenerateSecret(r.Context(), userID, "SchoolERP User")
+	config, err := h.svc.MFA.GenerateSecret(r.Context(), userID, accountLabel)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -134,6 +136,35 @@ type loginResponse struct {
 	Message string            `json:"message,omitempty"`
 	Data    *auth.LoginResult `json:"data,omitempty"`
 	Meta    interface{}       `json:"meta,omitempty"`
+}
+
+type forgotPasswordRequest struct {
+	Email string `json:"email"`
+}
+
+func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	var req forgotPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if strings.TrimSpace(req.Email) == "" {
+		http.Error(w, "Email is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.svc.InitiatePasswordReset(r.Context(), req.Email, clientIPForAuth(r), r.UserAgent()); err != nil {
+		http.Error(w, "Failed to process request", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "If an account exists, a reset link has been sent",
+	})
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {

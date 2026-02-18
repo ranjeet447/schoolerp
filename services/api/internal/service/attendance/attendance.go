@@ -49,6 +49,14 @@ type AttendanceEntry struct {
 	Remarks   string
 }
 
+type ClassSectionOption struct {
+	ID        string `json:"id"`
+	ClassID   string `json:"class_id"`
+	ClassName string `json:"class_name"`
+	Name      string `json:"name"`
+	Label     string `json:"label"`
+}
+
 var errAttendanceApprovalRequired = errors.New("attendance change requires approval")
 
 func IsApprovalRequiredError(err error) bool {
@@ -307,6 +315,53 @@ func (s *Service) GetSession(ctx context.Context, tenantID, classSectionID strin
 
 	entries, err := s.q.GetAttendanceEntries(ctx, session.ID)
 	return session, entries, err
+}
+
+func (s *Service) ListClassSections(ctx context.Context, tenantID string) ([]ClassSectionOption, error) {
+	tUUID := pgtype.UUID{}
+	if err := tUUID.Scan(tenantID); err != nil {
+		return nil, fmt.Errorf("invalid tenant_id")
+	}
+
+	classes, err := s.q.ListClasses(ctx, tUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	classNameByID := make(map[[16]byte]string, len(classes))
+	for _, classItem := range classes {
+		if classItem.ID.Valid {
+			classNameByID[classItem.ID.Bytes] = classItem.Name
+		}
+	}
+
+	sections, err := s.q.ListSectionsByTenant(ctx, tUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]ClassSectionOption, 0, len(sections))
+	for _, section := range sections {
+		if !section.ID.Valid {
+			continue
+		}
+		className := ""
+		if section.ClassID.Valid {
+			className = classNameByID[section.ClassID.Bytes]
+		}
+		if className == "" {
+			className = "Class"
+		}
+		result = append(result, ClassSectionOption{
+			ID:        section.ID.String(),
+			ClassID:   section.ClassID.String(),
+			ClassName: className,
+			Name:      section.Name,
+			Label:     className + " - " + section.Name,
+		})
+	}
+
+	return result, nil
 }
 
 func (s *Service) ListPolicies(ctx context.Context, tenantID string) ([]db.Policy, error) {

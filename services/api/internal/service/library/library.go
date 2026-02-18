@@ -2,8 +2,13 @@ package library
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -47,16 +52,81 @@ type CreateBookParams struct {
 	IP              string
 }
 
+func parseUserUUID(userID string) pgtype.UUID {
+	uID := pgtype.UUID{}
+	_ = uID.Scan(strings.TrimSpace(userID))
+	return uID
+}
+
 func (s *LibraryService) ISBNLookup(ctx context.Context, isbn string) (map[string]interface{}, error) {
-	// Stub: Simulate external API call (e.g., Google Books API)
-	if isbn == "" {
+	normalizedISBN := strings.TrimSpace(isbn)
+	if normalizedISBN == "" {
 		return nil, errors.New("invalid isbn")
 	}
-	return map[string]interface{}{
-		"title":     "Auto Cataloged: " + isbn,
-		"publisher": "Open Library Stub",
-		"year":      2024,
-	}, nil
+
+	requestURL := fmt.Sprintf("https://openlibrary.org/api/books?bibkeys=ISBN:%s&format=json&jscmd=data", normalizedISBN)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("isbn lookup failed: %s", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var payload map[string]map[string]interface{}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, err
+	}
+
+	key := "ISBN:" + normalizedISBN
+	book, ok := payload[key]
+	if !ok {
+		return nil, errors.New("isbn not found")
+	}
+
+	result := map[string]interface{}{}
+	title, _ := book["title"].(string)
+	if strings.TrimSpace(title) != "" {
+		result["title"] = strings.TrimSpace(title)
+	}
+
+	publisher := ""
+	if publishers, ok := book["publishers"].([]interface{}); ok {
+		for _, item := range publishers {
+			if row, ok := item.(map[string]interface{}); ok {
+				name, _ := row["name"].(string)
+				if strings.TrimSpace(name) != "" {
+					publisher = strings.TrimSpace(name)
+					break
+				}
+			}
+		}
+	}
+	if publisher != "" {
+		result["publisher"] = publisher
+	}
+
+	if publishDate, ok := book["publish_date"].(string); ok {
+		re := regexp.MustCompile(`\b(19|20)\d{2}\b`)
+		if year := re.FindString(publishDate); year != "" {
+			result["year"] = year
+		}
+	}
+
+	return result, nil
 }
 
 func (s *LibraryService) CreateBook(ctx context.Context, p CreateBookParams) (db.LibraryBook, error) {
@@ -66,9 +136,18 @@ func (s *LibraryService) CreateBook(ctx context.Context, p CreateBookParams) (db
 	// Auto-fill from ISBN if title/publisher missing
 	if p.Title == "" && p.ISBN != "" {
 		if data, err := s.ISBNLookup(ctx, p.ISBN); err == nil {
-			p.Title = data["title"].(string)
-			p.Publisher = data["publisher"].(string)
-			p.PublishedYear = int32(data["year"].(int))
+			if title, _ := data["title"].(string); strings.TrimSpace(title) != "" {
+				p.Title = strings.TrimSpace(title)
+			}
+			if publisher, _ := data["publisher"].(string); strings.TrimSpace(publisher) != "" {
+				p.Publisher = strings.TrimSpace(publisher)
+			}
+			if yearText, _ := data["year"].(string); len(yearText) == 4 {
+				var parsedYear int
+				if _, parseErr := fmt.Sscanf(yearText, "%d", &parsedYear); parseErr == nil && parsedYear > 0 {
+					p.PublishedYear = int32(parsedYear)
+				}
+			}
 		}
 	}
 
@@ -114,7 +193,7 @@ func (s *LibraryService) CreateBook(ctx context.Context, p CreateBookParams) (db
 
 	_ = s.audit.Log(ctx, audit.Entry{
 		TenantID:     tenantUuid,
-		UserID:       pgtype.UUID{}, // Parse UserID to UUID
+		UserID:       parseUserUUID(p.UserID),
 		RequestID:    p.RequestID,
 		Action:       "CREATE_BOOK",
 		ResourceType: "library_book",
@@ -135,6 +214,19 @@ func (s *LibraryService) ListBooks(ctx context.Context, tenantID string, limit, 
 		Offset:   offset,
 	})
 }
+
+func (s *LibraryService) ListCategories(ctx context.Context, tenantID string) ([]db.LibraryCategory, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	return s.q.ListCategories(ctx, tID)
+}
+
+func (s *LibraryService) ListAuthors(ctx context.Context, tenantID string) ([]db.LibraryAuthor, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	return s.q.ListAuthors(ctx, tID)
+}
+
 func (s *LibraryService) UpdateBook(ctx context.Context, tenantID, bookID string, p CreateBookParams) (db.LibraryBook, error) {
 	tID := pgtype.UUID{}
 	tID.Scan(tenantID)
@@ -180,7 +272,7 @@ func (s *LibraryService) UpdateBook(ctx context.Context, tenantID, bookID string
 
 	_ = s.audit.Log(ctx, audit.Entry{
 		TenantID:     tID,
-		UserID:       pgtype.UUID{}, // Parse UserID if needed, but p.UserID is string, needs parsing
+		UserID:       parseUserUUID(p.UserID),
 		RequestID:    p.RequestID,
 		Action:       "UPDATE_BOOK",
 		ResourceType: "library_book",

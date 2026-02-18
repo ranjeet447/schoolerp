@@ -83,8 +83,6 @@ const uuidValue = (value: unknown) => {
   return ""
 }
 
-const requestID = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-
 export default function CertificatesPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -93,7 +91,6 @@ export default function CertificatesPage() {
 
   const [students, setStudents] = useState<StudentRow[]>([])
   const [requests, setRequests] = useState<CertificateRequest[]>([])
-  const [rawConfig, setRawConfig] = useState<Record<string, any>>({})
   const [statusFilter, setStatusFilter] = useState<CertificateStatus | "all">("all")
 
   const [form, setForm] = useState({
@@ -103,38 +100,12 @@ export default function CertificatesPage() {
     requested_on: new Date().toISOString().slice(0, 10),
   })
 
-  const studentMap = useMemo(() => {
-    const m = new Map<string, StudentRow>()
-    students.forEach((s) => {
-      const id = uuidValue(s.id)
-      if (id) m.set(id, s)
-    })
-    return m
-  }, [students])
-
-  const saveConfigWith = async (nextRequests: CertificateRequest[], existingConfig?: Record<string, any>) => {
-    const base = existingConfig || rawConfig
-    const nextConfig = {
-      ...base,
-      certificates: {
-        ...(base?.certificates || {}),
-        requests: nextRequests,
-        updated_at: new Date().toISOString(),
-      },
-    }
-
-    const res = await apiClient("/admin/tenants/config", {
-      method: "POST",
-      body: JSON.stringify({ config: nextConfig }),
-    })
-
-    if (!res.ok) {
-      const msg = await res.text()
-      throw new Error(msg || "Failed to save certificates")
-    }
-
-    setRawConfig(nextConfig)
-    setRequests(nextRequests)
+  const fetchRequests = async (status?: CertificateStatus | "all") => {
+    const query = status && status !== "all" ? `?status=${encodeURIComponent(status)}` : ""
+    const res = await apiClient(`/admin/certificates/requests${query}`)
+    if (!res.ok) throw new Error((await res.text()) || "Failed to fetch certificate requests")
+    const payload = await res.json()
+    setRequests(Array.isArray(payload) ? payload : [])
   }
 
   const fetchAll = async (silent = false) => {
@@ -143,16 +114,16 @@ export default function CertificatesPage() {
     setError("")
 
     try {
-      const [studentsRes, configRes] = await Promise.all([
+      const [studentsRes, requestsRes] = await Promise.all([
         apiClient("/admin/students?limit=300"),
-        apiClient("/tenants/config"),
+        apiClient("/admin/certificates/requests"),
       ])
 
       if (!studentsRes.ok) throw new Error((await studentsRes.text()) || "Failed to fetch students")
-      if (!configRes.ok) throw new Error((await configRes.text()) || "Failed to fetch tenant config")
+      if (!requestsRes.ok) throw new Error((await requestsRes.text()) || "Failed to fetch certificate requests")
 
       const studentsPayload = await studentsRes.json()
-      const configPayload = await configRes.json()
+      const requestsPayload = await requestsRes.json()
 
       const studentRows = Array.isArray(studentsPayload)
         ? studentsPayload
@@ -160,12 +131,8 @@ export default function CertificatesPage() {
           ? studentsPayload.data
           : []
 
-      const cfg = (configPayload?.config || {}) as Record<string, any>
-      const certificateRequests = Array.isArray(cfg?.certificates?.requests) ? cfg.certificates.requests : []
-
       setStudents(studentRows)
-      setRawConfig(cfg)
-      setRequests(certificateRequests)
+      setRequests(Array.isArray(requestsPayload) ? requestsPayload : [])
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load certificate module"
       setError(message)
@@ -185,28 +152,24 @@ export default function CertificatesPage() {
       return
     }
 
-    const student = studentMap.get(form.student_id)
-    if (!student) {
-      setError("Selected student not found")
-      return
-    }
-
     setSaving(true)
     setError("")
     try {
-      const next: CertificateRequest = {
-        id: requestID(),
-        student_id: form.student_id,
-        student_name: student.full_name,
-        admission_number: student.admission_number,
-        type: form.type,
-        reason: form.reason.trim(),
-        requested_on: form.requested_on,
-        status: "pending",
-        updated_at: new Date().toISOString(),
+      const res = await apiClient("/admin/certificates/requests", {
+        method: "POST",
+        body: JSON.stringify({
+          student_id: form.student_id,
+          type: form.type,
+          reason: form.reason.trim(),
+          requested_on: form.requested_on,
+        }),
+      })
+      if (!res.ok) {
+        const msg = await res.text()
+        throw new Error(msg || "Failed to create request")
       }
 
-      await saveConfigWith([next, ...requests])
+      await fetchRequests(statusFilter)
       setForm((prev) => ({ ...prev, reason: "" }))
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create request"
@@ -216,36 +179,23 @@ export default function CertificatesPage() {
     }
   }
 
-  const buildCertificateNumber = (row: CertificateRequest) => {
-    const prefix = row.type === "transfer_certificate" ? "TC" : row.type === "bonafide_certificate" ? "BC" : "CC"
-    const y = new Date().getFullYear()
-    return `${prefix}-${y}-${row.id.slice(-6).toUpperCase()}`
-  }
-
   const updateStatus = async (id: string, status: CertificateStatus) => {
     setSaving(true)
     setError("")
     try {
-      const nextRequests = requests.map((row) => {
-        if (row.id !== id) return row
-        const next: CertificateRequest = {
-          ...row,
+      const res = await apiClient(`/admin/certificates/requests/${encodeURIComponent(id)}/status`, {
+        method: "POST",
+        body: JSON.stringify({
           status,
-          updated_at: new Date().toISOString(),
-        }
-
-        if (status === "issued") {
-          next.issue_date = new Date().toISOString().slice(0, 10)
-          next.certificate_number = row.certificate_number || buildCertificateNumber(row)
-        }
-        if (status === "rejected") {
-          next.remarks = row.remarks || "Rejected by admin"
-        }
-
-        return next
+          remarks: status === "rejected" ? "Rejected by admin" : undefined,
+        }),
       })
+      if (!res.ok) {
+        const msg = await res.text()
+        throw new Error(msg || "Failed to update status")
+      }
 
-      await saveConfigWith(nextRequests)
+      await fetchRequests(statusFilter)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update status"
       setError(message)

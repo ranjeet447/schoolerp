@@ -24,6 +24,8 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/library/books", h.CreateBook)
 	r.Put("/library/books/{id}", h.UpdateBook)
 	r.Get("/library/books", h.ListBooks)
+	r.Get("/library/categories", h.ListCategories)
+	r.Get("/library/authors", h.ListAuthors)
 	
 	// Circulation
 	r.Post("/library/issues", h.IssueBook)
@@ -152,6 +154,24 @@ func (h *Handler) ListBooks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondJSON(w, http.StatusOK, books)
+}
+
+func (h *Handler) ListCategories(w http.ResponseWriter, r *http.Request) {
+	categories, err := h.svc.ListCategories(r.Context(), middleware.GetTenantID(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusOK, categories)
+}
+
+func (h *Handler) ListAuthors(w http.ResponseWriter, r *http.Request) {
+	authors, err := h.svc.ListAuthors(r.Context(), middleware.GetTenantID(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusOK, authors)
 }
 
 // Issue Handlers

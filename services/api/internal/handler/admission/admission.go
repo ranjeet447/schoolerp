@@ -95,6 +95,11 @@ func (h *Handler) RegisterPublicRoutes(r chi.Router) {
 func (h *Handler) RegisterAdminRoutes(r chi.Router) {
 	// Admin Routes (Authenticated)
 	r.Route("/admissions", func(r chi.Router) {
+		r.Get("/settings/document-types", h.ListDocumentTypes)
+		r.Put("/settings/document-types", h.UpdateDocumentTypes)
+		r.Get("/settings/workflow", h.GetWorkflowSettings)
+		r.Put("/settings/workflow", h.UpdateWorkflowSettings)
+
 		r.Get("/enquiries", h.ListEnquiries)
 		r.Put("/enquiries/{id}/status", h.UpdateEnquiryStatus)
 
@@ -105,6 +110,7 @@ func (h *Handler) RegisterAdminRoutes(r chi.Router) {
 		r.Post("/applications/{id}/accept", h.AcceptApplication)
 		r.Post("/applications/{id}/pay-fee", h.RecordFeePayment)
 		r.Post("/applications/{id}/documents", h.AttachDocument)
+		r.Delete("/applications/{id}/documents/{index}", h.RemoveDocument)
 	})
 }
 
@@ -233,7 +239,6 @@ func (h *Handler) UpdateEnquiryStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreateApplication(w http.ResponseWriter, r *http.Request) {
-	// Simple stub for creating application from enquiry
 	type createAppReq struct {
 		EnquiryID string                 `json:"enquiry_id"`
 		Data      map[string]interface{} `json:"data"`
@@ -363,6 +368,73 @@ func (h *Handler) AttachDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondJSON(w, http.StatusOK, map[string]string{"message": "document attached"})
+}
+
+func (h *Handler) RemoveDocument(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	indexRaw := chi.URLParam(r, "index")
+	index, err := strconv.Atoi(indexRaw)
+	if err != nil {
+		http.Error(w, "invalid document index", http.StatusBadRequest)
+		return
+	}
+
+	err = h.svc.RemoveDocument(r.Context(), middleware.GetTenantID(r.Context()), id, index, middleware.GetUserID(r.Context()), r.RemoteAddr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]string{"message": "document removed"})
+}
+
+func (h *Handler) ListDocumentTypes(w http.ResponseWriter, r *http.Request) {
+	types, err := h.svc.ListDocumentTypes(r.Context(), middleware.GetTenantID(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]interface{}{"document_types": types})
+}
+
+func (h *Handler) UpdateDocumentTypes(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		DocumentTypes []string `json:"document_types"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.svc.SaveDocumentTypes(r.Context(), middleware.GetTenantID(r.Context()), req.DocumentTypes, middleware.GetUserID(r.Context()), r.RemoteAddr); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"message": "document types updated"})
+}
+
+func (h *Handler) GetWorkflowSettings(w http.ResponseWriter, r *http.Request) {
+	settings, err := h.svc.GetWorkflowSettings(r.Context(), middleware.GetTenantID(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusOK, settings)
+}
+
+func (h *Handler) UpdateWorkflowSettings(w http.ResponseWriter, r *http.Request) {
+	var req admission.AdmissionWorkflowSettings
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.svc.SaveWorkflowSettings(r.Context(), middleware.GetTenantID(r.Context()), req, middleware.GetUserID(r.Context()), r.RemoteAddr); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"message": "workflow settings updated"})
 }
 
 func respondJSON(w http.ResponseWriter, status int, payload interface{}) {
