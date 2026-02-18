@@ -286,6 +286,20 @@ func (s *StudentService) AddGuardian(ctx context.Context, p CreateGuardianParams
 	return guardian, nil
 }
 
+func (s *StudentService) GetStudentGuardians(ctx context.Context, tenantID, studentID string) ([]db.GetStudentGuardiansRow, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+
+	sUUID := pgtype.UUID{}
+	sUUID.Scan(studentID)
+
+	if _, err := s.q.GetStudent(ctx, db.GetStudentParams{ID: sUUID, TenantID: tUUID}); err != nil {
+		return nil, err
+	}
+
+	return s.q.GetStudentGuardians(ctx, sUUID)
+}
+
 // Academic Structure (Wrappers)
 
 func (s *StudentService) CreateClass(ctx context.Context, tenantID string, name string, level int32, stream, userID, reqID, ip string) (db.Class, error) {

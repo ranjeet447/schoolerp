@@ -73,7 +73,7 @@ export const columns: ColumnDef<Student>[] = [
               Copy ID
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href={`/students/${student.id}`}>View Profile</Link>
+              <Link href={`/admin/students/${student.id}`}>View Profile</Link>
             </DropdownMenuItem>
             <DropdownMenuItem>Edit Details</DropdownMenuItem>
           </DropdownMenuContent>

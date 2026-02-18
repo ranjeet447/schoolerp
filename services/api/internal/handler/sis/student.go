@@ -24,6 +24,8 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Get("/students", h.List)
 	r.Post("/students", h.Create)
 	r.Get("/students/{id}", h.Get)
+	r.Get("/students/{id}/guardians", h.ListGuardians)
+	r.Post("/students/{id}/guardians", h.AddGuardian)
 	r.Put("/students/{id}", h.Update)
 	r.Delete("/students/{id}", h.Delete)
 
@@ -357,6 +359,73 @@ type createStudentReq struct {
 	Gender          string `json:"gender"`
 	DOB             string `json:"dob"` // YYYY-MM-DD
 	SectionID       string `json:"section_id"`
+}
+
+type addGuardianReq struct {
+	FullName  string `json:"full_name"`
+	Phone     string `json:"phone"`
+	Email     string `json:"email"`
+	Address   string `json:"address"`
+	Relation  string `json:"relation"`
+	IsPrimary bool   `json:"is_primary"`
+}
+
+func (h *Handler) ListGuardians(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	tenantID := middleware.GetTenantID(ctx)
+	studentID := chi.URLParam(r, "id")
+
+	guardians, err := h.svc.GetStudentGuardians(ctx, tenantID, studentID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if guardians == nil {
+		w.Write([]byte("[]"))
+		return
+	}
+	json.NewEncoder(w).Encode(guardians)
+}
+
+func (h *Handler) AddGuardian(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	tenantID := middleware.GetTenantID(ctx)
+	studentID := chi.URLParam(r, "id")
+
+	var req addGuardianReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if strings.TrimSpace(req.FullName) == "" || strings.TrimSpace(req.Phone) == "" || strings.TrimSpace(req.Relation) == "" {
+		http.Error(w, "full_name, phone and relation are required", http.StatusBadRequest)
+		return
+	}
+
+	guardian, err := h.svc.AddGuardian(ctx, sis.CreateGuardianParams{
+		TenantID:  tenantID,
+		StudentID: studentID,
+		FullName:  strings.TrimSpace(req.FullName),
+		Phone:     strings.TrimSpace(req.Phone),
+		Email:     strings.TrimSpace(req.Email),
+		Address:   strings.TrimSpace(req.Address),
+		Relation:  strings.TrimSpace(req.Relation),
+		IsPrimary: req.IsPrimary,
+		UserID:    middleware.GetUserID(ctx),
+		RequestID: middleware.GetReqID(ctx),
+		IP:        r.RemoteAddr,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(guardian)
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
