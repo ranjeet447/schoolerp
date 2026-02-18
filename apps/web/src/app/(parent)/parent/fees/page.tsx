@@ -5,6 +5,25 @@ import { ReceiptCard, Card, CardContent, CardHeader, CardTitle, Progress, Select
 import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
 
+const STORAGE_KEY = "parent.selectedChildId.fees"
+const asArray = (payload: any) => (Array.isArray(payload) ? payload : payload?.data || [])
+const textValue = (value: unknown) => {
+  if (typeof value === "string") return value
+  if (value && typeof value === "object" && "String" in value) {
+    const s = (value as { String?: string }).String
+    return typeof s === "string" ? s : ""
+  }
+  return ""
+}
+const uuidValue = (value: unknown) => {
+  if (typeof value === "string") return value
+  if (value && typeof value === "object" && "Bytes" in value) {
+    const b = (value as { Bytes?: unknown }).Bytes
+    if (typeof b === "string") return b
+  }
+  return ""
+}
+
 export default function ParentFeesPage() {
   const [children, setChildren] = useState<any[]>([])
   const [selectedChildID, setSelectedChildID] = useState("")
@@ -23,10 +42,19 @@ export default function ParentFeesPage() {
         throw new Error(msg || "Failed to load children")
       }
       const payload = await res.json()
-      const data = Array.isArray(payload) ? payload : payload?.data || []
-      setChildren(data)
-      if (data.length > 0) {
-        setSelectedChildID(String(data[0].id))
+      const data = asArray(payload)
+      const normalizedChildren = data.map((child: any) => ({
+        id: uuidValue(child?.id),
+        full_name: textValue(child?.full_name),
+        class_name: textValue(child?.class_name),
+        section_name: textValue(child?.section_name),
+      }))
+      setChildren(normalizedChildren)
+      if (normalizedChildren.length > 0) {
+        const saved = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : ""
+        const first = String(normalizedChildren[0].id)
+        const selected = normalizedChildren.some((child: any) => String(child.id) === saved) ? String(saved) : first
+        setSelectedChildID(selected)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load children")
@@ -61,7 +89,7 @@ export default function ParentFeesPage() {
 
       if (receiptsRes.ok) {
         const receiptsPayload = await receiptsRes.json()
-        const receiptsData = Array.isArray(receiptsPayload) ? receiptsPayload : receiptsPayload?.data || []
+        const receiptsData = asArray(receiptsPayload)
         setReceipts(receiptsData)
       } else {
         setReceipts([])
@@ -81,6 +109,12 @@ export default function ParentFeesPage() {
 
   useEffect(() => {
     if (selectedChildID) fetchFees(selectedChildID)
+  }, [selectedChildID])
+
+  useEffect(() => {
+    if (!selectedChildID) return
+    if (typeof window === "undefined") return
+    window.localStorage.setItem(STORAGE_KEY, selectedChildID)
   }, [selectedChildID])
 
   const totalFees = Number(summary?.total_amount ?? summary?.total ?? 0)
@@ -145,7 +179,14 @@ export default function ParentFeesPage() {
                 date={String(r.date || r.issued_at || "")}
                 mode={String(r.mode || "offline")}
                 status={status}
-                onDownload={() => toast.info("Downloading receipt...")}
+                onDownload={() => {
+                  const url = String(r.url || r.receipt_url || "")
+                  if (url) {
+                    window.open(url, "_blank", "noopener,noreferrer")
+                    return
+                  }
+                  toast.info("Receipt download URL not available")
+                }}
               />
               )
             })}

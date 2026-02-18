@@ -5,6 +5,42 @@ import { NoticeCard, Card, CardContent } from "@schoolerp/ui"
 import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
 
+const textValue = (value: unknown) => {
+  if (typeof value === "string") return value
+  if (value && typeof value === "object" && "String" in value) {
+    const str = (value as { String?: string }).String
+    return typeof str === "string" ? str : ""
+  }
+  return ""
+}
+
+const uuidValue = (value: unknown) => {
+  if (typeof value === "string") return value
+  if (value && typeof value === "object" && "Bytes" in value) {
+    const bytes = (value as { Bytes?: unknown }).Bytes
+    if (typeof bytes === "string") return bytes
+  }
+  return ""
+}
+
+const tsValue = (value: unknown) => {
+  if (typeof value === "string") return value
+  if (value && typeof value === "object" && "Time" in value) {
+    const time = (value as { Time?: string }).Time
+    return typeof time === "string" ? time : ""
+  }
+  return ""
+}
+
+const ackedValue = (value: unknown) => {
+  if (typeof value === "boolean") return value
+  if (value && typeof value === "object" && "Valid" in value) {
+    const valid = (value as { Valid?: boolean }).Valid
+    return Boolean(valid)
+  }
+  return false
+}
+
 export default function ParentNoticesPage() {
   const [notices, setNotices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -22,7 +58,15 @@ export default function ParentNoticesPage() {
 
       const payload = await res.json()
       const data = Array.isArray(payload) ? payload : payload?.data || []
-      setNotices(data)
+      const normalized = data.map((item: any) => ({
+        id: uuidValue(item?.id),
+        title: textValue(item?.title),
+        body: textValue(item?.body),
+        author: textValue(item?.author || item?.created_by_name),
+        created_at: tsValue(item?.created_at),
+        isRead: ackedValue(item?.ack_at) || Boolean(item?.isRead || item?.acknowledged || item?.read),
+      }))
+      setNotices(normalized)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load notices"
       setError(message)
@@ -76,7 +120,7 @@ export default function ParentNoticesPage() {
             author={String(n.author || n.created_by_name || "School Admin")}
             date={String(n.date || n.created_at || "")}
             isRead={Boolean(n.isRead || n.acknowledged || n.read)}
-            onAcknowledge={() => handleAck(n.id)} 
+            onAcknowledge={() => handleAck(String(n.id))} 
           />
         ))}
       </div>

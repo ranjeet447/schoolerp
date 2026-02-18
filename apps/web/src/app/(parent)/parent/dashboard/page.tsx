@@ -1,35 +1,115 @@
 "use client"
 
-import React from 'react';
-import { 
-  Users, 
-  Banknote, 
-  CalendarCheck, 
-  GraduationCap,
+import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
+import {
+  Users,
+  Banknote,
   Bell,
-  ChevronRight,
-  ShieldCheck
-} from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '@schoolerp/ui';
+  ShieldCheck,
+  Loader2,
+} from "lucide-react"
+import { Card, CardHeader, CardTitle, CardContent, Button } from "@schoolerp/ui"
+import { apiClient } from "@/lib/api-client"
+
+const asArray = (payload: any) => (Array.isArray(payload) ? payload : payload?.data || [])
+
+const parseAmount = (value: unknown) => {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : 0
+}
 
 export default function ParentDashboardPage() {
-  const children = [
-    { name: 'Arjun Patel', class: 'Grade 10-A', roll: '1025', attendance: '96%', color: 'rose' },
-    { name: 'Sana Patel', class: 'Grade 5-C', roll: '542', attendance: '92%', color: 'indigo' },
-  ];
+  const [children, setChildren] = useState<any[]>([])
+  const [notices, setNotices] = useState<any[]>([])
+  const [outstandingTotal, setOutstandingTotal] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  const fetchDashboard = async () => {
+    setLoading(true)
+    setError("")
+    try {
+      const [childrenRes, noticesRes] = await Promise.all([
+        apiClient("/parent/me/children"),
+        apiClient("/parent/notices"),
+      ])
+
+      if (!childrenRes.ok) {
+        const msg = await childrenRes.text()
+        throw new Error(msg || "Failed to load children")
+      }
+
+      const childrenPayload = await childrenRes.json()
+      const childRows = asArray(childrenPayload)
+      setChildren(childRows)
+
+      if (noticesRes.ok) {
+        const noticesPayload = await noticesRes.json()
+        setNotices(asArray(noticesPayload))
+      } else {
+        setNotices([])
+      }
+
+      let outstanding = 0
+      if (childRows.length > 0) {
+        const summaryResponses = await Promise.all(
+          childRows.map((child: any) => apiClient(`/parent/children/${child.id}/fees/summary`)),
+        )
+
+        for (const res of summaryResponses) {
+          if (!res.ok) continue
+          const summary = await res.json()
+          const total = parseAmount(summary?.total_amount ?? summary?.total)
+          const paid = parseAmount(summary?.paid_amount ?? summary?.paid)
+          outstanding += Math.max(0, total - paid)
+        }
+      }
+
+      setOutstandingTotal(outstanding)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load dashboard")
+      setChildren([])
+      setNotices([])
+      setOutstandingTotal(0)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchDashboard()
+  }, [])
+
+  const recentNotices = useMemo(() => notices.slice(0, 3), [notices])
 
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-8 rounded-[2.5rem] border border-rose-100 shadow-sm">
         <div>
           <h1 className="text-4xl font-black text-slate-900 tracking-tight">Parent Portal</h1>
-          <p className="text-slate-500">Welcome back, Mr. Rajesh. Stay updated with your children's progress.</p>
+          <p className="text-slate-500">Stay updated with your children's progress and school communications.</p>
         </div>
         <div className="flex -space-x-3">
-          <div className="h-12 w-12 rounded-full border-4 border-white bg-rose-100 flex items-center justify-center text-rose-600 font-bold">AP</div>
-          <div className="h-12 w-12 rounded-full border-4 border-white bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">SP</div>
+          {children.slice(0, 2).map((child) => (
+            <div key={String(child.id)} className="h-12 w-12 rounded-full border-4 border-white bg-rose-100 flex items-center justify-center text-rose-600 font-bold">
+              {String(child.full_name || "?").slice(0, 1).toUpperCase()}
+            </div>
+          ))}
         </div>
       </div>
+
+      {error && (
+        <Card>
+          <CardContent className="pt-6 text-sm text-red-600 dark:text-red-400">{error}</CardContent>
+        </Card>
+      )}
+
+      {loading && (
+        <div className="text-sm text-muted-foreground flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading dashboard...
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
@@ -38,32 +118,30 @@ export default function ParentDashboardPage() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {children.map((child) => (
-              <div key={child.name} className="bg-white border border-rose-100 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow group">
+              <div key={String(child.id)} className="bg-white border border-rose-100 rounded-3xl p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-6">
-                  <div className={`h-12 w-12 rounded-2xl bg-${child.color}-500/10 flex items-center justify-center text-${child.color}-500 font-bold`}>
-                    {child.name[0]}
+                  <div className="h-12 w-12 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500 font-bold">
+                    {String(child.full_name || "?").slice(0, 1).toUpperCase()}
                   </div>
-                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Roll: {child.roll}</span>
+                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Roll: {String(child.roll_number || "-")}</span>
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-1">{child.name}</h3>
-                <p className="text-sm font-medium text-slate-500 mb-6">{child.class}</p>
-                
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-500 font-medium">Attendance</span>
-                    <span className="text-emerald-600 font-bold">{child.attendance}</span>
-                  </div>
-                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: child.attendance }} />
-                  </div>
-                </div>
-
-                <div className="mt-8 pt-6 border-t border-slate-50 flex items-center justify-between text-rose-600 font-bold text-xs uppercase tracking-widest group-hover:gap-2 transition-all">
-                  View Full Profile <ChevronRight className="h-4 w-4" />
+                <h3 className="text-xl font-bold text-slate-900 mb-1">{String(child.full_name || "Student")}</h3>
+                <p className="text-sm font-medium text-slate-500 mb-2">
+                  {String(child.class_name || "Class")} - {String(child.section_name || "Section")}
+                </p>
+                <div className="text-xs text-slate-500">Admission No: {String(child.admission_number || "-")}</div>
+                <div className="mt-6">
+                  <Link href={`/parent/children/${child.id}`} className="text-rose-600 font-bold text-xs uppercase tracking-widest hover:underline">
+                    View Full Profile
+                  </Link>
                 </div>
               </div>
             ))}
           </div>
+
+          {!loading && children.length === 0 && (
+            <div className="text-center py-12 bg-gray-50 border-2 border-dashed rounded-xl text-gray-400">No children linked to this account.</div>
+          )}
 
           <Card className="bg-white border-rose-100 rounded-[2rem] shadow-sm overflow-hidden">
             <CardHeader className="p-6 border-b border-rose-50 flex flex-row items-center justify-between">
@@ -72,19 +150,18 @@ export default function ParentDashboardPage() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-rose-50">
-                {[
-                  { title: 'Fee Payment Received', desc: 'Receipt #RCP-9827 issued for Arjun Patel', date: 'Today' },
-                  { title: 'Notice Published', desc: 'Annual Sports Day 2026 Schedule', date: 'Yesterday' },
-                  { title: 'Exam Results declared', desc: 'Term 1 Results for Sana Patel', date: '2 days ago' },
-                ].map((item, i) => (
-                  <div key={i} className="p-5 hover:bg-slate-50 transition-colors">
+                {recentNotices.map((item: any) => (
+                  <div key={String(item.id)} className="p-5 hover:bg-slate-50 transition-colors">
                     <div className="flex justify-between items-start mb-1">
-                      <p className="text-sm font-bold text-slate-900">{item.title}</p>
-                      <span className="text-[10px] text-slate-400 uppercase font-black">{item.date}</span>
+                      <p className="text-sm font-bold text-slate-900">{String(item.title || "Notice")}</p>
+                      <span className="text-[10px] text-slate-400 uppercase font-black">{String(item.created_at || "")}</span>
                     </div>
-                    <p className="text-xs text-slate-500">{item.desc}</p>
+                    <p className="text-xs text-slate-500">{String(item.body || "")}</p>
                   </div>
                 ))}
+                {!loading && recentNotices.length === 0 && (
+                  <div className="p-5 text-xs text-slate-500">No recent updates.</div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -97,10 +174,14 @@ export default function ParentDashboardPage() {
                 <Banknote className="h-6 w-6" />
               </div>
               <h3 className="text-2xl font-black mb-2 tracking-tight">Fee Balance</h3>
-              <p className="text-slate-400 text-sm mb-6">Total outstanding for both children is <span className="text-white font-bold">$1,200</span>.</p>
-              <button className="w-full h-12 bg-white text-slate-900 font-black uppercase text-xs tracking-widest rounded-xl hover:bg-rose-50 transition-colors">
-                Pay Fees Now
-              </button>
+              <p className="text-slate-400 text-sm mb-6">
+                Total outstanding for your children is <span className="text-white font-bold">₹{outstandingTotal.toLocaleString()}</span>.
+              </p>
+              <Link href="/parent/fees">
+                <Button className="w-full h-12 bg-white text-slate-900 font-black uppercase text-xs tracking-widest rounded-xl hover:bg-rose-50 transition-colors">
+                  Pay Fees Now
+                </Button>
+              </Link>
             </div>
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16" />
           </div>
@@ -111,12 +192,12 @@ export default function ParentDashboardPage() {
               <span className="font-bold text-sm uppercase tracking-widest">Support</span>
             </div>
             <p className="text-slate-600 text-xs mb-4">Need help with the portal or have an inquiry? </p>
-            <button className="text-rose-600 font-bold text-xs uppercase tracking-widest hover:underline underline-offset-4">
+            <Link href="/parent/notices" className="text-rose-600 font-bold text-xs uppercase tracking-widest hover:underline underline-offset-4">
               Contact School Office
-            </button>
+            </Link>
           </div>
         </div>
       </div>
     </div>
-  );
+  )
 }

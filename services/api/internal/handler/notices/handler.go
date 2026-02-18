@@ -3,6 +3,7 @@ package notices
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/schoolerp/api/internal/middleware"
@@ -33,9 +34,9 @@ func (h *Handler) RegisterParentRoutes(r chi.Router) {
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Title string         `json:"title"`
-		Body  string         `json:"body"`
-		Scope map[string]any `json:"scope"`
+		Title string `json:"title"`
+		Body  string `json:"body"`
+		Scope any    `json:"scope"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request", http.StatusBadRequest)
@@ -46,7 +47,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		TenantID:  middleware.GetTenantID(r.Context()),
 		Title:     req.Title,
 		Body:      req.Body,
-		Scope:     req.Scope,
+		Scope:     normalizeScopePayload(req.Scope),
 		CreatedBy: middleware.GetUserID(r.Context()),
 		RequestID: middleware.GetReqID(r.Context()),
 		IP:        r.RemoteAddr,
@@ -93,4 +94,35 @@ func (h *Handler) Acknowledge(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func normalizeScopePayload(scope any) map[string]any {
+	switch v := scope.(type) {
+	case nil:
+		return map[string]any{"value": "all"}
+	case string:
+		normalized := strings.TrimSpace(v)
+		if normalized == "" {
+			normalized = "all"
+		}
+		return map[string]any{"value": normalized}
+	case []any:
+		items := make([]string, 0, len(v))
+		for _, item := range v {
+			if text, ok := item.(string); ok {
+				trimmed := strings.TrimSpace(text)
+				if trimmed != "" {
+					items = append(items, trimmed)
+				}
+			}
+		}
+		if len(items) == 0 {
+			return map[string]any{"value": "all"}
+		}
+		return map[string]any{"values": items}
+	case map[string]any:
+		return v
+	default:
+		return map[string]any{"value": "all"}
+	}
 }

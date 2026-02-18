@@ -5,23 +5,88 @@ import { NoticeCard, TargetSelector, Button, Card, CardContent, CardHeader, Card
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 
-const SCOPES = [
-  { value: "all", label: "All School" },
-  { value: "class_10", label: "Grade 10" },
-  { value: "class_11", label: "Grade 11" },
-  { value: "section_a", label: "Section A" },
-]
+type ScopeTarget = { value: string; label: string }
+
+const DEFAULT_SCOPES: ScopeTarget[] = [{ value: "all", label: "All School" }]
+
+const normalizeToken = (input: string) =>
+  String(input || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+
+const classScopeValue = (className: string) => {
+  const text = String(className || "").toLowerCase()
+  const digits = text.match(/\d+/)?.[0]
+  if (digits) return `class_${digits}`
+  const normalized = normalizeToken(className)
+  return normalized ? `class_${normalized}` : ""
+}
+
+const sectionScopeValue = (sectionName: string) => {
+  const normalized = normalizeToken(sectionName)
+  return normalized ? `section_${normalized}` : ""
+}
 
 export default function AdminNoticesPage() {
   const [notices, setNotices] = useState<any[]>([])
   const [title, setTitle] = useState("")
   const [body, setBody] = useState("")
   const [scope, setScope] = useState("")
+  const [scopeTargets, setScopeTargets] = useState<ScopeTarget[]>(DEFAULT_SCOPES)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     fetchNotices()
+    fetchScopeTargets()
   }, [])
+
+  const fetchScopeTargets = async () => {
+    try {
+      const classRes = await apiClient("/admin/academic-structure/classes")
+      if (!classRes.ok) {
+        setScopeTargets(DEFAULT_SCOPES)
+        return
+      }
+
+      const classes = await classRes.json()
+      const classRows = Array.isArray(classes) ? classes : []
+
+      const targets: ScopeTarget[] = [...DEFAULT_SCOPES]
+      const seen = new Set<string>(targets.map((item) => item.value))
+
+      for (const classRow of classRows) {
+        const className = String(classRow?.name || "")
+        const classValue = classScopeValue(className)
+        if (classValue && !seen.has(classValue)) {
+          seen.add(classValue)
+          targets.push({ value: classValue, label: className })
+        }
+
+        const classID = String(classRow?.id || "")
+        if (!classID) continue
+
+        const sectionRes = await apiClient(`/admin/academic-structure/classes/${classID}/sections`)
+        if (!sectionRes.ok) continue
+
+        const sections = await sectionRes.json()
+        const sectionRows = Array.isArray(sections) ? sections : []
+        for (const sectionRow of sectionRows) {
+          const sectionName = String(sectionRow?.name || "")
+          const sectionValue = sectionScopeValue(sectionName)
+          if (sectionValue && !seen.has(sectionValue)) {
+            seen.add(sectionValue)
+            targets.push({ value: sectionValue, label: `Section ${sectionName}` })
+          }
+        }
+      }
+
+      setScopeTargets(targets)
+    } catch {
+      setScopeTargets(DEFAULT_SCOPES)
+    }
+  }
 
   const fetchNotices = async () => {
     try {
@@ -81,7 +146,7 @@ export default function AdminNoticesPage() {
                 <div className="space-y-2">
                   <Label>Target Audience</Label>
                   <TargetSelector 
-                    targets={SCOPES} 
+                    targets={scopeTargets} 
                     value={scope} 
                     onChange={setScope} 
                   />
