@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -31,6 +32,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Route("/payments", func(r chi.Router) {
 		r.Post("/offline", h.IssueReceipt)
 		r.Get("/receipts", h.ListReceiptsByStudent)
+		r.Get("/reports/billing", h.GetBillingReport)
 		r.Post("/online", h.CreateOnlineOrder)
 		r.Post("/razorpay-webhook", h.HandleWebhook)
 		r.Get("/tally-export", h.ExportTally)
@@ -158,12 +160,12 @@ func (h *Handler) CancelReceipt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	receipt, err := h.svc.CancelReceipt(r.Context(), 
-		middleware.GetTenantID(r.Context()), 
-		id, 
-		middleware.GetUserID(r.Context()), 
-		req.Reason, 
-		middleware.GetReqID(r.Context()), 
+	receipt, err := h.svc.CancelReceipt(r.Context(),
+		middleware.GetTenantID(r.Context()),
+		id,
+		middleware.GetUserID(r.Context()),
+		req.Reason,
+		middleware.GetReqID(r.Context()),
 		r.RemoteAddr,
 	)
 	if err != nil {
@@ -232,7 +234,7 @@ func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	// 1. Get Signature & Event ID
 	signature := r.Header.Get("X-Razorpay-Signature")
 	eventID := r.Header.Get("X-Razorpay-Event-Id")
-	
+
 	// 2. Read Body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -345,4 +347,47 @@ func (h *Handler) ExportTally(w http.ResponseWriter, r *http.Request) {
 	w.Write(csvData)
 }
 
+func (h *Handler) GetBillingReport(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	fromStr := strings.TrimSpace(r.URL.Query().Get("from"))
+	toStr := strings.TrimSpace(r.URL.Query().Get("to"))
 
+	now := time.Now()
+	from := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	to := now
+
+	if fromStr != "" {
+		parsed, err := time.Parse("2006-01-02", fromStr)
+		if err != nil {
+			http.Error(w, "invalid from date, expected YYYY-MM-DD", http.StatusBadRequest)
+			return
+		}
+		from = parsed
+	}
+
+	if toStr != "" {
+		parsed, err := time.Parse("2006-01-02", toStr)
+		if err != nil {
+			http.Error(w, "invalid to date, expected YYYY-MM-DD", http.StatusBadRequest)
+			return
+		}
+		to = parsed
+	}
+
+	if to.Before(from) {
+		http.Error(w, "to date cannot be before from date", http.StatusBadRequest)
+		return
+	}
+
+	summary, rows, err := h.svc.GetBillingReport(r.Context(), tenantID, from, to)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"summary": summary,
+		"rows":    rows,
+	})
+}
