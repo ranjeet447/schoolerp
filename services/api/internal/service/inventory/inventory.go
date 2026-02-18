@@ -2,6 +2,7 @@ package inventory
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -290,6 +291,20 @@ type StockTransactionParams struct {
 }
 
 func (s *InventoryService) CreateTransaction(ctx context.Context, p StockTransactionParams) (db.InventoryTransaction, error) {
+	if p.Quantity <= 0 {
+		return db.InventoryTransaction{}, errors.New("quantity must be greater than zero")
+	}
+	if p.Type != "in" && p.Type != "out" && p.Type != "adjustment" {
+		return db.InventoryTransaction{}, errors.New("invalid transaction type")
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return db.InventoryTransaction{}, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	qtx := db.New(tx)
+
 	tID := pgtype.UUID{}
 	tID.Scan(p.TenantID)
 	iID := pgtype.UUID{}
@@ -302,7 +317,20 @@ func (s *InventoryService) CreateTransaction(ctx context.Context, p StockTransac
 		sID.Scan(p.SupplierID)
 	}
 
-	// 1. Create Transaction Record
+	// 1. Validate stock before creating transaction record for OUT operations.
+	delta := p.Quantity
+	if p.Type == "out" {
+		stock, sErr := qtx.GetStock(ctx, db.GetStockParams{ItemID: iID, TenantID: tID})
+		if sErr != nil {
+			return db.InventoryTransaction{}, errors.New("insufficient stock: item has no available quantity")
+		}
+		if stock.Quantity < p.Quantity {
+			return db.InventoryTransaction{}, fmt.Errorf("insufficient stock: available %d, requested %d", stock.Quantity, p.Quantity)
+		}
+		delta = -p.Quantity
+	}
+
+	// 2. Create Transaction Record
 	price := pgtype.Numeric{}
 	price.Scan(fmt.Sprintf("%.2f", p.UnitPrice))
 
@@ -311,7 +339,7 @@ func (s *InventoryService) CreateTransaction(ctx context.Context, p StockTransac
 		refID.Scan(p.ReferenceID)
 	}
 
-	txn, err := s.q.CreateInventoryTransaction(ctx, db.CreateInventoryTransactionParams{
+	txn, err := qtx.CreateInventoryTransaction(ctx, db.CreateInventoryTransactionParams{
 		TenantID:      tID,
 		ItemID:        iID,
 		Type:          p.Type,
@@ -327,25 +355,14 @@ func (s *InventoryService) CreateTransaction(ctx context.Context, p StockTransac
 		return db.InventoryTransaction{}, fmt.Errorf("failed to create transaction: %w", err)
 	}
 
-	// 2. Update Stock Level
-	// Calculate delta: 'in' adds, 'out' subtracts
-	delta := p.Quantity
-	if p.Type == "out" {
-		// Check availability for OUT transactions
-		stock, sErr := s.q.GetStock(ctx, db.GetStockParams{ItemID: iID, TenantID: tID})
-		if sErr == nil && stock.Quantity < p.Quantity {
-			return db.InventoryTransaction{}, fmt.Errorf("insufficient stock: available %d, requested %d", stock.Quantity, p.Quantity)
-		}
-		delta = -p.Quantity
-	}
-
 	// Default location if not provided
 	location := p.Location
 	if location == "" {
 		location = "Main Store"
 	}
 
-	err = s.q.UpsertStock(ctx, db.UpsertStockParams{
+	// 3. Update Stock Level
+	err = qtx.UpsertStock(ctx, db.UpsertStockParams{
 		TenantID: tID,
 		ItemID:   iID,
 		Location: pgtype.Text{String: location, Valid: true},
@@ -355,7 +372,11 @@ func (s *InventoryService) CreateTransaction(ctx context.Context, p StockTransac
 		return db.InventoryTransaction{}, fmt.Errorf("failed to update stock: %w", err)
 	}
 
-	// 3. Audit
+	if err := tx.Commit(ctx); err != nil {
+		return db.InventoryTransaction{}, fmt.Errorf("failed to commit inventory transaction: %w", err)
+	}
+
+	// 4. Audit
 	_ = s.audit.Log(ctx, audit.Entry{
 		TenantID:     tID,
 		UserID:       uID,

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/schoolerp/api/internal/middleware"
@@ -60,7 +61,11 @@ func (h *Handler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 		SalaryStructureID string `json:"salary_structure_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.EmployeeCode) == "" || strings.TrimSpace(req.FullName) == "" || strings.TrimSpace(req.Email) == "" {
+		http.Error(w, "employee_code, full_name, and email are required", http.StatusBadRequest)
 		return
 	}
 
@@ -75,6 +80,11 @@ func (h *Handler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 		SalaryStructureID: req.SalaryStructureID,
 	})
 	if err != nil {
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "required") || strings.Contains(errMsg, "invalid") || strings.Contains(errMsg, "must") {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -107,7 +117,15 @@ func (h *Handler) CreateSalaryStructure(w http.ResponseWriter, r *http.Request) 
 		DA    float64 `json:"da"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.Name) == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+	if req.Basic < 0 || req.HRA < 0 || req.DA < 0 {
+		http.Error(w, "salary components cannot be negative", http.StatusBadRequest)
 		return
 	}
 
@@ -119,6 +137,11 @@ func (h *Handler) CreateSalaryStructure(w http.ResponseWriter, r *http.Request) 
 		DA:       req.DA,
 	})
 	if err != nil {
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "required") || strings.Contains(errMsg, "invalid") || strings.Contains(errMsg, "negative") {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -153,12 +176,25 @@ func (h *Handler) CreatePayrollRun(w http.ResponseWriter, r *http.Request) {
 		Year  int32 `json:"year"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.Month < 1 || req.Month > 12 {
+		http.Error(w, "month must be between 1 and 12", http.StatusBadRequest)
+		return
+	}
+	if req.Year < 2000 || req.Year > 2100 {
+		http.Error(w, "year must be between 2000 and 2100", http.StatusBadRequest)
 		return
 	}
 
 	pr, err := h.svc.CreatePayrollRun(r.Context(), tenantID, req.Month, req.Year, userID)
 	if err != nil {
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "required") || strings.Contains(errMsg, "invalid") || strings.Contains(errMsg, "between") {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -173,6 +209,15 @@ func (h *Handler) ExecutePayroll(w http.ResponseWriter, r *http.Request) {
 	payrollID := chi.URLParam(r, "id")
 
 	if err := h.svc.RunPayroll(r.Context(), tenantID, payrollID); err != nil {
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "already completed") {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
+		if strings.Contains(errMsg, "invalid") {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -191,12 +236,29 @@ func (h *Handler) CreateAdjustment(w http.ResponseWriter, r *http.Request) {
 		Description string  `json:"description"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.EmployeeID) == "" {
+		http.Error(w, "employee_id is required", http.StatusBadRequest)
+		return
+	}
+	if req.Amount <= 0 {
+		http.Error(w, "amount must be greater than zero", http.StatusBadRequest)
+		return
+	}
+	if req.Type != "allowance" && req.Type != "deduction" {
+		http.Error(w, "type must be 'allowance' or 'deduction'", http.StatusBadRequest)
 		return
 	}
 
 	err := h.svc.AddAdjustment(r.Context(), tenantID, req.EmployeeID, userID, req.Type, req.Amount, req.Description)
 	if err != nil {
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "required") || strings.Contains(errMsg, "invalid") || strings.Contains(errMsg, "must") {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

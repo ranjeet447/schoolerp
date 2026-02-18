@@ -3,6 +3,8 @@ package transport
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -60,6 +62,14 @@ func (h *Handler) CreateVehicle(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
+	if strings.TrimSpace(req.RegistrationNumber) == "" {
+		http.Error(w, "registration_number is required", http.StatusBadRequest)
+		return
+	}
+	if req.Capacity <= 0 {
+		http.Error(w, "capacity must be greater than zero", http.StatusBadRequest)
+		return
+	}
 
 	vehicle, err := h.svc.CreateVehicle(ctx, transport.CreateVehicleParams{
 		TenantID:           tID(tenantID),
@@ -73,6 +83,10 @@ func (h *Handler) CreateVehicle(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "capacity") {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -88,6 +102,14 @@ func (h *Handler) UpdateVehicle(w http.ResponseWriter, r *http.Request) {
 	var req createVehicleReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.RegistrationNumber) == "" {
+		http.Error(w, "registration_number is required", http.StatusBadRequest)
+		return
+	}
+	if req.Capacity <= 0 {
+		http.Error(w, "capacity must be greater than zero", http.StatusBadRequest)
 		return
 	}
 
@@ -148,6 +170,10 @@ func (h *Handler) CreateDriver(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid body", http.StatusBadRequest)
 		return
 	}
+	if strings.TrimSpace(req.FullName) == "" {
+		http.Error(w, "full_name is required", http.StatusBadRequest)
+		return
+	}
 
 	driver, err := h.svc.CreateDriver(ctx, transport.CreateDriverParams{
 		TenantID:      middleware.GetTenantID(ctx),
@@ -174,6 +200,10 @@ func (h *Handler) UpdateDriver(w http.ResponseWriter, r *http.Request) {
 	var req createDriverReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.FullName) == "" {
+		http.Error(w, "full_name is required", http.StatusBadRequest)
 		return
 	}
 
@@ -220,6 +250,10 @@ func (h *Handler) CreateRoute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid body", http.StatusBadRequest)
 		return
 	}
+	if strings.TrimSpace(req.Name) == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
 
 	route, err := h.svc.CreateRoute(ctx, transport.CreateRouteParams{
 		TenantID:    middleware.GetTenantID(ctx),
@@ -245,6 +279,10 @@ func (h *Handler) UpdateRoute(w http.ResponseWriter, r *http.Request) {
 	var req createRouteReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.Name) == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
 		return
 	}
 
@@ -289,6 +327,10 @@ func (h *Handler) CreateRouteStop(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid body", http.StatusBadRequest)
 		return
 	}
+	if strings.TrimSpace(req.Name) == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
 
 	stop, err := h.svc.CreateRouteStop(r.Context(), transport.CreateStopParams{
 		RouteID:       routeID,
@@ -330,12 +372,21 @@ func (h *Handler) CreateAllocation(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid body", http.StatusBadRequest)
 		return
 	}
+	if strings.TrimSpace(req.StudentID) == "" || strings.TrimSpace(req.RouteID) == "" {
+		http.Error(w, "student_id and route_id are required", http.StatusBadRequest)
+		return
+	}
 
 	var startDate pgtype.Date
 	if req.StartDate != "" {
-		startDate.Scan(req.StartDate)
+		parsedDate, err := time.Parse("2006-01-02", req.StartDate)
+		if err != nil {
+			http.Error(w, "start_date must be in YYYY-MM-DD format", http.StatusBadRequest)
+			return
+		}
+		startDate = pgtype.Date{Time: parsedDate, Valid: true}
 	} else {
-		// default to today or handle error
+		startDate = pgtype.Date{Time: time.Now(), Valid: true}
 	}
 
 	alloc, err := h.svc.CreateAllocation(ctx, transport.CreateAllocationParams{

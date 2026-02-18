@@ -62,10 +62,12 @@ export function IssueDialog({ open, onOpenChange, onSuccess }: IssueDialogProps)
       })
 
       if (res.ok) {
+        toast.success("Book issued successfully")
         onSuccess()
         onOpenChange(false)
       } else {
-        toast.error("Failed to issue book. Check stock.")
+        const message = await res.text()
+        toast.error(message || "Failed to issue book")
       }
     } catch (error) {
       console.error(error)

@@ -7,19 +7,22 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/schoolerp/api/internal/db"
 	"github.com/schoolerp/api/internal/foundation/audit"
 )
 
 type LibraryService struct {
 	q          db.Querier
+	pool       *pgxpool.Pool
 	audit      *audit.Logger
 	finePerDay float64
 }
 
-func NewLibraryService(q db.Querier, audit *audit.Logger) *LibraryService {
+func NewLibraryService(q db.Querier, pool *pgxpool.Pool, audit *audit.Logger) *LibraryService {
 	return &LibraryService{
 		q:          q,
+		pool:       pool,
 		audit:      audit,
 		finePerDay: 1.0, // Default $1 per day, can be externalized to DB/Config
 	}
@@ -202,13 +205,24 @@ type IssueBookParams struct {
 }
 
 func (s *LibraryService) IssueBook(ctx context.Context, p IssueBookParams) (db.LibraryIssue, error) {
+	if p.Days <= 0 {
+		p.Days = 14
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return db.LibraryIssue{}, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	qtx := db.New(tx)
+
 	// 1. Check Availability
 	tID := pgtype.UUID{}
 	tID.Scan(p.TenantID)
 	bID := pgtype.UUID{}
 	bID.Scan(p.BookID)
 	
-	book, err := s.q.GetBook(ctx, db.GetBookParams{ID: bID, TenantID: tID})
+	book, err := qtx.GetBook(ctx, db.GetBookParams{ID: bID, TenantID: tID})
 	if err != nil {
 		return db.LibraryIssue{}, errors.New("book not found")
 	}
@@ -220,7 +234,7 @@ func (s *LibraryService) IssueBook(ctx context.Context, p IssueBookParams) (db.L
 	// 2. Decrement Copies
 	copyID := pgtype.UUID{}
 	copyID.Scan(p.BookID)
-	if err := s.q.UpdateBookCopies(ctx, db.UpdateBookCopiesParams{
+	if err := qtx.UpdateBookCopies(ctx, db.UpdateBookCopiesParams{
 		ID:              copyID,
 		AvailableCopies: -1,
 	}); err != nil {
@@ -235,7 +249,7 @@ func (s *LibraryService) IssueBook(ctx context.Context, p IssueBookParams) (db.L
 	
 	dueDate := time.Now().AddDate(0, 0, p.Days)
 	
-	issue, err := s.q.IssueBook(ctx, db.IssueBookParams{
+	issue, err := qtx.IssueBook(ctx, db.IssueBookParams{
 		TenantID:  tID,
 		BookID:    bID,
 		StudentID: sID,
@@ -246,6 +260,10 @@ func (s *LibraryService) IssueBook(ctx context.Context, p IssueBookParams) (db.L
 	})
 	if err != nil {
 		return db.LibraryIssue{}, fmt.Errorf("failed to issue book: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return db.LibraryIssue{}, fmt.Errorf("failed to commit issue transaction: %w", err)
 	}
 
 	_ = s.audit.Log(ctx, audit.Entry{
@@ -270,13 +288,20 @@ type ReturnBookParams struct {
 }
 
 func (s *LibraryService) ReturnBook(ctx context.Context, p ReturnBookParams) (db.LibraryIssue, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return db.LibraryIssue{}, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	qtx := db.New(tx)
+
 	tID := pgtype.UUID{}
 	tID.Scan(p.TenantID)
 	iID := pgtype.UUID{}
 	iID.Scan(p.IssueID)
 
 	// 1. Fetch the Issue to get Due Date
-	issue, err := s.q.GetIssue(ctx, db.GetIssueParams{ID: iID, TenantID: tID})
+	issue, err := qtx.GetIssue(ctx, db.GetIssueParams{ID: iID, TenantID: tID})
 	if err != nil {
 		return db.LibraryIssue{}, fmt.Errorf("issue not found: %w", err)
 	}
@@ -299,7 +324,7 @@ func (s *LibraryService) ReturnBook(ctx context.Context, p ReturnBookParams) (db
 	fineNumeric.Scan(fmt.Sprintf("%.2f", fineAmount))
 
 	// 3. Update Issue
-	updatedIssue, err := s.q.ReturnBook(ctx, db.ReturnBookParams{
+	updatedIssue, err := qtx.ReturnBook(ctx, db.ReturnBookParams{
 		ID:         iID,
 		TenantID:   tID,
 		ReturnDate: pgtype.Timestamptz{Time: now, Valid: true},
@@ -313,11 +338,15 @@ func (s *LibraryService) ReturnBook(ctx context.Context, p ReturnBookParams) (db
 
 	// 4. Increment Copies
 	bID := issue.BookID
-	if err := s.q.UpdateBookCopies(ctx, db.UpdateBookCopiesParams{
+	if err := qtx.UpdateBookCopies(ctx, db.UpdateBookCopiesParams{
 		ID:              bID,
 		AvailableCopies: 1,
 	}); err != nil {
 		return updatedIssue, fmt.Errorf("book returned but failed to update copies: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return db.LibraryIssue{}, fmt.Errorf("failed to commit return transaction: %w", err)
 	}
 
 	return updatedIssue, nil

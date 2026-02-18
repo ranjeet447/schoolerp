@@ -3,9 +3,13 @@ package hrms
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/schoolerp/api/internal/db"
 	"github.com/schoolerp/api/internal/foundation/approvals"
 	"github.com/schoolerp/api/internal/foundation/audit"
@@ -14,13 +18,14 @@ import (
 
 type Service struct {
 	q         db.Querier
+	pool      *pgxpool.Pool
 	audit     *audit.Logger
 	approvals *approvals.Service
 	quota     *quota.Service
 }
 
-func NewService(q db.Querier, audit *audit.Logger, approvals *approvals.Service, quotaSvc *quota.Service) *Service {
-	return &Service{q: q, audit: audit, approvals: approvals, quota: quotaSvc}
+func NewService(q db.Querier, pool *pgxpool.Pool, audit *audit.Logger, approvals *approvals.Service, quotaSvc *quota.Service) *Service {
+	return &Service{q: q, pool: pool, audit: audit, approvals: approvals, quota: quotaSvc}
 }
 
 // ==================== Employees ====================
@@ -39,6 +44,13 @@ type CreateEmployeeParams struct {
 }
 
 func (s *Service) CreateEmployee(ctx context.Context, p CreateEmployeeParams) (db.Employee, error) {
+	if strings.TrimSpace(p.EmployeeCode) == "" || strings.TrimSpace(p.FullName) == "" {
+		return db.Employee{}, errors.New("employee_code and full_name are required")
+	}
+	if strings.TrimSpace(p.Email) == "" {
+		return db.Employee{}, errors.New("email is required")
+	}
+
 	if s.quota != nil {
 		if err := s.quota.CheckQuota(ctx, p.TenantID, quota.QuotaStaff); err != nil {
 			return db.Employee{}, err
@@ -49,7 +61,18 @@ func (s *Service) CreateEmployee(ctx context.Context, p CreateEmployeeParams) (d
 	tID.Scan(p.TenantID)
 	ssID := pgtype.UUID{}
 	if p.SalaryStructureID != "" {
-		ssID.Scan(p.SalaryStructureID)
+		if err := ssID.Scan(p.SalaryStructureID); err != nil {
+			return db.Employee{}, errors.New("invalid salary_structure_id")
+		}
+	}
+
+	joinDate := pgtype.Date{}
+	if p.JoinDate != "" {
+		parsed, err := time.Parse("2006-01-02", p.JoinDate)
+		if err != nil {
+			return db.Employee{}, errors.New("join_date must be in YYYY-MM-DD format")
+		}
+		joinDate = pgtype.Date{Time: parsed, Valid: true}
 	}
 
 	// 1. Encrypt Bank Details
@@ -70,6 +93,7 @@ func (s *Service) CreateEmployee(ctx context.Context, p CreateEmployeeParams) (d
 		Phone:             pgtype.Text{String: p.Phone, Valid: p.Phone != ""},
 		Department:        pgtype.Text{String: p.Department, Valid: p.Department != ""},
 		Designation:       pgtype.Text{String: p.Designation, Valid: p.Designation != ""},
+		JoinDate:          joinDate,
 		SalaryStructureID: ssID,
 		BankDetails:       []byte(encryptedBank),
 		Status:            "active",
@@ -99,6 +123,13 @@ type CreateSalaryStructureParams struct {
 }
 
 func (s *Service) CreateSalaryStructure(ctx context.Context, p CreateSalaryStructureParams) (db.SalaryStructure, error) {
+	if strings.TrimSpace(p.Name) == "" {
+		return db.SalaryStructure{}, errors.New("name is required")
+	}
+	if p.Basic < 0 || p.HRA < 0 || p.DA < 0 {
+		return db.SalaryStructure{}, errors.New("salary components cannot be negative")
+	}
+
 	tID := pgtype.UUID{}
 	tID.Scan(p.TenantID)
 
@@ -129,6 +160,13 @@ func (s *Service) ListSalaryStructures(ctx context.Context, tenantID string) ([]
 // ==================== Payroll ====================
 
 func (s *Service) CreatePayrollRun(ctx context.Context, tenantID string, month, year int32, userID string) (db.PayrollRun, error) {
+	if month < 1 || month > 12 {
+		return db.PayrollRun{}, errors.New("month must be between 1 and 12")
+	}
+	if year < 2000 || year > 2100 {
+		return db.PayrollRun{}, errors.New("year must be between 2000 and 2100")
+	}
+
 	tID := pgtype.UUID{}
 	tID.Scan(tenantID)
 	uID := pgtype.UUID{}
@@ -155,19 +193,37 @@ func (s *Service) ListPayrollRuns(ctx context.Context, tenantID string, limit, o
 
 // RunPayroll generates payslips for all active employees
 func (s *Service) RunPayroll(ctx context.Context, tenantID, payrollRunID string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin payroll transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	qtx := db.New(tx)
+
 	tID := pgtype.UUID{}
 	tID.Scan(tenantID)
 	prID := pgtype.UUID{}
 	prID.Scan(payrollRunID)
 
 	// 1. Verify payroll run
-	_, err := s.q.GetPayrollRun(ctx, db.GetPayrollRunParams{ID: prID, TenantID: tID})
+	run, err := qtx.GetPayrollRun(ctx, db.GetPayrollRunParams{ID: prID, TenantID: tID})
 	if err != nil {
 		return err
 	}
+	if run.Status == "completed" {
+		return errors.New("payroll run is already completed")
+	}
+
+	if _, err := qtx.UpdatePayrollRunStatus(ctx, db.UpdatePayrollRunStatusParams{
+		ID:       prID,
+		TenantID: tID,
+		Status:   "processing",
+	}); err != nil {
+		return fmt.Errorf("failed to set payroll run to processing: %w", err)
+	}
 
 	// 2. Get all employees
-	employees, err := s.q.ListEmployees(ctx, db.ListEmployeesParams{
+	employees, err := qtx.ListEmployees(ctx, db.ListEmployeesParams{
 		TenantID: tID,
 		Limit:    1000,
 		Offset:   0,
@@ -183,13 +239,13 @@ func (s *Service) RunPayroll(ctx context.Context, tenantID, payrollRunID string)
 		}
 
 		// Calculate payslip
-		payslip, err := s.calculatePayslip(ctx, tID, prID, emp.ID)
+		payslip, err := s.calculatePayslip(ctx, qtx, tID, emp.ID)
 		if err != nil {
-			continue // Log error and continue with next employee
+			return fmt.Errorf("failed to calculate payslip for employee %s: %w", emp.ID.String(), err)
 		}
 
 		// Save payslip
-		ps, err := s.q.CreatePayslip(ctx, db.CreatePayslipParams{
+		ps, err := qtx.CreatePayslip(ctx, db.CreatePayslipParams{
 			PayrollRunID:    prID,
 			EmployeeID:      emp.ID,
 			GrossSalary:     payslip.Gross,
@@ -198,40 +254,55 @@ func (s *Service) RunPayroll(ctx context.Context, tenantID, payrollRunID string)
 			Breakdown:       payslip.Breakdown,
 			Status:          "generated",
 		})
-		if err == nil {
-			// Link approved adjustments to this run
-			adjs, _ := s.q.GetApprovedAdjustmentsForRun(ctx, db.GetApprovedAdjustmentsForRunParams{
-				TenantID:   tID,
-				EmployeeID: emp.ID,
-			})
-			for _, a := range adjs {
-				s.q.LinkAdjustmentToRun(ctx, db.LinkAdjustmentToRunParams{
-					ID:           a.ID,
-					TenantID:     tID,
-					PayrollRunID: prID,
-				})
-			}
+		if err != nil {
+			return fmt.Errorf("failed to create payslip for employee %s: %w", emp.ID.String(), err)
+		}
 
-			// Produce Outbox Event for background PDF generation
-			payload, _ := json.Marshal(map[string]interface{}{
-				"payslip_id":  ps.ID,
-				"employee_id": emp.ID,
-				"run_id":      prID,
-			})
-			s.q.CreateOutboxEvent(ctx, db.CreateOutboxEventParams{
-				TenantID:  tID,
-				EventType: "payslip.generated",
-				Payload:   payload,
-			})
+		// Link approved adjustments to this run
+		adjs, err := qtx.GetApprovedAdjustmentsForRun(ctx, db.GetApprovedAdjustmentsForRunParams{
+			TenantID:   tID,
+			EmployeeID: emp.ID,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to fetch approved adjustments for employee %s: %w", emp.ID.String(), err)
+		}
+		for _, a := range adjs {
+			if err := qtx.LinkAdjustmentToRun(ctx, db.LinkAdjustmentToRunParams{
+				ID:           a.ID,
+				TenantID:     tID,
+				PayrollRunID: prID,
+			}); err != nil {
+				return fmt.Errorf("failed to link adjustment %s to payroll run: %w", a.ID.String(), err)
+			}
+		}
+
+		// Produce Outbox Event for background PDF generation
+		payload, _ := json.Marshal(map[string]interface{}{
+			"payslip_id":  ps.ID,
+			"employee_id": emp.ID,
+			"run_id":      prID,
+		})
+		if _, err := qtx.CreateOutboxEvent(ctx, db.CreateOutboxEventParams{
+			TenantID:  tID,
+			EventType: "payslip.generated",
+			Payload:   payload,
+		}); err != nil {
+			return fmt.Errorf("failed to create outbox event for employee %s: %w", emp.ID.String(), err)
 		}
 	}
 
 	// 4. Mark payroll as completed
-	s.q.UpdatePayrollRunStatus(ctx, db.UpdatePayrollRunStatusParams{
+	if _, err := qtx.UpdatePayrollRunStatus(ctx, db.UpdatePayrollRunStatusParams{
 		ID:       prID,
 		TenantID: tID,
 		Status:   "completed",
-	})
+	}); err != nil {
+		return fmt.Errorf("failed to mark payroll run completed: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit payroll transaction: %w", err)
+	}
 
 	return nil
 }
@@ -243,9 +314,9 @@ type payslipResult struct {
 	Breakdown       []byte
 }
 
-func (s *Service) calculatePayslip(ctx context.Context, tID, prID, empID pgtype.UUID) (*payslipResult, error) {
+func (s *Service) calculatePayslip(ctx context.Context, q db.Querier, tID, empID pgtype.UUID) (*payslipResult, error) {
 	// Fetch salary structure and employee info
-	info, err := s.q.GetEmployeeSalaryInfo(ctx, db.GetEmployeeSalaryInfoParams{
+	info, err := q.GetEmployeeSalaryInfo(ctx, db.GetEmployeeSalaryInfoParams{
 		ID:       empID,
 		TenantID: tID,
 	})
@@ -270,7 +341,7 @@ func (s *Service) calculatePayslip(ctx context.Context, tID, prID, empID pgtype.
 	breakdown["DA"] = d.Float64
 
 	// Process approved adjustments
-	adjs, _ := s.q.GetApprovedAdjustmentsForRun(ctx, db.GetApprovedAdjustmentsForRunParams{
+	adjs, _ := q.GetApprovedAdjustmentsForRun(ctx, db.GetApprovedAdjustmentsForRunParams{
 		TenantID:   tID,
 		EmployeeID: empID,
 	})
@@ -307,6 +378,16 @@ func (s *Service) calculatePayslip(ctx context.Context, tID, prID, empID pgtype.
 }
 
 func (s *Service) AddAdjustment(ctx context.Context, tenantID, employeeID, userID, adjType string, amount float64, desc string) error {
+	if adjType != "allowance" && adjType != "deduction" {
+		return errors.New("type must be 'allowance' or 'deduction'")
+	}
+	if amount <= 0 {
+		return errors.New("amount must be greater than zero")
+	}
+	if s.approvals == nil {
+		return errors.New("approval workflow is not configured")
+	}
+
 	tID := pgtype.UUID{}
 	tID.Scan(tenantID)
 	eID := pgtype.UUID{}

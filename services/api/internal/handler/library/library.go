@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/schoolerp/api/internal/middleware"
@@ -52,6 +53,14 @@ func (h *Handler) CreateBook(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
+	if strings.TrimSpace(req.Title) == "" && strings.TrimSpace(req.ISBN) == "" {
+		http.Error(w, "title or isbn is required", http.StatusBadRequest)
+		return
+	}
+	if req.TotalCopies <= 0 {
+		http.Error(w, "total_copies must be greater than zero", http.StatusBadRequest)
+		return
+	}
 
 	book, err := h.svc.CreateBook(ctx, library.CreateBookParams{
 		TenantID:      middleware.GetTenantID(ctx),
@@ -71,6 +80,15 @@ func (h *Handler) CreateBook(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "not found") {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		if strings.Contains(errMsg, "not available") {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -83,6 +101,14 @@ func (h *Handler) UpdateBook(w http.ResponseWriter, r *http.Request) {
 	var req createBookReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.Title) == "" && strings.TrimSpace(req.ISBN) == "" {
+		http.Error(w, "title or isbn is required", http.StatusBadRequest)
+		return
+	}
+	if req.TotalCopies <= 0 {
+		http.Error(w, "total_copies must be greater than zero", http.StatusBadRequest)
 		return
 	}
 
@@ -104,6 +130,11 @@ func (h *Handler) UpdateBook(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "not found") {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -138,6 +169,13 @@ func (h *Handler) IssueBook(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid body", http.StatusBadRequest)
 		return
 	}
+	if strings.TrimSpace(req.BookID) == "" || strings.TrimSpace(req.StudentID) == "" {
+		http.Error(w, "book_id and student_id are required", http.StatusBadRequest)
+		return
+	}
+	if req.Days <= 0 {
+		req.Days = 14
+	}
 
 	issue, err := h.svc.IssueBook(ctx, library.IssueBookParams{
 		TenantID:  middleware.GetTenantID(ctx),
@@ -165,7 +203,13 @@ func (h *Handler) ReturnBook(w http.ResponseWriter, r *http.Request) {
 	issueID := chi.URLParam(r, "id")
 	
 	var req returnBookReq
-	json.NewDecoder(r.Body).Decode(&req) // Optional body
+	if r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&req)
+	}
+	if strings.TrimSpace(issueID) == "" {
+		http.Error(w, "issue id is required", http.StatusBadRequest)
+		return
+	}
 
 	issue, err := h.svc.ReturnBook(ctx, library.ReturnBookParams{
 		TenantID: middleware.GetTenantID(ctx),

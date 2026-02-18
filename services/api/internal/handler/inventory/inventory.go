@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/schoolerp/api/internal/middleware"
@@ -53,6 +54,14 @@ func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
+	if strings.TrimSpace(req.Name) == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+	if req.Type != "asset" && req.Type != "consumable" {
+		http.Error(w, "type must be 'asset' or 'consumable'", http.StatusBadRequest)
+		return
+	}
 
 	cat, err := h.svc.CreateCategory(ctx,
 		middleware.GetTenantID(ctx),
@@ -61,6 +70,15 @@ func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if err != nil {
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "insufficient stock") {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
+		if strings.Contains(errMsg, "invalid") || strings.Contains(errMsg, "must") {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -93,6 +111,10 @@ func (h *Handler) CreateSupplier(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
+	if strings.TrimSpace(req.Name) == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
 
 	supplier, err := h.svc.CreateSupplier(ctx,
 		middleware.GetTenantID(ctx),
@@ -113,6 +135,10 @@ func (h *Handler) UpdateSupplier(w http.ResponseWriter, r *http.Request) {
 	var req createSupplierReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.Name) == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
 		return
 	}
 
@@ -164,6 +190,14 @@ func (h *Handler) CreateItem(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
+	if strings.TrimSpace(req.Name) == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.CategoryID) == "" {
+		http.Error(w, "category_id is required", http.StatusBadRequest)
+		return
+	}
 
 	item, err := h.svc.CreateItem(ctx,
 		middleware.GetTenantID(ctx),
@@ -184,6 +218,14 @@ func (h *Handler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 	var req createItemReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.Name) == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.CategoryID) == "" {
+		http.Error(w, "category_id is required", http.StatusBadRequest)
 		return
 	}
 
@@ -242,6 +284,18 @@ func (h *Handler) CreateTransaction(w http.ResponseWriter, r *http.Request) {
 	var req createTxnReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.ItemID) == "" {
+		http.Error(w, "item_id is required", http.StatusBadRequest)
+		return
+	}
+	if req.Quantity <= 0 {
+		http.Error(w, "quantity must be greater than zero", http.StatusBadRequest)
+		return
+	}
+	if req.Type != "in" && req.Type != "out" && req.Type != "adjustment" {
+		http.Error(w, "type must be 'in', 'out', or 'adjustment'", http.StatusBadRequest)
 		return
 	}
 

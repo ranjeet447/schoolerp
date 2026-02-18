@@ -79,10 +79,12 @@ export function AllocationDialog({ open, onOpenChange, onSuccess }: AllocationDi
       })
 
       if (res.ok) {
+        toast.success("Student assigned to route")
         onSuccess()
         onOpenChange(false)
       } else {
-        toast.error("Failed to create allocation")
+        const message = await res.text()
+        toast.error(message || "Failed to create allocation")
       }
     } catch (error) {
       console.error(error)

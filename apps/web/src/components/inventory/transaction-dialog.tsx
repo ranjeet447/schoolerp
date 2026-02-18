@@ -67,10 +67,12 @@ export function TransactionDialog({ open, onOpenChange, onSuccess }: Transaction
       })
 
       if (res.ok) {
+        toast.success("Transaction recorded")
         onSuccess()
         onOpenChange(false)
       } else {
-        toast.error("Failed to record transaction")
+        const message = await res.text()
+        toast.error(message || "Failed to record transaction")
       }
     } catch (error) {
       console.error(error)
