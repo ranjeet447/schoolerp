@@ -31,7 +31,7 @@ type CreateStudentParams struct {
 	Gender          string
 	SectionID       string
 	Status          string
-	
+
 	// Audit Context
 	UserID    string
 	RequestID string
@@ -49,7 +49,7 @@ func (s *StudentService) CreateStudent(ctx context.Context, p CreateStudentParam
 	// 1. Convert IDs
 	tenantUUID := pgtype.UUID{}
 	tenantUUID.Scan(p.TenantID)
-	
+
 	sectionUUID := pgtype.UUID{}
 	if p.SectionID != "" {
 		sectionUUID.Scan(p.SectionID)
@@ -74,8 +74,8 @@ func (s *StudentService) CreateStudent(ctx context.Context, p CreateStudentParam
 	// 3. Audit Log
 	userUUID := pgtype.UUID{}
 	userUUID.Scan(p.UserID)
-	
-	// We audit asynchronously or synchronously depending on requirements. 
+
+	// We audit asynchronously or synchronously depending on requirements.
 	// For Release 1 consistency, sync is safer.
 	_ = s.audit.Log(ctx, audit.Entry{
 		TenantID:     tenantUUID,
@@ -105,7 +105,7 @@ func (s *StudentService) ListStudents(ctx context.Context, tenantID string, limi
 func (s *StudentService) GetStudent(ctx context.Context, tenantID, studentID string) (db.GetStudentRow, error) {
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(tenantID)
-	
+
 	sUUID := pgtype.UUID{}
 	sUUID.Scan(studentID)
 
@@ -114,15 +114,16 @@ func (s *StudentService) GetStudent(ctx context.Context, tenantID, studentID str
 		TenantID: tUUID,
 	})
 }
+
 type UpdateStudentParams struct {
-	ID              string
-	TenantID        string
-	FullName        string
-	DOB             pgtype.Date
-	Gender          string
-	SectionID       string
-	Status          string
-	
+	ID        string
+	TenantID  string
+	FullName  string
+	DOB       pgtype.Date
+	Gender    string
+	SectionID string
+	Status    string
+
 	// Audit Context
 	UserID    string
 	RequestID string
@@ -132,7 +133,7 @@ type UpdateStudentParams struct {
 func (s *StudentService) ListChildrenByParent(ctx context.Context, tenantID, userID string) ([]db.GetChildrenByParentUserRow, error) {
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(tenantID)
-	
+
 	uUUID := pgtype.UUID{}
 	uUUID.Scan(userID)
 
@@ -145,10 +146,10 @@ func (s *StudentService) ListChildrenByParent(ctx context.Context, tenantID, use
 func (s *StudentService) UpdateStudent(ctx context.Context, p UpdateStudentParams) (db.Student, error) {
 	stUUID := pgtype.UUID{}
 	stUUID.Scan(p.ID)
-	
+
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(p.TenantID)
-	
+
 	secUUID := pgtype.UUID{}
 	if p.SectionID != "" {
 		secUUID.Scan(p.SectionID)
@@ -171,7 +172,7 @@ func (s *StudentService) UpdateStudent(ctx context.Context, p UpdateStudentParam
 
 	userUUID := pgtype.UUID{}
 	userUUID.Scan(p.UserID)
-	
+
 	_ = s.audit.Log(ctx, audit.Entry{
 		TenantID:     tUUID,
 		UserID:       userUUID,
@@ -190,7 +191,7 @@ func (s *StudentService) UpdateStudent(ctx context.Context, p UpdateStudentParam
 func (s *StudentService) DeleteStudent(ctx context.Context, tenantID, studentID, userID, reqID, ip string) error {
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(tenantID)
-	
+
 	sUUID := pgtype.UUID{}
 	sUUID.Scan(studentID)
 
@@ -232,7 +233,7 @@ type CreateGuardianParams struct {
 	Address   string
 	Relation  string
 	IsPrimary bool
-	
+
 	// Audit
 	UserID    string
 	RequestID string
@@ -242,7 +243,7 @@ type CreateGuardianParams struct {
 func (s *StudentService) AddGuardian(ctx context.Context, p CreateGuardianParams) (db.Guardian, error) {
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(p.TenantID)
-	
+
 	sUUID := pgtype.UUID{}
 	sUUID.Scan(p.StudentID)
 
@@ -258,12 +259,12 @@ func (s *StudentService) AddGuardian(ctx context.Context, p CreateGuardianParams
 	}
 
 	err = s.q.LinkStudentGuardian(ctx, db.LinkStudentGuardianParams{
-		StudentID:  sUUID,
-		GuardianID: guardian.ID,
+		StudentID:    sUUID,
+		GuardianID:   guardian.ID,
 		Relationship: p.Relation,
-		IsPrimary:  pgtype.Bool{Bool: p.IsPrimary, Valid: true},
+		IsPrimary:    pgtype.Bool{Bool: p.IsPrimary, Valid: true},
 	})
-	
+
 	if err != nil {
 		return guardian, err
 	}
@@ -281,20 +282,21 @@ func (s *StudentService) AddGuardian(ctx context.Context, p CreateGuardianParams
 		After:        guardian,
 		IPAddress:    p.IP,
 	})
-	
+
 	return guardian, nil
 }
 
 // Academic Structure (Wrappers)
 
-func (s *StudentService) CreateClass(ctx context.Context, tenantID string, name string, level int32, userID, reqID, ip string) (db.Class, error) {
+func (s *StudentService) CreateClass(ctx context.Context, tenantID string, name string, level int32, stream, userID, reqID, ip string) (db.Class, error) {
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(tenantID)
-	
+
 	class, err := s.q.CreateClass(ctx, db.CreateClassParams{
 		TenantID: tUUID,
 		Name:     name,
 		Level:    pgtype.Int4{Int32: level, Valid: true},
+		Stream:   pgtype.Text{String: strings.TrimSpace(stream), Valid: strings.TrimSpace(stream) != ""},
 	})
 	if err != nil {
 		return db.Class{}, err
@@ -322,7 +324,7 @@ func (s *StudentService) CreateSection(ctx context.Context, tenantID string, cla
 	tUUID.Scan(tenantID)
 	cUUID := pgtype.UUID{}
 	cUUID.Scan(classID)
-	
+
 	section, err := s.q.CreateSection(ctx, db.CreateSectionParams{
 		TenantID: tUUID,
 		ClassID:  cUUID,
@@ -352,18 +354,18 @@ func (s *StudentService) CreateSection(ctx context.Context, tenantID string, cla
 func (s *StudentService) ListAcademicStructure(ctx context.Context, tenantID string) ([]db.Class, []db.Section, error) {
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(tenantID)
-	
+
 	classes, err := s.q.ListClasses(ctx, tUUID)
 	if err != nil {
 		return nil, nil, err
 	}
-	
+
 	sections, err := s.q.ListSectionsByTenant(ctx, tUUID)
 	if err != nil {
-		return classes, nil, nil // Partial success or error? 
+		return classes, nil, err
 	}
-	
-	return classes, sections, nil 
+
+	return classes, sections, nil
 }
 
 func (s *StudentService) CreateAcademicYear(ctx context.Context, tenantID, name, startDate, endDate, userID, reqID, ip string) (db.AcademicYear, error) {
@@ -462,12 +464,12 @@ func (s *StudentService) ListSubjects(ctx context.Context, tenantID string) ([]d
 type ImportResult struct {
 	TotalRows    int      `json:"total_rows"`
 	SuccessCount int      `json:"success_count"`
-	Errors      []string `json:"errors"`
+	Errors       []string `json:"errors"`
 }
 
 func (s *StudentService) ImportStudents(ctx context.Context, tenantID string, r io.Reader, userID, reqID, ip string) (ImportResult, error) {
 	reader := csv.NewReader(r)
-	
+
 	// Skip header
 	_, err := reader.Read()
 	if err != nil {
@@ -475,7 +477,7 @@ func (s *StudentService) ImportStudents(ctx context.Context, tenantID string, r 
 	}
 
 	result := ImportResult{}
-	
+
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(tenantID)
 
@@ -500,7 +502,9 @@ func (s *StudentService) ImportStudents(ctx context.Context, tenantID string, r 
 		admNo := record[0]
 		name := record[1]
 		gender := ""
-		if len(record) > 2 { gender = record[2] }
+		if len(record) > 2 {
+			gender = record[2]
+		}
 
 		// Use CreateStudent logic
 		_, err = s.CreateStudent(ctx, CreateStudentParams{

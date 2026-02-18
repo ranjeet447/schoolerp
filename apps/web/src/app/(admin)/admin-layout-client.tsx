@@ -8,6 +8,7 @@ import {
   GraduationCap, 
   Banknote, 
   CalendarCheck, 
+  CalendarDays,
   FileText,
   Settings,
   Menu,
@@ -28,13 +29,14 @@ const NAV_ITEMS = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
   { href: '/admin/students', label: 'Students', icon: Users, permission: 'sis:read' },
   { href: '/admin/attendance', label: 'Attendance', icon: CalendarCheck, permission: 'attendance:read' },
+  { href: '/admin/timetable', label: 'Timetable', icon: CalendarDays, permission: 'attendance:read' },
   { href: '/admin/finance', label: 'Fees & Finance', icon: Banknote, permission: 'fees:read' },
   { href: '/admin/exams', label: 'Exams & Results', icon: GraduationCap, permission: 'exams:read' },
   { href: '/admin/notices', label: 'Notices', icon: FileText, permission: 'notices:read' },
   { href: '/admin/settings/users', label: 'User Management', icon: Users, permission: 'tenant:users:manage' },
   { href: '/admin/settings/roles', label: 'Roles & Permissions', icon: Shield, permission: 'tenant:roles:manage' },
   { href: '/admin/settings/onboarding', label: 'School Onboarding', icon: School, permission: 'platform:manage' },
-  { href: '/admin/settings', label: 'Settings', icon: Settings, permission: 'tenant:settings:view' },
+  { href: '/admin/settings/master-data', label: 'Settings', icon: Settings, permission: 'tenant:settings:view' },
 ];
 
 export default function AdminLayoutClient({
