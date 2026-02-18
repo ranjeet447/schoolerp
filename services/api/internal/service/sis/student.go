@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/schoolerp/api/internal/db"
@@ -363,6 +364,97 @@ func (s *StudentService) ListAcademicStructure(ctx context.Context, tenantID str
 	}
 	
 	return classes, sections, nil 
+}
+
+func (s *StudentService) CreateAcademicYear(ctx context.Context, tenantID, name, startDate, endDate, userID, reqID, ip string) (db.AcademicYear, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+
+	start := pgtype.Date{}
+	if err := start.Scan(startDate); err != nil {
+		return db.AcademicYear{}, err
+	}
+
+	end := pgtype.Date{}
+	if err := end.Scan(endDate); err != nil {
+		return db.AcademicYear{}, err
+	}
+
+	year, err := s.q.CreateAcademicYear(ctx, db.CreateAcademicYearParams{
+		TenantID:  tUUID,
+		Name:      name,
+		StartDate: start,
+		EndDate:   end,
+		IsActive:  pgtype.Bool{Bool: true, Valid: true},
+	})
+	if err != nil {
+		return db.AcademicYear{}, err
+	}
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(userID)
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    reqID,
+		Action:       "academic.create_year",
+		ResourceType: "academic_year",
+		ResourceID:   year.ID,
+		After:        year,
+		IPAddress:    ip,
+	})
+
+	return year, nil
+}
+
+func (s *StudentService) ListAcademicYears(ctx context.Context, tenantID string) ([]db.AcademicYear, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	return s.q.ListAcademicYears(ctx, tUUID)
+}
+
+func (s *StudentService) ListSectionsByClass(ctx context.Context, classID string) ([]db.Section, error) {
+	cUUID := pgtype.UUID{}
+	cUUID.Scan(classID)
+	return s.q.ListSectionsByClass(ctx, cUUID)
+}
+
+func (s *StudentService) CreateSubject(ctx context.Context, tenantID, name, code, subjectType, userID, reqID, ip string) (db.Subject, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+
+	subject, err := s.q.CreateSubject(ctx, db.CreateSubjectParams{
+		TenantID: tUUID,
+		Name:     name,
+		Code:     pgtype.Text{String: strings.TrimSpace(code), Valid: strings.TrimSpace(code) != ""},
+		Type:     pgtype.Text{String: strings.TrimSpace(subjectType), Valid: strings.TrimSpace(subjectType) != ""},
+	})
+	if err != nil {
+		return db.Subject{}, err
+	}
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(userID)
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    reqID,
+		Action:       "academic.create_subject",
+		ResourceType: "subject",
+		ResourceID:   subject.ID,
+		After:        subject,
+		IPAddress:    ip,
+	})
+
+	return subject, nil
+}
+
+func (s *StudentService) ListSubjects(ctx context.Context, tenantID string) ([]db.Subject, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	return s.q.ListSubjects(ctx, tUUID)
 }
 
 // Student Import logic

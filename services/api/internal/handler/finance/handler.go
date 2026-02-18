@@ -30,6 +30,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	})
 	r.Route("/payments", func(r chi.Router) {
 		r.Post("/offline", h.IssueReceipt)
+		r.Get("/receipts", h.ListReceiptsByStudent)
 		r.Post("/online", h.CreateOnlineOrder)
 		r.Post("/razorpay-webhook", h.HandleWebhook)
 		r.Get("/tally-export", h.ExportTally)
@@ -186,6 +187,21 @@ func (h *Handler) GetFeeSummary(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ListReceipts(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	receipts, err := h.svc.ListStudentReceipts(r.Context(), middleware.GetTenantID(r.Context()), id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(receipts)
+}
+
+func (h *Handler) ListReceiptsByStudent(w http.ResponseWriter, r *http.Request) {
+	studentID := r.URL.Query().Get("student_id")
+	if studentID == "" {
+		http.Error(w, "student_id is required", http.StatusBadRequest)
+		return
+	}
+
+	receipts, err := h.svc.ListStudentReceipts(r.Context(), middleware.GetTenantID(r.Context()), studentID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

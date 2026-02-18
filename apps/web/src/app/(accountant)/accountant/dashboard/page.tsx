@@ -1,6 +1,6 @@
 "use client"
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Banknote, 
   CreditCard, 
@@ -8,16 +8,76 @@ import {
   CheckCircle2,
   Clock,
   ArrowUpRight,
-  PieChart
+  PieChart,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@schoolerp/ui';
+import { apiClient } from '@/lib/api-client';
 
 export default function AccountantDashboardPage() {
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState("")
+  const [headsCount, setHeadsCount] = useState(0)
+  const [seriesCount, setSeriesCount] = useState(0)
+  const [ledgerMappingsCount, setLedgerMappingsCount] = useState(0)
+
+  const loadDashboard = async (silent = false) => {
+    if (silent) setRefreshing(true)
+    else setLoading(true)
+    setError("")
+
+    try {
+      const [headsRes, seriesRes, mappingsRes] = await Promise.all([
+        apiClient("/accountant/fees/heads"),
+        apiClient("/accountant/receipts/series"),
+        apiClient("/accountant/payments/ledger-mappings"),
+      ])
+
+      if (headsRes.ok) {
+        const headsPayload = await headsRes.json()
+        const heads = Array.isArray(headsPayload) ? headsPayload : headsPayload?.data || []
+        setHeadsCount(heads.length)
+      } else {
+        setHeadsCount(0)
+      }
+
+      if (seriesRes.ok) {
+        const seriesPayload = await seriesRes.json()
+        const series = Array.isArray(seriesPayload) ? seriesPayload : seriesPayload?.data || []
+        setSeriesCount(series.length)
+      } else {
+        setSeriesCount(0)
+      }
+
+      if (mappingsRes.ok) {
+        const mappingsPayload = await mappingsRes.json()
+        const mappings = Array.isArray(mappingsPayload) ? mappingsPayload : mappingsPayload?.data || []
+        setLedgerMappingsCount(mappings.length)
+      } else {
+        setLedgerMappingsCount(0)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load finance dashboard")
+      setHeadsCount(0)
+      setSeriesCount(0)
+      setLedgerMappingsCount(0)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  useEffect(() => {
+    loadDashboard(false)
+  }, [])
+
   const stats = [
-    { label: 'Total Revenue', value: '$240,500', icon: TrendingUp, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-    { label: 'Pending Fees', value: '$12,400', icon: Clock, color: 'text-rose-500', bg: 'bg-rose-500/10' },
-    { label: 'Today Coll.', value: '$4,280', icon: Banknote, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-    { label: 'Expenses (Mo)', value: '$8,200', icon: CreditCard, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
+    { label: 'Fee Heads', value: String(headsCount), icon: TrendingUp, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+    { label: 'Receipt Series', value: String(seriesCount), icon: Clock, color: 'text-rose-500', bg: 'bg-rose-500/10' },
+    { label: 'Ledger Mappings', value: String(ledgerMappingsCount), icon: Banknote, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+    { label: 'Collections API', value: 'Live', icon: CreditCard, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
   ];
 
   return (
@@ -25,12 +85,24 @@ export default function AccountantDashboardPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Finance Overview</h1>
-          <p className="text-slate-500">Welcome, Mr. Singh. You have <span className="text-amber-600 font-bold">12 pending approvals</span> today.</p>
+          <p className="text-slate-500">Operational finance setup, receipt controls, and ledger integrations.</p>
         </div>
-        <div className="px-4 py-2 bg-slate-900 rounded-full text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-          <PieChart className="h-3 w-3" /> FY 2026-27
+        <div className="flex items-center gap-2">
+          <div className="px-4 py-2 bg-slate-900 rounded-full text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+            <PieChart className="h-3 w-3" /> Finance Console
+          </div>
+          <Button variant="outline" onClick={() => loadDashboard(true)} disabled={refreshing} className="gap-2">
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
+          </Button>
         </div>
       </div>
+
+      {error && <div className="text-sm text-red-600 dark:text-red-400">{error}</div>}
+      {loading && (
+        <div className="flex items-center text-sm text-muted-foreground">
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading finance dashboard...
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat) => (
@@ -69,18 +141,18 @@ export default function AccountantDashboardPage() {
                 </thead>
                 <tbody className="divide-y divide-amber-50">
                   {[
-                    { desc: 'Tuition Fee - Arjun Patel', cat: 'Income', amount: '+$1,200', status: 'Success' },
-                    { desc: 'Electricity Bill - Block A', cat: 'Expense', amount: '-$450', status: 'Success' },
-                    { desc: 'Bus Fee - Sana Patel', cat: 'Income', amount: '+$350', status: 'Pending' },
-                    { desc: 'Stationary Purchase', cat: 'Expense', amount: '-$120', status: 'Success' },
+                    { desc: 'Fee heads configured', cat: 'Setup', amount: String(headsCount), status: 'Live' },
+                    { desc: 'Receipt series active', cat: 'Controls', amount: String(seriesCount), status: 'Live' },
+                    { desc: 'Ledger mappings linked', cat: 'Accounting', amount: String(ledgerMappingsCount), status: 'Live' },
+                    { desc: 'Offline collection endpoint', cat: 'Collections', amount: 'Ready', status: 'Live' },
                   ].map((row, i) => (
                     <tr key={i} className="hover:bg-amber-50/30 transition-colors">
                       <td className="px-6 py-4 text-sm font-bold text-slate-700">{row.desc}</td>
                       <td className="px-6 py-4 text-xs font-medium text-slate-500">{row.cat}</td>
-                      <td className={`px-6 py-4 text-sm font-black ${row.amount.startsWith('+') ? 'text-emerald-600' : 'text-slate-900'}`}>{row.amount}</td>
+                      <td className="px-6 py-4 text-sm font-black text-slate-900">{row.amount}</td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tighter ${
-                          row.status === 'Success' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                          row.status === 'Live' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
                         }`}>
                           {row.status}
                         </span>

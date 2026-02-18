@@ -5,15 +5,14 @@ import Link from 'next/link';
 import { 
   LayoutDashboard, 
   Users, 
-  CalendarCheck, 
   Banknote, 
-  Settings,
   Menu,
   GraduationCap,
   LogOut,
   User,
   MessageSquare,
-  FileText
+  FileText,
+  BookOpen
 } from 'lucide-react';
 import { Button } from '@schoolerp/ui';
 import { RBACService } from '@/lib/auth-service';
@@ -24,12 +23,11 @@ import { useAuth } from '@/components/auth-provider';
 const NAV_ITEMS = [
   { href: '/parent/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
   { href: '/parent/children', label: 'My Children', icon: Users, permission: 'sis:read' },
-  { href: '/parent/attendance', label: 'Attendance', icon: CalendarCheck, permission: 'attendance:read' },
+  { href: '/parent/homework', label: 'Homework', icon: BookOpen, permission: 'sis:read' },
   { href: '/parent/fees', label: 'Fees & Payments', icon: Banknote, permission: 'fees:read' },
   { href: '/parent/results', label: 'Exam Results', icon: GraduationCap, permission: 'exams:read' },
   { href: '/parent/notices', label: 'Notices', icon: FileText, permission: 'notices:read' },
   { href: '/parent/leaves', label: 'Leave Requests', icon: MessageSquare, permission: 'attendance:write' },
-  { href: '/parent/settings', label: 'Settings', icon: Settings },
 ];
 
 export default function ParentLayoutClient({
@@ -103,13 +101,14 @@ export default function ParentLayoutClient({
                 <p className="text-xs text-slate-400 truncate capitalize">{user?.role?.replace('_', ' ') || ''}</p>
               </div>
             </div>
-            <button 
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => logout()}
-              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
               title="Logout"
             >
               <LogOut className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         </div>
       </aside>

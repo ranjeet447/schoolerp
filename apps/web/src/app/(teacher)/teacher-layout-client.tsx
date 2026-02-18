@@ -4,10 +4,8 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { 
   LayoutDashboard, 
-  Users, 
   CalendarCheck, 
   GraduationCap, 
-  Settings,
   Menu,
   LogOut,
   User,
@@ -23,11 +21,9 @@ import { useAuth } from '@/components/auth-provider';
 const NAV_ITEMS = [
   { href: '/teacher/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
   { href: '/teacher/attendance', label: 'Mark Attendance', icon: CalendarCheck, permission: 'attendance:write' },
+  { href: '/teacher/homework', label: 'Homework', icon: BookOpen, permission: 'sis:read' },
   { href: '/teacher/exams/marks', label: 'Enter Marks', icon: GraduationCap, permission: 'exams:write' },
-  { href: '/teacher/students', label: 'My Students', icon: Users, permission: 'sis:read' },
   { href: '/teacher/notices', label: 'Notices', icon: FileText, permission: 'notices:read' },
-  { href: '/teacher/curriculum', label: 'Curriculum', icon: BookOpen, permission: 'sis:read' },
-  { href: '/teacher/settings', label: 'Settings', icon: Settings },
 ];
 
 export default function TeacherLayoutClient({
@@ -101,13 +97,14 @@ export default function TeacherLayoutClient({
                 <p className="text-xs text-slate-400 truncate capitalize">{user?.role?.replace('_', ' ') || ''}</p>
               </div>
             </div>
-            <button 
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => logout()}
-              className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
               title="Logout"
             >
               <LogOut className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         </div>
       </aside>

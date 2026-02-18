@@ -324,6 +324,12 @@ func main() {
 			academicHandler.RegisterStudentRoutes(r)
 		})
 
+		// Accountant Routes
+		r.Route("/accountant", func(r chi.Router) {
+			r.Use(middleware.RoleGuard("accountant", "tenant_admin", "super_admin"))
+			financeHandler.RegisterRoutes(r)
+		})
+
 		// AI Routes
 		r.Route("/ai", func(r chi.Router) {
 			r.Post("/helpdesk", aiHandler.ParentQuery)

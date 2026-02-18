@@ -15,22 +15,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@schoolerp/ui"
 import { toast } from "sonner"
 
 export default function AccountantFeesPage() {
-  const [plans, setPlans] = useState<any[]>([])
+  const [heads, setHeads] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchPlans()
+    fetchHeads()
   }, [])
 
-  const fetchPlans = async () => {
+  const fetchHeads = async () => {
     try {
-      const res = await apiClient("/admin/fees/plans")
+      const res = await apiClient("/accountant/fees/heads")
       if (res.ok) {
         const data = await res.json()
-        setPlans(data || [])
+        setHeads(data || [])
       }
     } catch (err) {
-      console.error("Failed to fetch plans", err)
+      console.error("Failed to fetch fee heads", err)
     } finally {
       setLoading(false)
     }
@@ -38,13 +38,13 @@ export default function AccountantFeesPage() {
 
   const handleSavePlan = async (plan: any) => {
     try {
-      const res = await apiClient("/admin/fees/plans", {
+      const res = await apiClient("/accountant/fees/plans", {
         method: "POST",
         body: JSON.stringify(plan)
       })
       if (res.ok) {
         toast.success("Fee plan created successfully")
-        fetchPlans()
+        fetchHeads()
       }
     } catch (err) {
       toast.error("Failed to save plan")
@@ -76,24 +76,27 @@ export default function AccountantFeesPage() {
             </div>
 
             <div className="lg:col-span-2 space-y-4">
-              <h2 className="text-xl font-bold">Existing Plans</h2>
-              {plans.length === 0 ? (
+              <h2 className="text-xl font-bold">Configured Fee Heads</h2>
+              {loading ? (
                 <div className="text-center py-20 bg-gray-50 border-2 border-dashed rounded-xl text-gray-400">
-                  No plans defined yet.
+                  Loading fee heads...
+                </div>
+              ) : heads.length === 0 ? (
+                <div className="text-center py-20 bg-gray-50 border-2 border-dashed rounded-xl text-gray-400">
+                  No fee heads defined yet.
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {plans.map(p => (
-                    <Card key={p.id}>
+                  {heads.map((head) => (
+                    <Card key={head.id}>
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-lg">{p.name}</CardTitle>
+                        <CardTitle className="text-lg">{head.name}</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-500">{p.items.length} items</span>
-                          <span className="text-lg font-bold">₹{p.items.reduce((a, i) => a + i.amount, 0)}</span>
+                          <span className="text-sm text-gray-500">Type</span>
+                          <Badge variant="outline">{head.type || "general"}</Badge>
                         </div>
-                        <Button variant="outline" size="sm" className="w-full mt-4">Assign Students</Button>
                       </CardContent>
                     </Card>
                   ))}

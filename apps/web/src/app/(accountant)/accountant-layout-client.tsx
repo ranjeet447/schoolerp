@@ -5,14 +5,11 @@ import Link from 'next/link';
 import { 
   LayoutDashboard, 
   Banknote, 
-  Settings,
   Menu,
   GraduationCap,
   LogOut,
   User,
-  FileText,
-  CreditCard,
-  PieChart
+  CreditCard
 } from 'lucide-react';
 import { Button } from '@schoolerp/ui';
 import { RBACService } from '@/lib/auth-service';
@@ -23,10 +20,7 @@ import { useAuth } from '@/components/auth-provider';
 const NAV_ITEMS = [
   { href: '/accountant/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
   { href: '/accountant/fees', label: 'Fee Collection', icon: Banknote, permission: 'fees:write' },
-  { href: '/accountant/invoices', label: 'Invoices', icon: FileText, permission: 'fees:read' },
-  { href: '/accountant/expenses', label: 'Expenses', icon: CreditCard, permission: 'fees:write' },
-  { href: '/accountant/reports', label: 'Financial Reports', icon: PieChart, permission: 'fees:read' },
-  { href: '/accountant/settings', label: 'Settings', icon: Settings },
+  { href: '/accountant/payments', label: 'Payments & Receipts', icon: CreditCard, permission: 'fees:write' },
 ];
 
 export default function AccountantLayoutClient({
@@ -100,13 +94,14 @@ export default function AccountantLayoutClient({
                 <p className="text-xs text-slate-400 truncate capitalize">{user?.role?.replace('_', ' ') || ''}</p>
               </div>
             </div>
-            <button 
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => logout()}
-              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
               title="Logout"
             >
               <LogOut className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         </div>
       </aside>

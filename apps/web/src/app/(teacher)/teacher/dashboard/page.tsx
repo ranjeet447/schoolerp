@@ -1,35 +1,120 @@
 "use client"
 
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
   Users, 
   CalendarCheck, 
   BookOpen, 
   MessageSquare,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '@schoolerp/ui';
+import { Card, CardHeader, CardTitle, CardContent, Button } from '@schoolerp/ui';
+import { apiClient } from '@/lib/api-client';
+
+interface AttendanceStats {
+  total_students: number
+  present_count: number
+  absent_count: number
+  late_count: number
+  excused_count: number
+}
 
 export default function TeacherDashboardPage() {
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState("")
+  const [attendanceStats, setAttendanceStats] = useState<AttendanceStats | null>(null)
+  const [noticesCount, setNoticesCount] = useState(0)
+  const [pendingLeavesCount, setPendingLeavesCount] = useState(0)
+
+  const loadDashboard = async (silent = false) => {
+    if (silent) setRefreshing(true)
+    else setLoading(true)
+    setError("")
+
+    try {
+      const dateStr = new Date().toISOString().split("T")[0]
+      const [attendanceRes, noticesRes, leavesRes] = await Promise.all([
+        apiClient(`/teacher/attendance/stats?date=${dateStr}`),
+        apiClient("/teacher/notices"),
+        apiClient("/teacher/leaves?status=pending"),
+      ])
+
+      if (attendanceRes.ok) {
+        const attendancePayload = await attendanceRes.json()
+        setAttendanceStats(attendancePayload || null)
+      } else {
+        setAttendanceStats(null)
+      }
+
+      if (noticesRes.ok) {
+        const noticesPayload = await noticesRes.json()
+        const notices = Array.isArray(noticesPayload) ? noticesPayload : noticesPayload?.data || []
+        setNoticesCount(notices.length)
+      } else {
+        setNoticesCount(0)
+      }
+
+      if (leavesRes.ok) {
+        const leavesPayload = await leavesRes.json()
+        const leaves = Array.isArray(leavesPayload) ? leavesPayload : leavesPayload?.data || []
+        setPendingLeavesCount(leaves.length)
+      } else {
+        setPendingLeavesCount(0)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load teacher dashboard")
+      setAttendanceStats(null)
+      setNoticesCount(0)
+      setPendingLeavesCount(0)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  useEffect(() => {
+    loadDashboard(false)
+  }, [])
+
+  const attendanceRatio = useMemo(() => {
+    if (!attendanceStats?.total_students) return 0
+    return Math.round(((attendanceStats.present_count || 0) / attendanceStats.total_students) * 100)
+  }, [attendanceStats])
+
   const stats = [
-    { label: 'My Students', value: '142', icon: Users, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-    { label: 'Classes Today', value: '6', icon: BookOpen, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
-    { label: 'Attendance Ratio', value: '94%', icon: CalendarCheck, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-    { label: 'Messages', value: '12', icon: MessageSquare, color: 'text-rose-500', bg: 'bg-rose-500/10' },
-  ];
+    { label: 'My Students', value: String(attendanceStats?.total_students || 0), icon: Users, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+    { label: 'Pending Leaves', value: String(pendingLeavesCount), icon: BookOpen, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
+    { label: 'Attendance Ratio', value: `${attendanceRatio}%`, icon: CalendarCheck, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+    { label: 'Notices', value: String(noticesCount), icon: MessageSquare, color: 'text-rose-500', bg: 'bg-rose-500/10' },
+  ]
 
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Academic Overview</h1>
-          <p className="text-slate-500">Good morning, Ms. Priya. You have <span className="text-emerald-600 font-bold">6 classes</span> scheduled today.</p>
+          <p className="text-slate-500">Daily teaching operations snapshot for attendance, notices, and pending leaves.</p>
         </div>
-        <div className="px-4 py-2 bg-emerald-100 rounded-full text-emerald-700 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
-          <Clock className="h-3 w-3" /> Term 2 • Week 12
+        <div className="flex items-center gap-2">
+          <div className="px-4 py-2 bg-emerald-100 rounded-full text-emerald-700 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+            <Clock className="h-3 w-3" /> Live Overview
+          </div>
+          <Button variant="outline" onClick={() => loadDashboard(true)} disabled={refreshing} className="gap-2">
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
+          </Button>
         </div>
       </div>
+
+      {error && <div className="text-sm text-red-600 dark:text-red-400">{error}</div>}
+      {loading && (
+        <div className="flex items-center text-sm text-muted-foreground">
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading dashboard...
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat) => (

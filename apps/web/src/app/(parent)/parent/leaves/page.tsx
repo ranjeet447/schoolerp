@@ -1,31 +1,97 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { LeaveRequestCard, Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@schoolerp/ui"
 import { toast } from "sonner"
+import { apiClient } from "@/lib/api-client"
 
 export default function ParentLeavePage() {
   const [loading, setLoading] = useState(false)
-  const [leaves, setLeaves] = useState<any[]>([
-    {
-      id: "1",
-      studentName: "Aarav Sharma",
-      admissionNumber: "SCH-2025-042",
-      from: "2025-06-10",
-      to: "2025-06-12",
-      reason: "Family function.",
-      status: "pending"
-    }
-  ])
+  const [bootstrapping, setBootstrapping] = useState(true)
+  const [children, setChildren] = useState<any[]>([])
+  const [leaves, setLeaves] = useState<any[]>([])
+  const [selectedChildID, setSelectedChildID] = useState("")
+  const [fromDate, setFromDate] = useState("")
+  const [toDate, setToDate] = useState("")
+  const [reason, setReason] = useState("")
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    const loadChildren = async () => {
+      setBootstrapping(true)
+      try {
+        const res = await apiClient("/parent/me/children")
+        if (!res.ok) {
+          const msg = await res.text()
+          throw new Error(msg || "Failed to load children")
+        }
+
+        const payload = await res.json()
+        const data = Array.isArray(payload) ? payload : payload?.data || []
+        setChildren(data)
+        if (data.length > 0) {
+          setSelectedChildID(String(data[0].id))
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to load children")
+        setChildren([])
+      } finally {
+        setBootstrapping(false)
+      }
+    }
+
+    loadChildren()
+  }, [])
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!selectedChildID || !fromDate || !toDate || !reason.trim()) {
+      toast.error("Please fill all required fields")
+      return
+    }
+
     setLoading(true)
-    // In a real app, API call to POST /v1/parent/leaves
-    setTimeout(() => {
+
+    try {
+      const res = await apiClient("/parent/leaves", {
+        method: "POST",
+        body: JSON.stringify({
+          student_id: selectedChildID,
+          from_date: fromDate,
+          to_date: toDate,
+          reason,
+        }),
+      })
+
+      if (!res.ok) {
+        const msg = await res.text()
+        throw new Error(msg || "Failed to submit leave request")
+      }
+
+      const created = await res.json()
+      const selectedChild = children.find((child) => String(child.id) === selectedChildID)
+      setLeaves((prev) => [
+        {
+          id: String(created?.id || `local-${Date.now()}`),
+          studentName: selectedChild?.full_name || "Student",
+          admissionNumber: selectedChild?.admission_number || "-",
+          from: fromDate,
+          to: toDate,
+          reason,
+          status: String(created?.status || "pending"),
+        },
+        ...prev,
+      ])
+
+      setFromDate("")
+      setToDate("")
+      setReason("")
       toast.success("Leave request submitted")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to submit leave request")
+    } finally {
       setLoading(false)
-    }, 1000)
+    }
   }
 
   return (
@@ -39,28 +105,32 @@ export default function ParentLeavePage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label>Select Child</Label>
-                <Select required>
+                <Select value={selectedChildID} onValueChange={setSelectedChildID} required>
                   <SelectTrigger>
                     <SelectValue placeholder="Select child" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">Aarav Sharma</SelectItem>
+                    {children.map((child) => (
+                      <SelectItem key={String(child.id)} value={String(child.id)}>
+                        {child.full_name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>From Date</Label>
-                  <Input type="date" required />
+                  <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} required />
                 </div>
                 <div className="space-y-2">
                   <Label>To Date</Label>
-                  <Input type="date" required />
+                  <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} required />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>Reason</Label>
-                <Textarea placeholder="Explain the reason for leave..." required />
+                <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Explain the reason for leave..." required />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Submitting..." : "Submit Request"}
@@ -72,9 +142,13 @@ export default function ParentLeavePage() {
 
       <div className="lg:col-span-2 space-y-4">
         <h2 className="text-xl font-bold">Past Requests</h2>
+        {bootstrapping && <div className="text-sm text-muted-foreground">Loading children...</div>}
         {leaves.map(leave => (
           <LeaveRequestCard key={leave.id} {...leave} />
         ))}
+        {!bootstrapping && leaves.length === 0 && (
+          <div className="text-sm text-muted-foreground">No leave requests yet.</div>
+        )}
       </div>
     </div>
   )
