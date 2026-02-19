@@ -26,6 +26,7 @@ import {
   Search,
   Shield,
   ShieldCheck,
+  Scale,
   User,
   Users,
 } from "lucide-react";
@@ -71,10 +72,12 @@ const NAV_GROUPS = [
   {
     title: "Security & Trust",
     items: [
+      { href: "/platform/users", label: "Global Users", icon: Users, permission: "platform:user.read" },
       { href: "/platform/internal-users", label: "Access Control", icon: ShieldCheck, permission: "platform:user.read" },
       { href: "/platform/security-events", label: "Threat Intel", icon: Shield, permission: "platform:security.read" },
       { href: "/platform/audit-logs", label: "Audit Trails", icon: FileText, permission: "platform:audit.read" },
       { href: "/platform/blocks", label: "Risk Mitigation", icon: Ban, permission: "platform:security.write" },
+      { href: "/platform/legal", label: "Legal & Policies", icon: Scale, permission: "platform:settings.write" },
       { href: "/platform/password-policy", label: "Governance", icon: LockKeyhole, permission: "platform:settings.write" },
       { href: "/platform/secrets", label: "Secret Management", icon: KeyRound, permission: "platform:security.write" },
     ],
