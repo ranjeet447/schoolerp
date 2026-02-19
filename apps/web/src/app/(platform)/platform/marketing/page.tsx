@@ -69,8 +69,14 @@ export default function PlatformMarketingPage() {
         apiClient("/admin/platform/marketing/changelogs"),
       ]);
 
-      if (aRes.ok) setAnnouncements(await aRes.json());
-      if (cRes.ok) setChangelogs(await cRes.json());
+      if (aRes.ok) {
+        const data = await aRes.json();
+        setAnnouncements(Array.isArray(data) ? data : data.data || []);
+      }
+      if (cRes.ok) {
+        const data = await cRes.json();
+        setChangelogs(Array.isArray(data) ? data : data.data || []);
+      }
     } catch (e: any) {
       setError("Failed to load marketing data.");
     } finally {
@@ -239,7 +245,7 @@ export default function PlatformMarketingPage() {
                         </span>
                         <span className="flex items-center gap-1">
                           <Tag className="h-3 w-3" />
-                          {a.target_cohorts.join(", ")}
+                          {(a.target_cohorts || []).join(", ")}
                         </span>
                       </div>
                     </CardContent>

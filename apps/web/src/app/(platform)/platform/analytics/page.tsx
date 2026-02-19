@@ -47,7 +47,10 @@ export default function PlatformAnalyticsPage() {
     setLoading(true);
     try {
       const res = await apiClient("/admin/platform/analytics/metrics?metric=revenue&days=30");
-      if (res.ok) setData(await res.json());
+      if (res.ok) {
+        const payload = await res.json();
+        setData(Array.isArray(payload) ? payload : (payload.data || []));
+      }
     } catch (e: any) {
       setError("Failed to load analytics data.");
     } finally {

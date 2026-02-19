@@ -54,8 +54,14 @@ export default function PlatformSettingsPage() {
       ]);
 
       if (sRes.ok) setSettings(await sRes.json());
-      if (ntRes.ok) setNotificationTemplates(await ntRes.json());
-      if (dtRes.ok) setDocumentTemplates(await dtRes.json());
+      if (ntRes.ok) {
+        const data = await ntRes.json();
+        setNotificationTemplates(Array.isArray(data) ? data : data.data || []);
+      }
+      if (dtRes.ok) {
+        const data = await dtRes.json();
+        setDocumentTemplates(Array.isArray(data) ? data : data.data || []);
+      }
     } catch (e: any) {
       setError("Failed to load settings.");
     } finally {

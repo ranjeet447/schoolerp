@@ -161,7 +161,11 @@ export default function PlatformIncidentsPage() {
     try {
       const res = await apiClient(`/admin/platform/incidents/${incidentId}`);
       if (res.ok) {
-        const data = await res.json();
+        const payload = await res.json();
+        const data = payload.incident ? payload : (payload.data || payload);
+        
+        if (!data.incident) return; // Prevent crash if invalid data
+
         setDetail(data);
         setEditTitle(data.incident.title || "");
         setEditStatus(data.incident.status || "investigating");

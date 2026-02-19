@@ -58,7 +58,10 @@ export default function PlatformMonitoringPage() {
       ]);
 
       if (hRes.ok) setHealth(await hRes.json());
-      if (qRes.ok) setQueues(await qRes.json());
+      if (qRes.ok) {
+        const data = await qRes.json();
+        setQueues(Array.isArray(data) ? data : data.data || []);
+      }
     } catch (e: any) {
       setError("Failed to load monitoring data.");
     } finally {
