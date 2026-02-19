@@ -70,18 +70,18 @@ export function SecurityPolicies({
   const [bgActivation, setBgActivation] = useState({ reason: "", ticket_ref: "", duration_minutes: 15 });
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-12">
       {/* 1. IP Allowlist */}
-      <section className="space-y-4">
-        <div>
-          <h3 className="text-lg font-bold flex items-center gap-2">
+      <section className="space-y-6">
+        <div className="flex flex-col gap-1">
+          <h3 className="text-xl font-black flex items-center gap-2 text-foreground">
             <MapPin className="h-5 w-5 text-primary" />
-            Geography-Based Access (Allowlist)
+            Geography-Based Access
           </h3>
-          <p className="text-sm text-muted-foreground">Limit sensitive platform access to trusted corporate networks.</p>
+          <p className="text-sm font-medium text-muted-foreground">Limit sensitive platform access to trusted corporate networks using CIDR allowlists.</p>
         </div>
         
-        <Card>
+        <Card className="border-none shadow-sm shadow-black/5 bg-card/50 backdrop-blur-sm">
           <CardContent className="pt-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-end">
               <div className="flex-1 space-y-1.5">
@@ -146,50 +146,49 @@ export function SecurityPolicies({
       </section>
 
       {/* 2. MFA Policy */}
-      <section className="space-y-4">
-        <div>
-          <h3 className="text-lg font-bold flex items-center gap-2">
+      <section className="space-y-6">
+        <div className="flex flex-col gap-1">
+          <h3 className="text-xl font-black flex items-center gap-2 text-foreground">
             <Fingerprint className="h-5 w-5 text-primary" />
-            Mandatory Multi-Factor Authentication
+            Multi-Factor Enforcement
           </h3>
-          <p className="text-sm text-muted-foreground">Enforce hardware/app-based auth for every administrative session.</p>
+          <p className="text-sm font-medium text-muted-foreground">Enforce hardware or app-based authentication for every administrative session.</p>
         </div>
 
-        <Card className={enforceMFA ? "border-emerald-500/20 shadow-emerald-500/5 shadow-sm" : ""}>
-          <CardContent className="flex items-center justify-between py-6">
+        <Card className={`border-none shadow-sm shadow-black/5 bg-card/50 backdrop-blur-sm transition-all ${enforceMFA ? "ring-1 ring-emerald-500/20 bg-emerald-500/5" : ""}`}>
+          <CardContent className="flex items-center justify-between p-6">
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <p className="font-semibold">Internal Platform Enforcement</p>
-                {enforceMFA && <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/10 border-emerald-200">Enforced</Badge>}
+              <div className="flex items-center gap-3">
+                <p className="font-black text-foreground">Internal Platform Enforcement</p>
+                {enforceMFA && <Badge className="bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/10 border-emerald-200 font-black text-[10px]">ENFORCED</Badge>}
               </div>
-              <p className="text-xs text-muted-foreground">When enabled, all support and ops personnel must provide a second factor to access any platform capability.</p>
+              <p className="text-xs font-medium text-muted-foreground max-w-md">When enabled, all support and ops personnel must provide a second factor to access any platform capability. This is a critical security requirement.</p>
             </div>
             <div className="flex items-center gap-4">
-               {/* Fixed: Use standard checkbox since Switch might not be configured for direct boolean access or styling */}
                <input 
                  type="checkbox" 
-                 className="h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                 className="h-6 w-6 rounded-md border-border text-emerald-600 focus:ring-emerald-500 accent-emerald-500 cursor-pointer"
                  checked={enforceMFA}
                  onChange={e => onToggleMFA(e.target.checked)}
                />
-               <Button variant="outline" size="sm" onClick={onSaveMFA} disabled={busy}>Commit Policy</Button>
+               <Button onClick={onSaveMFA} disabled={busy} className="font-black shadow-lg shadow-primary/20 h-10">Commit Policy</Button>
             </div>
           </CardContent>
         </Card>
       </section>
 
       {/* 3. Break-Glass */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-bold flex items-center gap-2">
-              <Flame className="h-5 w-5 text-rose-500" />
+      <section className="space-y-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-xl font-black flex items-center gap-2 text-rose-600">
+              <Flame className="h-5 w-5" />
               Break-Glass Emergency Ops
             </h3>
-            <p className="text-sm text-muted-foreground">Privileged access escalation during critical incidents.</p>
+            <p className="text-sm font-medium text-muted-foreground">Privileged access escalation during critical incidents and upstream failures.</p>
           </div>
-          <Button variant="outline" size="sm" onClick={onSaveBreakGlassPolicy} disabled={busy}>
-             Update Guardrails
+          <Button variant="outline" className="gap-2 font-bold h-10 border-border shadow-sm" onClick={onSaveBreakGlassPolicy} disabled={busy}>
+             Update System Guardrails
           </Button>
         </div>
 

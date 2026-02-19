@@ -64,17 +64,19 @@ export function AuditTrail({ rows, filters, setFilters, onExport, onReload, busy
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-xl font-bold tracking-tight">Governance & Audit Explorer</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-xl font-black tracking-tight text-foreground">Governance & Audit Explorer</h2>
+          <p className="text-sm font-medium text-muted-foreground">
             Immutable trail of all administrative actions performed across the platform.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => onExport("csv")} disabled={busy}>
-            <Download className="mr-2 h-4 w-4" /> Export CSV
+          <Button variant="outline" className="gap-2 font-bold h-10 border-border shadow-sm" onClick={() => onExport("csv")} disabled={busy}>
+            <Download className="h-4 w-4" /> 
+            <span>Export Registry</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={onReload} disabled={busy}>
-            <RefreshCcw className={`mr-2 h-4 w-4 ${busy ? "animate-spin" : ""}`} /> Sync
+          <Button variant="outline" className="gap-2 font-bold h-10 border-border shadow-sm" onClick={onReload} disabled={busy}>
+            <RefreshCcw className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} /> 
+            <span>Sync</span>
           </Button>
         </div>
       </div>

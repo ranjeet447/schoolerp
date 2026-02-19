@@ -30,7 +30,8 @@ import {
   Clock,
   TrendingUp,
   CreditCard,
-  Wallet
+  Wallet,
+  FileText
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -44,6 +45,7 @@ type BillingSummary = {
 }
 
 type BillingRow = {
+  id: string
   receipt_number: string
   amount_paid: number
   created_at: string
@@ -154,6 +156,27 @@ export default function AdminFinancePage() {
       URL.revokeObjectURL(url)
     } catch (err) {
       toast.error("Failed to export CSV")
+    }
+  }
+
+  const downloadReceipt = async (receiptId: string) => {
+    try {
+      toast.loading("Preparing receipt...")
+      const res = await apiClient(`/admin/payments/receipts/${receiptId}/pdf`)
+      if (!res.ok) throw new Error("PDF generation failed")
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement("a")
+      anchor.href = url
+      anchor.download = `receipt-${receiptId}.pdf`
+      anchor.click()
+      URL.revokeObjectURL(url)
+      toast.dismiss()
+      toast.success("Receipt downloaded")
+    } catch (err) {
+      toast.dismiss()
+      toast.error("Failed to download receipt")
     }
   }
 
@@ -363,6 +386,7 @@ export default function AdminFinancePage() {
                     <th className="px-8 py-4">Admission</th>
                     <th className="px-8 py-4">Mode</th>
                     <th className="px-8 py-4 text-right">Amount</th>
+                    <th className="px-8 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -378,6 +402,17 @@ export default function AdminFinancePage() {
                         </span>
                       </td>
                       <td className="px-8 py-5 text-right font-black text-white">{formatCurrency(row.amount_paid)}</td>
+                      <td className="px-8 py-5 text-right">
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          onClick={() => downloadReceipt(row.id)}
+                          className="h-8 w-8 p-0 hover:bg-white/10"
+                          title="Download PDF"
+                        >
+                          <FileText className="h-4 w-4 text-slate-400 group-hover:text-indigo-400" />
+                        </Button>
+                      </td>
                     </tr>
                   )) : (
                     <tr>

@@ -351,6 +351,31 @@ func (q *Queries) CreateReceipt(ctx context.Context, arg CreateReceiptParams) (R
 	return i, err
 }
 
+const createReceiptItem = `-- name: CreateReceiptItem :one
+INSERT INTO receipt_items (receipt_id, fee_head_id, amount)
+VALUES ($1, $2, $3)
+RETURNING id, receipt_id, fee_head_id, amount, created_at
+`
+
+type CreateReceiptItemParams struct {
+	ReceiptID pgtype.UUID `json:"receipt_id"`
+	FeeHeadID pgtype.UUID `json:"fee_head_id"`
+	Amount    int64       `json:"amount"`
+}
+
+func (q *Queries) CreateReceiptItem(ctx context.Context, arg CreateReceiptItemParams) (ReceiptItem, error) {
+	row := q.db.QueryRow(ctx, createReceiptItem, arg.ReceiptID, arg.FeeHeadID, arg.Amount)
+	var i ReceiptItem
+	err := row.Scan(
+		&i.ID,
+		&i.ReceiptID,
+		&i.FeeHeadID,
+		&i.Amount,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createReceiptSeries = `-- name: CreateReceiptSeries :one
 INSERT INTO receipt_series (tenant_id, branch_id, prefix, current_number, is_active)
 VALUES ($1, $2, $3, $4, $5)
@@ -518,20 +543,36 @@ func (q *Queries) GetPaymentOrder(ctx context.Context, arg GetPaymentOrderParams
 }
 
 const getStudentFeeSummary = `-- name: GetStudentFeeSummary :many
-SELECT fpi.plan_id, fpi.head_id, fpi.amount, fpi.due_date, fpi.info, fh.name as head_name
+SELECT 
+    fpi.plan_id, 
+    fpi.head_id, 
+    fpi.amount, 
+    fpi.due_date, 
+    fpi.info, 
+    fh.name as head_name,
+    COALESCE((
+        SELECT SUM(ri.amount)
+        FROM receipt_items ri
+        JOIN receipts r ON ri.receipt_id = r.id
+        WHERE r.student_id = sfp.student_id 
+          AND ri.fee_head_id = fpi.head_id
+          AND r.status != 'cancelled'
+    ), 0)::BIGINT as paid_amount
 FROM student_fee_plans sfp
 JOIN fee_plan_items fpi ON sfp.plan_id = fpi.plan_id
 JOIN fee_heads fh ON fpi.head_id = fh.id
 WHERE sfp.student_id = $1
+ORDER BY fpi.due_date ASC, fh.name ASC
 `
 
 type GetStudentFeeSummaryRow struct {
-	PlanID   pgtype.UUID `json:"plan_id"`
-	HeadID   pgtype.UUID `json:"head_id"`
-	Amount   int64       `json:"amount"`
-	DueDate  pgtype.Date `json:"due_date"`
-	Info     pgtype.Text `json:"info"`
-	HeadName string      `json:"head_name"`
+	PlanID     pgtype.UUID `json:"plan_id"`
+	HeadID     pgtype.UUID `json:"head_id"`
+	Amount     int64       `json:"amount"`
+	DueDate    pgtype.Date `json:"due_date"`
+	Info       pgtype.Text `json:"info"`
+	HeadName   string      `json:"head_name"`
+	PaidAmount int64       `json:"paid_amount"`
 }
 
 func (q *Queries) GetStudentFeeSummary(ctx context.Context, studentID pgtype.UUID) ([]GetStudentFeeSummaryRow, error) {
@@ -550,6 +591,7 @@ func (q *Queries) GetStudentFeeSummary(ctx context.Context, studentID pgtype.UUI
 			&i.DueDate,
 			&i.Info,
 			&i.HeadName,
+			&i.PaidAmount,
 		); err != nil {
 			return nil, err
 		}
@@ -563,6 +605,7 @@ func (q *Queries) GetStudentFeeSummary(ctx context.Context, studentID pgtype.UUI
 
 const getTallyExportData = `-- name: GetTallyExportData :many
 SELECT 
+    r.id,
     r.receipt_number,
     r.amount_paid,
     r.created_at,
@@ -587,6 +630,7 @@ type GetTallyExportDataParams struct {
 }
 
 type GetTallyExportDataRow struct {
+	ID              pgtype.UUID        `json:"id"`
 	ReceiptNumber   string             `json:"receipt_number"`
 	AmountPaid      int64              `json:"amount_paid"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
@@ -607,6 +651,7 @@ func (q *Queries) GetTallyExportData(ctx context.Context, arg GetTallyExportData
 	for rows.Next() {
 		var i GetTallyExportDataRow
 		if err := rows.Scan(
+			&i.ID,
 			&i.ReceiptNumber,
 			&i.AmountPaid,
 			&i.CreatedAt,

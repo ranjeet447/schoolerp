@@ -36,6 +36,9 @@ func (h *ScheduleHandler) RegisterRoutes(r chi.Router) {
 		r.Route("/substitutions", func(r chi.Router) {
 			r.Get("/free-teachers", h.GetFreeTeachers)
 			r.Post("/", h.CreateSubstitution)
+			r.Post("/absences", h.MarkTeacherAbsence)
+			r.Get("/absences", h.GetAbsentTeachers)
+			r.Get("/teacher-lessons/{teacherID}", h.GetTeacherLessons)
 		})
 		r.Route("/teacher-assignments", func(r chi.Router) {
 			r.Post("/specializations", h.SetTeacherSpecializations)
@@ -167,6 +170,62 @@ func (h *ScheduleHandler) CreateSubstitution(w http.ResponseWriter, r *http.Requ
 	}
 
 	json.NewEncoder(w).Encode(map[string]string{"id": id})
+}
+
+func (h *ScheduleHandler) MarkTeacherAbsence(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		TeacherID string `json:"teacher_id"`
+		Date      string `json:"date"`
+		Reason    string `json:"reason"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	date, _ := time.Parse("2006-01-02", req.Date)
+	err := h.svc.MarkTeacherAbsence(r.Context(), middleware.GetTenantID(r.Context()), req.TeacherID, date, req.Reason)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *ScheduleHandler) GetAbsentTeachers(w http.ResponseWriter, r *http.Request) {
+	dateStr := r.URL.Query().Get("date")
+	date := time.Now()
+	if dateStr != "" {
+		if d, err := time.Parse("2006-01-02", dateStr); err == nil {
+			date = d
+		}
+	}
+
+	list, err := h.svc.GetAbsentTeachers(r.Context(), middleware.GetTenantID(r.Context()), date)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(list)
+}
+
+func (h *ScheduleHandler) GetTeacherLessons(w http.ResponseWriter, r *http.Request) {
+	teacherID := chi.URLParam(r, "teacherID")
+	dateStr := r.URL.Query().Get("date")
+	date := time.Now()
+	if dateStr != "" {
+		if d, err := time.Parse("2006-01-02", dateStr); err == nil {
+			date = d
+		}
+	}
+
+	list, err := h.svc.GetTeacherLessonsForDate(r.Context(), middleware.GetTenantID(r.Context()), teacherID, date)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(list)
 }
 func (h *ScheduleHandler) SetTeacherSpecializations(w http.ResponseWriter, r *http.Request) {
 	var req struct {

@@ -159,7 +159,21 @@ export default function TeacherMarksPage() {
   }
 
   const handleMarksChange = (studentID: string, marks: number) => {
+    const maxMarks = selectedSubject?.max_marks || 100
+    // Optional: add visual warning if marks > maxMarks
     setMarksRows((prev) => prev.map((row) => (row.student_id === studentID ? { ...row, marks_obtained: marks } : row)))
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
+    if (e.key === "ArrowDown" || e.key === "Enter") {
+      e.preventDefault()
+      const nextInput = document.querySelector(`input[data-index="${index + 1}"]`) as HTMLInputElement
+      if (nextInput) nextInput.focus()
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      const prevInput = document.querySelector(`input[data-index="${index - 1}"]`) as HTMLInputElement
+      if (prevInput) prevInput.focus()
+    }
   }
 
   const handleSave = async () => {
@@ -170,22 +184,22 @@ export default function TeacherMarksPage() {
 
     setSaving(true)
     try {
-      for (const row of marksRows) {
-        const res = await apiClient(`/teacher/exams/${selectedExamID}/subjects/${selectedSubjectID}/marks`, {
-          method: "POST",
-          body: JSON.stringify({
+      const res = await apiClient(`/teacher/exams/${selectedExamID}/subjects/${selectedSubjectID}/marks/bulk`, {
+        method: "POST",
+        body: JSON.stringify({
+          entries: marksRows.map(row => ({
             student_id: row.student_id,
-            marks: row.marks_obtained,
-          }),
-        })
+            marks: row.marks_obtained
+          }))
+        }),
+      })
 
-        if (!res.ok) {
-          const message = await res.text()
-          throw new Error(message || `Failed to save marks for ${row.student_name}`)
-        }
+      if (!res.ok) {
+        const message = await res.text()
+        throw new Error(message || "Failed to save marks")
       }
 
-      toast.success("Marks saved successfully")
+      toast.success("All marks saved successfully")
       await fetchMarks(selectedExamID, selectedSubjectID)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save marks")
@@ -265,21 +279,40 @@ export default function TeacherMarksPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {marksRows.map((row) => (
-                    <tr key={row.student_id || row.student_name} className="border-t">
-                      <td className="px-3 py-2 text-sm font-medium">{row.student_name || "-"}</td>
-                      <td className="px-3 py-2">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={selectedSubject?.max_marks || 100}
-                          step="0.01"
-                          value={row.marks_obtained}
-                          onChange={(e) => handleMarksChange(row.student_id, Number(e.target.value || 0))}
-                        />
-                      </td>
-                    </tr>
-                  ))}
+                  {marksRows.map((row, index) => {
+                    const isInvalid = row.marks_obtained > (selectedSubject?.max_marks || 100);
+                    return (
+                      <tr key={row.student_id || row.student_name} className={`border-t transition-colors ${isInvalid ? 'bg-red-50/50 dark:bg-red-900/10' : 'hover:bg-gray-50/50 dark:hover:bg-gray-800/10'}`}>
+                        <td className="px-3 py-2 text-sm font-medium">
+                          <div className="flex flex-col">
+                            <span>{row.student_name || "-"}</span>
+                            <span className="text-[10px] text-muted-foreground uppercase">{row.student_id.slice(0, 8)}</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="relative">
+                            <Input
+                              data-index={index}
+                              type="number"
+                              min={0}
+                              max={selectedSubject?.max_marks || 100}
+                              step="0.01"
+                              value={row.marks_obtained}
+                              onChange={(e) => handleMarksChange(row.student_id, Number(e.target.value || 0))}
+                              onKeyDown={(e) => handleKeyDown(e, index)}
+                              className={`h-9 focus-visible:ring-1 ${isInvalid ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                            />
+                            {isInvalid && (
+                              <span className="absolute -right-1 -top-1 flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

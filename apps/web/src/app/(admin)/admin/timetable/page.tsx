@@ -38,8 +38,20 @@ import {
   Plus,
   AlertCircle,
   CheckCircle2,
-  ChevronRight
+  ChevronRight,
+  Search,
+  UserX,
+  UserPlus
 } from "lucide-react"
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger,
+  Textarea
+} from "@schoolerp/ui"
+import { toast } from "sonner"
 
 // Types for Relational Scheduling
 interface Variant {
@@ -111,6 +123,19 @@ export default function TimetablePage() {
   const [entries, setEntries] = useState<TimetableEntry[]>([])
   const [selectedSectionID, setSelectedSectionID] = useState("")
 
+  // Substitution Portal State
+  const [absentTeachers, setAbsentTeachers] = useState<any[]>([])
+  const [selectedAbsentTeacher, setSelectedAbsentTeacher] = useState<any | null>(null)
+  const [teacherLessons, setTeacherLessons] = useState<any[]>([])
+  const [selectedLesson, setSelectedLesson] = useState<any | null>(null)
+  const [suggestedSubstitutes, setSuggestedSubstitutes] = useState<any[]>([])
+  const [loadingSubs, setLoadingSubs] = useState(false)
+  const [submittingAbsence, setSubmittingAbsence] = useState(false)
+  const [submittingSub, setSubmittingSub] = useState(false)
+  const [absenceReason, setAbsenceReason] = useState("")
+  const [selectedTeacherForAbsence, setSelectedTeacherForAbsence] = useState("")
+  const [searchDate, setSearchDate] = useState(new Date().toISOString().split('T')[0])
+
   const activeVariant = useMemo(() => variants.find(v => v.id === selectedVariantID), [variants, selectedVariantID])
 
   const loadMasterData = async () => {
@@ -181,6 +206,98 @@ export default function TimetablePage() {
       loadVariantDetails(selectedVariantID)
     }
   }, [selectedVariantID, selectedSectionID])
+
+  useEffect(() => {
+    if (activeTab === 'substitutions') {
+       fetchAbsentTeachers()
+    }
+  }, [activeTab, searchDate])
+
+  useEffect(() => {
+    if (selectedAbsentTeacher) {
+      fetchTeacherLessons(selectedAbsentTeacher.id)
+    }
+  }, [selectedAbsentTeacher, searchDate])
+
+  const fetchAbsentTeachers = async () => {
+    try {
+      const res = await apiClient(`/admin/schedule/substitutions/absences?date=${searchDate}`)
+      if (res.ok) setAbsentTeachers(await res.json())
+    } catch (err) {
+      toast.error("Failed to load absent teachers")
+    }
+  }
+
+  const fetchTeacherLessons = async (teacherID: string) => {
+    try {
+      const res = await apiClient(`/admin/schedule/substitutions/teacher-lessons/${teacherID}?date=${searchDate}`)
+      if (res.ok) setTeacherLessons(await res.json())
+    } catch (err) {
+      toast.error("Failed to load lessons")
+    }
+  }
+
+  const fetchFreeTeachers = async (periodID: string) => {
+    setLoadingSubs(true)
+    try {
+      const res = await apiClient(`/admin/schedule/substitutions/free-teachers?date=${searchDate}&period_id=${periodID}`)
+      if (res.ok) setSuggestedSubstitutes(await res.json())
+    } catch (err) {
+      toast.error("Failed to load free teachers")
+    } finally {
+      setLoadingSubs(false)
+    }
+  }
+
+  const handleMarkAbsent = async () => {
+    if (!selectedTeacherForAbsence) return
+    setSubmittingAbsence(true)
+    try {
+      const res = await apiClient("/admin/schedule/substitutions/absences", {
+        method: "POST",
+        body: JSON.stringify({
+          teacher_id: selectedTeacherForAbsence,
+          date: searchDate,
+          reason: absenceReason
+        })
+      })
+      if (res.ok) {
+        toast.success("Absence recorded")
+        fetchAbsentTeachers()
+        setSelectedTeacherForAbsence("")
+        setAbsenceReason("")
+      }
+    } catch (err) {
+      toast.error("Failed to record absence")
+    } finally {
+      setSubmittingAbsence(false)
+    }
+  }
+
+  const handleAssignSub = async (subTeacherID: string) => {
+    if (!selectedLesson) return
+    setSubmittingSub(true)
+    try {
+      const res = await apiClient("/admin/schedule/substitutions", {
+        method: "POST",
+        body: JSON.stringify({
+          date: searchDate,
+          entry_id: selectedLesson.id,
+          substitute_teacher_id: subTeacherID,
+          remarks: "Automated suggestion"
+        })
+      })
+      if (res.ok) {
+        toast.success("Substitution assigned")
+        fetchTeacherLessons(selectedAbsentTeacher.id)
+        setSelectedLesson(null)
+      }
+    } catch (err) {
+      toast.error("Assignment failed")
+    } finally {
+      setSubmittingSub(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -433,68 +550,190 @@ export default function TimetablePage() {
         </TabsContent>
 
         <TabsContent value="substitutions">
-          <Card className="border-red-100 bg-red-50/10">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-red-600">
-                <UsersIcon className="h-5 w-5" /> Today's Substitution Portal
+          <Card className="border-red-100 bg-red-50/10 rounded-[2rem] overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-red-600 font-black font-outfit uppercase tracking-tight">
+                <UsersIcon className="h-5 w-5" /> Substitution Portal
               </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <Label>1. Identify Absent Teacher</Label>
-                    <div className="rounded-lg border bg-background p-4 flex items-center justify-between transition-colors hover:border-red-300 cursor-pointer">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 font-bold">JD</div>
-                        <div>
-                          <p className="text-sm font-bold">John Doe</p>
-                          <p className="text-xs text-muted-foreground">Mathematics Dept.</p>
+              <div className="flex items-center gap-4">
+                 <input 
+                  type="date" 
+                  value={searchDate} 
+                  onChange={(e) => setSearchDate(e.target.value)}
+                  className="bg-white border-red-100 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-red-500 focus:outline-none h-10 shadow-sm"
+                 />
+                 <Dialog>
+                   <DialogTrigger asChild>
+                      <Button className="bg-red-600 hover:bg-red-700 text-white font-black rounded-xl h-10 gap-2 shadow-lg shadow-red-100">
+                        <UserX className="h-4 w-4" /> Log Absence
+                      </Button>
+                   </DialogTrigger>
+                   <DialogContent className="rounded-[2.5rem] p-8">
+                      <DialogHeader>
+                        <DialogTitle className="text-2xl font-black font-outfit">Identity Absentee</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-6 pt-4">
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Teacher</Label>
+                          <Select value={selectedTeacherForAbsence} onValueChange={setSelectedTeacherForAbsence}>
+                            <SelectTrigger className="rounded-2xl h-12">
+                              <SelectValue placeholder="Select faculty member..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {teachers.map(t => (
+                                <SelectItem key={uuidValue(t.id)} value={uuidValue(t.id)}>{t.full_name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Reason (Optional)</Label>
+                          <Textarea 
+                            placeholder="Sick leave, Personal work, etc." 
+                            className="rounded-2xl resize-none h-24"
+                            value={absenceReason}
+                            onChange={(e) => setAbsenceReason(e.target.value)}
+                          />
+                        </div>
+                        <Button 
+                          className="w-full h-14 bg-slate-900 rounded-2xl font-black text-lg gap-2"
+                          onClick={handleMarkAbsent}
+                          disabled={submittingAbsence || !selectedTeacherForAbsence}
+                        >
+                          {submittingAbsence ? <Loader2 className="animate-spin h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
+                          Confirm Absence
+                        </Button>
                       </div>
-                      <Badge variant="outline" className="text-red-500 border-red-200">On Leave</Badge>
-                    </div>
-                  </div>
-
+                   </DialogContent>
+                 </Dialog>
+              </div>
+            </CardHeader>
+            <CardContent className="p-8 space-y-8">
+               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Absent Teachers List */}
                   <div className="space-y-4">
-                    <Label>2. Suggested Substitutes</Label>
-                    <div className="space-y-2">
-                       <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Free Teachers in Period 3 (Current)</p>
-                       <div className="rounded-lg border bg-background p-4 flex items-center justify-between border-green-200">
+                    <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" /> Absent Today
+                    </h3>
+                    <div className="space-y-3">
+                      {absentTeachers.length === 0 ? (
+                        <div className="p-12 text-center border-2 border-dashed border-red-100 rounded-[2rem] bg-white/50">
+                           <CheckCircle2 className="h-10 w-10 text-emerald-200 mx-auto mb-2" />
+                           <p className="text-xs font-bold text-slate-400">All faculty present.</p>
+                        </div>
+                      ) : absentTeachers.map(at => (
+                        <div 
+                          key={at.id}
+                          onClick={() => setSelectedAbsentTeacher(at)}
+                          className={`group relative p-4 pl-6 rounded-3xl border touch-none select-none flex items-center justify-between transition-all cursor-pointer ${selectedAbsentTeacher?.id === at.id ? 'bg-slate-900 border-slate-900 shadow-xl' : 'bg-white border-slate-100'}`}
+                        >
                           <div className="flex items-center gap-3">
-                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                            <div className={`h-10 w-10 rounded-full flex items-center justify-center font-black text-sm ${selectedAbsentTeacher?.id === at.id ? 'bg-white/10 text-white' : 'bg-red-50 text-red-600'}`}>
+                              {at.name.split(' ').map((n: string) => n[0]).join('')}
+                            </div>
                             <div>
-                              <p className="text-sm font-bold">Jane Smith</p>
-                              <p className="text-xs text-muted-foreground">History Dept. (Free Slot)</p>
+                              <p className={`text-sm font-black ${selectedAbsentTeacher?.id === at.id ? 'text-white' : 'text-slate-900'}`}>{at.name}</p>
+                              <p className={`text-[10px] font-bold ${selectedAbsentTeacher?.id === at.id ? 'text-white/50' : 'text-slate-400'}`}>{at.reason || 'No reason provided'}</p>
                             </div>
                           </div>
-                          <Button size="sm" variant="outline" className="h-8">Assign</Button>
-                       </div>
+                          {selectedAbsentTeacher?.id === at.id && <ChevronRight className="h-5 w-5 text-white animate-bounce-x" />}
+                        </div>
+                      ))}
                     </div>
                   </div>
-               </div>
 
-               <div className="pt-6 border-t">
-                  <h4 className="text-sm font-bold mb-4">Pending Substitution Log</h4>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Absent Teacher</TableHead>
-                        <TableHead>Period</TableHead>
-                        <TableHead>Class/Sec</TableHead>
-                        <TableHead>Substitute</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      <TableRow>
-                        <TableCell className="text-xs">Ranjeet Kumar</TableCell>
-                        <TableCell className="text-xs">Period 1</TableCell>
-                        <TableCell className="text-xs">10 - B</TableCell>
-                        <TableCell className="text-xs font-bold text-green-600">Amit Shah</TableCell>
-                        <TableCell><Badge variant="outline">Confirmed</Badge></TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
+                  {/* Teacher Lessons requiring sub */}
+                  <div className="lg:col-span-2 space-y-6">
+                    {selectedAbsentTeacher ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-right-4 duration-500">
+                         <div className="space-y-4">
+                            <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                               <RefreshCw className="h-4 w-4" /> Identify Slots
+                            </h3>
+                            <div className="space-y-3">
+                               {teacherLessons.map(lesson => (
+                                 <div 
+                                  key={lesson.id}
+                                  onClick={() => {
+                                    setSelectedLesson(lesson)
+                                    fetchFreeTeachers(lesson.period_id)
+                                  }}
+                                  className={`p-5 rounded-[2.5rem] border-2 transition-all cursor-pointer relative overflow-hidden group ${selectedLesson?.id === lesson.id ? 'border-primary bg-primary/5 shadow-inner' : 'bg-white border-slate-100 hover:border-primary/30'}`}
+                                 >
+                                    <div className="flex justify-between items-start mb-2">
+                                      <Badge variant="outline" className="text-[10px] font-black border-slate-200">{lesson.period_name}</Badge>
+                                      <span className="text-[10px] font-bold text-slate-400">{lesson.start_time} - {lesson.end_time}</span>
+                                    </div>
+                                    <h4 className="text-base font-black text-slate-900">{lesson.subject}</h4>
+                                    <p className="text-xs font-bold text-slate-500">{lesson.class_section}</p>
+                                    
+                                    {lesson.substitute_name && (
+                                       <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2">
+                                          <div className="h-5 w-5 rounded-full bg-emerald-100 flex items-center justify-center">
+                                             <Check className="h-3 w-3 text-emerald-600" />
+                                          </div>
+                                          <span className="text-[10px] font-black text-emerald-600 uppercase">Sub: {lesson.substitute_name}</span>
+                                       </div>
+                                    )}
+                                 </div>
+                               ))}
+                            </div>
+                         </div>
+
+                         <div className="space-y-4">
+                            <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                               <UserPlus className="h-4 w-4" /> Suggestions
+                            </h3>
+                            <div className="space-y-3">
+                               {!selectedLesson ? (
+                                  <div className="p-12 text-center rounded-[2rem] border-2 border-dashed border-slate-100 bg-white/50 grayscale opacity-40">
+                                     <UsersIcon className="h-10 w-10 mx-auto mb-2" />
+                                     <p className="text-xs font-bold text-slate-400">Select a slot to see free faculty.</p>
+                                  </div>
+                               ) : loadingSubs ? (
+                                  <div className="p-12 text-center">
+                                     <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" />
+                                  </div>
+                               ) : suggestedSubstitutes.length === 0 ? (
+                                  <div className="p-8 text-center bg-amber-50 rounded-3xl border border-amber-100">
+                                     <AlertCircle className="h-8 w-8 text-amber-500 mx-auto mb-2" />
+                                     <p className="text-xs font-bold text-amber-800 uppercase tracking-widest">No Free Teachers</p>
+                                     <p className="text-[10px] text-amber-600 mt-1">Every faculty member is busy in this period.</p>
+                                  </div>
+                               ) : suggestedSubstitutes.map(sub => (
+                                  <div key={sub.id} className="p-4 rounded-3xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-all flex items-center justify-between group">
+                                     <div className="flex items-center gap-3">
+                                        <div className="h-10 w-10 rounded-2xl bg-slate-50 flex items-center justify-center font-black group-hover:bg-primary group-hover:text-white transition-colors">
+                                           {sub.name[0]}
+                                        </div>
+                                        <div>
+                                           <p className="text-sm font-black text-slate-900">{sub.name}</p>
+                                           <p className="text-[10px] font-bold text-primary uppercase">Available</p>
+                                        </div>
+                                     </div>
+                                     <Button 
+                                      size="sm" 
+                                      className="h-9 rounded-xl font-bold bg-slate-900"
+                                      onClick={() => handleAssignSub(sub.id)}
+                                      disabled={submittingSub}
+                                     >
+                                        Assign
+                                     </Button>
+                                  </div>
+                               ))}
+                            </div>
+                         </div>
+                      </div>
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center p-20 grayscale opacity-20">
+                         <div className="p-10 rounded-full bg-slate-100">
+                            <UsersIcon className="h-20 w-20 text-slate-400" />
+                         </div>
+                         <h3 className="mt-6 text-xl font-black text-slate-900">Portal Standby</h3>
+                         <p className="text-slate-500 font-medium">Select an absent teacher to start the workflow.</p>
+                      </div>
+                    )}
+                  </div>
                </div>
             </CardContent>
           </Card>

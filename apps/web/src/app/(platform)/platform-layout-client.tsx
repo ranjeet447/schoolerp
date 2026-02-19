@@ -33,6 +33,7 @@ import { Button } from "@schoolerp/ui";
 import { useAuth } from "@/components/auth-provider";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { RBACService } from "@/lib/auth-service";
+import { MobileNav } from "./components/mobile-nav";
 
 const NAV_GROUPS = [
   {
@@ -45,16 +46,16 @@ const NAV_GROUPS = [
   {
     title: "Portfolio",
     items: [
-      { href: "/platform/tenants", label: "SaaS Tenants", icon: Building2, permission: "platform:tenants.read" },
-      { href: "/platform/plans", label: "Product Plans", icon: Layers3, permission: "platform:plans.read" },
+      { href: "/platform/tenants", label: "Tenant Dashboard", icon: Building2, permission: "platform:tenants.read" },
+      { href: "/platform/plans", label: "Product Dash", icon: Layers3, permission: "platform:plans.read" },
       { href: "/platform/signup-requests", label: "Onboarding Queue", icon: FileCheck2, permission: "platform:tenants.write" },
-      { href: "/platform/payments", label: "Global Collections", icon: CreditCard, permission: "platform:billing.read" },
+      { href: "/platform/payments", label: "Billing Dash", icon: CreditCard, permission: "platform:billing.read" },
     ],
   },
   {
     title: "Ops & Support",
     items: [
-      { href: "/platform/support", label: "Customer Support", icon: LifeBuoy, permission: "platform:support.read" },
+      { href: "/platform/support", label: "Support Dashboard", icon: LifeBuoy, permission: "platform:support.read" },
       { href: "/platform/incidents", label: "Service Incidents", icon: AlertTriangle, permission: "platform:incidents.read" },
       { href: "/platform/marketing", label: "Communications", icon: Megaphone, permission: "platform:marketing.write" },
     ],
@@ -62,7 +63,7 @@ const NAV_GROUPS = [
   {
     title: "Infrastructure",
     items: [
-      { href: "/platform/integrations", label: "Gateway & API", icon: LinkIcon, permission: "platform:integrations.read" },
+      { href: "/platform/integrations", label: "Infra Connectivity", icon: LinkIcon, permission: "platform:integrations.read" },
       { href: "/platform/monitoring", label: "System Telemetry", icon: Activity, permission: "platform:monitoring.read" },
       { href: "/platform/settings", label: "Global Config", icon: Settings, permission: "platform:settings.write" },
     ],
@@ -181,11 +182,12 @@ export default function PlatformLayoutClient({
           </Button>
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle className="text-muted-foreground hover:text-foreground" />
-            <span className="text-sm font-medium text-muted-foreground">SchoolERP Platform</span>
+            <span className="hidden text-sm font-medium text-muted-foreground sm:inline-block">SchoolERP Platform</span>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-6 md:pb-6">{children}</main>
       </div>
+      <MobileNav />
     </div>
   );
 }

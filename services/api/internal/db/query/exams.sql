@@ -162,3 +162,17 @@ WHERE tenant_id = @tenant_id
   AND (@question_type::TEXT = '' OR question_type = @question_type)
 ORDER BY RANDOM()
 LIMIT @limit_count;
+-- name: BatchUpsertMarks :exec
+INSERT INTO marks_entries (
+    exam_id, subject_id, student_id, marks_obtained, entered_by
+)
+SELECT 
+    @exam_id::uuid,
+    @subject_id::uuid,
+    unnest(@student_ids::uuid[]),
+    unnest(@marks::numeric[]),
+    @entered_by_id::uuid
+ON CONFLICT (exam_id, subject_id, student_id)
+DO UPDATE SET 
+    marks_obtained = EXCLUDED.marks_obtained, 
+    entered_by = EXCLUDED.entered_by;

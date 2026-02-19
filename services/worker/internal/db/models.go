@@ -1551,6 +1551,14 @@ type Receipt struct {
 	SeriesID           pgtype.UUID        `json:"series_id"`
 }
 
+type ReceiptItem struct {
+	ID        pgtype.UUID        `json:"id"`
+	ReceiptID pgtype.UUID        `json:"receipt_id"`
+	FeeHeadID pgtype.UUID        `json:"fee_head_id"`
+	Amount    int64              `json:"amount"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type ReceiptSeries struct {
 	ID            pgtype.UUID        `json:"id"`
 	TenantID      pgtype.UUID        `json:"tenant_id"`

@@ -88,104 +88,80 @@ export default function PlatformSettingsPage() {
   if (loading) return <div className="p-6">Loading settings...</div>;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 pb-10">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Platform Settings</h1>
-          <p className="text-muted-foreground">Manage global notification settings and platform-wide templates.</p>
+          <h1 className="text-3xl font-black tracking-tight text-foreground md:text-4xl">Platform Configuration</h1>
+          <p className="mt-1 text-lg text-muted-foreground font-medium">Manage global notification settings and platform-wide templates.</p>
         </div>
       </div>
 
       {message && (
-        <div className="rounded border border-emerald-600/40 bg-emerald-500/10 p-3 text-sm text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-200">
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
           {message}
         </div>
       )}
       {error && (
-        <div className="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="flex items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
           {error}
         </div>
       )}
 
       <Tabs defaultValue="channels" className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="channels" className="gap-2">
+        <TabsList className="mb-8 p-1 bg-muted/50 rounded-xl">
+          <TabsTrigger value="channels" className="gap-2 rounded-lg font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <Bell className="h-4 w-4" />
             Notification Channels
           </TabsTrigger>
-          <TabsTrigger value="templates" className="gap-2">
+          <TabsTrigger value="templates" className="gap-2 rounded-lg font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <FileText className="h-4 w-4" />
             Templates
           </TabsTrigger>
-          <TabsTrigger value="maintenance" className="gap-2">
+          <TabsTrigger value="maintenance" className="gap-2 rounded-lg font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <SettingsIcon className="h-4 w-4" />
             Maintenance
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="channels">
-          <Card>
-            <CardHeader>
-              <CardTitle>Global Notification Channels</CardTitle>
-              <CardDescription>
+          <Card className="border-none shadow-sm shadow-black/5 bg-card/50 backdrop-blur-sm">
+            <CardHeader className="p-6">
+              <CardTitle className="text-xl font-black">Global Notification Channels</CardTitle>
+              <CardDescription className="font-medium">
                 Enable or disable communication channels at the platform level.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="p-6 pt-0 space-y-6">
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-medium">Email Notifications</p>
-                    <p className="text-xs text-muted-foreground">Global dispatch via SQS/SES</p>
+                {[
+                  { id: "email", name: "Email Notifications", desc: "Global dispatch via SQS/SES", enabled: settings.email_enabled },
+                  { id: "sms", name: "SMS Notifications", desc: "Global SMS gateway delivery", enabled: settings.sms_enabled },
+                  { id: "whatsapp", name: "WhatsApp Notifications", desc: "Meta API integration", enabled: settings.whatsapp_enabled },
+                  { id: "push", name: "Push Notifications", desc: "FCM/Firebase delivery", enabled: settings.push_enabled },
+                ].map((item) => (
+                  <div key={item.id} className="flex items-center justify-between rounded-xl border border-border p-4 bg-muted/30 hover:bg-muted/50 transition-colors">
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-black text-foreground">{item.name}</p>
+                      <p className="text-xs font-medium text-muted-foreground">{item.desc}</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      className="h-5 w-5 rounded-md border-border text-primary focus:ring-primary/20 accent-primary cursor-pointer"
+                      checked={item.enabled}
+                      onChange={(e) => {
+                        const key = `${item.id}_enabled` as keyof NotificationSettings;
+                        setSettings({ ...settings, [key]: e.target.checked });
+                      }}
+                    />
                   </div>
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                    checked={settings.email_enabled}
-                    onChange={(e) => setSettings({ ...settings, email_enabled: e.target.checked })}
-                  />
-                </div>
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-medium">SMS Notifications</p>
-                    <p className="text-xs text-muted-foreground">Global SMS gateway delivery</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                    checked={settings.sms_enabled}
-                    onChange={(e) => setSettings({ ...settings, sms_enabled: e.target.checked })}
-                  />
-                </div>
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-medium">WhatsApp Notifications</p>
-                    <p className="text-xs text-muted-foreground">Meta API integration</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                    checked={settings.whatsapp_enabled}
-                    onChange={(e) => setSettings({ ...settings, whatsapp_enabled: e.target.checked })}
-                  />
-                </div>
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-medium">Push Notifications</p>
-                    <p className="text-xs text-muted-foreground">FCM/Firebase delivery</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                    checked={settings.push_enabled}
-                    onChange={(e) => setSettings({ ...settings, push_enabled: e.target.checked })}
-                  />
-                </div>
+                ))}
               </div>
               <div className="flex justify-end pt-4">
-                <Button onClick={saveSettings} disabled={saving} className="gap-2">
+                <Button onClick={saveSettings} disabled={saving} className="gap-2 font-black shadow-lg shadow-primary/20 h-11">
                   <Save className="h-4 w-4" />
-                  {saving ? "Saving..." : "Save Configuration"}
+                  {saving ? "SAVING..." : "SAVE CONFIGURATION"}
                 </Button>
               </div>
             </CardContent>
@@ -193,38 +169,38 @@ export default function PlatformSettingsPage() {
         </TabsContent>
 
         <TabsContent value="templates" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Notification Templates</CardTitle>
-              <CardDescription>Managed base templates for all tenant communications.</CardDescription>
+          <Card className="border-none shadow-sm shadow-black/5 bg-card/50 backdrop-blur-sm">
+            <CardHeader className="p-6">
+              <CardTitle className="text-xl font-black">Notification Templates</CardTitle>
+              <CardDescription className="font-medium">Managed base templates for all tenant communications.</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto border-t">
                 <table className="min-w-full text-left text-sm">
-                  <thead className="bg-muted text-muted-foreground">
+                  <thead className="bg-muted/50 text-muted-foreground">
                     <tr>
-                      <th className="px-6 py-3 font-semibold uppercase tracking-wider text-[10px]">Code</th>
-                      <th className="px-6 py-3 font-semibold uppercase tracking-wider text-[10px]">Name</th>
-                      <th className="px-6 py-3 font-semibold uppercase tracking-wider text-[10px]">Type</th>
-                      <th className="px-6 py-3 font-semibold uppercase tracking-wider text-[10px]">Status</th>
+                      <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px]">Code</th>
+                      <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px]">Name</th>
+                      <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px]">Type</th>
+                      <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px]">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
+                  <tbody className="divide-y divide-border/50">
                     {notificationTemplates.length === 0 ? (
                       <tr>
-                        <td className="px-6 py-8 text-center text-muted-foreground" colSpan={4}>No notification templates available.</td>
+                        <td className="px-6 py-12 text-center text-muted-foreground italic" colSpan={4}>No notification templates found.</td>
                       </tr>
                     ) : (
                       notificationTemplates.map((t) => (
                         <tr key={t.id} className="hover:bg-accent/30 transition-colors">
-                          <td className="px-6 py-4 font-mono text-xs">{t.code}</td>
-                          <td className="px-6 py-4 font-medium">{t.name}</td>
-                          <td className="px-6 py-4">
-                            <Badge variant="outline" className="capitalize">{t.type}</Badge>
+                          <td className="px-6 py-5 font-mono text-xs font-bold text-primary">{t.code}</td>
+                          <td className="px-6 py-5 font-bold">{t.name}</td>
+                          <td className="px-6 py-5">
+                            <Badge variant="outline" className="capitalize font-black text-[10px] tracking-wide">{t.type}</Badge>
                           </td>
-                          <td className="px-6 py-4">
-                            <Badge className={t.is_active ? "bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20" : "bg-red-500/10 text-red-700"}>
-                              {t.is_active ? "Active" : "Inactive"}
+                          <td className="px-6 py-5">
+                            <Badge className={t.is_active ? "bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 font-black" : "bg-red-500/10 text-red-700 font-black"}>
+                              {t.is_active ? "ACTIVE" : "INACTIVE"}
                             </Badge>
                           </td>
                         </tr>
@@ -236,34 +212,34 @@ export default function PlatformSettingsPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Document Templates</CardTitle>
-              <CardDescription>Master print templates for report cards, certificates, and receipts.</CardDescription>
+          <Card className="border-none shadow-sm shadow-black/5 bg-card/50 backdrop-blur-sm">
+            <CardHeader className="p-6">
+              <CardTitle className="text-xl font-black">Document Templates</CardTitle>
+              <CardDescription className="font-medium">Master print templates for report cards, certificates, and receipts.</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto border-t">
                 <table className="min-w-full text-left text-sm">
-                  <thead className="bg-muted text-muted-foreground">
+                  <thead className="bg-muted/50 text-muted-foreground">
                     <tr>
-                      <th className="px-6 py-3 font-semibold uppercase tracking-wider text-[10px]">Code</th>
-                      <th className="px-6 py-3 font-semibold uppercase tracking-wider text-[10px]">Name</th>
-                      <th className="px-6 py-3 font-semibold uppercase tracking-wider text-[10px]">Status</th>
+                      <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px]">Code</th>
+                      <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px]">Name</th>
+                      <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px]">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
+                  <tbody className="divide-y divide-border/50">
                     {documentTemplates.length === 0 ? (
                       <tr>
-                        <td className="px-6 py-8 text-center text-muted-foreground" colSpan={3}>No document templates available.</td>
+                        <td className="px-6 py-12 text-center text-muted-foreground italic" colSpan={3}>No document templates found.</td>
                       </tr>
                     ) : (
                       documentTemplates.map((t) => (
                         <tr key={t.id} className="hover:bg-accent/30 transition-colors">
-                          <td className="px-6 py-4 font-mono text-xs">{t.code}</td>
-                          <td className="px-6 py-4 font-medium">{t.name}</td>
-                          <td className="px-6 py-4">
-                            <Badge className={t.is_active ? "bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20" : "bg-red-500/10 text-red-700"}>
-                              {t.is_active ? "Active" : "Inactive"}
+                          <td className="px-6 py-5 font-mono text-xs font-bold text-primary">{t.code}</td>
+                          <td className="px-6 py-5 font-bold">{t.name}</td>
+                          <td className="px-6 py-5">
+                            <Badge className={t.is_active ? "bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 font-black" : "bg-red-500/10 text-red-700 font-black"}>
+                              {t.is_active ? "ACTIVE" : "INACTIVE"}
                             </Badge>
                           </td>
                         </tr>
@@ -277,37 +253,30 @@ export default function PlatformSettingsPage() {
         </TabsContent>
 
         <TabsContent value="maintenance">
-          <Card>
-            <CardHeader>
-              <CardTitle>Infrastructure Maintenance</CardTitle>
-              <CardDescription>Critical platform maintenance and diagnostic tools.</CardDescription>
+          <Card className="border-none shadow-sm shadow-black/5 bg-card/50 backdrop-blur-sm">
+            <CardHeader className="p-6">
+              <CardTitle className="text-xl font-black">Infrastructure Maintenance</CardTitle>
+              <CardDescription className="font-medium">Critical platform maintenance and diagnostic tools.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <Button variant="outline" className="justify-start py-6 h-auto">
-                  <div className="text-left space-y-1">
-                    <p className="text-sm font-bold">Queue Health Check</p>
-                    <p className="text-xs text-muted-foreground">Diagnose background worker status</p>
-                  </div>
-                </Button>
-                <Button variant="outline" className="justify-start py-6 h-auto">
-                  <div className="text-left space-y-1">
-                    <p className="text-sm font-bold">Flush Redis Cache</p>
-                    <p className="text-xs text-muted-foreground">Clear all global session/data caches</p>
-                  </div>
-                </Button>
-                <Button variant="outline" className="justify-start py-6 h-auto">
-                  <div className="text-left space-y-1">
-                    <p className="text-sm font-bold">S3 Cleanup</p>
-                    <p className="text-xs text-muted-foreground">Purge orphaned temporary files</p>
-                  </div>
-                </Button>
-                <Button variant="outline" className="justify-start py-6 h-auto text-red-600 hover:bg-red-50 hover:text-red-700">
-                  <div className="text-left space-y-1">
-                    <p className="text-sm font-bold">Force Global Downtime</p>
-                    <p className="text-xs opacity-70 text-red-600">Enter emergency maintenance mode</p>
-                  </div>
-                </Button>
+            <CardContent className="p-6 pt-0 space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  { title: "Queue Health", desc: "Diagnose background worker status" },
+                  { title: "Flush Redis", desc: "Clear global session/data caches" },
+                  { title: "S3 Cleanup", desc: "Purge orphaned temporary files" },
+                  { title: "Force Downtime", desc: "Enter emergency maintenance", danger: true },
+                ].map((action) => (
+                  <Button 
+                    key={action.title}
+                    variant="outline" 
+                    className={`justify-start py-8 h-auto rounded-xl border-border bg-muted/30 hover:bg-muted/50 transition-all group ${action.danger ? "hover:border-rose-500/50 hover:bg-rose-500/5" : ""}`}
+                  >
+                    <div className="text-left space-y-1">
+                      <p className={`text-sm font-black ${action.danger ? "text-rose-600 group-hover:text-rose-700" : "text-foreground"}`}>{action.title.toUpperCase()}</p>
+                      <p className="text-[11px] font-medium text-muted-foreground">{action.desc}</p>
+                    </div>
+                  </Button>
+                ))}
               </div>
             </CardContent>
           </Card>

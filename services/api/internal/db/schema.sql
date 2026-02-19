@@ -3238,6 +3238,17 @@ CREATE TABLE student_optional_fees (
     UNIQUE(tenant_id, student_id, item_id, academic_year_id)
 );
 
+-- 6. Receipt Items (Breakdown)
+CREATE TABLE receipt_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    receipt_id UUID NOT NULL REFERENCES receipts(id) ON DELETE CASCADE,
+    fee_head_id UUID NOT NULL REFERENCES fee_heads(id),
+    amount BIGINT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_receipt_items_receipt ON receipt_items(receipt_id);
+
 -- Indexes
 CREATE INDEX idx_fee_class_config ON fee_class_configurations(academic_year_id, class_id);
 CREATE INDEX idx_student_scholarships_lookup ON student_scholarships(student_id, academic_year_id);

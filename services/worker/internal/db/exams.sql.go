@@ -52,6 +52,41 @@ func (q *Queries) AddQuestionToPaper(ctx context.Context, arg AddQuestionToPaper
 	return err
 }
 
+const batchUpsertMarks = `-- name: BatchUpsertMarks :exec
+INSERT INTO marks_entries (
+    exam_id, subject_id, student_id, marks_obtained, entered_by
+)
+SELECT 
+    $1::uuid,
+    $2::uuid,
+    unnest($3::uuid[]),
+    unnest($4::numeric[]),
+    $5::uuid
+ON CONFLICT (exam_id, subject_id, student_id)
+DO UPDATE SET 
+    marks_obtained = EXCLUDED.marks_obtained, 
+    entered_by = EXCLUDED.entered_by
+`
+
+type BatchUpsertMarksParams struct {
+	ExamID      pgtype.UUID      `json:"exam_id"`
+	SubjectID   pgtype.UUID      `json:"subject_id"`
+	StudentIds  []pgtype.UUID    `json:"student_ids"`
+	Marks       []pgtype.Numeric `json:"marks"`
+	EnteredByID pgtype.UUID      `json:"entered_by_id"`
+}
+
+func (q *Queries) BatchUpsertMarks(ctx context.Context, arg BatchUpsertMarksParams) error {
+	_, err := q.db.Exec(ctx, batchUpsertMarks,
+		arg.ExamID,
+		arg.SubjectID,
+		arg.StudentIds,
+		arg.Marks,
+		arg.EnteredByID,
+	)
+	return err
+}
+
 const createExam = `-- name: CreateExam :one
 INSERT INTO exams (
     tenant_id, academic_year_id, name, start_date, end_date

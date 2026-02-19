@@ -215,6 +215,80 @@ func (s *Service) UpsertMarks(ctx context.Context, p UpsertMarksParams) error {
 	return nil
 }
 
+type BulkUpsertMarksEntry struct {
+	StudentID string  `json:"student_id"`
+	Marks     float64 `json:"marks"`
+}
+
+type BulkUpsertMarksParams struct {
+	TenantID  string
+	ExamID    string
+	SubjectID string
+	Entries   []BulkUpsertMarksEntry
+	UserID    string
+	RequestID string
+	IP        string
+}
+
+func (s *Service) BulkUpsertMarks(ctx context.Context, p BulkUpsertMarksParams) error {
+	if len(p.Entries) == 0 {
+		return nil
+	}
+
+	tUUID := toPgUUID(p.TenantID)
+	eUUID := toPgUUID(p.ExamID)
+	sUUID := toPgUUID(p.SubjectID)
+	uUUID := toPgUUID(p.UserID)
+
+	// Policy Check: Check exam status
+	exam, err := s.q.GetExam(ctx, db.GetExamParams{ID: eUUID, TenantID: tUUID})
+	if err != nil {
+		return err
+	}
+	if exam.Status.String == "published" {
+		return fmt.Errorf("exam marks are locked and cannot be edited after publication")
+	}
+
+	studentIDs := make([]pgtype.UUID, len(p.Entries))
+	marks := make([]pgtype.Numeric, len(p.Entries))
+
+	for i, entry := range p.Entries {
+		studentIDs[i] = toPgUUID(entry.StudentID)
+
+		// Convert float64 to pgtype.Numeric
+		numericMarks := pgtype.Numeric{Valid: true}
+		if !math.IsNaN(entry.Marks) {
+			numericMarks.Int = big.NewInt(int64(entry.Marks * 100))
+			numericMarks.Exp = -2
+		}
+		marks[i] = numericMarks
+	}
+
+	err = s.q.BatchUpsertMarks(ctx, db.BatchUpsertMarksParams{
+		ExamID:      eUUID,
+		SubjectID:   sUUID,
+		StudentIds:  studentIDs,
+		Marks:       marks,
+		EnteredByID: uUUID,
+	})
+	if err != nil {
+		return err
+	}
+
+	s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    p.RequestID,
+		Action:       "bulk_upsert_marks",
+		ResourceType: "exam",
+		ResourceID:   eUUID,
+		IPAddress:    p.IP,
+		After:        map[string]interface{}{"subject_id": p.SubjectID, "count": len(p.Entries)},
+	})
+
+	return nil
+}
+
 func (s *Service) UpsertGradingScale(ctx context.Context, tenantID string, min, max float64, label string, point float64) error {
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(tenantID)

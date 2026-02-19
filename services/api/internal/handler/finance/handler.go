@@ -38,6 +38,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/scholarships", h.UpsertScholarship)
 		r.Get("/optional", h.ListOptionalFeeItems)
 		r.Post("/select", h.SelectOptionalFee)
+		r.Get("/students/{id}/summary", h.GetFeeSummary)
 	})
 	r.Route("/rules", func(r chi.Router) {
 		r.Get("/late-fees", h.ListLateFeeRules)
@@ -62,6 +63,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/series", h.CreateReceiptSeries)
 		r.Post("/{id}/cancel", h.CancelReceipt)
 		r.Post("/{id}/refund", h.CreateRefund)
+		r.Get("/{id}/pdf", h.GetReceiptPDF)
 	})
 }
 
@@ -142,6 +144,10 @@ func (h *Handler) IssueReceipt(w http.ResponseWriter, r *http.Request) {
 		Amount    int64  `json:"amount"`
 		Mode      string `json:"mode"`
 		Ref       string `json:"transaction_ref"`
+		Items     []struct {
+			HeadID string `json:"fee_head_id"`
+			Amount int64  `json:"amount"`
+		} `json:"items"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request", http.StatusBadRequest)
@@ -157,6 +163,13 @@ func (h *Handler) IssueReceipt(w http.ResponseWriter, r *http.Request) {
 		UserID:         middleware.GetUserID(r.Context()),
 		RequestID:      middleware.GetReqID(r.Context()),
 		IP:             r.RemoteAddr,
+	}
+
+	for _, item := range req.Items {
+		p.Items = append(p.Items, financeservice.ReceiptItemParam{
+			HeadID: item.HeadID,
+			Amount: item.Amount,
+		})
 	}
 
 	receipt, err := h.svc.IssueReceipt(r.Context(), p)
@@ -497,6 +510,21 @@ func (h *Handler) CreateRefund(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	json.NewEncoder(w).Encode(refund)
+}
+
+func (h *Handler) GetReceiptPDF(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	tenantID := middleware.GetTenantID(r.Context())
+
+	pdf, err := h.svc.GetReceiptPDF(r.Context(), tenantID, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=receipt_%s.pdf", id))
+	w.Write(pdf)
 }
 
 func (h *Handler) UpsertLedgerMapping(w http.ResponseWriter, r *http.Request) {

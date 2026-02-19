@@ -19,6 +19,7 @@ type Querier interface {
 	AssignPlanToStudent(ctx context.Context, arg AssignPlanToStudentParams) (StudentFeePlan, error)
 	AssignScholarship(ctx context.Context, arg AssignScholarshipParams) (StudentScholarship, error)
 	BatchUpsertAttendanceEntries(ctx context.Context, arg []BatchUpsertAttendanceEntriesParams) (int64, error)
+	BatchUpsertMarks(ctx context.Context, arg BatchUpsertMarksParams) error
 	BookPTMSlot(ctx context.Context, arg BookPTMSlotParams) (PtmSlot, error)
 	CancelReceipt(ctx context.Context, arg CancelReceiptParams) (Receipt, error)
 	CheckIPAllowlist(ctx context.Context, arg CheckIPAllowlistParams) (bool, error)
@@ -90,6 +91,7 @@ type Querier interface {
 	// Question Paper Management
 	CreateQuestionPaper(ctx context.Context, arg CreateQuestionPaperParams) (ExamQuestionPaper, error)
 	CreateReceipt(ctx context.Context, arg CreateReceiptParams) (Receipt, error)
+	CreateReceiptItem(ctx context.Context, arg CreateReceiptItemParams) (ReceiptItem, error)
 	CreateReceiptSeries(ctx context.Context, arg CreateReceiptSeriesParams) (ReceiptSeries, error)
 	CreateRefund(ctx context.Context, arg CreateRefundParams) (FeeRefund, error)
 	CreateRoute(ctx context.Context, arg CreateRouteParams) (TransportRoute, error)

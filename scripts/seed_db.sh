@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Configuration
+# Add common psql paths for macOS/Linux
+export PATH="$PATH:/usr/local/bin:/opt/homebrew/bin:/Library/PostgreSQL/14/bin"
+
+# Database connection details
 DB_URL=${DATABASE_URL:-"postgres://schoolerp:password@localhost:5432/schoolerp?sslmode=disable"}
 MODE=${1:---bootstrap}
 
@@ -18,17 +21,14 @@ echo "--- SchoolERP Database Seeding ---"
 echo "Database: $DB_URL"
 
 case "$MODE" in
-  --bootstrap)
-    echo "Applying SAFE bootstrap seed: infra/migrations/seed_users.sql"
-    psql "$DB_URL" -v ON_ERROR_STOP=1 -f infra/migrations/seed_users.sql
-    ;;
-  --reset)
-    echo "Applying DESTRUCTIVE reset seed: infra/migrations/seed_production.sql"
-    psql "$DB_URL" -v ON_ERROR_STOP=1 -f infra/migrations/seed_production.sql
+  --bootstrap | --reset)
+    echo "Applying COMPREHENSIVE v7 seed: infra/seed/seed_data.sql"
+    psql "$DB_URL" -v ON_ERROR_STOP=1 -f infra/seed/seed_data.sql
     ;;
   --marketing)
-    echo "Applying marketing demo fixtures: infra/seed/demo_seed.sql"
-    psql "$DB_URL" -v ON_ERROR_STOP=1 -f infra/seed/demo_seed.sql
+    echo "Marketing mode is now deprecated. Use --bootstrap for unified data."
+    echo "Falling back to comprehensive seed..."
+    psql "$DB_URL" -v ON_ERROR_STOP=1 -f infra/seed/seed_data.sql
     ;;
   *)
     usage

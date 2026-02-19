@@ -62,6 +62,8 @@ type Student360 struct {
 	Health       *HealthRecord          `json:"health"`
 	Documents    []StudentDocument      `json:"documents"`
 	Finances     map[string]interface{} `json:"finances"`
+	Academics    map[string]interface{} `json:"academics"`
+	Guardians    []map[string]interface{} `json:"guardians"`
 }
 
 // --- Behavioral Logic ---
@@ -201,13 +203,127 @@ func (s *Student360Service) GetStudent360(ctx context.Context, tenantID, student
 	// 4. Documents
 	docs, _ := s.ListDocuments(ctx, studentID)
 
-	// 5. Financial Snapshot (Mock for now, would join with finance tables)
-	finance := map[string]interface{}{
-		"total_due": 15000,
-		"paid": 10000,
-		"balance": 5000,
-		"last_payment_date": time.Now().AddDate(0, 0, -10),
+	// 5. Financial Snapshot (Real Data)
+	finance := make(map[string]interface{})
+	var totalDue, totalPaid int64
+	var lastPayment *time.Time
+
+	// Calculate Due from Plan Items
+	s.pool.QueryRow(ctx, `
+		SELECT COALESCE(SUM(fpi.amount), 0)
+		FROM fee_plan_items fpi
+		JOIN student_fee_plans sfp ON fpi.plan_id = sfp.plan_id
+		WHERE sfp.student_id = $1
+	`, studentID).Scan(&totalDue)
+
+	// Calculate Paid from Receipts
+	s.pool.QueryRow(ctx, `
+		SELECT COALESCE(SUM(amount_paid), 0), MAX(created_at)
+		FROM receipts
+		WHERE student_id = $1 AND status != 'cancelled'
+	`, studentID).Scan(&totalPaid, &lastPayment)
+
+	finance["total_due"] = totalDue
+	finance["paid"] = totalPaid
+	finance["balance"] = totalDue - totalPaid
+	finance["last_payment_date"] = lastPayment
+
+	// 6. Academic Snapshot (Real Data)
+	academics := make(map[string]interface{})
+	var attendancePercent float64
+	var latestExamAvg float64
+
+	// Attendance Percentage
+	s.pool.QueryRow(ctx, `
+		SELECT 
+			CASE WHEN COUNT(*) = 0 THEN 0 
+			ELSE (COUNT(*) FILTER (WHERE status = 'present')::float / COUNT(*)::float) * 100 
+			END
+		FROM attendance_entries
+		WHERE student_id = $1
+	`, studentID).Scan(&attendancePercent)
+
+	// Latest Exam Average
+	s.pool.QueryRow(ctx, `
+		SELECT COALESCE(AVG(marks_obtained), 0)
+		FROM marks_entries
+		WHERE student_id = $1 AND exam_id = (
+			SELECT id FROM exams 
+			WHERE tenant_id = $2 AND status = 'published' 
+			ORDER BY start_date DESC LIMIT 1
+		)
+	`, studentID, tenantID).Scan(&latestExamAvg)
+
+	// Subject-wise Performance
+	subjectPerf := []map[string]interface{}{}
+	rows, _ := s.pool.Query(ctx, `
+		SELECT s.name, COALESCE(AVG(m.marks_obtained::float / NULLIF(m.max_marks, 0) * 100), 0) as percent
+		FROM marks_entries m
+		JOIN subjects s ON m.subject_id = s.id
+		WHERE m.student_id = $1
+		GROUP BY s.name
+		LIMIT 6
+	`, studentID)
+	if rows != nil {
+		for rows.Next() {
+			var name string
+			var pc float64
+			if err := rows.Scan(&name, &pc); err == nil {
+				subjectPerf = append(subjectPerf, map[string]interface{}{"subject": name, "score": pc})
+			}
+		}
+		rows.Close()
 	}
+
+	// Attendance Trends (Last 6 Months)
+	trends := []map[string]interface{}{}
+	rows, _ = s.pool.Query(ctx, `
+		SELECT TO_CHAR(asess.date, 'Mon'), COALESCE((COUNT(*) FILTER (WHERE ae.status = 'present')::float / NULLIF(COUNT(*), 0) * 100), 0)
+		FROM attendance_entries ae
+		JOIN attendance_sessions asess ON ae.session_id = asess.id
+		WHERE ae.student_id = $1
+		GROUP BY TO_CHAR(asess.date, 'Mon'), DATE_TRUNC('month', asess.date)
+		ORDER BY DATE_TRUNC('month', asess.date) DESC
+		LIMIT 6
+	`, studentID)
+	if rows != nil {
+		for rows.Next() {
+			var month string
+			var pc float64
+			if err := rows.Scan(&month, &pc); err == nil {
+				// Reverse for chronological order later in JS if needed
+				trends = append(trends, map[string]interface{}{"month": month, "percent": pc})
+			}
+		}
+		rows.Close()
+	}
+
+	academics["attendance_percentage"] = attendancePercent
+	academics["latest_exam_avg"] = latestExamAvg
+	academics["subject_performance"] = subjectPerf
+	academics["attendance_trends"] = trends
+
+	// 7. Guardians
+	guardians := []map[string]interface{}{}
+	rows, _ = s.pool.Query(ctx, `
+		SELECT g.full_name, g.phone, g.email, sg.relationship, sg.is_primary
+		FROM guardians g
+		JOIN student_guardians sg ON g.id = sg.guardian_id
+		WHERE sg.student_id = $1
+	`, studentID)
+	if rows != nil {
+		for rows.Next() {
+			var name, phone, email, relationship string
+			var isPrimary bool
+			if err := rows.Scan(&name, &phone, &email, &relationship, &isPrimary); err == nil {
+				guardians = append(guardians, map[string]interface{}{
+					"name": name, "phone": phone, "email": email, "relationship": relationship, "is_primary": isPrimary,
+				})
+			}
+		}
+		rows.Close()
+	}
+
 
 	return &Student360{
 		Profile:   profile,
@@ -215,5 +331,8 @@ func (s *Student360Service) GetStudent360(ctx context.Context, tenantID, student
 		Health:    health,
 		Documents: docs,
 		Finances:  finance,
+		Academics: academics,
+		Guardians: guardians,
 	}, nil
 }
+

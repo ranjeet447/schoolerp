@@ -19,6 +19,12 @@ type IssueReceiptParams struct {
 	UserID         string
 	RequestID      string
 	IP             string
+	Items          []ReceiptItemParam
+}
+
+type ReceiptItemParam struct {
+	HeadID string
+	Amount int64
 }
 
 func (s *Service) IssueReceipt(ctx context.Context, p IssueReceiptParams) (db.Receipt, error) {
@@ -31,14 +37,23 @@ func (s *Service) IssueReceipt(ctx context.Context, p IssueReceiptParams) (db.Re
 	uUUID := pgtype.UUID{}
 	uUUID.Scan(p.UserID)
 
+	// Start Transaction
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return db.Receipt{}, fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	qtx := db.New(tx)
+
 	// 1. Get Active Series
-	series, err := s.q.GetActiveSeries(ctx, tUUID)
+	series, err := qtx.GetActiveSeries(ctx, tUUID)
 	if err != nil {
 		return db.Receipt{}, fmt.Errorf("no active receipt series found: %w", err)
 	}
 
 	// 2. Get Next Number
-	receiptNo, err := s.q.GetNextReceiptNumber(ctx, db.GetNextReceiptNumberParams{
+	receiptNo, err := qtx.GetNextReceiptNumber(ctx, db.GetNextReceiptNumberParams{
 		ID:       series.ID,
 		TenantID: tUUID,
 	})
@@ -47,7 +62,7 @@ func (s *Service) IssueReceipt(ctx context.Context, p IssueReceiptParams) (db.Re
 	}
 
 	// 3. Create Receipt
-	receipt, err := s.q.CreateReceipt(ctx, db.CreateReceiptParams{
+	receipt, err := qtx.CreateReceipt(ctx, db.CreateReceiptParams{
 		TenantID:       tUUID,
 		ReceiptNumber:  receiptNo.(string),
 		StudentID:      sUUID,
@@ -59,6 +74,26 @@ func (s *Service) IssueReceipt(ctx context.Context, p IssueReceiptParams) (db.Re
 	})
 	if err != nil {
 		return db.Receipt{}, err
+	}
+
+	// 3.5 Create Receipt Items
+	for _, item := range p.Items {
+		hUUID := pgtype.UUID{}
+		hUUID.Scan(item.HeadID)
+
+		_, err := qtx.CreateReceiptItem(ctx, db.CreateReceiptItemParams{
+			ReceiptID: receipt.ID,
+			FeeHeadID: hUUID,
+			Amount:    item.Amount,
+		})
+		if err != nil {
+			return db.Receipt{}, fmt.Errorf("failed to create receipt item: %w", err)
+		}
+	}
+
+	// Commit Transaction
+	if err := tx.Commit(ctx); err != nil {
+		return db.Receipt{}, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	// 4. Audit Log

@@ -241,16 +241,98 @@ func (s *ScheduleService) CreateSubstitution(ctx context.Context, tenantID strin
 	`, tenantID, date, entryID, subTeacherID, remarks).Scan(&id)
 	return id, err
 }
+
+func (s *ScheduleService) MarkTeacherAbsence(ctx context.Context, tenantID, teacherID string, date time.Time, reason string) error {
+	_, err := s.pool.Exec(ctx, `
+		INSERT INTO teacher_absences (tenant_id, teacher_id, absence_date, reason)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT DO NOTHING
+	`, tenantID, teacherID, date, reason)
+	return err
+}
+
+func (s *ScheduleService) GetAbsentTeachers(ctx context.Context, tenantID string, date time.Time) ([]map[string]interface{}, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT u.id, u.full_name, ta.reason, ta.created_at
+		FROM teacher_absences ta
+		JOIN users u ON ta.teacher_id = u.id
+		WHERE ta.tenant_id = $1 AND ta.absence_date = $2
+	`, tenantID, date)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []map[string]interface{}
+	for rows.Next() {
+		var id, name, reason string
+		var createdAt time.Time
+		if err := rows.Scan(&id, &name, &reason, &createdAt); err != nil {
+			return nil, err
+		}
+		list = append(list, map[string]interface{}{
+			"id":         id,
+			"name":       name,
+			"reason":     reason,
+			"created_at": createdAt,
+		})
+	}
+	return list, nil
+}
+
+func (s *ScheduleService) GetTeacherLessonsForDate(ctx context.Context, tenantID, teacherID string, date time.Time) ([]map[string]interface{}, error) {
+	dow := int(date.Weekday())
+	rows, err := s.pool.Query(ctx, `
+		SELECT 
+			te.id, tp.period_name, tp.start_time::text, tp.end_time::text,
+			sub.name as subject_name, c.name as class_name, sec.name as section_name,
+			(SELECT substitute_teacher_id FROM teacher_substitutions ts WHERE ts.timetable_entry_id = te.id AND ts.substitution_date = $4) as substitute_id,
+			(SELECT u.full_name FROM teacher_substitutions ts JOIN users u ON ts.substitute_teacher_id = u.id WHERE ts.timetable_entry_id = te.id AND ts.substitution_date = $4) as substitute_name,
+			te.period_id
+		FROM timetable_entries te
+		JOIN timetable_periods tp ON te.period_id = tp.id
+		JOIN subjects sub ON te.subject_id = sub.id
+		JOIN sections sec ON te.class_section_id = sec.id
+		JOIN classes c ON sec.class_id = c.id
+		WHERE te.tenant_id = $1 AND te.teacher_id = $2 AND te.day_of_week = $3
+		ORDER BY tp.start_time
+	`, tenantID, teacherID, dow, date)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var lessons []map[string]interface{}
+	for rows.Next() {
+		var id, pName, start, end, sName, cName, secName, pID string
+		var subID, subName *string
+		if err := rows.Scan(&id, &pName, &start, &end, &sName, &cName, &secName, &subID, &subName, &pID); err != nil {
+			return nil, err
+		}
+		lessons = append(lessons, map[string]interface{}{
+			"id":              id,
+			"period_name":     pName,
+			"start_time":      start,
+			"end_time":        end,
+			"subject":         sName,
+			"class_section":   cName + " " + secName,
+			"substitute_id":   subID,
+			"substitute_name": subName,
+			"period_id":       pID,
+		})
+	}
+	return lessons, nil
+}
+
 func (s *ScheduleService) GetTeacherDailyTimetable(ctx context.Context, tenantID, teacherID string, date time.Time) ([]map[string]interface{}, error) {
 	dow := int(date.Weekday())
 	
 	// Fetch regular timetable slots + active substitutions for this teacher
 	rows, err := s.pool.Query(ctx, `
-		-- Regular Slots
 		SELECT 
 			te.id, tp.period_name, tp.start_time::text, tp.end_time::text,
 			sub.name as subject_name, c.name as class_name, sec.name as section_name, te.room_number,
-			false as is_substitution, '' as substitution_remarks, te.class_section_id
+			false as is_substitution, '' as substitution_remarks, te.class_section_id, te.subject_id
 		FROM timetable_entries te
 		JOIN timetable_periods tp ON te.period_id = tp.id
 		JOIN subjects sub ON te.subject_id = sub.id
@@ -267,7 +349,7 @@ func (s *ScheduleService) GetTeacherDailyTimetable(ctx context.Context, tenantID
 		SELECT 
 			te.id, tp.period_name, tp.start_time::text, tp.end_time::text,
 			sub.name as subject_name, c.name as class_name, sec.name as section_name, te.room_number,
-			true as is_substitution, ts.remarks as substitution_remarks, te.class_section_id
+			true as is_substitution, ts.remarks as substitution_remarks, te.class_section_id, te.subject_id
 		FROM teacher_substitutions ts
 		JOIN timetable_entries te ON ts.timetable_entry_id = te.id
 		JOIN timetable_periods tp ON te.period_id = tp.id
@@ -285,9 +367,9 @@ func (s *ScheduleService) GetTeacherDailyTimetable(ctx context.Context, tenantID
 
 	var entries []map[string]interface{}
 	for rows.Next() {
-		var id, pName, start, end, sName, cName, secName, room, subRemarks, sectionID string
+		var id, pName, start, end, sName, cName, secName, room, subRemarks, sectionID, subjectID string
 		var isSub bool
-		err := rows.Scan(&id, &pName, &start, &end, &sName, &cName, &secName, &room, &isSub, &subRemarks, &sectionID)
+		err := rows.Scan(&id, &pName, &start, &end, &sName, &cName, &secName, &room, &isSub, &subRemarks, &sectionID, &subjectID)
 		if err != nil {
 			return nil, err
 		}
@@ -303,6 +385,7 @@ func (s *ScheduleService) GetTeacherDailyTimetable(ctx context.Context, tenantID
 			"room":              room,
 			"is_substitution":   isSub,
 			"sub_remarks":       subRemarks,
+			"subject_id":        subjectID,
 		})
 	}
 	return entries, nil

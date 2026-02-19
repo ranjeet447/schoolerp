@@ -347,6 +347,7 @@ func main() {
 		r.Route("/teacher", func(r chi.Router) {
 			r.Use(middleware.RoleGuard("teacher", "tenant_admin", "super_admin")) // Allow admins to view teacher routes too
 			attendanceHandler.RegisterRoutes(r)
+			staffAttendHandler.RegisterRoutes(r) // Expose period-attendance
 			noticeHandler.RegisterRoutes(r)
 			examHandler.RegisterRoutes(r)
 			academicHandler.RegisterRoutes(r)

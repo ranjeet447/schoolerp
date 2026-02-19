@@ -1,6 +1,8 @@
 # Product Roadmap & Feature Status
 
-This document tracks the high-level roadmap and current status of SchoolERP modules. It supersedes older status tracking documents.
+This document tracks the high-level roadmap and current status of SchoolERP modules.
+
+> **Canonical Tracker:** [`FEATURE_TRACKER.md`](file:///Users/ranjeet/projects/schoolERP/FEATURE_TRACKER.md) — the unified source of truth for all implementation status.
 
 **Current Phase:** Phase 3 (Automation & Optimization)
 
@@ -9,90 +11,79 @@ This document tracks the high-level roadmap and current status of SchoolERP modu
 ## 1. Roadmap Phases
 
 ### ✅ Phase 1: Released
-**Focus: Academic & Financial Core**
-*(Status: RELEASED - Q1 2026)*
+**Focus: Academic & Financial Core** *(Q1 2026)*
 
-- **Student Information System (SIS):** Admissions, profiles, document management.
-- **Attendance:** Daily attendance (student/staff), leave management.
-- **Fees & Payments:** Fee heads, installments, receipts, basic reports.
-- **Exams & Results:** Marks entry, report card generation, exam scheduling.
-- **Core Communication:** Announcements, in-app alerts.
-- **Multilingual UI:** Complete Hindi/English support.
+- Student Information System (SIS): Admissions, profiles, document management
+- Attendance: Daily student/staff, leave management
+- Fees & Payments: Fee heads, installments, receipts, gateway reconciliation, Tally export
+- Exams & Results: Marks entry, report cards, exam scheduling
+- Core Communication: Notices, announcements, in-app alerts
+- Multilingual UI: Hindi/English support
 
 ### ✅ Phase 2: Released
-**Focus: Logistics & Operations**
-*(Status: RELEASED - Q2 2026)*
+**Focus: Logistics & Operations** *(Q2 2026)*
 
-- **Transport:** Routes, stops, vehicle management (GPS available as plugin).
-- **Library:** Books, issue/return, fines.
-- **Inventory & Assets:** Stock management, procurement requests.
-- **Admissions Portal:** Public admission forms.
+- Transport: Routes, stops, vehicle management
+- Library: Books, issue/return, digital assets, ISBN lookup
+- Inventory & Assets: Stock management, purchase orders, multi-godown
+- Admissions Portal: Public forms, workflow management
+- HRMS: Employees, salary structures, payroll, biometric attendance
+- Alumni: Directory, placement drives
+- Safety: Visitors, discipline incidents, broadcasts
+- Communication: PTM booking, moderated chat
 
 ### 🚧 Phase 3: In Progress
-**Focus: Automation & Optimization**
-*(Status: IN PROGRESS - Q3/Q4 2026)*
+**Focus: Automation & Optimization** *(Q3/Q4 2026)*
 
-- **Automation:** Automated Timetable Generation (Constraint-based).
-- **HRMS:** Staff payroll, leave balance auto-calculation.
-- **Analytics:** Portfolio dashboards for school groups.
-- **Advanced Portals:** Alumni directory, placement portal.
-- **Mobile:** Native Parent App (pre-release testing).
+- **Academic:** Hall tickets, gradebook schema management, coordinator review flows
+- **Operations:** Fee reminder automation, scheduled notices, low stock alerts
+- **Discipline:** Severity alerts, merit/demerit tracking UI
+- **Safety:** QR gate passes, photo verification, pickup event logging
+- **Transport:** Maintenance/fuel logs, transport fee integration
+- **HRMS:** KRA/performance tracking, staff leave management
+- **Portfolio:** Cross-campus analytics, financial health dashboards
+- **Automation Studio:** Rule engine, custom templates, scheduled tasks
 
----
+### 📋 Phase 4: Planned
+**Focus: AI & Intelligence** *(2027)*
 
-## 2. AI Strategy: Practical & Low-Cost
-
-We prioritize **explainable, low-cost intelligence** first. Heavier AI features are opt-in plugins to keep base costs sustainable.
-
-### Practical AI (AI Suite v1)
-*Included in Standard/Premium plans or minimal top-up.*
-
-| Feature | Status | Description |
-| :--- | :--- | :--- |
-| **A1: AI Parent Helpdesk** | 🚧 Planned | WhatsApp/Web Chat for fee/holiday queries. Grounded in notices. |
-| **A2: AI Teacher Assistant** | 🚧 Planned | Draft lesson plans & quizzes (Teacher-in-the-loop). |
-| **A3: Fee Intelligence** | 🚧 Planned | Predictive risk flags for late payments. |
-| **A4: Smart Search + Voice** | 🚧 Planned | Voice-to-text remarks & policy search. |
-
-### AI Suite Premium
-*Heavier compute; billed separately.*
-
-| Feature | Status | Description |
-| :--- | :--- | :--- |
-| **A5: Timetable Optimizer** | 🚧 Planned | Constraint-based schedule generator. |
-| **A6: Insights & Anomalies** | 🚧 Planned | Attendance spikes, fee deviations, GPS alerts. |
-| **A7: Remedial Recs** | 🚧 Planned | Personalized topic suggestions based on marks. |
-| **A8-A10: Enterprise AI** | 🚧 Planned | Grading Assistance, Face Auth, Admissions Scoring. |
+- Fee Intelligence: Risk flags, predictive cashflow, smart reminder cadence
+- Advanced AI: Timetable solver, attendance anomaly detection, remedial suggestions
+- Transport GPS: Live tracking, deviation alerts
+- AI Parent Helpdesk: WhatsApp, wallet billing
 
 ---
 
-## 3. Automation & Optimization
-*Non-AI features leveraging algorithms and rules.*
+## 2. AI Strategy
 
-- **Automated Timetable Generation:** Constraint-based scheduling (genetic algorithm).
-  - *Status:* In Progress
-  - *Note:* Moved out of "AI Frontier" into core optimization.
+### AI Suite v1 (In Progress)
+| Feature | Status | Module |
+|---|---|---|
+| Teacher Copilot — Lesson Plans | ✅ Done | M17 |
+| AI Parent Helpdesk — Web | ⚠️ Partial | M18 |
+| Fee Intelligence | 📋 Planned | M19 |
+
+### AI Suite Premium (Planned)
+| Feature | Status | Module |
+|---|---|---|
+| Constraint Timetable Solver | 📋 Planned | M20 |
+| Attendance Anomaly Alerts | 📋 Planned | M20 |
+| Transport Deviation Logs | 📋 Planned | M20 |
+| Remedial Study Suggestions | 📋 Planned | M20 |
+
+---
+
+## 3. Related Documentation
+
+| Document | Description |
+|---|---|
+| [FEATURE_TRACKER.md](file:///Users/ranjeet/projects/schoolERP/FEATURE_TRACKER.md) | Unified implementation tracker (200+ tasks) |
+| [api-reference.md](file:///Users/ranjeet/projects/schoolERP/docs/api-reference.md) | Complete API reference (120+ endpoints) |
+| [UI_SCREEN_CHECKLIST.md](file:///Users/ranjeet/projects/schoolERP/docs/UI_SCREEN_CHECKLIST.md) | UI screens + Storybook component checklist |
+| [PLAYWRIGHT_TEST_MAP.md](file:///Users/ranjeet/projects/schoolERP/docs/PLAYWRIGHT_TEST_MAP.md) | E2E test regression suite map (35 tests) |
 
 ---
 
 > **Change Log:**
-> - **v2.0 (Feb 2026):** Consolidated roadmap. Marked Phase 1 & 2 as RELEASED. Shifted Phase 3 to "Automation". Split AI into Practical vs Plugin.
-
-## 4. Practical AI (Addendum)
-Following the new positioning, we focus on optional AI Add-ons that enhance human productivity without replacing oversight.
-
-### P2: AI Add-ons v1 (In Progress)
-- **A1: Teacher Copilot:** Grounded generation of lesson plans, worksheets, and quizzes.
-- **A2: Parent Helpdesk:** 24/7 multilingual Support bot (WhatsApp/Web) grounded in ERP records.
-- **A3: Fee Intelligence:** Explainable delay-risk flags and optimized reminder cadence.
-- **A4: Voice Notes:** Voice-to-text integration for quick remarks and staff notes.
-
-### P3: AI Premium (Planned)
-- **A5: Timetable Optimizer:** Constraint-based solver for complex scheduling.
-- **A6: Insights & Anomaly Alerts:** Proactive detection of attendance and financial deviations.
-- **A7: Remedial Recommendations:** Topic-level study suggestions based on exam performance.
-
-### Enterprise / Integration Ready
-- **A8: Assisted Subjective Grading:** Rubric-based suggestions for teacher final say.
-- **A9: Facial Recognition Attendance:** Opt-in compliance-ready integration.
-- **A10: Admissions Lead Scoring:** Explainable scoring for applicant pipeline.
+> - **v3.0 (Feb 19, 2026):** Unified trackers. Linked to FEATURE_TRACKER.md. Added Phase 3/4 detail.
+> - **v2.0 (Feb 2026):** Consolidated roadmap. Split AI into Practical vs Plugin.

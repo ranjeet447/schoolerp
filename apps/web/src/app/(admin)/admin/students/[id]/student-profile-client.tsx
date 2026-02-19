@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { motion } from "framer-motion"
 import { 
   ChevronLeft, 
   Loader2, 
@@ -14,7 +15,8 @@ import {
   AlertCircle,
   TrendingUp,
   TrendingDown,
-  Info
+  Info,
+  Clock
 } from "lucide-react"
 import { 
   Button, 
@@ -78,7 +80,25 @@ interface Student360 {
   behavior: BehavioralLog[]
   health: HealthRecord | null
   documents: StudentDocument[]
-  finances: any
+  finances: {
+    total_due: number
+    paid: number
+    balance: number
+    last_payment_date: string | null
+  }
+  academics: {
+    attendance_percentage: number
+    latest_exam_avg: number
+    subject_performance: { subject: string; score: number }[]
+    attendance_trends: { month: string; percent: number }[]
+  }
+  guardians: {
+    name: string
+    phone: string
+    email: string
+    relationship: string
+    is_primary: boolean
+  }[]
 }
 
 export default function StudentProfileClient({ id }: { id: string }) {
@@ -204,15 +224,42 @@ export default function StudentProfileClient({ id }: { id: string }) {
         
         <div className="lg:col-span-3">
           <Tabs defaultValue="behavior" className="w-full">
-            <TabsList className="grid grid-cols-5 w-full bg-muted/50 p-1">
+            <TabsList className="grid grid-cols-6 w-full bg-muted/50 p-1">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="behavior" className="gap-2"><ShieldCheck className="h-4 w-4" /> Behavior</TabsTrigger>
+              <TabsTrigger value="academics" className="gap-2"><Medal className="h-4 w-4" /> Academics</TabsTrigger>
               <TabsTrigger value="health" className="gap-2"><HeartPulse className="h-4 w-4" /> Health</TabsTrigger>
               <TabsTrigger value="documents" className="gap-2"><FileText className="h-4 w-4" /> Vault</TabsTrigger>
               <TabsTrigger value="guardians">Relations</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="mt-6 space-y-6">
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <Card className="bg-blue-50/30 border-blue-100">
+                    <CardHeader className="pb-2"><CardTitle className="text-xs uppercase text-blue-600 font-bold">Attendance</CardTitle></CardHeader>
+                    <CardContent>
+                       <div className="text-3xl font-bold text-blue-700">{data.academics.attendance_percentage.toFixed(1)}%</div>
+                       <p className="text-[10px] text-blue-600/70 mt-1">Current Academic Session</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-purple-50/30 border-purple-100">
+                    <CardHeader className="pb-2"><CardTitle className="text-xs uppercase text-purple-600 font-bold">Latest Exam</CardTitle></CardHeader>
+                    <CardContent>
+                       <div className="text-3xl font-bold text-purple-700">{data.academics.latest_exam_avg.toFixed(1)}%</div>
+                       <p className="text-[10px] text-purple-600/70 mt-1">Weighted Subject Average</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-orange-50/30 border-orange-100">
+                    <CardHeader className="pb-2"><CardTitle className="text-xs uppercase text-orange-600 font-bold">Behavior</CardTitle></CardHeader>
+                    <CardContent>
+                       <div className="text-3xl font-bold text-orange-700">{totalPoints}</div>
+                       <p className="text-[10px] text-orange-600/70 mt-1">Merit / Demerit Balance</p>
+                    </CardContent>
+                  </Card>
+               </div>
+
                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Card>
                     <CardHeader><CardTitle className="text-sm">Health Summary</CardTitle></CardHeader>
@@ -238,22 +285,86 @@ export default function StudentProfileClient({ id }: { id: string }) {
                   </Card>
 
                   <Card>
-                    <CardHeader><CardTitle className="text-sm">Behavior Snapshot</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="text-sm">Quick Contacts</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                       <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                          <div>
+                             <p className="text-xs font-bold">{data.profile.parent_name || 'Primary Guardian'}</p>
+                             <p className="text-[10px] text-muted-foreground">{data.profile.parent_phone || 'N/A'}</p>
+                          </div>
+                          <Button size="sm" variant="ghost" className="h-8 text-[10px]">Call</Button>
+                       </div>
+                    </CardContent>
+                  </Card>
+               </div>
+            </TabsContent>
+
+            <TabsContent value="academics" className="mt-6 space-y-6">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">Examination Performance</CardTitle>
+                    </CardHeader>
                     <CardContent>
-                       <div className="flex items-end gap-1 mb-4">
-                          <span className="text-2xl font-bold">{data.behavior.length}</span>
-                          <span className="text-[10px] text-muted-foreground mb-1">Total Logs</span>
-                       </div>
-                       <div className="space-y-2">
-                          <div className="flex justify-between items-center text-[10px]">
-                             <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3 text-green-500" /> Merits</span>
-                             <span className="font-bold">{data.behavior.filter(l => l.type === 'merit').length}</span>
-                          </div>
-                          <div className="flex justify-between items-center text-[10px]">
-                             <span className="flex items-center gap-1"><TrendingDown className="h-3 w-3 text-red-500" /> Demerits</span>
-                             <span className="font-bold">{data.behavior.filter(l => l.type === 'demerit').length}</span>
-                          </div>
-                       </div>
+                       {data.academics.subject_performance.length > 0 ? (
+                         <div className="space-y-4">
+                           {data.academics.subject_performance.map((s, idx) => (
+                             <div key={idx} className="space-y-1.5">
+                               <div className="flex justify-between text-[10px] font-bold uppercase text-muted-foreground">
+                                 <span>{s.subject}</span>
+                                 <span>{s.score.toFixed(0)}%</span>
+                               </div>
+                               <motion.div 
+                                 initial={{ width: 0 }}
+                                 animate={{ width: `${s.score}%` }}
+                                 transition={{ duration: 1, delay: idx * 0.1 }}
+                                 className={`h-1.5 w-full bg-slate-100 rounded-full overflow-hidden ${
+                                   s.score >= 80 ? 'bg-green-500' : 
+                                   s.score >= 60 ? 'bg-primary' : 
+                                   s.score >= 40 ? 'bg-amber-500' : 'bg-red-500'
+                                 }`}
+                               />
+                             </div>
+                           ))}
+                         </div>
+                       ) : (
+                         <div className="flex flex-col items-center justify-center py-10 border-2 border-dashed rounded-lg bg-muted/5 opacity-40">
+                            <TrendingUp className="h-8 w-8 mb-2" />
+                            <p className="text-[10px] font-medium">No exam data available</p>
+                         </div>
+                       )}
+                    </CardContent>
+                  </Card>
+ 
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">Attendance Trends</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                       {data.academics.attendance_trends.length > 0 ? (
+                         <div className="h-[180px] w-full mt-2 relative flex items-end justify-between gap-2 px-2">
+                            {/* Simple Bar Chart for Trends */}
+                            {[...data.academics.attendance_trends].reverse().map((t, idx) => (
+                              <div key={idx} className="flex-1 flex flex-col items-center gap-2 group">
+                                <motion.div 
+                                  initial={{ height: 0 }}
+                                  animate={{ height: `${t.percent}%` }}
+                                  className="w-full bg-primary/20 hover:bg-primary transition-colors rounded-t-sm relative"
+                                >
+                                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[8px] px-1.5 py-0.5 rounded pointer-events-none">
+                                    {t.percent.toFixed(0)}%
+                                  </div>
+                                </motion.div>
+                                <span className="text-[9px] font-bold text-muted-foreground uppercase">{t.month}</span>
+                              </div>
+                            ))}
+                         </div>
+                       ) : (
+                         <div className="flex flex-col items-center justify-center py-10 border-2 border-dashed rounded-lg bg-muted/5 opacity-40">
+                            <Clock className="h-8 w-8 mb-2" />
+                            <p className="text-[10px] font-medium">No attendance history</p>
+                         </div>
+                       )}
                     </CardContent>
                   </Card>
                </div>
@@ -424,13 +535,46 @@ export default function StudentProfileClient({ id }: { id: string }) {
                </Card>
             </TabsContent>
 
-            <TabsContent value="guardians">
+            <TabsContent value="guardians" className="mt-6">
                <Card>
-                 <CardHeader><CardTitle>Family & Relations</CardTitle></CardHeader>
-                 <CardContent>
-                    <p className="text-sm text-muted-foreground italic">Relational link with parents and guardians.</p>
-                    {/* Reuse existing guardian table logic if needed, but here we focus on the 360 view */}
-                 </CardContent>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                     <CardTitle>Family & Relations</CardTitle>
+                     <Button size="sm" variant="outline" className="gap-2 h-8 text-[10px]"><Plus className="h-3 w-3" /> Link Guardian</Button>
+                  </CardHeader>
+                  <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         {data.guardians.length === 0 ? (
+                            <div className="col-span-full py-16 border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-muted-foreground bg-muted/5">
+                               <p className="text-sm font-medium">No linked guardians</p>
+                               <p className="text-[10px]">Add parents or legal guardians to this student.</p>
+                            </div>
+                         ) : data.guardians.map((g, idx) => (
+                            <div key={idx} className={`p-4 rounded-xl border bg-background flex items-start gap-4 transition-all hover:shadow-sm ${g.is_primary ? 'border-primary/50 bg-primary/5' : ''}`}>
+                               <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold text-xs ${g.is_primary ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600'}`}>
+                                  {g.name.split(' ').map(n => n[0]).join('')}
+                               </div>
+                               <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                     <p className="text-xs font-bold truncate">{g.name}</p>
+                                     {g.is_primary && <Badge className="text-[8px] h-3.5 px-1 bg-primary">Primary</Badge>}
+                                  </div>
+                                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter mb-2">{g.relationship}</p>
+                                  <div className="space-y-1">
+                                     <div className="flex items-center gap-2 text-[10px] text-slate-600">
+                                        <div className="h-3.5 w-3.5 rounded-full bg-slate-100 flex items-center justify-center"><Info className="h-2 w-2" /></div>
+                                        {g.phone || 'No phone'}
+                                     </div>
+                                     <div className="flex items-center gap-2 text-[10px] text-slate-600">
+                                        <div className="h-3.5 w-3.5 rounded-full bg-slate-100 flex items-center justify-center"><FileText className="h-2 w-2" /></div>
+                                        {g.email || 'No email'}
+                                     </div>
+                                  </div>
+                               </div>
+                               <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"><ChevronRight className="h-4 w-4" /></Button>
+                            </div>
+                         ))}
+                      </div>
+                  </CardContent>
                </Card>
             </TabsContent>
           </Tabs>

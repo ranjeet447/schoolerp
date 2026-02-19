@@ -75,13 +75,13 @@ export default function PlatformMonitoringPage() {
   if (loading && !health) return <div className="p-6">Loading monitoring data...</div>;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 pb-10">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">System Health & Monitoring</h1>
-          <p className="text-muted-foreground">Real-time status of platform infrastructure and background jobs.</p>
+          <h1 className="text-3xl font-black tracking-tight text-foreground md:text-4xl">System Health & Monitoring</h1>
+          <p className="mt-1 text-lg text-muted-foreground font-medium">Real-time status of platform infrastructure and background jobs.</p>
         </div>
-        <Button onClick={() => void fetchData()} variant="outline" className="gap-2">
+        <Button onClick={() => void fetchData()} variant="outline" className="gap-2 font-bold h-11 border-border shadow-sm">
           <RefreshCcw className="h-4 w-4" />
           <span>Refresh Now</span>
         </Button>
@@ -93,48 +93,48 @@ export default function PlatformMonitoringPage() {
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className={`rounded-full p-2 ${health?.status === "healthy" ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600"}`}>
-              <Zap className="h-5 w-5" />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-none shadow-sm shadow-black/5 bg-card/50 backdrop-blur-sm">
+          <CardContent className="p-6 flex items-center gap-4">
+            <div className={`rounded-xl p-3 ${health?.status === "healthy" ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600"}`}>
+              <Zap className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase">Status</p>
-              <p className="text-lg font-black capitalize">{health?.status || "Unknown"}</p>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Global Status</p>
+              <h3 className="text-2xl font-black text-foreground capitalize">{health?.status || "Unknown"}</h3>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="rounded-full bg-blue-500/10 text-blue-600 p-2">
-              <Clock className="h-5 w-5" />
+        <Card className="border-none shadow-sm shadow-black/5 bg-card/50 backdrop-blur-sm">
+          <CardContent className="p-6 flex items-center gap-4">
+            <div className="rounded-xl bg-blue-500/10 text-blue-600 p-3">
+              <Clock className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase">Uptime</p>
-              <p className="text-lg font-black">{health?.uptime || "99.99%"}</p>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">System Uptime</p>
+              <h3 className="text-2xl font-black text-foreground">{health?.uptime || "99.99%"}</h3>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="rounded-full bg-indigo-500/10 text-indigo-600 p-2">
-              <Database className="h-5 w-5" />
+        <Card className="border-none shadow-sm shadow-black/5 bg-card/50 backdrop-blur-sm">
+          <CardContent className="p-6 flex items-center gap-4">
+            <div className="rounded-xl bg-indigo-500/10 text-indigo-600 p-3">
+              <Database className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase">Database</p>
-              <p className="text-lg font-black">Stable</p>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Database Health</p>
+              <h3 className="text-2xl font-black text-foreground">Stable</h3>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="rounded-full bg-amber-500/10 text-amber-600 p-2">
-              <Activity className="h-5 w-5" />
+        <Card className="border-none shadow-sm shadow-black/5 bg-card/50 backdrop-blur-sm">
+          <CardContent className="p-6 flex items-center gap-4">
+            <div className="rounded-xl bg-amber-500/10 text-amber-600 p-3">
+              <Activity className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase">Latency</p>
-              <p className="text-lg font-black">~42ms</p>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">API Latency</p>
+              <h3 className="text-2xl font-black text-foreground">~42ms</h3>
             </div>
           </CardContent>
         </Card>

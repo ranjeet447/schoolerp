@@ -103,19 +103,19 @@ export function UserManagement({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-xl font-bold tracking-tight">Internal Personnel</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-xl font-black tracking-tight text-foreground">Internal Personnel</h2>
+          <p className="text-sm font-medium text-muted-foreground">
             Manage administrative access for the platform maintenance team.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={onReload} disabled={busy}>
-            <RotateCcw className={`mr-2 h-4 w-4 ${busy ? "animate-spin" : ""}`} />
-            Refresh
+          <Button variant="outline" className="gap-2 font-bold h-10 border-border shadow-sm" onClick={onReload} disabled={busy}>
+            <RotateCcw className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />
+            <span>Sync Directory</span>
           </Button>
-          <Button size="sm" onClick={() => setShowAddUser(!showAddUser)}>
-            <UserPlus className="mr-2 h-4 w-4" />
-            Add Team Member
+          <Button className="gap-2 font-black shadow-lg shadow-primary/20 h-10" onClick={() => setShowAddUser(!showAddUser)}>
+            <UserPlus className="h-4 w-4" />
+            <span>Add Team Member</span>
           </Button>
         </div>
       </div>

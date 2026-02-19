@@ -83,6 +83,7 @@ export default function RolesSettingsPage() {
   const [formCode, setFormCode] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formPermissions, setFormPermissions] = useState<string[]>([]);
+  const [permSearch, setPermSearch] = useState('');
 
   const fetchData = async (silent = false) => {
     if (silent) {
@@ -208,6 +209,23 @@ export default function RolesSettingsPage() {
         ? prev.filter(p => p !== code)
         : [...prev, code]
     );
+  };
+
+  const toggleModulePermissions = (module: string, perms: Permission[]) => {
+    const modulePermCodes = perms.map(p => p.code);
+    const allSelected = modulePermCodes.every(code => formPermissions.includes(code));
+    
+    if (allSelected) {
+      setFormPermissions(prev => prev.filter(code => !modulePermCodes.includes(code)));
+    } else {
+      setFormPermissions(prev => {
+        const next = [...prev];
+        modulePermCodes.forEach(code => {
+          if (!next.includes(code)) next.push(code);
+        });
+        return next;
+      });
+    }
   };
 
   const groupedPermissions = groupPermissionsByModule(permissions);
@@ -360,7 +378,10 @@ export default function RolesSettingsPage() {
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>{editingRole ? 'Edit Role' : 'Create Role'}</DialogTitle>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <Shield className="h-5 w-5 text-primary" />
+              {editingRole ? 'Edit Role Interface' : 'Create New Security Role'}
+            </DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="max-h-[75vh] overflow-y-auto">
@@ -387,30 +408,63 @@ export default function RolesSettingsPage() {
               </div>
 
               <div>
-                <Label className="mb-2 flex items-center gap-2">
-                  <Settings className="h-4 w-4" /> Permissions
+                <Label className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Settings className="h-4 w-4" /> Capabilities & Matrix
+                  </div>
+                  <div className="relative w-48">
+                    <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                    <Input 
+                      placeholder="Filter permissions..." 
+                      className="h-7 pl-7 text-[10px] rounded-lg"
+                      value={permSearch}
+                      onChange={(e) => setPermSearch(e.target.value)}
+                    />
+                  </div>
                 </Label>
-                <div className="space-y-3">
-                  {Object.entries(groupedPermissions).map(([module, perms]) => (
-                    <div key={module} className="rounded border p-3">
-                      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{module}</h4>
-                      <div className="grid gap-2 md:grid-cols-2">
-                        {perms.map((perm) => (
-                          <label key={perm.code} className="flex cursor-pointer items-start gap-3 rounded p-2 hover:bg-muted/60">
-                            <Switch
-                              checked={formPermissions.includes(perm.code)}
-                              onCheckedChange={() => togglePermission(perm.code)}
-                              className="mt-0.5"
-                            />
-                            <div>
-                              <div className="text-sm font-medium">{perm.code}</div>
-                              <div className="text-xs text-muted-foreground">{perm.description}</div>
-                            </div>
-                          </label>
-                        ))}
+                <div className="space-y-4">
+                  {Object.entries(groupedPermissions).map(([module, perms]) => {
+                    const filtered = perms.filter(p => 
+                      p.code.toLowerCase().includes(permSearch.toLowerCase()) || 
+                      p.description.toLowerCase().includes(permSearch.toLowerCase())
+                    );
+                    if (filtered.length === 0) return null;
+                    
+                    const modulePermCodes = filtered.map(p => p.code);
+                    const allSelected = modulePermCodes.every(code => formPermissions.includes(code));
+
+                    return (
+                      <div key={module} className="rounded-xl border bg-slate-50/30 p-4 transition-colors hover:border-primary/20">
+                        <div className="mb-3 flex items-center justify-between">
+                          <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{module}</h4>
+                          <Button 
+                            type="button"
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => toggleModulePermissions(module, filtered)}
+                            className="h-6 px-2 text-[9px] font-bold text-primary uppercase"
+                          >
+                            {allSelected ? 'Deselect All' : 'Select All'}
+                          </Button>
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {filtered.map((perm) => (
+                            <label key={perm.code} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-all hover:shadow-sm ${formPermissions.includes(perm.code) ? 'bg-primary/5 border-primary/20 shadow-sm' : 'bg-white border-transparent'}`}>
+                              <Switch
+                                checked={formPermissions.includes(perm.code)}
+                                onCheckedChange={() => togglePermission(perm.code)}
+                                className="mt-0.5"
+                              />
+                              <div>
+                                <div className="text-xs font-black text-slate-700">{perm.code}</div>
+                                <div className="text-[10px] leading-relaxed text-slate-400 font-medium">{perm.description}</div>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 

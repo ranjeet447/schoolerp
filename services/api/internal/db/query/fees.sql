@@ -58,6 +58,11 @@ INSERT INTO receipts (
     $1, $2, $3, $4, $5, $6, $7, $8
 ) RETURNING *;
 
+-- name: CreateReceiptItem :one
+INSERT INTO receipt_items (receipt_id, fee_head_id, amount)
+VALUES ($1, $2, $3)
+RETURNING *;
+
 -- name: CancelReceipt :one
 UPDATE receipts
 SET status = 'cancelled', cancelled_by = $2, cancellation_reason = $3, updated_at = NOW()
@@ -70,11 +75,26 @@ VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: GetStudentFeeSummary :many
-SELECT fpi.*, fh.name as head_name
+SELECT 
+    fpi.plan_id, 
+    fpi.head_id, 
+    fpi.amount, 
+    fpi.due_date, 
+    fpi.info, 
+    fh.name as head_name,
+    COALESCE((
+        SELECT SUM(ri.amount)
+        FROM receipt_items ri
+        JOIN receipts r ON ri.receipt_id = r.id
+        WHERE r.student_id = sfp.student_id 
+          AND ri.fee_head_id = fpi.head_id
+          AND r.status != 'cancelled'
+    ), 0)::BIGINT as paid_amount
 FROM student_fee_plans sfp
 JOIN fee_plan_items fpi ON sfp.plan_id = fpi.plan_id
 JOIN fee_heads fh ON fpi.head_id = fh.id
-WHERE sfp.student_id = $1;
+WHERE sfp.student_id = $1
+ORDER BY fpi.due_date ASC, fh.name ASC;
 
 -- name: ListStudentReceipts :many
 SELECT * FROM receipts
@@ -121,6 +141,7 @@ WHERE lm.tenant_id = $1;
 
 -- name: GetTallyExportData :many
 SELECT 
+    r.id,
     r.receipt_number,
     r.amount_paid,
     r.created_at,

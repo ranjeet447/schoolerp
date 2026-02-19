@@ -29,6 +29,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Get("/{id}/subjects", h.ListSubjects)
 		r.Get("/{id}/subjects/{subjectId}/marks", h.GetMarks)
 		r.Post("/{id}/subjects/{subjectId}/marks", h.UpsertMarks)
+		r.Post("/{id}/subjects/{subjectId}/marks/bulk", h.UpsertMarksBulk)
 		r.Post("/{id}/publish", h.Publish)
 	})
 	r.Route("/grading", func(r chi.Router) {
@@ -179,6 +180,39 @@ func (h *Handler) UpsertMarks(w http.ResponseWriter, r *http.Request) {
 		SubjectID: subjectID,
 		StudentID: req.StudentID,
 		Marks:     req.Marks,
+		UserID:    middleware.GetUserID(r.Context()),
+		RequestID: middleware.GetReqID(r.Context()),
+		IP:        r.RemoteAddr,
+	})
+	if err != nil {
+		if strings.Contains(err.Error(), "locked") {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) UpsertMarksBulk(w http.ResponseWriter, r *http.Request) {
+	examID := chi.URLParam(r, "id")
+	subjectID := chi.URLParam(r, "subjectId")
+
+	var req struct {
+		Entries []examservice.BulkUpsertMarksEntry `json:"entries"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	err := h.svc.BulkUpsertMarks(r.Context(), examservice.BulkUpsertMarksParams{
+		TenantID:  middleware.GetTenantID(r.Context()),
+		ExamID:    examID,
+		SubjectID: subjectID,
+		Entries:   req.Entries,
 		UserID:    middleware.GetUserID(r.Context()),
 		RequestID: middleware.GetReqID(r.Context()),
 		IP:        r.RemoteAddr,
