@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -156,6 +157,22 @@ func (s *Service) ListPlugins(ctx context.Context, tenantSubdomain string) ([]ma
 	}
 
 	return result, nil
+}
+
+func (s *Service) MintImpersonationToken(ctx context.Context, claims jwt.MapClaims) (string, error) {
+    // In a real scenario, this would call the Auth service or use a shared secret.
+    // For this implementation, we assume the secret is available via configuration or environment.
+    // We will use a placeholder secret for now, or if configured, a real one.
+    // START: Temporary secret usage. Replace with s.config.JWTSecret or similar.
+    secret := []byte("temporary-secret-change-me-in-production") 
+    // END: Temporary secret usage.
+
+    token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+    signed, err := token.SignedString(secret)
+    if err != nil {
+        return "", fmt.Errorf("failed to sign token: %w", err)
+    }
+    return signed, nil
 }
 
 func (s *Service) UpdatePluginConfig(ctx context.Context, tenantID string, pluginID string, enabled bool, settings map[string]interface{}) error {

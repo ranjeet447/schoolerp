@@ -19,6 +19,7 @@ export type Student = {
   full_name: string
   class_name: string
   section_name: string
+  class_id?: string
   status: "active" | "inactive" | "graduated"
 }
 

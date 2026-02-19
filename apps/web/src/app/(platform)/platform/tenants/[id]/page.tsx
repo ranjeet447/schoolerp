@@ -4,7 +4,22 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@schoolerp/ui";
+import { 
+  Tabs, 
+  TabsList, 
+  TabsTrigger, 
+  TabsContent, 
+  Button, 
+  Input, 
+  Label, 
+  Textarea, 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@schoolerp/ui";
+import { PlanSelect } from "@/components/ui/plan-select";
 import { Settings, CreditCard, GitBranch, Database } from "lucide-react";
 
 type Tenant = {
@@ -852,124 +867,153 @@ export default function PlatformTenantDetailPage() {
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-4">
           <h2 className="font-semibold text-foreground">Plan Assignment</h2>
-          <form onSubmit={submitPlan} className="mt-3 space-y-2">
-            <input
-              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-              placeholder="Plan code (basic/pro/enterprise)"
-              value={planCode}
-              onChange={(e) => setPlanCode(e.target.value)}
-            />
-            <textarea
-              rows={3}
-              className="w-full rounded border border-input bg-background px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground"
-              placeholder='Modules override JSON, e.g. {"attendance":true}'
-              value={planModulesText}
-              onChange={(e) => setPlanModulesText(e.target.value)}
-            />
-            <textarea
-              rows={3}
-              className="w-full rounded border border-input bg-background px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground"
-              placeholder='Limits override JSON, e.g. {"students":1200}'
-              value={planLimitsText}
-              onChange={(e) => setPlanLimitsText(e.target.value)}
-            />
-            <textarea
-              rows={3}
-              className="w-full rounded border border-input bg-background px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground"
-              placeholder='Feature flags override JSON, e.g. {"beta_transport":true}'
-              value={planFlagsText}
-              onChange={(e) => setPlanFlagsText(e.target.value)}
-            />
-            <button
-              disabled={busy}
-              className="rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-            >
-              Assign Plan & Overrides
-            </button>
-
-            <div className="mt-2 rounded border border-border bg-background/40 p-3">
-              <h3 className="text-sm font-medium text-foreground">Upgrade / Downgrade Plan</h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Apply plan change policy with immediate, next-cycle, no-proration, or prorated behavior metadata.
-              </p>
-              <div className="mt-2 grid gap-2 md:grid-cols-3">
-                <select
-                  className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
-                  value={prorationPolicy}
-                  onChange={(e) => setProrationPolicy(e.target.value)}
-                >
-                  <option value="prorated">prorated</option>
-                  <option value="immediate">immediate</option>
-                  <option value="next_cycle">next_cycle</option>
-                  <option value="none">none</option>
-                </select>
-                <input
-                  type="datetime-local"
-                  className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
-                  value={planEffectiveAt}
-                  onChange={(e) => setPlanEffectiveAt(e.target.value)}
+          <form onSubmit={submitPlan} className="mt-3 space-y-4">
+            <div className="space-y-2">
+                <Label>Plan Code</Label>
+                <PlanSelect 
+                    value={planCode} 
+                    onSelect={setPlanCode} 
+                    placeholder="Select plan..." 
                 />
-                <button
+            </div>
+            <div className="space-y-2">
+                <Label>Modules JSON</Label>
+                <Textarea
+                  rows={3}
+                  className="font-mono text-xs"
+                  placeholder='Modules override JSON, e.g. {"attendance":true}'
+                  value={planModulesText}
+                  onChange={(e) => setPlanModulesText(e.target.value)}
+                />
+            </div>
+            <div className="space-y-2">
+                <Label>Limits JSON</Label>
+                <Textarea
+                  rows={3}
+                  className="font-mono text-xs"
+                  placeholder='Limits override JSON, e.g. {"students":1200}'
+                  value={planLimitsText}
+                  onChange={(e) => setPlanLimitsText(e.target.value)}
+                />
+            </div>
+            <div className="space-y-2">
+                <Label>Feature Flags JSON</Label>
+                <Textarea
+                  rows={3}
+                  className="font-mono text-xs"
+                  placeholder='Feature flags override JSON, e.g. {"beta_transport":true}'
+                  value={planFlagsText}
+                  onChange={(e) => setPlanFlagsText(e.target.value)}
+                />
+            </div>
+            <Button disabled={busy}>
+              Assign Plan & Overrides
+            </Button>
+
+            <div className="mt-4 rounded-lg border border-border bg-muted/20 p-4 space-y-4">
+              <div>
+                  <h3 className="text-sm font-medium text-foreground">Upgrade / Downgrade Plan</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Apply plan change policy with immediate, next-cycle, no-proration, or prorated behavior.
+                  </p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3 items-end">
+                <div className="space-y-2">
+                    <Label>Proration Policy</Label>
+                    <Select value={prorationPolicy} onValueChange={setProrationPolicy}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="prorated">Prorated</SelectItem>
+                            <SelectItem value="immediate">Immediate</SelectItem>
+                            <SelectItem value="next_cycle">Next Cycle</SelectItem>
+                            <SelectItem value="none">None</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="space-y-2">
+                    <Label>Effective Date</Label>
+                    <Input
+                      type="datetime-local"
+                      value={planEffectiveAt}
+                      onChange={(e) => setPlanEffectiveAt(e.target.value)}
+                    />
+                </div>
+                <Button
                   type="button"
                   disabled={busy || !planCode.trim()}
                   onClick={applyPlanChange}
-                  className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+                  variant="secondary"
+                  className="w-full"
                 >
                   Apply Plan Change
-                </button>
+                </Button>
               </div>
             </div>
 
-            <div className="mt-2 rounded border border-border bg-background/40 p-3">
-              <h3 className="text-sm font-medium text-foreground">Tenant Limit Override</h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Limit overrides require a reason for audit logging. Leave expiry empty for permanent overrides, or set an expiry date/time for temporary overrides.
-              </p>
-              <div className="mt-2 grid gap-2 md:grid-cols-5">
-                <select
-                  className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
-                  value={limitOverrideKey}
-                  onChange={(e) => setLimitOverrideKey(e.target.value)}
-                >
-                  <option value="students">students</option>
-                  <option value="staff">staff</option>
-                  <option value="storage_mb">storage_mb</option>
-                </select>
-                <input
-                  type="number"
-                  min={0}
-                  className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-                  placeholder="Limit value"
-                  value={limitOverrideValue}
-                  onChange={(e) => setLimitOverrideValue(e.target.value)}
-                />
-                <input
-                  type="datetime-local"
-                  className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
-                  value={limitOverrideExpiresAt}
-                  onChange={(e) => setLimitOverrideExpiresAt(e.target.value)}
-                />
-                <input
-                  className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-                  placeholder="Incident ID (optional)"
-                  value={limitOverrideIncidentId}
-                  onChange={(e) => setLimitOverrideIncidentId(e.target.value)}
-                />
-                <button
+            <div className="mt-4 rounded-lg border border-border bg-muted/20 p-4 space-y-4">
+              <div>
+                  <h3 className="text-sm font-medium text-foreground">Tenant Limit Override</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Limit overrides require a reason for audit logging. Leave expiry empty for permanent overrides.
+                  </p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 items-end">
+                <div className="space-y-2">
+                    <Label>Limit Key</Label>
+                    <Select value={limitOverrideKey} onValueChange={setLimitOverrideKey}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="students">Students</SelectItem>
+                            <SelectItem value="staff">Staff</SelectItem>
+                            <SelectItem value="storage_mb">Storage (MB)</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="space-y-2">
+                    <Label>Value</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="Limit value"
+                      value={limitOverrideValue}
+                      onChange={(e) => setLimitOverrideValue(e.target.value)}
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label>Expires At</Label>
+                    <Input
+                      type="datetime-local"
+                      value={limitOverrideExpiresAt}
+                      onChange={(e) => setLimitOverrideExpiresAt(e.target.value)}
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label>Incident ID</Label>
+                    <Input
+                      placeholder="Optional"
+                      value={limitOverrideIncidentId}
+                      onChange={(e) => setLimitOverrideIncidentId(e.target.value)}
+                    />
+                </div>
+                <Button
                   type="button"
                   disabled={busy || !limitOverrideValue.trim() || !limitOverrideReason.trim()}
                   onClick={applyLimitOverride}
-                  className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+                  variant="secondary"
+                  className="w-full"
                 >
                   Apply Override
-                </button>
+                </Button>
               </div>
-              <textarea
-                className="mt-2 min-h-[72px] w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-                placeholder="Reason (required)"
-                value={limitOverrideReason}
-                onChange={(e) => setLimitOverrideReason(e.target.value)}
-              />
+              <div className="space-y-2">
+                <Label>Reason</Label>
+                <Textarea
+                  className="min-h-[72px]"
+                  placeholder="Reason (required)"
+                  value={limitOverrideReason}
+                  onChange={(e) => setLimitOverrideReason(e.target.value)}
+                />
+              </div>
             </div>
           </form>
         </div>

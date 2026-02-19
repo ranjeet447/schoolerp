@@ -13,11 +13,13 @@ import {
   Filter,
   Search,
 } from 'lucide-react';
+import { ClassSelect } from "@/components/ui/class-select";
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedClass, setSelectedClass] = useState("");
 
   useEffect(() => {
     const loadStudents = async () => {
@@ -52,7 +54,9 @@ export default function StudentsPage() {
     const name = String(student.full_name || "").toLowerCase();
     const admissionNumber = String((student as { admission_no?: string }).admission_no || "").toLowerCase();
     const className = String((student as { class_name?: string }).class_name || "").toLowerCase();
-    return name.includes(query) || admissionNumber.includes(query) || className.includes(query);
+    const matchesSearch = name.includes(query) || admissionNumber.includes(query) || className.includes(query);
+    const matchesClass = !selectedClass || student.class_id === selectedClass;
+    return matchesSearch && matchesClass;
   });
 
   return (
@@ -90,6 +94,13 @@ export default function StudentsPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full h-11 pl-11 bg-slate-800/50 border border-white/5 rounded-xl text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
             />
+          </div>
+          <div className="w-[200px]">
+             <ClassSelect 
+                value={selectedClass} 
+                onSelect={setSelectedClass} 
+                placeholder="Filter by Class"
+             />
           </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" className="text-slate-400 hover:text-white">

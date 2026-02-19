@@ -21,8 +21,10 @@ import { apiClient } from "@/lib/api-client"
 import { AdmissionApplication } from "@/types/admission"
 import { format } from "date-fns"
 import { ApplicationDocumentsDialog } from "@/components/admission/documents-dialog"
-import { FileText, Loader2, RefreshCw } from "lucide-react"
+import { FileText, Loader2, RefreshCw, Search } from "lucide-react"
 import { toast } from "sonner"
+import { ClassSelect } from "@/components/ui/class-select"
+import { SectionSelect } from "@/components/ui/section-select"
 
 const WORKFLOW_STATUSES = ["submitted", "review", "assessment", "offered", "admitted", "declined"]
 
@@ -101,6 +103,7 @@ export default function AdminApplicationsPage() {
   const [applications, setApplications] = useState<AdmissionApplication[]>([])
   const [classes, setClasses] = useState<ClassRow[]>([])
   const [sections, setSections] = useState<SectionRow[]>([])
+  const [search, setSearch] = useState("")  // Added search state
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -371,6 +374,16 @@ export default function AdminApplicationsPage() {
           <p className="text-muted-foreground">Track formal applications and their workflow status.</p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="relative">
+             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+             <Input
+               type="search"
+               placeholder="Search application..."
+               className="w-[250px] pl-8 bg-white"
+               value={search}
+               onChange={(e) => setSearch(e.target.value)}
+             />
+          </div>
           <Button variant="outline" onClick={() => setWorkflowDialogOpen(true)}>Workflow Settings</Button>
           <Button variant="outline" onClick={() => fetchApplications(true)} disabled={refreshing} className="gap-2">
             <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} /> Refresh
@@ -410,7 +423,15 @@ export default function AdminApplicationsPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                applications.map((app) => (
+                applications
+                  .filter(app => 
+                    search ? (
+                      app.student_name?.toLowerCase().includes(search.toLowerCase()) || 
+                      app.application_number?.toLowerCase().includes(search.toLowerCase()) ||
+                      app.parent_name?.toLowerCase().includes(search.toLowerCase())
+                    ) : true
+                  )
+                  .map((app) => (
                   <TableRow key={app.id}>
                     <TableCell className="font-mono">{app.application_number}</TableCell>
                     <TableCell className="font-medium">
@@ -490,34 +511,24 @@ export default function AdminApplicationsPage() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Class</Label>
-              <Select
+              <ClassSelect
                 value={admitClassID}
-                onValueChange={async (value) => {
+                onSelect={(value) => {
                   setAdmitClassID(value)
                   setAdmitSectionID("")
-                  await fetchSections(value)
                 }}
-              >
-                <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
-                <SelectContent>
-                  {classes.map((cls) => {
-                    const id = uuidValue(cls.id)
-                    return <SelectItem key={id} value={id}>{cls.name}</SelectItem>
-                  })}
-                </SelectContent>
-              </Select>
+                placeholder="Select class"
+              />
             </div>
             <div className="space-y-2">
               <Label>Section</Label>
-              <Select value={admitSectionID} onValueChange={setAdmitSectionID}>
-                <SelectTrigger><SelectValue placeholder="Select section" /></SelectTrigger>
-                <SelectContent>
-                  {sections.map((section) => {
-                    const id = uuidValue(section.id)
-                    return <SelectItem key={id} value={id}>{section.name}</SelectItem>
-                  })}
-                </SelectContent>
-              </Select>
+              <SectionSelect 
+                value={admitSectionID} 
+                onSelect={setAdmitSectionID} 
+                classId={admitClassID}
+                disabled={!admitClassID}
+                placeholder="Select section"
+              />
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setAdmitDialogOpen(false)}>Cancel</Button>

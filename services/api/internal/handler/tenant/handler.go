@@ -97,14 +97,21 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 		r.Use(middleware.PermissionGuard("platform:user.read"))
 		r.Get("/internal-users", h.ListPlatformInternalUsers)
 		r.Get("/internal-users/{user_id}/sessions", h.ListPlatformInternalUserSessions)
+		
+		// Global User Management
+		r.Get("/users", h.ListGlobalUsers)
 	})
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.PermissionGuard("platform:user.write"))
 		r.Post("/internal-users", h.CreatePlatformInternalUser)
 		r.Patch("/internal-users/{user_id}", h.UpdatePlatformInternalUser)
-		r.Post("/internal-users/{user_id}/sessions/revoke", h.RevokePlatformInternalUserSessions)
-		r.Post("/internal-users/{user_id}/tokens/rotate", h.RotatePlatformInternalUserTokens)
+		r.Post("/internal-users/{user_id}/rotate-credentials", h.RotatePlatformInternalUserCredentials)
+		r.Post("/internal-users/{user_id}/revoke-sessions", h.RevokePlatformInternalUserSessions)
+
+		// Global User Management Actions
+		r.Post("/users/{user_id}/impersonate", h.ImpersonateGlobalUser)
+		r.Post("/users/{user_id}/reset-password", h.ResetGlobalUserPassword)
 	})
 
 	r.Group(func(r chi.Router) {

@@ -5,6 +5,7 @@ import "./globals.css";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/components/auth-provider";
 import { OfflineDetector } from "@/components/offline-detector";
+import { Providers } from "@/components/providers";
 
 export const metadata: Metadata = {
   title: "School ERP",
@@ -35,12 +36,14 @@ export default async function RootLayout({
 })();
           `}
         </Script>
-        <AuthProvider>
-          <OfflineDetector>
-            {children}
-          </OfflineDetector>
-          <Toaster />
-        </AuthProvider>
+        <Providers>
+          <AuthProvider>
+            <OfflineDetector>
+              {children}
+            </OfflineDetector>
+            <Toaster />
+          </AuthProvider>
+        </Providers>
       </body>
     </html>
   );

@@ -7,6 +7,7 @@ import {
   Tabs, TabsContent, TabsList, TabsTrigger, Switch
 } from "@schoolerp/ui"
 import { Calendar, Loader2, Plus, ShieldCheck, Lock, Unlock, FileText, History, ListChecks } from "lucide-react"
+import { SubjectSelect } from "@/components/ui/subject-select"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 
@@ -456,19 +457,15 @@ export default function AdminExamsPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Subject</Label>
-                      <Select value={subjectID} onValueChange={setSubjectID}>
-                        <SelectTrigger className="bg-white">
-                          <SelectValue placeholder="Select subject" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {subjects.map((subject) => (
-                            <SelectItem key={subject.id} value={subject.id}>{subject.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                      <div className="space-y-2">
+                        <Label>Subject</Label>
+                        <SubjectSelect 
+                          value={subjectID} 
+                          onSelect={setSubjectID} 
+                          placeholder="Select subject"
+                          className="bg-white"
+                        />
+                      </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <Label className="text-xs">Max Marks</Label>

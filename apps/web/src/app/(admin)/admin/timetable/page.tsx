@@ -41,8 +41,13 @@ import {
   ChevronRight,
   Search,
   UserX,
-  UserPlus
+  UserPlus,
+  Check
 } from "lucide-react"
+import { ClassSelect } from "@/components/ui/class-select"
+import { SectionSelect } from "@/components/ui/section-select"
+import { TeacherSelect } from "@/components/ui/teacher-select"
+import { SubjectSelect } from "@/components/ui/subject-select"
 import { 
   Dialog, 
   DialogContent, 
@@ -121,6 +126,7 @@ export default function TimetablePage() {
   const [selectedVariantID, setSelectedVariantID] = useState("")
   const [periods, setPeriods] = useState<Period[]>([])
   const [entries, setEntries] = useState<TimetableEntry[]>([])
+  const [selectedClassID, setSelectedClassID] = useState("")
   const [selectedSectionID, setSelectedSectionID] = useState("")
 
   // Substitution Portal State
@@ -359,16 +365,25 @@ export default function TimetablePage() {
                 </SelectContent>
               </Select>
 
-              <Select value={selectedSectionID} onValueChange={setSelectedSectionID}>
-                <SelectTrigger className="w-[180px] h-9">
-                  <SelectValue placeholder="All Sections" />
-                </SelectTrigger>
-                <SelectContent>
-                  {classes.map(c => (
-                    <SelectItem key={uuidValue(c.id)} value={uuidValue(c.id)} disabled>-- {c.name} --</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="w-[180px]">
+                <ClassSelect 
+                  value={selectedClassID} 
+                  onSelect={(v) => { setSelectedClassID(v); setSelectedSectionID(""); }} 
+                  placeholder="Select Class"
+                  className="h-9"
+                />
+              </div>
+
+              <div className="w-[180px]">
+                 <SectionSelect 
+                   value={selectedSectionID} 
+                   onSelect={setSelectedSectionID} 
+                   classId={selectedClassID}
+                   disabled={!selectedClassID}
+                   placeholder="Select Section"
+                   className="h-9"
+                 />
+              </div>
             </div>
           )}
         </div>
@@ -575,16 +590,12 @@ export default function TimetablePage() {
                       <div className="space-y-6 pt-4">
                         <div className="space-y-2">
                           <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Teacher</Label>
-                          <Select value={selectedTeacherForAbsence} onValueChange={setSelectedTeacherForAbsence}>
-                            <SelectTrigger className="rounded-2xl h-12">
-                              <SelectValue placeholder="Select faculty member..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {teachers.map(t => (
-                                <SelectItem key={uuidValue(t.id)} value={uuidValue(t.id)}>{t.full_name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <TeacherSelect 
+                            value={selectedTeacherForAbsence} 
+                            onSelect={setSelectedTeacherForAbsence}
+                            className="rounded-2xl h-12"
+                            placeholder="Select faculty member..."
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Reason (Optional)</Label>

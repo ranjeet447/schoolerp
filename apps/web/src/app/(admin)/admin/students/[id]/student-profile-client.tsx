@@ -15,6 +15,10 @@ import {
   AlertCircle,
   TrendingUp,
   TrendingDown,
+  Search,
+  Filter,
+  MoreVertical,
+  ChevronRight,
   Info,
   Clock
 } from "lucide-react"
