@@ -184,17 +184,17 @@ export default function AuditExplorerPage() {
                       <div className="flex items-center gap-2">
                         <User className="h-3 w-3 text-muted-foreground" />
                         <span className="max-w-[120px] truncate text-sm">
-                          {log.actor_name || log.actor_id.split("-")[0]}
+                          {log.actor_name || (log.actor_id || "").split("-")[0] || "Unknown"}
                         </span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={getActionColor(log.action)}>
-                        {log.action.replace("platform.", "")}
+                      <Badge variant="outline" className={getActionColor(log.action || "")}>
+                        {(log.action || "").replace("platform.", "")}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {log.resource_type}: {log.resource_id.split("-")[0]}
+                      {log.resource_type}: {(log.resource_id || "").split("-")[0]}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

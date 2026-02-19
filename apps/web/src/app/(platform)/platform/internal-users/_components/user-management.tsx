@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { 
-  Users, 
-  UserPlus, 
-  Search, 
-  Shield, 
-  Activity, 
+import {
+  Users,
+  UserPlus,
+  Search,
+  Shield,
+  Activity,
   MoreVertical,
   Ban,
   RotateCcw,
@@ -14,16 +14,24 @@ import {
   XCircle,
   Mail,
   User as UserIcon,
-  Clock
+  Clock,
+  Key,
+  ShieldCheck,
+  Loader2,
 } from "lucide-react";
-import { 
-  Button, 
-  Card, 
-  CardContent, 
-  CardHeader, 
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
   CardTitle,
   Input,
+  Label,
   Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Table,
   TableBody,
   TableCell,
@@ -31,11 +39,17 @@ import {
   TableHeader,
   TableRow,
   Badge,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator
+  DropdownMenuSeparator,
 } from "@schoolerp/ui";
 import { format } from "date-fns";
 
@@ -63,22 +77,22 @@ type UserManagementProps = {
 };
 
 const ROLE_OPTIONS = [
-  "super_admin",
-  "support_l1",
-  "support_l2",
-  "finance",
-  "ops",
-  "developer",
+  { value: "super_admin", label: "Super Admin" },
+  { value: "support_l1", label: "Support L1" },
+  { value: "support_l2", label: "Support L2" },
+  { value: "finance", label: "Finance" },
+  { value: "ops", label: "Operations" },
+  { value: "developer", label: "Developer" },
 ];
 
-export function UserManagement({ 
-  users, 
-  onReload, 
-  onUpdate, 
-  onCreate, 
-  onRotateTokens, 
+export function UserManagement({
+  users,
+  onReload,
+  onUpdate,
+  onCreate,
+  onRotateTokens,
   onRevokeSessions,
-  busy 
+  busy,
 }: UserManagementProps) {
   const [showAddUser, setShowAddUser] = useState(false);
   const [newUser, setNewUser] = useState({
@@ -87,6 +101,16 @@ export function UserManagement({
     password: "",
     role_code: "support_l1",
   });
+
+  // Role change dialog
+  const [roleDialogOpen, setRoleDialogOpen] = useState(false);
+  const [selectedUserForRole, setSelectedUserForRole] = useState<PlatformInternalUser | null>(null);
+  const [newRoleCode, setNewRoleCode] = useState("");
+
+  // Password reset dialog
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [selectedUserForPassword, setSelectedUserForPassword] = useState<PlatformInternalUser | null>(null);
+  const [newPassword, setNewPassword] = useState("");
 
   const handleCreate = async () => {
     await onCreate(newUser);
@@ -97,6 +121,21 @@ export function UserManagement({
       role_code: "support_l1",
     });
     setShowAddUser(false);
+  };
+
+  const handleRoleChange = async () => {
+    if (!selectedUserForRole || !newRoleCode) return;
+    await onUpdate(selectedUserForRole.id, { role_code: newRoleCode }, "Role updated.");
+    setRoleDialogOpen(false);
+    setSelectedUserForRole(null);
+  };
+
+  const handlePasswordReset = async () => {
+    if (!selectedUserForPassword || newPassword.length < 8) return;
+    await onUpdate(selectedUserForPassword.id, { password: newPassword }, "Password reset.");
+    setPasswordDialogOpen(false);
+    setSelectedUserForPassword(null);
+    setNewPassword("");
   };
 
   return (
@@ -128,38 +167,45 @@ export function UserManagement({
           <CardContent>
             <div className="grid gap-4 md:grid-cols-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase text-muted-foreground">Full Name</label>
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Full Name</Label>
                 <div className="relative">
                   <UserIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    placeholder="e.g. John Doe" 
+                  <Input
+                    placeholder="e.g. John Doe"
                     className="pl-9"
                     value={newUser.full_name}
-                    onChange={e => setNewUser({...newUser, full_name: e.target.value})}
+                    onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
                   />
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase text-muted-foreground">Email Address</label>
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Email Address</Label>
                 <div className="relative">
                   <Mail className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    placeholder="work@company.com" 
+                  <Input
+                    placeholder="work@company.com"
                     className="pl-9"
                     value={newUser.email}
-                    onChange={e => setNewUser({...newUser, email: e.target.value})}
+                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                   />
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase text-muted-foreground">Security Role</label>
-                <Select 
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Security Role</Label>
+                <Select
                   value={newUser.role_code}
-                  onValueChange={v => setNewUser({...newUser, role_code: v})}
+                  onValueChange={(v) => setNewUser({ ...newUser, role_code: v })}
                 >
-                  {ROLE_OPTIONS.map(role => (
-                    <option key={role} value={role}>{role.replace("_", " ")}</option>
-                  ))}
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLE_OPTIONS.map((role) => (
+                      <SelectItem key={role.value} value={role.value}>
+                        {role.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
               <div className="flex items-end">
@@ -169,13 +215,13 @@ export function UserManagement({
               </div>
             </div>
             <div className="mt-3">
-               <label className="text-[10px] font-bold uppercase text-muted-foreground block mb-1">Temporary Password</label>
-               <Input 
-                 type="password" 
-                 placeholder="Strong temporary password" 
-                 value={newUser.password}
-                 onChange={e => setNewUser({...newUser, password: e.target.value})}
-               />
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground block mb-1">Temporary Password</Label>
+              <Input
+                type="password"
+                placeholder="Strong temporary password"
+                value={newUser.password}
+                onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+              />
             </div>
           </CardContent>
         </Card>
@@ -207,7 +253,7 @@ export function UserManagement({
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted font-mono text-xs text-muted-foreground">
-                          {u.full_name[0]}
+                          {(u.full_name || "?")[0]}
                         </div>
                         <div>
                           <p className="font-semibold text-foreground">{u.full_name}</p>
@@ -217,7 +263,7 @@ export function UserManagement({
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="capitalize">
-                        {u.role_code.replace("_", " ")}
+                        {(u.role_code || "").replace(/_/g, " ")}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -242,9 +288,9 @@ export function UserManagement({
                       </div>
                     </TableCell>
                     <TableCell>
-                       <Badge variant="secondary" className="px-1.5 py-0 font-mono text-[10px]">
-                         {u.active_sessions} Sessions
-                       </Badge>
+                      <Badge variant="secondary" className="px-1.5 py-0 font-mono text-[10px]">
+                        {u.active_sessions} Sessions
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -257,7 +303,17 @@ export function UserManagement({
                           <div className="px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground/60">
                             Identity Control
                           </div>
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedUserForRole(u);
+                              setNewRoleCode(u.role_code);
+                              setRoleDialogOpen(true);
+                            }}
+                          >
+                            <ShieldCheck className="mr-2 h-4 w-4 text-indigo-500" />
+                            <span>Change Role</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
                             onClick={() => onUpdate(u.id, { is_active: !u.is_active }, u.is_active ? "Account disabled." : "Account enabled.")}
                           >
                             {u.is_active ? (
@@ -272,9 +328,19 @@ export function UserManagement({
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <div className="px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground/60">
-                            Security Sessions
+                            Security
                           </div>
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedUserForPassword(u);
+                              setNewPassword("");
+                              setPasswordDialogOpen(true);
+                            }}
+                          >
+                            <Key className="mr-2 h-4 w-4 text-amber-500" />
+                            <span>Reset Password</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
                             className="text-rose-600"
                             onClick={() => onRevokeSessions(u.id)}
                           >
@@ -291,6 +357,94 @@ export function UserManagement({
           </Table>
         </CardContent>
       </Card>
+
+      {/* Role Change Dialog */}
+      <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Change Role</DialogTitle>
+            <DialogDescription>
+              Update the platform role for{" "}
+              <span className="font-semibold">{selectedUserForRole?.full_name}</span>.
+              This affects their permissions across all platform features.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Current Role</Label>
+              <Badge variant="outline" className="w-fit capitalize">
+                {(selectedUserForRole?.role_code || "").replace(/_/g, " ")}
+              </Badge>
+            </div>
+            <div className="grid gap-2">
+              <Label>New Role</Label>
+              <Select value={newRoleCode} onValueChange={setNewRoleCode}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLE_OPTIONS.map((r) => (
+                    <SelectItem key={r.value} value={r.value}>
+                      {r.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRoleDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleRoleChange} disabled={!newRoleCode || busy}>
+              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Update Role
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Password Reset Dialog */}
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>
+              Set a new password for{" "}
+              <span className="font-semibold">{selectedUserForPassword?.full_name}</span>.
+              This will invalidate their existing sessions.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="new-internal-password">New Password</Label>
+              <Input
+                id="new-internal-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Min. 8 characters"
+              />
+              {newPassword.length > 0 && newPassword.length < 8 && (
+                <p className="text-xs text-destructive">Password must be at least 8 characters.</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPasswordDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handlePasswordReset}
+              disabled={newPassword.length < 8 || busy}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Reset Password
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

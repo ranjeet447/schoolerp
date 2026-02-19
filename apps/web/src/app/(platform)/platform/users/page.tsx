@@ -3,9 +3,10 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api-client"
-import { 
-  Button, 
+import {
+  Button,
   Input,
+  Label,
   Table,
   TableBody,
   TableCell,
@@ -18,13 +19,34 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Badge
+  Badge,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
 } from "@schoolerp/ui"
 import { toast } from "sonner"
-import { Loader2, MoreHorizontal, UserCog, ShieldCheck, Search, Key } from "lucide-react"
+import { Loader2, MoreHorizontal, UserCog, Search, Key, ShieldCheck, RefreshCw } from "lucide-react"
 import { TenantSelect } from "@/components/ui/tenant-select"
-import { useRouter } from "next/navigation"
 import { ResetPasswordDialog } from "./_components/reset-password-dialog"
+
+const TENANT_ROLE_OPTIONS = [
+  { value: "tenant_admin", label: "Tenant Admin" },
+  { value: "branch_admin", label: "Branch Admin" },
+  { value: "teacher", label: "Teacher" },
+  { value: "staff", label: "Staff" },
+  { value: "accountant", label: "Accountant" },
+  { value: "parent", label: "Parent" },
+  { value: "student", label: "Student" },
+]
 
 export default function GlobalUserDirectoryPage() {
   const [search, setSearch] = useState("")
@@ -33,15 +55,21 @@ export default function GlobalUserDirectoryPage() {
   const [page, setPage] = useState(0)
   const limit = 20
 
-  // const { toast } = useToast() // Removed hook
-  const router = useRouter()
   const queryClient = useQueryClient()
 
-  // State for Reset Password Dialog
+  // Dialog state
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
   const [selectedUserForReset, setSelectedUserForReset] = useState<any>(null)
 
-  const { data: users, isLoading } = useQuery({
+  const [impersonateDialogOpen, setImpersonateDialogOpen] = useState(false)
+  const [selectedUserForImpersonate, setSelectedUserForImpersonate] = useState<any>(null)
+  const [impersonateReason, setImpersonateReason] = useState("")
+
+  const [roleDialogOpen, setRoleDialogOpen] = useState(false)
+  const [selectedUserForRole, setSelectedUserForRole] = useState<any>(null)
+  const [newRoleCode, setNewRoleCode] = useState("")
+
+  const { data: users, isLoading, refetch } = useQuery({
     queryKey: ["global-users", search, tenantId, roleCode, page],
     queryFn: async () => {
       const params = new URLSearchParams({
@@ -56,37 +84,78 @@ export default function GlobalUserDirectoryPage() {
     },
   })
 
-  // Mutations
+  // Impersonation mutation
   const impersonateMutation = useMutation({
-    mutationFn: async (userId: string) => {
+    mutationFn: async ({ userId, reason }: { userId: string; reason: string }) => {
       const res = await apiClient(`/platform/users/${userId}/impersonate`, {
         method: "POST",
-        body: JSON.stringify({
-          reason: "Platform Admin Impersonation",
-        }),
+        body: JSON.stringify({ reason }),
       })
+      if (!res.ok) throw new Error(await res.text())
       return await res.json()
     },
     onSuccess: (data) => {
-      toast.success("Impersonation Token Created", {
-        description: "Redirecting to tenant...",
+      toast.success("Impersonation session created", {
+        description: "Setting up context and redirecting...",
       })
-      // Direct redirect approach
-      // Ideally, the token should be used to set a cookie or auth header.
-      // If the token is a login token for the target app, we might need a special redirect URL.
-      // For now, we simulate the redirect by logging the token and showing a success message.
-      // In a real implementation, this would redirect to: `https://{tenant_subdomain}.schoolerp.com/auth/impersonate?token={token}`
-      console.log("Impersonation Token:", data.token)
-      toast.success("Impersonation Link Generated", {
-        description: "Check console for token (Simulation Mode)",
-      })
+      // Store impersonator context for return
+      localStorage.setItem("impersonator_auth_token", localStorage.getItem("auth_token") || "")
+      localStorage.setItem("impersonator_user_role", localStorage.getItem("user_role") || "")
+      localStorage.setItem("impersonator_tenant_id", localStorage.getItem("tenant_id") || "")
+      localStorage.setItem("impersonation_started_at", new Date().toISOString())
+      localStorage.setItem("impersonation_reason", impersonateReason)
+      // Set impersonated context
+      if (data.token) localStorage.setItem("auth_token", data.token)
+      if (data.target_tenant_id) localStorage.setItem("tenant_id", data.target_tenant_id)
+      if (data.target_user_id) localStorage.setItem("user_id", data.target_user_id)
+      localStorage.setItem("user_role", "tenant_admin")
+      window.location.href = "/admin/dashboard"
     },
     onError: (err: any) => {
-      toast.error("Failed to impersonate", {
-        description: err.response?.data || err.message,
+      toast.error("Impersonation failed", {
+        description: err.message || "An error occurred",
       })
     },
   })
+
+  // Role change mutation
+  const changeRoleMutation = useMutation({
+    mutationFn: async ({ userId, roleCode }: { userId: string; roleCode: string }) => {
+      const res = await apiClient(`/platform/users/${userId}/role`, {
+        method: "PATCH",
+        body: JSON.stringify({ role_code: roleCode }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      return await res.json()
+    },
+    onSuccess: () => {
+      toast.success("Role updated successfully")
+      setRoleDialogOpen(false)
+      setSelectedUserForRole(null)
+      refetch()
+    },
+    onError: (err: any) => {
+      toast.error("Failed to update role", {
+        description: err.message || "An error occurred",
+      })
+    },
+  })
+
+  const handleImpersonate = () => {
+    if (!selectedUserForImpersonate || !impersonateReason.trim()) return
+    impersonateMutation.mutate({
+      userId: selectedUserForImpersonate.id,
+      reason: impersonateReason.trim(),
+    })
+  }
+
+  const handleRoleChange = () => {
+    if (!selectedUserForRole || !newRoleCode) return
+    changeRoleMutation.mutate({
+      userId: selectedUserForRole.id,
+      roleCode: newRoleCode,
+    })
+  }
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -97,6 +166,10 @@ export default function GlobalUserDirectoryPage() {
             Search, manage, and impersonate users across all tenants.
           </p>
         </div>
+        <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
+          <RefreshCw className="h-4 w-4" />
+          Refresh
+        </Button>
       </div>
 
       <div className="flex items-center gap-4">
@@ -110,14 +183,28 @@ export default function GlobalUserDirectoryPage() {
           />
         </div>
         <div className="w-[300px]">
-          <TenantSelect 
-            value={tenantId} 
-            onSelect={(val) => setTenantId(typeof val === "string" ? val : val[0] || "")} 
-            placeholder="Filter by tenant" 
-            includeInactive 
+          <TenantSelect
+            value={tenantId}
+            onSelect={(val) => setTenantId(typeof val === "string" ? val : val[0] || "")}
+            placeholder="Filter by tenant"
+            includeInactive
           />
         </div>
-        {/* Role Select could go here */}
+        <div className="w-[180px]">
+          <Select value={roleCode} onValueChange={setRoleCode}>
+            <SelectTrigger>
+              <SelectValue placeholder="All roles" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All roles</SelectItem>
+              {TENANT_ROLE_OPTIONS.map((r) => (
+                <SelectItem key={r.value} value={r.value}>
+                  {r.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="rounded-md border">
@@ -142,7 +229,7 @@ export default function GlobalUserDirectoryPage() {
                   </div>
                 </TableCell>
               </TableRow>
-            ) : users?.length === 0 ? (
+            ) : (users?.length ?? 0) === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                   No users found matching your filters.
@@ -159,27 +246,26 @@ export default function GlobalUserDirectoryPage() {
                   </TableCell>
                   <TableCell>
                     {user.tenant_name ? (
-                      <div className="flex flex-col">
-                        <span>{user.tenant_name}</span>
-                        {/* <span className="text-xs text-muted-foreground">ID: {user.tenant_id}</span> */}
-                      </div>
+                      <span>{user.tenant_name}</span>
                     ) : (
-                      <span className="text-muted-foreground italic">Platform / None</span>
+                      <span className="text-muted-foreground italic">Platform</span>
                     )}
                   </TableCell>
                   <TableCell>
                     {user.role_name ? (
-                      <Badge variant="outline">{user.role_name}</Badge>
+                      <Badge variant="outline" className="capitalize">
+                        {(user.role_name || "").replace(/_/g, " ")}
+                      </Badge>
                     ) : (
                       <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
                   <TableCell>
-                   <Badge variant={user.is_active ? "default" : "secondary"}>
+                    <Badge variant={user.is_active ? "default" : "secondary"}>
                       {user.is_active ? "Active" : "Inactive"}
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
                     {user.last_login ? new Date(user.last_login).toLocaleString() : "-"}
                   </TableCell>
                   <TableCell>
@@ -190,20 +276,36 @@ export default function GlobalUserDirectoryPage() {
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" className="w-52">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem 
-                          onClick={() => impersonateMutation.mutate(user.id)}
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSelectedUserForImpersonate(user)
+                            setImpersonateReason("")
+                            setImpersonateDialogOpen(true)
+                          }}
                           disabled={!user.is_active}
                         >
                           <UserCog className="mr-2 h-4 w-4" />
                           Impersonate
                         </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSelectedUserForRole(user)
+                            setNewRoleCode(user.role_code || "")
+                            setRoleDialogOpen(true)
+                          }}
+                        >
+                          <ShieldCheck className="mr-2 h-4 w-4" />
+                          Change Role
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                         <DropdownMenuItem onClick={() => {
+                        <DropdownMenuItem
+                          onClick={() => {
                             setSelectedUserForReset(user)
                             setResetDialogOpen(true)
-                         }}>
+                          }}
+                        >
                           <Key className="mr-2 h-4 w-4" />
                           Reset Password
                         </DropdownMenuItem>
@@ -230,16 +332,100 @@ export default function GlobalUserDirectoryPage() {
           variant="outline"
           size="sm"
           onClick={() => setPage((p) => p + 1)}
-          disabled={users?.length < limit}
+          disabled={(users?.length ?? 0) < limit}
         >
           Next
         </Button>
       </div>
 
+      {/* Impersonation Dialog */}
+      <Dialog open={impersonateDialogOpen} onOpenChange={setImpersonateDialogOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>Impersonate User</DialogTitle>
+            <DialogDescription>
+              You are about to impersonate{" "}
+              <span className="font-semibold">{selectedUserForImpersonate?.full_name}</span>.
+              A reason is required for audit compliance.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="impersonate-reason">Reason (required)</Label>
+              <Textarea
+                id="impersonate-reason"
+                value={impersonateReason}
+                onChange={(e) => setImpersonateReason(e.target.value)}
+                placeholder="e.g. Debugging billing issue reported in ticket #1234"
+                className="min-h-[80px]"
+              />
+              {impersonateReason.length > 0 && impersonateReason.trim().length < 10 && (
+                <p className="text-xs text-destructive">Reason must be at least 10 characters.</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImpersonateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleImpersonate}
+              disabled={impersonateReason.trim().length < 10 || impersonateMutation.isPending}
+            >
+              {impersonateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Start Impersonation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Role Change Dialog */}
+      <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Change Role</DialogTitle>
+            <DialogDescription>
+              Update the role for{" "}
+              <span className="font-semibold">{selectedUserForRole?.full_name}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>New Role</Label>
+              <Select value={newRoleCode} onValueChange={setNewRoleCode}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TENANT_ROLE_OPTIONS.map((r) => (
+                    <SelectItem key={r.value} value={r.value}>
+                      {r.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRoleDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRoleChange}
+              disabled={!newRoleCode || changeRoleMutation.isPending}
+            >
+              {changeRoleMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Update Role
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
       {selectedUserForReset && (
-        <ResetPasswordDialog 
-          open={resetDialogOpen} 
-          onOpenChange={setResetDialogOpen} 
+        <ResetPasswordDialog
+          open={resetDialogOpen}
+          onOpenChange={setResetDialogOpen}
           userId={selectedUserForReset.id}
           userName={selectedUserForReset.full_name}
         />

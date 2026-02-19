@@ -114,11 +114,11 @@ export default function PlatformSecurityEventsPage() {
       const data: PlatformDataRetentionPolicy = await res.json();
       setRetentionPolicy(data);
       setRetentionDraft({
-        audit_logs_days: Number(data.audit_logs_days) || 365,
-        security_events_days: Number(data.security_events_days) || 90,
-        sessions_days: Number(data.sessions_days) || 30,
-        integration_logs_days: Number(data.integration_logs_days) || 30,
-        outbox_events_days: Number(data.outbox_events_days) || 30,
+        audit_logs_days: Number(data.audit_logs_days || 0) || 365,
+        security_events_days: Number(data.security_events_days || 0) || 90,
+        sessions_days: Number(data.sessions_days || 0) || 30,
+        integration_logs_days: Number(data.integration_logs_days || 0) || 30,
+        outbox_events_days: Number(data.outbox_events_days || 0) || 30,
       });
     } catch {
       // Keep silent; policy is optional on fresh environments until migrated.

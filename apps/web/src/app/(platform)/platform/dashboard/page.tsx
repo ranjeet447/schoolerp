@@ -111,24 +111,24 @@ export default function PlatformDashboardPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <StatCard 
           label="SaaS Tenants" 
-          value={summary.total_tenants} 
+          value={(summary.total_tenants || 0).toString()} 
           icon={Building2} 
-          description={`${summary.active_tenants} currently active`}
+          description={`${summary.active_tenants || 0} currently active`}
         />
         <StatCard 
           label="Student Population" 
-          value={summary.total_students.toLocaleString()} 
+          value={(summary.total_students || 0).toLocaleString()} 
           icon={Users} 
           description="Across all jurisdictions"
         />
         <StatCard 
           label="Total Staff" 
-          value={summary.total_employees.toLocaleString()} 
+          value={(summary.total_employees || 0).toLocaleString()} 
           icon={UserSquare2} 
         />
         <StatCard 
           label="Global Revenue" 
-          value={formatCurrency(summary.total_collections)} 
+          value={formatCurrency(summary.total_collections || 0)} 
           icon={Banknote} 
           description="Lifetime collections"
         />

@@ -13,6 +13,7 @@ import {
   Input, 
   Label, 
   Textarea, 
+  Badge,
   Select, 
   SelectContent, 
   SelectItem, 
@@ -787,79 +788,271 @@ export default function PlatformTenantDetailPage() {
 
       <TabsContent value="overview" className="space-y-6">
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-border bg-card p-4">
-          <h2 className="font-semibold text-foreground">Tenant Defaults</h2>
-          <form onSubmit={submitDefaults} className="mt-3 space-y-2">
-            <input className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="Timezone" value={defaults.timezone} onChange={(e) => setDefaults((p) => ({ ...p, timezone: e.target.value }))} />
-            <input className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="Locale" value={defaults.locale} onChange={(e) => setDefaults((p) => ({ ...p, locale: e.target.value }))} />
-            <input className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="Academic Year (e.g. 2025-26)" value={defaults.academic_year} onChange={(e) => setDefaults((p) => ({ ...p, academic_year: e.target.value }))} />
-            <input className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="Region" value={defaults.region} onChange={(e) => setDefaults((p) => ({ ...p, region: e.target.value }))} />
-            <button disabled={busy} className="rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">Save Defaults</button>
-          </form>
-        </div>
-
-        <div className="rounded-xl border border-border bg-card p-4">
-          <h2 className="font-semibold text-foreground">Domain Mapping</h2>
-          <form onSubmit={submitDomainMapping} className="mt-3 space-y-2">
-            <input className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="Custom Domain" value={domainMap.domain} onChange={(e) => setDomainMap((p) => ({ ...p, domain: e.target.value }))} />
-            <input className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="CNAME Target" value={domainMap.cname_target} onChange={(e) => setDomainMap((p) => ({ ...p, cname_target: e.target.value }))} />
-            <select className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground" value={domainMap.ssl_status} onChange={(e) => setDomainMap((p) => ({ ...p, ssl_status: e.target.value }))}>
-              <option value="">SSL status</option>
-              <option value="pending">Pending</option>
-              <option value="provisioning">Provisioning</option>
-              <option value="active">Active</option>
-              <option value="failed">Failed</option>
-            </select>
-            <button disabled={busy} className="rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">Save Domain Mapping</button>
-          </form>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-border bg-card p-4">
-        <h2 className="font-semibold text-foreground">Branding</h2>
-        <form onSubmit={submitBranding} className="mt-3 grid gap-2 md:grid-cols-2">
-          <label className="flex items-center gap-2 text-sm text-muted-foreground md:col-span-2">
-            <input
-              type="checkbox"
-              checked={branding.white_label}
-              onChange={(e) => setBranding((p) => ({ ...p, white_label: e.target.checked }))}
-            />
-            White label (remove SchoolERP branding)
-          </label>
-          <div className="flex items-center gap-3">
-            <input
-              type="color"
-              value={branding.primary_color}
-              onChange={(e) => setBranding((p) => ({ ...p, primary_color: e.target.value }))}
-              className="h-10 w-14 bg-transparent"
-              title="Primary color"
-            />
-            <input
-              className="flex-1 rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-              placeholder="#4f46e5"
-              value={branding.primary_color}
-              onChange={(e) => setBranding((p) => ({ ...p, primary_color: e.target.value }))}
-            />
+      {/* Tenant Defaults */}
+      <div className="rounded-xl border border-border bg-card p-5">
+        <h2 className="text-lg font-bold text-foreground">Tenant Defaults</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Core configuration for this tenant&apos;s environment.</p>
+        <form onSubmit={submitDefaults} className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-muted-foreground">Timezone</Label>
+            <Input placeholder="e.g. Asia/Kolkata" value={defaults.timezone} onChange={(e) => setDefaults((p) => ({ ...p, timezone: e.target.value }))} />
           </div>
-          <input
-            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-            placeholder="Name override (display)"
-            value={branding.name_override}
-            onChange={(e) => setBranding((p) => ({ ...p, name_override: e.target.value }))}
-          />
-          <input
-            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground md:col-span-2"
-            placeholder="Logo URL"
-            value={branding.logo_url}
-            onChange={(e) => setBranding((p) => ({ ...p, logo_url: e.target.value }))}
-          />
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-muted-foreground">Locale</Label>
+            <Input placeholder="e.g. en-IN" value={defaults.locale} onChange={(e) => setDefaults((p) => ({ ...p, locale: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-muted-foreground">Academic Year</Label>
+            <Input placeholder="e.g. 2025-26" value={defaults.academic_year} onChange={(e) => setDefaults((p) => ({ ...p, academic_year: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-muted-foreground">Region</Label>
+            <Input placeholder="e.g. ap-south-1" value={defaults.region} onChange={(e) => setDefaults((p) => ({ ...p, region: e.target.value }))} />
+          </div>
           <div className="md:col-span-2">
-            <button disabled={busy} className="rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
-              Save Branding
-            </button>
+            <Button disabled={busy} type="submit">Save Defaults</Button>
           </div>
         </form>
+      </div>
+
+      {/* ── WHITE LABELING ─────────────────────────────────────── */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-lg font-bold text-foreground">White Labeling & Custom Domain</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Configure branding, set up a custom domain, and provision SSL for this tenant.
+          </p>
+        </div>
+
+        {/* Step 1: Branding */}
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-black text-primary">1</div>
+            <div>
+              <h3 className="font-semibold text-foreground">Brand Identity</h3>
+              <p className="text-xs text-muted-foreground">Replace SchoolERP branding with the tenant&apos;s own brand.</p>
+            </div>
+          </div>
+          <form onSubmit={submitBranding} className="grid gap-4 md:grid-cols-2">
+            <div className="md:col-span-2 flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="white-label-toggle"
+                checked={branding.white_label}
+                onChange={(e) => setBranding((p) => ({ ...p, white_label: e.target.checked }))}
+                className="h-4 w-4 rounded border-input"
+              />
+              <Label htmlFor="white-label-toggle" className="text-sm cursor-pointer">
+                Enable white labeling (remove all SchoolERP branding)
+              </Label>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">Display Name Override</Label>
+              <Input
+                placeholder="e.g. Greenwood Academy Portal"
+                value={branding.name_override}
+                onChange={(e) => setBranding((p) => ({ ...p, name_override: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">Primary Brand Color</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={branding.primary_color}
+                  onChange={(e) => setBranding((p) => ({ ...p, primary_color: e.target.value }))}
+                  className="h-9 w-12 cursor-pointer rounded border border-input bg-transparent"
+                />
+                <Input
+                  placeholder="#4f46e5"
+                  value={branding.primary_color}
+                  onChange={(e) => setBranding((p) => ({ ...p, primary_color: e.target.value }))}
+                  className="flex-1"
+                />
+              </div>
+            </div>
+            <div className="md:col-span-2 space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">Logo URL</Label>
+              <Input
+                placeholder="https://cdn.example.com/logo.png"
+                value={branding.logo_url}
+                onChange={(e) => setBranding((p) => ({ ...p, logo_url: e.target.value }))}
+              />
+              {branding.logo_url && (
+                <div className="mt-2 flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+                  <img src={branding.logo_url} alt="Logo preview" className="h-10 w-auto max-w-[200px] object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  <span className="text-xs text-muted-foreground">Logo preview</span>
+                </div>
+              )}
+            </div>
+            <div className="md:col-span-2">
+              <Button disabled={busy} type="submit">Save Branding</Button>
+            </div>
+          </form>
+        </div>
+
+        {/* Step 2: Custom Domain */}
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-black text-primary">2</div>
+            <div>
+              <h3 className="font-semibold text-foreground">Custom Domain</h3>
+              <p className="text-xs text-muted-foreground">Point a custom domain to this tenant&apos;s instance.</p>
+            </div>
+          </div>
+          <form onSubmit={submitDomainMapping} className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">Custom Domain</Label>
+                <Input
+                  placeholder="e.g. erp.greenwoodacademy.edu"
+                  value={domainMap.domain}
+                  onChange={(e) => setDomainMap((p) => ({ ...p, domain: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">CNAME Target</Label>
+                <Input
+                  placeholder="Auto-generated on save"
+                  value={domainMap.cname_target || `${tenant?.subdomain || "tenant"}.app.schoolerp.com`}
+                  onChange={(e) => setDomainMap((p) => ({ ...p, cname_target: e.target.value }))}
+                  className="font-mono text-xs"
+                />
+              </div>
+            </div>
+
+            {/* DNS Records Table */}
+            {domainMap.domain && (
+              <div className="rounded-lg border border-border bg-muted/20 p-4">
+                <h4 className="text-sm font-bold text-foreground mb-3">📋 Required DNS Records</h4>
+                <p className="text-xs text-muted-foreground mb-3">
+                  The tenant must add these records in their DNS provider before the domain will work:
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="pb-2 text-left text-xs font-bold text-muted-foreground">Type</th>
+                        <th className="pb-2 text-left text-xs font-bold text-muted-foreground">Name / Host</th>
+                        <th className="pb-2 text-left text-xs font-bold text-muted-foreground">Value / Target</th>
+                        <th className="pb-2 text-left text-xs font-bold text-muted-foreground">TTL</th>
+                      </tr>
+                    </thead>
+                    <tbody className="font-mono text-xs">
+                      <tr className="border-b border-border/50">
+                        <td className="py-2.5"><Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">CNAME</Badge></td>
+                        <td className="py-2.5 text-foreground">{domainMap.domain}</td>
+                        <td className="py-2.5 text-foreground">{domainMap.cname_target || `${tenant?.subdomain || "tenant"}.app.schoolerp.com`}</td>
+                        <td className="py-2.5 text-muted-foreground">3600</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2.5"><Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30">TXT</Badge></td>
+                        <td className="py-2.5 text-foreground">_schoolerp-verify.{domainMap.domain}</td>
+                        <td className="py-2.5 text-foreground">schoolerp-tenant-{id}</td>
+                        <td className="py-2.5 text-muted-foreground">3600</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <Button variant="outline" size="sm" type="button" onClick={() => {
+                    navigator.clipboard.writeText(`CNAME ${domainMap.domain} → ${domainMap.cname_target || `${tenant?.subdomain}.app.schoolerp.com`}\nTXT _schoolerp-verify.${domainMap.domain} → schoolerp-tenant-${id}`);
+                  }}>
+                    Copy DNS Records
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <Button disabled={busy} type="submit">Save Domain Mapping</Button>
+          </form>
+        </div>
+
+        {/* Step 3: SSL Certificate */}
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-black text-primary">3</div>
+            <div>
+              <h3 className="font-semibold text-foreground">SSL Certificate</h3>
+              <p className="text-xs text-muted-foreground">Provision and manage HTTPS for the custom domain.</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-muted-foreground">Current Status:</span>
+              {(!domainMap.ssl_status || domainMap.ssl_status === "pending") && (
+                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30">⏳ Pending</Badge>
+              )}
+              {domainMap.ssl_status === "provisioning" && (
+                <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">🔄 Provisioning</Badge>
+              )}
+              {domainMap.ssl_status === "active" && (
+                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">✅ Active</Badge>
+              )}
+              {domainMap.ssl_status === "failed" && (
+                <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/30">❌ Failed</Badge>
+              )}
+            </div>
+          </div>
+
+          {!domainMap.domain ? (
+            <div className="rounded-lg border-2 border-dashed border-muted p-6 text-center">
+              <p className="text-sm text-muted-foreground">Set up a custom domain first (Step 2) before provisioning SSL.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground space-y-2">
+                <p><strong className="text-foreground">How it works:</strong></p>
+                <ol className="list-decimal list-inside space-y-1 text-xs">
+                  <li>Configure DNS records from Step 2 in the tenant&apos;s domain registrar</li>
+                  <li>Click &ldquo;Verify DNS&rdquo; to confirm records are propagated</li>
+                  <li>Click &ldquo;Provision SSL&rdquo; to generate a certificate via Let&apos;s Encrypt</li>
+                  <li>Certificate auto-renews every 60 days</li>
+                </ol>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    setDomainMap((p) => ({ ...p, ssl_status: "provisioning" }));
+                    submitDomainMapping(new Event("submit") as any);
+                  }}
+                >
+                  Verify DNS
+                </Button>
+                <Button
+                  size="sm"
+                  type="button"
+                  disabled={busy || domainMap.ssl_status === "active"}
+                  onClick={() => {
+                    setDomainMap((p) => ({ ...p, ssl_status: "provisioning" }));
+                    submitDomainMapping(new Event("submit") as any);
+                  }}
+                >
+                  Provision SSL
+                </Button>
+                {domainMap.ssl_status === "active" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      setDomainMap((p) => ({ ...p, ssl_status: "provisioning" }));
+                      submitDomainMapping(new Event("submit") as any);
+                    }}
+                  >
+                    Force Renew
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
       </TabsContent>
 
@@ -1018,12 +1211,18 @@ export default function PlatformTenantDetailPage() {
           </form>
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-4">
-          <h2 className="font-semibold text-foreground">Security Actions</h2>
-          <div className="mt-3 space-y-2">
-            <input className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="New tenant admin password" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)} />
-            <button onClick={resetAdminPassword} disabled={busy || !newAdminPassword} className="mr-2 rounded border border-amber-600/40 px-3 py-2 text-sm text-amber-700 hover:bg-amber-500/10 disabled:opacity-50 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/20">Reset Admin Password</button>
-            <button onClick={forceLogoutUsers} disabled={busy} className="rounded border border-red-600/40 px-3 py-2 text-sm text-red-700 hover:bg-red-500/10 disabled:opacity-50 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/20">Force Logout All Users</button>
+        <div className="rounded-xl border border-border bg-card p-5">
+          <h2 className="text-lg font-bold text-foreground">Security Actions</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Reset the tenant admin password or force-logout all users.</p>
+          <div className="mt-4 space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">New Admin Password</Label>
+              <Input type="password" placeholder="Enter new password (min. 8 characters)" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)} />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={resetAdminPassword} disabled={busy || !newAdminPassword || newAdminPassword.length < 8}>Reset Admin Password</Button>
+              <Button variant="destructive" onClick={forceLogoutUsers} disabled={busy}>Force Logout All Users</Button>
+            </div>
           </div>
         </div>
       </div>
@@ -1252,18 +1451,32 @@ export default function PlatformTenantDetailPage() {
       </TabsContent>
 
       <TabsContent value="dataops" className="space-y-6">
-      <div className="rounded-xl border border-border bg-card p-4">
-        <h2 className="font-semibold text-foreground">Impersonation (Guardrail: reason required)</h2>
-        <div className="mt-3 flex flex-col gap-2 md:flex-row">
-          <input
-            className="flex-1 rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-            placeholder="Why do you need to impersonate this tenant admin?"
-            value={impersonationReason}
-            onChange={(e) => setImpersonationReason(e.target.value)}
-          />
-          <button onClick={impersonateTenantAdmin} disabled={busy || !impersonationReason.trim()} className="rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-            Login As Tenant Admin
-          </button>
+      <div className="rounded-xl border border-border bg-card p-5">
+        <h2 className="text-lg font-bold text-foreground">Impersonation</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Login as this tenant&apos;s admin. A detailed reason is required for audit compliance.
+        </p>
+        <div className="mt-4 space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-muted-foreground">Reason (min. 10 characters)</Label>
+            <Textarea
+              className="min-h-[80px]"
+              placeholder="e.g. Investigating billing issue reported in ticket #1234"
+              value={impersonationReason}
+              onChange={(e) => setImpersonationReason(e.target.value)}
+            />
+            {impersonationReason.length > 0 && impersonationReason.trim().length < 10 && (
+              <p className="text-xs text-destructive">Reason must be at least 10 characters for audit compliance.</p>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <Button onClick={impersonateTenantAdmin} disabled={busy || impersonationReason.trim().length < 10}>
+              Login As Tenant Admin
+            </Button>
+            <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600 border-amber-500/30">
+              ⚠ Session limited to 30 minutes
+            </Badge>
+          </div>
         </div>
       </div>
 
