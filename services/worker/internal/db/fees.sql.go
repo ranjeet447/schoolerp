@@ -30,6 +30,43 @@ func (q *Queries) AssignPlanToStudent(ctx context.Context, arg AssignPlanToStude
 	return i, err
 }
 
+const assignScholarship = `-- name: AssignScholarship :one
+INSERT INTO student_scholarships (
+    tenant_id, student_id, scholarship_id, academic_year_id, approved_by
+) VALUES (
+    $1, $2, $3, $4, $5
+) RETURNING id, tenant_id, student_id, scholarship_id, academic_year_id, approved_by, created_at
+`
+
+type AssignScholarshipParams struct {
+	TenantID       pgtype.UUID `json:"tenant_id"`
+	StudentID      pgtype.UUID `json:"student_id"`
+	ScholarshipID  pgtype.UUID `json:"scholarship_id"`
+	AcademicYearID pgtype.UUID `json:"academic_year_id"`
+	ApprovedBy     pgtype.UUID `json:"approved_by"`
+}
+
+func (q *Queries) AssignScholarship(ctx context.Context, arg AssignScholarshipParams) (StudentScholarship, error) {
+	row := q.db.QueryRow(ctx, assignScholarship,
+		arg.TenantID,
+		arg.StudentID,
+		arg.ScholarshipID,
+		arg.AcademicYearID,
+		arg.ApprovedBy,
+	)
+	var i StudentScholarship
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.StudentID,
+		&i.ScholarshipID,
+		&i.AcademicYearID,
+		&i.ApprovedBy,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const cancelReceipt = `-- name: CancelReceipt :one
 UPDATE receipts
 SET status = 'cancelled', cancelled_by = $2, cancellation_reason = $3, updated_at = NOW()
@@ -89,8 +126,54 @@ func (q *Queries) CheckPaymentEventProcessed(ctx context.Context, arg CheckPayme
 	return processed, err
 }
 
-const createFeeHead = `-- name: CreateFeeHead :one
+const createAutoDebitMandate = `-- name: CreateAutoDebitMandate :one
+INSERT INTO auto_debit_mandates (
+    tenant_id, student_id, provider, mandate_ref, max_amount, status, start_date, end_date
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8
+) RETURNING id, tenant_id, student_id, provider, mandate_ref, max_amount, status, start_date, end_date, created_at, updated_at
+`
 
+type CreateAutoDebitMandateParams struct {
+	TenantID   pgtype.UUID    `json:"tenant_id"`
+	StudentID  pgtype.UUID    `json:"student_id"`
+	Provider   string         `json:"provider"`
+	MandateRef string         `json:"mandate_ref"`
+	MaxAmount  pgtype.Numeric `json:"max_amount"`
+	Status     string         `json:"status"`
+	StartDate  pgtype.Date    `json:"start_date"`
+	EndDate    pgtype.Date    `json:"end_date"`
+}
+
+func (q *Queries) CreateAutoDebitMandate(ctx context.Context, arg CreateAutoDebitMandateParams) (AutoDebitMandate, error) {
+	row := q.db.QueryRow(ctx, createAutoDebitMandate,
+		arg.TenantID,
+		arg.StudentID,
+		arg.Provider,
+		arg.MandateRef,
+		arg.MaxAmount,
+		arg.Status,
+		arg.StartDate,
+		arg.EndDate,
+	)
+	var i AutoDebitMandate
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.StudentID,
+		&i.Provider,
+		&i.MandateRef,
+		&i.MaxAmount,
+		&i.Status,
+		&i.StartDate,
+		&i.EndDate,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createFeeHead = `-- name: CreateFeeHead :one
 INSERT INTO fee_heads (tenant_id, name, type)
 VALUES ($1, $2, $3)
 RETURNING id, tenant_id, name, type, created_at
@@ -101,7 +184,6 @@ type CreateFeeHeadParams struct {
 	Name     string      `json:"name"`
 	Type     pgtype.Text `json:"type"`
 }
-
 
 func (q *Queries) CreateFeeHead(ctx context.Context, arg CreateFeeHeadParams) (FeeHead, error) {
 	row := q.db.QueryRow(ctx, createFeeHead, arg.TenantID, arg.Name, arg.Type)
@@ -340,6 +422,34 @@ func (q *Queries) CreateRefund(ctx context.Context, arg CreateRefundParams) (Fee
 	return i, err
 }
 
+const getActiveGatewayConfig = `-- name: GetActiveGatewayConfig :one
+SELECT id, tenant_id, provider, api_key, api_secret, webhook_secret, is_active, settings, created_at, updated_at FROM payment_gateway_configs
+WHERE tenant_id = $1 AND provider = $2 AND is_active = true
+`
+
+type GetActiveGatewayConfigParams struct {
+	TenantID pgtype.UUID `json:"tenant_id"`
+	Provider string      `json:"provider"`
+}
+
+func (q *Queries) GetActiveGatewayConfig(ctx context.Context, arg GetActiveGatewayConfigParams) (PaymentGatewayConfig, error) {
+	row := q.db.QueryRow(ctx, getActiveGatewayConfig, arg.TenantID, arg.Provider)
+	var i PaymentGatewayConfig
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Provider,
+		&i.ApiKey,
+		&i.ApiSecret,
+		&i.WebhookSecret,
+		&i.IsActive,
+		&i.Settings,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getActiveSeries = `-- name: GetActiveSeries :one
 SELECT id, tenant_id, branch_id, prefix, current_number, is_active, created_at, updated_at FROM receipt_series
 WHERE tenant_id = $1 AND is_active = TRUE
@@ -515,6 +625,95 @@ func (q *Queries) GetTallyExportData(ctx context.Context, arg GetTallyExportData
 	return items, nil
 }
 
+const getTenantActiveGateway = `-- name: GetTenantActiveGateway :one
+SELECT id, tenant_id, provider, api_key, api_secret, webhook_secret, is_active, settings, created_at, updated_at FROM payment_gateway_configs
+WHERE tenant_id = $1 AND is_active = true
+LIMIT 1
+`
+
+func (q *Queries) GetTenantActiveGateway(ctx context.Context, tenantID pgtype.UUID) (PaymentGatewayConfig, error) {
+	row := q.db.QueryRow(ctx, getTenantActiveGateway, tenantID)
+	var i PaymentGatewayConfig
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Provider,
+		&i.ApiKey,
+		&i.ApiSecret,
+		&i.WebhookSecret,
+		&i.IsActive,
+		&i.Settings,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const listFeeClassConfigs = `-- name: ListFeeClassConfigs :many
+SELECT fc.id, fc.tenant_id, fc.academic_year_id, fc.class_id, fc.fee_head_id, fc.amount, fc.due_date, fc.is_optional, fc.created_at, fc.updated_at, fh.name as fee_head_name, c.name as class_name
+FROM fee_class_configurations fc
+JOIN fee_heads fh ON fc.fee_head_id = fh.id
+JOIN classes c ON fc.class_id = c.id
+WHERE fc.tenant_id = $1 
+  AND fc.academic_year_id = $2
+  AND ($3::UUID IS NULL OR fc.class_id = $3::UUID)
+ORDER BY c.level, fh.name
+`
+
+type ListFeeClassConfigsParams struct {
+	TenantID       pgtype.UUID `json:"tenant_id"`
+	AcademicYearID pgtype.UUID `json:"academic_year_id"`
+	ClassID        pgtype.UUID `json:"class_id"`
+}
+
+type ListFeeClassConfigsRow struct {
+	ID             pgtype.UUID        `json:"id"`
+	TenantID       pgtype.UUID        `json:"tenant_id"`
+	AcademicYearID pgtype.UUID        `json:"academic_year_id"`
+	ClassID        pgtype.UUID        `json:"class_id"`
+	FeeHeadID      pgtype.UUID        `json:"fee_head_id"`
+	Amount         pgtype.Numeric     `json:"amount"`
+	DueDate        pgtype.Date        `json:"due_date"`
+	IsOptional     pgtype.Bool        `json:"is_optional"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	FeeHeadName    string             `json:"fee_head_name"`
+	ClassName      string             `json:"class_name"`
+}
+
+func (q *Queries) ListFeeClassConfigs(ctx context.Context, arg ListFeeClassConfigsParams) ([]ListFeeClassConfigsRow, error) {
+	rows, err := q.db.Query(ctx, listFeeClassConfigs, arg.TenantID, arg.AcademicYearID, arg.ClassID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFeeClassConfigsRow
+	for rows.Next() {
+		var i ListFeeClassConfigsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.AcademicYearID,
+			&i.ClassID,
+			&i.FeeHeadID,
+			&i.Amount,
+			&i.DueDate,
+			&i.IsOptional,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.FeeHeadName,
+			&i.ClassName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFeeHeads = `-- name: ListFeeHeads :many
 SELECT id, tenant_id, name, type, created_at FROM fee_heads WHERE tenant_id = $1
 `
@@ -588,6 +787,39 @@ func (q *Queries) ListLedgerMappings(ctx context.Context, tenantID pgtype.UUID) 
 	return items, nil
 }
 
+const listOptionalFeeItems = `-- name: ListOptionalFeeItems :many
+SELECT id, tenant_id, name, amount, category, created_at FROM optional_fee_items
+WHERE tenant_id = $1
+ORDER BY category, name
+`
+
+func (q *Queries) ListOptionalFeeItems(ctx context.Context, tenantID pgtype.UUID) ([]OptionalFeeItem, error) {
+	rows, err := q.db.Query(ctx, listOptionalFeeItems, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OptionalFeeItem
+	for rows.Next() {
+		var i OptionalFeeItem
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Name,
+			&i.Amount,
+			&i.Category,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReceiptSeries = `-- name: ListReceiptSeries :many
 SELECT id, tenant_id, branch_id, prefix, current_number, is_active, created_at, updated_at FROM receipt_series WHERE tenant_id = $1
 `
@@ -610,6 +842,46 @@ func (q *Queries) ListReceiptSeries(ctx context.Context, tenantID pgtype.UUID) (
 			&i.IsActive,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listScholarships = `-- name: ListScholarships :many
+SELECT id, tenant_id, name, type, value, description, is_active, created_at FROM fee_discounts_scholarships
+WHERE tenant_id = $1 AND ($2::BOOLEAN = false OR is_active = $2::BOOLEAN)
+ORDER BY created_at DESC
+`
+
+type ListScholarshipsParams struct {
+	TenantID pgtype.UUID `json:"tenant_id"`
+	IsActive bool        `json:"is_active"`
+}
+
+func (q *Queries) ListScholarships(ctx context.Context, arg ListScholarshipsParams) ([]FeeDiscountsScholarship, error) {
+	rows, err := q.db.Query(ctx, listScholarships, arg.TenantID, arg.IsActive)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FeeDiscountsScholarship
+	for rows.Next() {
+		var i FeeDiscountsScholarship
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Name,
+			&i.Type,
+			&i.Value,
+			&i.Description,
+			&i.IsActive,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -755,6 +1027,108 @@ func (q *Queries) UpdateReceiptSeries(ctx context.Context, arg UpdateReceiptSeri
 	return i, err
 }
 
+const upsertFeeClassConfig = `-- name: UpsertFeeClassConfig :one
+INSERT INTO fee_class_configurations (
+    tenant_id, academic_year_id, class_id, fee_head_id, amount, due_date, is_optional
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7
+)
+ON CONFLICT (tenant_id, academic_year_id, class_id, fee_head_id) DO UPDATE
+SET amount = EXCLUDED.amount, 
+    due_date = EXCLUDED.due_date,
+    is_optional = EXCLUDED.is_optional,
+    updated_at = NOW()
+RETURNING id, tenant_id, academic_year_id, class_id, fee_head_id, amount, due_date, is_optional, created_at, updated_at
+`
+
+type UpsertFeeClassConfigParams struct {
+	TenantID       pgtype.UUID    `json:"tenant_id"`
+	AcademicYearID pgtype.UUID    `json:"academic_year_id"`
+	ClassID        pgtype.UUID    `json:"class_id"`
+	FeeHeadID      pgtype.UUID    `json:"fee_head_id"`
+	Amount         pgtype.Numeric `json:"amount"`
+	DueDate        pgtype.Date    `json:"due_date"`
+	IsOptional     pgtype.Bool    `json:"is_optional"`
+}
+
+func (q *Queries) UpsertFeeClassConfig(ctx context.Context, arg UpsertFeeClassConfigParams) (FeeClassConfiguration, error) {
+	row := q.db.QueryRow(ctx, upsertFeeClassConfig,
+		arg.TenantID,
+		arg.AcademicYearID,
+		arg.ClassID,
+		arg.FeeHeadID,
+		arg.Amount,
+		arg.DueDate,
+		arg.IsOptional,
+	)
+	var i FeeClassConfiguration
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.AcademicYearID,
+		&i.ClassID,
+		&i.FeeHeadID,
+		&i.Amount,
+		&i.DueDate,
+		&i.IsOptional,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertGatewayConfig = `-- name: UpsertGatewayConfig :one
+INSERT INTO payment_gateway_configs (
+    tenant_id, provider, api_key, api_secret, webhook_secret, is_active, settings
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7
+)
+ON CONFLICT (tenant_id, provider) DO UPDATE
+SET api_key = EXCLUDED.api_key,
+    api_secret = EXCLUDED.api_secret,
+    webhook_secret = EXCLUDED.webhook_secret,
+    is_active = EXCLUDED.is_active,
+    settings = EXCLUDED.settings,
+    updated_at = NOW()
+RETURNING id, tenant_id, provider, api_key, api_secret, webhook_secret, is_active, settings, created_at, updated_at
+`
+
+type UpsertGatewayConfigParams struct {
+	TenantID      pgtype.UUID `json:"tenant_id"`
+	Provider      string      `json:"provider"`
+	ApiKey        pgtype.Text `json:"api_key"`
+	ApiSecret     pgtype.Text `json:"api_secret"`
+	WebhookSecret pgtype.Text `json:"webhook_secret"`
+	IsActive      pgtype.Bool `json:"is_active"`
+	Settings      []byte      `json:"settings"`
+}
+
+func (q *Queries) UpsertGatewayConfig(ctx context.Context, arg UpsertGatewayConfigParams) (PaymentGatewayConfig, error) {
+	row := q.db.QueryRow(ctx, upsertGatewayConfig,
+		arg.TenantID,
+		arg.Provider,
+		arg.ApiKey,
+		arg.ApiSecret,
+		arg.WebhookSecret,
+		arg.IsActive,
+		arg.Settings,
+	)
+	var i PaymentGatewayConfig
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Provider,
+		&i.ApiKey,
+		&i.ApiSecret,
+		&i.WebhookSecret,
+		&i.IsActive,
+		&i.Settings,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const upsertLedgerMapping = `-- name: UpsertLedgerMapping :one
 INSERT INTO tally_ledger_mappings (tenant_id, fee_head_id, tally_ledger_name)
 VALUES ($1, $2, $3)
@@ -777,6 +1151,86 @@ func (q *Queries) UpsertLedgerMapping(ctx context.Context, arg UpsertLedgerMappi
 		&i.TenantID,
 		&i.FeeHeadID,
 		&i.TallyLedgerName,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const upsertScholarship = `-- name: UpsertScholarship :one
+INSERT INTO fee_discounts_scholarships (
+    tenant_id, name, type, value, description, is_active
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING id, tenant_id, name, type, value, description, is_active, created_at
+`
+
+type UpsertScholarshipParams struct {
+	TenantID    pgtype.UUID    `json:"tenant_id"`
+	Name        string         `json:"name"`
+	Type        string         `json:"type"`
+	Value       pgtype.Numeric `json:"value"`
+	Description pgtype.Text    `json:"description"`
+	IsActive    pgtype.Bool    `json:"is_active"`
+}
+
+func (q *Queries) UpsertScholarship(ctx context.Context, arg UpsertScholarshipParams) (FeeDiscountsScholarship, error) {
+	row := q.db.QueryRow(ctx, upsertScholarship,
+		arg.TenantID,
+		arg.Name,
+		arg.Type,
+		arg.Value,
+		arg.Description,
+		arg.IsActive,
+	)
+	var i FeeDiscountsScholarship
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Name,
+		&i.Type,
+		&i.Value,
+		&i.Description,
+		&i.IsActive,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const upsertStudentOptionalFee = `-- name: UpsertStudentOptionalFee :one
+INSERT INTO student_optional_fees (
+    tenant_id, student_id, item_id, academic_year_id, status
+) VALUES (
+    $1, $2, $3, $4, $5
+)
+ON CONFLICT (tenant_id, student_id, item_id, academic_year_id) DO UPDATE
+SET status = EXCLUDED.status
+RETURNING id, tenant_id, student_id, item_id, academic_year_id, status, created_at
+`
+
+type UpsertStudentOptionalFeeParams struct {
+	TenantID       pgtype.UUID `json:"tenant_id"`
+	StudentID      pgtype.UUID `json:"student_id"`
+	ItemID         pgtype.UUID `json:"item_id"`
+	AcademicYearID pgtype.UUID `json:"academic_year_id"`
+	Status         string      `json:"status"`
+}
+
+func (q *Queries) UpsertStudentOptionalFee(ctx context.Context, arg UpsertStudentOptionalFeeParams) (StudentOptionalFee, error) {
+	row := q.db.QueryRow(ctx, upsertStudentOptionalFee,
+		arg.TenantID,
+		arg.StudentID,
+		arg.ItemID,
+		arg.AcademicYearID,
+		arg.Status,
+	)
+	var i StudentOptionalFee
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.StudentID,
+		&i.ItemID,
+		&i.AcademicYearID,
+		&i.Status,
 		&i.CreatedAt,
 	)
 	return i, err

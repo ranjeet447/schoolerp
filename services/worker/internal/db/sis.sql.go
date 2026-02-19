@@ -134,6 +134,48 @@ func (q *Queries) CreateGuardian(ctx context.Context, arg CreateGuardianParams) 
 	return i, err
 }
 
+const createPromotionRule = `-- name: CreatePromotionRule :one
+INSERT INTO promotion_rules (
+    tenant_id, priority, min_aggregate_percent, min_subject_percent,
+    required_attendance_percent, is_active
+) VALUES (
+    $1, $2, $3, $4,
+    $5, $6
+) RETURNING id, tenant_id, priority, min_aggregate_percent, min_subject_percent, required_attendance_percent, is_active, created_at
+`
+
+type CreatePromotionRuleParams struct {
+	TenantID                  pgtype.UUID    `json:"tenant_id"`
+	Priority                  pgtype.Int4    `json:"priority"`
+	MinAggregatePercent       pgtype.Numeric `json:"min_aggregate_percent"`
+	MinSubjectPercent         pgtype.Numeric `json:"min_subject_percent"`
+	RequiredAttendancePercent pgtype.Numeric `json:"required_attendance_percent"`
+	IsActive                  pgtype.Bool    `json:"is_active"`
+}
+
+func (q *Queries) CreatePromotionRule(ctx context.Context, arg CreatePromotionRuleParams) (PromotionRule, error) {
+	row := q.db.QueryRow(ctx, createPromotionRule,
+		arg.TenantID,
+		arg.Priority,
+		arg.MinAggregatePercent,
+		arg.MinSubjectPercent,
+		arg.RequiredAttendancePercent,
+		arg.IsActive,
+	)
+	var i PromotionRule
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Priority,
+		&i.MinAggregatePercent,
+		&i.MinSubjectPercent,
+		&i.RequiredAttendancePercent,
+		&i.IsActive,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createSection = `-- name: CreateSection :one
 INSERT INTO sections (
     tenant_id, class_id, name, capacity
@@ -169,12 +211,11 @@ func (q *Queries) CreateSection(ctx context.Context, arg CreateSectionParams) (S
 }
 
 const createStudent = `-- name: CreateStudent :one
-
 INSERT INTO students (
     tenant_id, admission_number, full_name, date_of_birth, gender, section_id, status
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7
-) RETURNING id, tenant_id, branch_id, admission_number, roll_number, full_name, date_of_birth, gender, address, section_id, status, created_at, updated_at
+) RETURNING id, tenant_id, branch_id, admission_number, roll_number, full_name, date_of_birth, gender, address, section_id, status, created_at, updated_at, house_id, rfid_tag, biometric_id
 `
 
 type CreateStudentParams struct {
@@ -186,7 +227,6 @@ type CreateStudentParams struct {
 	SectionID       pgtype.UUID `json:"section_id"`
 	Status          pgtype.Text `json:"status"`
 }
-
 
 func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error) {
 	row := q.db.QueryRow(ctx, createStudent,
@@ -213,6 +253,9 @@ func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (S
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.HouseID,
+		&i.RfidTag,
+		&i.BiometricID,
 	)
 	return i, err
 }
@@ -267,7 +310,7 @@ func (q *Queries) DeleteStudent(ctx context.Context, arg DeleteStudentParams) er
 }
 
 const getChildrenByParentUser = `-- name: GetChildrenByParentUser :many
-SELECT s.id, s.tenant_id, s.branch_id, s.admission_number, s.roll_number, s.full_name, s.date_of_birth, s.gender, s.address, s.section_id, s.status, s.created_at, s.updated_at, sec.name as section_name, c.name as class_name
+SELECT s.id, s.tenant_id, s.branch_id, s.admission_number, s.roll_number, s.full_name, s.date_of_birth, s.gender, s.address, s.section_id, s.status, s.created_at, s.updated_at, s.house_id, s.rfid_tag, s.biometric_id, sec.name as section_name, c.name as class_name
 FROM students s
 JOIN student_guardians sg ON s.id = sg.student_id
 JOIN guardians g ON sg.guardian_id = g.id
@@ -295,6 +338,9 @@ type GetChildrenByParentUserRow struct {
 	Status          pgtype.Text        `json:"status"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	HouseID         pgtype.UUID        `json:"house_id"`
+	RfidTag         pgtype.Text        `json:"rfid_tag"`
+	BiometricID     pgtype.Text        `json:"biometric_id"`
 	SectionName     pgtype.Text        `json:"section_name"`
 	ClassName       pgtype.Text        `json:"class_name"`
 }
@@ -322,6 +368,9 @@ func (q *Queries) GetChildrenByParentUser(ctx context.Context, arg GetChildrenBy
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.HouseID,
+			&i.RfidTag,
+			&i.BiometricID,
 			&i.SectionName,
 			&i.ClassName,
 		); err != nil {
@@ -336,7 +385,7 @@ func (q *Queries) GetChildrenByParentUser(ctx context.Context, arg GetChildrenBy
 }
 
 const getStudent = `-- name: GetStudent :one
-SELECT s.id, s.tenant_id, s.branch_id, s.admission_number, s.roll_number, s.full_name, s.date_of_birth, s.gender, s.address, s.section_id, s.status, s.created_at, s.updated_at, sec.name as section_name, c.name as class_name
+SELECT s.id, s.tenant_id, s.branch_id, s.admission_number, s.roll_number, s.full_name, s.date_of_birth, s.gender, s.address, s.section_id, s.status, s.created_at, s.updated_at, s.house_id, s.rfid_tag, s.biometric_id, sec.name as section_name, c.name as class_name
 FROM students s
 LEFT JOIN sections sec ON s.section_id = sec.id
 LEFT JOIN classes c ON sec.class_id = c.id
@@ -362,6 +411,9 @@ type GetStudentRow struct {
 	Status          pgtype.Text        `json:"status"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	HouseID         pgtype.UUID        `json:"house_id"`
+	RfidTag         pgtype.Text        `json:"rfid_tag"`
+	BiometricID     pgtype.Text        `json:"biometric_id"`
 	SectionName     pgtype.Text        `json:"section_name"`
 	ClassName       pgtype.Text        `json:"class_name"`
 }
@@ -383,6 +435,9 @@ func (q *Queries) GetStudent(ctx context.Context, arg GetStudentParams) (GetStud
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.HouseID,
+		&i.RfidTag,
+		&i.BiometricID,
 		&i.SectionName,
 		&i.ClassName,
 	)
@@ -684,6 +739,57 @@ func (q *Queries) ListSubjects(ctx context.Context, tenantID pgtype.UUID) ([]Sub
 	return items, nil
 }
 
+const promoteStudent = `-- name: PromoteStudent :one
+INSERT INTO student_promotions (
+    tenant_id, student_id, from_academic_year_id, to_academic_year_id,
+    from_section_id, to_section_id, promoted_by, status, remarks
+) VALUES (
+    $1, $2, $3, $4,
+    $5, $6, $7, $8, $9
+) RETURNING id, tenant_id, student_id, from_academic_year_id, to_academic_year_id, from_section_id, to_section_id, promoted_at, promoted_by, status, remarks
+`
+
+type PromoteStudentParams struct {
+	TenantID           pgtype.UUID `json:"tenant_id"`
+	StudentID          pgtype.UUID `json:"student_id"`
+	FromAcademicYearID pgtype.UUID `json:"from_academic_year_id"`
+	ToAcademicYearID   pgtype.UUID `json:"to_academic_year_id"`
+	FromSectionID      pgtype.UUID `json:"from_section_id"`
+	ToSectionID        pgtype.UUID `json:"to_section_id"`
+	PromotedBy         pgtype.UUID `json:"promoted_by"`
+	Status             string      `json:"status"`
+	Remarks            pgtype.Text `json:"remarks"`
+}
+
+func (q *Queries) PromoteStudent(ctx context.Context, arg PromoteStudentParams) (StudentPromotion, error) {
+	row := q.db.QueryRow(ctx, promoteStudent,
+		arg.TenantID,
+		arg.StudentID,
+		arg.FromAcademicYearID,
+		arg.ToAcademicYearID,
+		arg.FromSectionID,
+		arg.ToSectionID,
+		arg.PromotedBy,
+		arg.Status,
+		arg.Remarks,
+	)
+	var i StudentPromotion
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.StudentID,
+		&i.FromAcademicYearID,
+		&i.ToAcademicYearID,
+		&i.FromSectionID,
+		&i.ToSectionID,
+		&i.PromotedAt,
+		&i.PromotedBy,
+		&i.Status,
+		&i.Remarks,
+	)
+	return i, err
+}
+
 const updateStudent = `-- name: UpdateStudent :one
 UPDATE students
 SET 
@@ -694,7 +800,7 @@ SET
     status = $7,
     updated_at = NOW()
 WHERE id = $1 AND tenant_id = $2
-RETURNING id, tenant_id, branch_id, admission_number, roll_number, full_name, date_of_birth, gender, address, section_id, status, created_at, updated_at
+RETURNING id, tenant_id, branch_id, admission_number, roll_number, full_name, date_of_birth, gender, address, section_id, status, created_at, updated_at, house_id, rfid_tag, biometric_id
 `
 
 type UpdateStudentParams struct {
@@ -732,6 +838,9 @@ func (q *Queries) UpdateStudent(ctx context.Context, arg UpdateStudentParams) (S
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.HouseID,
+		&i.RfidTag,
+		&i.BiometricID,
 	)
 	return i, err
 }

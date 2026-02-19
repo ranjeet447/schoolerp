@@ -12,7 +12,6 @@ import (
 )
 
 const createFile = `-- name: CreateFile :one
-
 INSERT INTO files (
     tenant_id, bucket, key, name, mime_type, size, uploaded_by
 ) VALUES (
@@ -29,7 +28,6 @@ type CreateFileParams struct {
 	Size       pgtype.Int8 `json:"size"`
 	UploadedBy pgtype.UUID `json:"uploaded_by"`
 }
-
 
 func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) (File, error) {
 	row := q.db.QueryRow(ctx, createFile,

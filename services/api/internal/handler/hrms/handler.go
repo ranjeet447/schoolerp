@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/schoolerp/api/internal/middleware"
@@ -29,6 +30,14 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/payroll-runs", h.CreatePayrollRun)
 		r.Post("/payroll-runs/{id}/execute", h.ExecutePayroll)
 		r.Post("/adjustments", h.CreateAdjustment)
+		
+		r.Get("/staff/specializations", h.ListTeacherSpecializations)
+		r.Post("/staff/specializations", h.CreateTeacherSpecialization)
+		r.Get("/staff/class-teachers", h.ListClassTeachers)
+		r.Post("/staff/class-teachers", h.AssignClassTeacher)
+		
+		r.Get("/staff/tasks", h.ListStaffTasks)
+		r.Post("/staff/tasks", h.CreateStaffTask)
 	})
 }
 
@@ -266,4 +275,138 @@ func (h *Handler) CreateAdjustment(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{"status": "adjustment pending approval"})
+}
+
+func (h *Handler) ListTeacherSpecializations(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	teacherID := r.URL.Query().Get("teacher_id")
+
+	var trPtr *string
+	if teacherID != "" {
+		trPtr = &teacherID
+	}
+
+	specs, err := h.svc.ListTeacherSubjectSpecializations(r.Context(), tenantID, trPtr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(specs)
+}
+
+func (h *Handler) CreateTeacherSpecialization(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+
+	var req struct {
+		TeacherID string `json:"teacher_id"`
+		SubjectID string `json:"subject_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	spec, err := h.svc.CreateTeacherSubjectSpecialization(r.Context(), tenantID, req.TeacherID, req.SubjectID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(spec)
+}
+
+func (h *Handler) ListClassTeachers(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	ayID := r.URL.Query().Get("academic_year_id")
+	if ayID == "" {
+		http.Error(w, "academic_year_id is required", http.StatusBadRequest)
+		return
+	}
+
+	assignments, err := h.svc.ListClassTeacherAssignments(r.Context(), tenantID, ayID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(assignments)
+}
+
+func (h *Handler) AssignClassTeacher(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+
+	var req struct {
+		AcademicYearID string `json:"academic_year_id"`
+		SectionID      string `json:"section_id"`
+		TeacherID      string `json:"teacher_id"`
+		Remarks        string `json:"remarks"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	asgn, err := h.svc.AssignClassTeacher(r.Context(), tenantID, req.AcademicYearID, req.SectionID, req.TeacherID, req.Remarks)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(asgn)
+}
+
+func (h *Handler) ListStaffTasks(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	employeeID := r.URL.Query().Get("employee_id")
+
+	tasks, err := h.svc.ListStaffTasks(r.Context(), tenantID, employeeID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(tasks)
+}
+
+func (h *Handler) CreateStaffTask(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	userID := middleware.GetUserID(r.Context())
+
+	var req struct {
+		Title       string    `json:"title"`
+		Description string    `json:"description"`
+		Priority    string    `json:"priority"`
+		AssignedTo  string    `json:"assigned_to"`
+		DueDate     time.Time `json:"due_date"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	task, err := h.svc.CreateStaffTask(r.Context(), hrmsservice.StaffTaskParams{
+		TenantID:    tenantID,
+		Title:       req.Title,
+		Description: req.Description,
+		Priority:    req.Priority,
+		AssignedTo:  req.AssignedTo,
+		CreatedBy:   userID,
+		DueDate:     req.DueDate,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(task)
 }

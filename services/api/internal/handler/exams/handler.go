@@ -38,6 +38,16 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Route("/aggregates", func(r chi.Router) {
 		r.Post("/calculate", h.CalculateAggregates)
 	})
+	r.Route("/questions", func(r chi.Router) {
+		r.Post("/", h.CreateQuestion)
+		r.Get("/", h.ListQuestions)
+	})
+	r.Route("/papers", func(r chi.Router) {
+		r.Post("/", h.CreatePaper)
+		r.Get("/", h.ListPapers)
+		r.Get("/{id}", h.GetPaper)
+		r.Post("/generate", h.GeneratePaper)
+	})
 }
 
 func (h *Handler) RegisterParentRoutes(r chi.Router) {
@@ -325,4 +335,170 @@ func (h *Handler) CalculateAggregates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+}
+func (h *Handler) CreatePaper(w http.ResponseWriter, r *http.Request) {
+    var req struct {
+        ExamID         *string `json:"exam_id"`
+        SubjectID      *string `json:"subject_id"`
+        SetName        string  `json:"set_name"`
+        FilePath       string  `json:"file_path"`
+        IsEncrypted    bool    `json:"is_encrypted"`
+        UnlockAt       *string `json:"unlock_at"`
+        IsPreviousYear bool    `json:"is_previous_year"`
+        AYID           string  `json:"academic_year_id"`
+    }
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, "invalid request", http.StatusBadRequest)
+        return
+    }
+
+    var unlockAt pgtype.Timestamptz
+    if req.UnlockAt != nil {
+        parsed, err := time.Parse(time.RFC3339, *req.UnlockAt)
+        if err != nil {
+            http.Error(w, "invalid unlock_at format, expected RFC3339", http.StatusBadRequest)
+            return
+        }
+        unlockAt = pgtype.Timestamptz{Time: parsed, Valid: true}
+    }
+
+    paper, err := h.svc.CreateQuestionPaper(r.Context(), examservice.CreateQuestionPaperParams{
+        TenantID:       middleware.GetTenantID(r.Context()),
+        ExamID:         req.ExamID,
+        SubjectID:      req.SubjectID,
+        SetName:        req.SetName,
+        FilePath:       req.FilePath,
+        IsEncrypted:    req.IsEncrypted,
+        UnlockAt:       &unlockAt,
+        IsPreviousYear: req.IsPreviousYear,
+        AYID:           req.AYID,
+        UserID:         middleware.GetUserID(r.Context()),
+        RequestID:      middleware.GetReqID(r.Context()),
+        IP:             r.RemoteAddr,
+    })
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    json.NewEncoder(w).Encode(paper)
+}
+
+func (h *Handler) ListPapers(w http.ResponseWriter, r *http.Request) {
+    examID := r.URL.Query().Get("exam_id")
+    var eID *string
+    if examID != "" { eID = &examID }
+
+    papers, err := h.svc.ListQuestionPapers(r.Context(), middleware.GetTenantID(r.Context()), eID)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    json.NewEncoder(w).Encode(papers)
+}
+
+func (h *Handler) GetPaper(w http.ResponseWriter, r *http.Request) {
+    paperID := chi.URLParam(r, "id")
+    paper, err := h.svc.GetPaperWithAudit(r.Context(), middleware.GetTenantID(r.Context()), paperID,
+        middleware.GetUserID(r.Context()), r.RemoteAddr, r.UserAgent())
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    json.NewEncoder(w).Encode(paper)
+}
+
+// ==================== Question Bank Handlers ====================
+
+func (h *Handler) CreateQuestion(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		SubjectID     string  `json:"subject_id"`
+		Topic         string  `json:"topic"`
+		Difficulty    string  `json:"difficulty"`
+		Type          string  `json:"question_type"`
+		Text          string  `json:"question_text"`
+		Options       []byte  `json:"options"` // JSON array
+		CorrectAnswer string  `json:"correct_answer"`
+		Marks         float64 `json:"marks"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	q, err := h.svc.CreateQuestion(r.Context(), examservice.CreateQuestionParams{
+		TenantID:      middleware.GetTenantID(r.Context()),
+		SubjectID:     req.SubjectID,
+		Topic:         req.Topic,
+		Difficulty:    req.Difficulty,
+		Type:          req.Type,
+		Text:          req.Text,
+		Options:       req.Options,
+		CorrectAnswer: req.CorrectAnswer,
+		Marks:         req.Marks,
+		UserID:        middleware.GetUserID(r.Context()),
+		RequestID:     middleware.GetReqID(r.Context()),
+		IP:            r.RemoteAddr,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(q)
+}
+
+func (h *Handler) ListQuestions(w http.ResponseWriter, r *http.Request) {
+	subjectID := r.URL.Query().Get("subject_id")
+	topic := r.URL.Query().Get("topic")
+
+	var sID *string
+	if subjectID != "" {
+		sID = &subjectID
+	}
+	var t *string
+	if topic != "" {
+		t = &topic
+	}
+
+	questions, err := h.svc.ListQuestions(r.Context(), middleware.GetTenantID(r.Context()), sID, t)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(questions)
+}
+
+func (h *Handler) GeneratePaper(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ExamID     *string                        `json:"exam_id"`
+		SubjectID  string                         `json:"subject_id"`
+		AYID       string                         `json:"academic_year_id"`
+		SetName    string                         `json:"set_name"`
+		Blueprints []examservice.QuestionBlueprint `json:"blueprints"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	paper, err := h.svc.GenerateQuestionPaper(r.Context(), examservice.GeneratePaperParams{
+		TenantID:   middleware.GetTenantID(r.Context()),
+		ExamID:     req.ExamID,
+		SubjectID:  req.SubjectID,
+		AYID:       req.AYID,
+		SetName:    req.SetName,
+		Blueprints: req.Blueprints,
+		UserID:     middleware.GetUserID(r.Context()),
+		RequestID:  middleware.GetReqID(r.Context()),
+		IP:         r.RemoteAddr,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(paper)
 }

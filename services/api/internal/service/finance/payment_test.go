@@ -105,7 +105,7 @@ func TestProcessPaymentWebhook(t *testing.T) {
 	policyEval := policy.NewEvaluator(mock)
 	locksSvc := locks.NewService(mock)
 
-	svc := NewService(mock, auditLogger, policyEval, locksSvc, provider)
+	svc := NewService(mock, nil, auditLogger, policyEval, locksSvc, provider)
 	
 	secret := "test_secret"
 	body := []byte(`{"event":"payment.captured","payload":{"payment":{"entity":{"id":"pay_123","order_id":"order_00000000-0000-0000-0000-000000000001","amount":1000}}}}`)

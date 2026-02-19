@@ -414,3 +414,256 @@ func (s *Service) AddAdjustment(ctx context.Context, tenantID, employeeID, userI
 	_, err = s.approvals.CreateRequest(ctx, tenantID, userID, "hrms", "payroll_adjustment", adj.ID.String(), adj)
 	return err
 }
+
+// ==================== Staff Assignments ====================
+
+func (s *Service) CreateTeacherSubjectSpecialization(ctx context.Context, tenantID, teacherID, subjectID string) (db.TeacherSubjectSpecialization, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	trID := pgtype.UUID{}
+	trID.Scan(teacherID)
+	sID := pgtype.UUID{}
+	sID.Scan(subjectID)
+
+	return s.q.CreateTeacherSubjectSpecialization(ctx, db.CreateTeacherSubjectSpecializationParams{
+		TenantID:  tID,
+		TeacherID: trID,
+		SubjectID: sID,
+	})
+}
+
+func (s *Service) ListTeacherSubjectSpecializations(ctx context.Context, tenantID string, teacherID *string) ([]db.ListTeacherSubjectSpecializationsRow, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	trID := pgtype.UUID{}
+	var hasTeacher bool
+	if teacherID != nil {
+		trID.Scan(*teacherID)
+		hasTeacher = true
+	}
+
+	return s.q.ListTeacherSubjectSpecializations(ctx, db.ListTeacherSubjectSpecializationsParams{
+		TenantID:      tID,
+		FilterTeacher: hasTeacher,
+		TeacherID:     trID,
+	})
+}
+
+func (s *Service) AssignClassTeacher(ctx context.Context, tenantID, ayID, sectionID, teacherID, remarks string) (db.ClassTeacherAssignment, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	aID := pgtype.UUID{}
+	aID.Scan(ayID)
+	sID := pgtype.UUID{}
+	sID.Scan(sectionID)
+	trID := pgtype.UUID{}
+	trID.Scan(teacherID)
+
+	return s.q.CreateClassTeacherAssignment(ctx, db.CreateClassTeacherAssignmentParams{
+		TenantID:       tID,
+		AcademicYearID: aID,
+		ClassSectionID: sID,
+		TeacherID:      trID,
+		Remarks:        pgtype.Text{String: remarks, Valid: remarks != ""},
+	})
+}
+
+
+func (s *Service) ListClassTeacherAssignments(ctx context.Context, tenantID, ayID string) ([]db.ListClassTeacherAssignmentsRow, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	aID := pgtype.UUID{}
+	aID.Scan(ayID)
+
+	return s.q.ListClassTeacherAssignments(ctx, db.ListClassTeacherAssignmentsParams{
+		TenantID:       tID,
+		AcademicYearID: aID,
+	})
+}
+
+// ==================== Advanced HRMS ====================
+
+// Leaves
+func (s *Service) CreateLeaveType(ctx context.Context, tenantID, name, code string, allowance, carryForward int32, isActive bool) (db.StaffLeaveType, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+
+	return s.q.CreateLeaveType(ctx, db.CreateLeaveTypeParams{
+		TenantID:           tID,
+		Name:               name,
+		Code:               code,
+		AnnualAllowance:    pgtype.Int4{Int32: allowance, Valid: true},
+		CarryForwardLimit:  pgtype.Int4{Int32: carryForward, Valid: true},
+		IsActive:           pgtype.Bool{Bool: isActive, Valid: true},
+	})
+}
+
+func (s *Service) ListLeaveTypes(ctx context.Context, tenantID string, isActive *bool) ([]db.StaffLeaveType, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	var active bool
+	if isActive != nil && *isActive {
+		active = true
+	}
+
+	return s.q.ListLeaveTypes(ctx, db.ListLeaveTypesParams{
+		TenantID: tID,
+		IsActive: active,
+	})
+}
+
+func (s *Service) CreateStaffLeaveRequest(ctx context.Context, tenantID, employeeID, leaveTypeID string, start, end time.Time, reason string) (db.StaffLeaveRequest, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	eID := pgtype.UUID{}
+	eID.Scan(employeeID)
+	ltID := pgtype.UUID{}
+	ltID.Scan(leaveTypeID)
+
+	return s.q.CreateStaffLeaveRequest(ctx, db.CreateStaffLeaveRequestParams{
+		TenantID:    tID,
+		EmployeeID:  eID,
+		LeaveTypeID: ltID,
+		StartDate:   pgtype.Date{Time: start, Valid: true},
+		EndDate:     pgtype.Date{Time: end, Valid: true},
+		Reason:      pgtype.Text{String: reason, Valid: reason != ""},
+	})
+}
+
+func (s *Service) ListStaffLeaveRequests(ctx context.Context, tenantID string, employeeID, status *string) ([]db.ListStaffLeaveRequestsRow, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	var eID pgtype.UUID
+	if employeeID != nil {
+		eID.Scan(*employeeID)
+	}
+	var stat string
+	if status != nil {
+		stat = *status
+	}
+
+	return s.q.ListStaffLeaveRequests(ctx, db.ListStaffLeaveRequestsParams{
+		TenantID:   tID,
+		EmployeeID: eID,
+		Status:     stat,
+	})
+}
+
+func (s *Service) UpdateLeaveRequestStatus(ctx context.Context, tenantID, requestID, status, reviewerID, remarks string) (db.StaffLeaveRequest, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	rID := pgtype.UUID{}
+	rID.Scan(requestID)
+	rvID := pgtype.UUID{}
+	rvID.Scan(reviewerID)
+
+	return s.q.UpdateLeaveRequestStatus(ctx, db.UpdateLeaveRequestStatusParams{
+		ID:         rID,
+		TenantID:   tID,
+		Status:     status,
+		ReviewedBy: rvID,
+		Remarks:    pgtype.Text{String: remarks, Valid: remarks != ""},
+	})
+}
+
+// Awards
+func (s *Service) CreateStaffAward(ctx context.Context, tenantID, employeeID, name, category string, awardedDate time.Time, awardedBy, desc string, bonus float64) (db.StaffAward, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	eID := pgtype.UUID{}
+	eID.Scan(employeeID)
+
+	bonusNum := pgtype.Numeric{}
+	bonusNum.Scan(fmt.Sprintf("%.2f", bonus))
+
+	return s.q.CreateStaffAward(ctx, db.CreateStaffAwardParams{
+		TenantID:    tID,
+		EmployeeID:  eID,
+		AwardName:   name,
+		Category:    pgtype.Text{String: category, Valid: category != ""},
+		AwardedDate: pgtype.Date{Time: awardedDate, Valid: true},
+		AwardedBy:   pgtype.Text{String: awardedBy, Valid: awardedBy != ""},
+		Description: pgtype.Text{String: desc, Valid: desc != ""},
+		BonusAmount: bonusNum,
+	})
+}
+
+func (s *Service) ListStaffAwards(ctx context.Context, tenantID string) ([]db.ListStaffAwardsRow, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	return s.q.ListStaffAwards(ctx, tID)
+}
+
+// Transfers
+func (s *Service) CreateStaffTransfer(ctx context.Context, tenantID, employeeID, fromBranchID, toBranchID string, date time.Time, reason, authBy, status string) (db.StaffTransfer, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	eID := pgtype.UUID{}
+	eID.Scan(employeeID)
+	
+	fID := pgtype.UUID{}
+	if fromBranchID != "" {
+		fID.Scan(fromBranchID)
+	} else {
+		fID.Valid = false
+	}
+	
+	toID := pgtype.UUID{}
+	if toBranchID != "" {
+		toID.Scan(toBranchID)
+	} else {
+		toID.Valid = false
+	}
+
+	aID := pgtype.UUID{}
+	if authBy != "" {
+		aID.Scan(authBy)
+	} else {
+		aID.Valid = false
+	}
+
+	return s.q.CreateStaffTransfer(ctx, db.CreateStaffTransferParams{
+		TenantID:     tID,
+		EmployeeID:   eID,
+		FromBranchID: fID,
+		ToBranchID:   toID,
+		TransferDate: pgtype.Date{Time: date, Valid: true},
+		Reason:       pgtype.Text{String: reason, Valid: reason != ""},
+		AuthorizedBy: aID,
+		Status:       status,
+	})
+}
+
+func (s *Service) ListStaffTransfers(ctx context.Context, tenantID string) ([]db.ListStaffTransfersRow, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	return s.q.ListStaffTransfers(ctx, tID)
+}
+
+// Bonus History
+func (s *Service) CreateStaffBonus(ctx context.Context, tenantID, employeeID string, amount float64, bonusType string, paymentDate time.Time, payrollRunID *string, remarks string) (db.StaffBonusHistory, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	eID := pgtype.UUID{}
+	eID.Scan(employeeID)
+
+	pID := pgtype.UUID{}
+	if payrollRunID != nil {
+		pID.Scan(*payrollRunID)
+	} else {
+		pID.Valid = false
+	}
+
+	amountNum := pgtype.Numeric{}
+	amountNum.Scan(fmt.Sprintf("%.2f", amount))
+
+	return s.q.CreateStaffBonus(ctx, db.CreateStaffBonusParams{
+		TenantID:     tID,
+		EmployeeID:   eID,
+		Amount:       amountNum,
+		BonusType:    bonusType,
+		PaymentDate:  pgtype.Date{Time: paymentDate, Valid: true},
+		PayrollRunID: pID,
+		Remarks:      pgtype.Text{String: remarks, Valid: remarks != ""},
+	})
+}

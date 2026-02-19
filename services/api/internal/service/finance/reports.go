@@ -82,3 +82,38 @@ func (s *Service) GetBillingReport(ctx context.Context, tenantID string, from, t
 
 	return summary, rows, nil
 }
+
+type CollectionReportItem struct {
+	HeadName    string `json:"head_name"`
+	TotalAmount int64  `json:"total_amount"`
+}
+
+func (s *Service) GetCollectionReport(ctx context.Context, tenantID string, from, to time.Time) ([]CollectionReportItem, error) {
+	// Group receipts by fee head and sum the amounts. 
+	// This requires joining with receipt_items if they exist, or using the head-wise summary from receipts.
+	// Since we are adding enhancements, we'll use a direct query to aggregate collections by fee heads.
+	
+	rows, err := s.db.Query(ctx, `
+		SELECT fh.name, SUM(r.amount_paid) 
+		FROM receipts r
+		JOIN student_fee_plans sfp ON r.student_id = sfp.student_id
+		JOIN fee_plan_items fpi ON sfp.plan_id = fpi.plan_id
+		JOIN fee_heads fh ON fpi.head_id = fh.id
+		WHERE r.tenant_id = $1 AND r.created_at BETWEEN $2 AND $3
+		GROUP BY fh.name
+	`, toPgUUID(tenantID), from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var report []CollectionReportItem
+	for rows.Next() {
+		var item CollectionReportItem
+		if err := rows.Scan(&item.HeadName, &item.TotalAmount); err != nil {
+			return nil, err
+		}
+		report = append(report, item)
+	}
+	return report, nil
+}

@@ -1,7 +1,8 @@
+-- name: CreateAttendanceSession :one
 INSERT INTO attendance_sessions (tenant_id, class_section_id, date, marked_by)
 VALUES ($1, $2, $3, $4)
 ON CONFLICT (class_section_id, date) DO UPDATE 
-SET updated_at = NOW() -- Assuming updated_at exists, if not just return
+SET updated_at = NOW() 
 RETURNING *;
 
 -- name: GetAttendanceSession :one
@@ -10,19 +11,19 @@ WHERE tenant_id = $1 AND class_section_id = $2 AND date = $3;
 
 -- name: ListLeaves :many
 SELECT * FROM leave_requests
-WHERE tenant_id = $1 AND ($2::text = '' OR status = $2)
+WHERE tenant_id = @tenant_id AND (@status::text = '' OR status = @status)
 ORDER BY created_at DESC;
 
 -- name: GetDailyAttendanceStats :one
 SELECT 
-    (SELECT COUNT(*) FROM students st WHERE st.tenant_id = $1 AND st.status = 'active') as total_students,
+    (SELECT COUNT(*) FROM students st WHERE st.tenant_id = @tenant_id AND st.status = 'active') as total_students,
     COUNT(CASE WHEN ae.status = 'present' THEN 1 END) as present_count,
     COUNT(CASE WHEN ae.status = 'absent' THEN 1 END) as absent_count,
     COUNT(CASE WHEN ae.status = 'late' THEN 1 END) as late_count,
     COUNT(CASE WHEN ae.status = 'excused' THEN 1 END) as excused_count
 FROM attendance_entries ae
 JOIN attendance_sessions s ON ae.session_id = s.id
-WHERE s.tenant_id = $1 AND s.date = $2;
+WHERE s.tenant_id = @tenant_id AND s.date = @date;
 
 -- name: BatchUpsertAttendanceEntries :copyfrom
 INSERT INTO attendance_entries (session_id, student_id, status, remarks)

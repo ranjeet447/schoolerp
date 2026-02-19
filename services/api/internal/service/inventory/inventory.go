@@ -539,3 +539,78 @@ func (s *InventoryService) ReceivePurchaseOrder(ctx context.Context, tenantID, p
 
 	return po, nil
 }
+
+// Requisitions
+
+type CreateRequisitionParams struct {
+	TenantID    string
+	RequesterID string
+	Department  string
+	Purpose     string
+	Items       []byte // JSONB
+}
+
+func (s *InventoryService) CreateRequisition(ctx context.Context, p CreateRequisitionParams) (db.InventoryRequisition, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(p.TenantID)
+	uID := pgtype.UUID{}
+	uID.Scan(p.RequesterID)
+
+	var req db.InventoryRequisition
+	err := s.pool.QueryRow(ctx, `
+		INSERT INTO inventory_requisitions (tenant_id, requester_id, department, purpose, items)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, tenant_id, requester_id, department, purpose, items, status, created_at, updated_at
+	`, tID, uID, p.Department, p.Purpose, p.Items).Scan(
+		&req.ID, &req.TenantID, &req.RequesterID, &req.Department, &req.Purpose, &req.Items, &req.Status, &req.CreatedAt, &req.UpdatedAt,
+	)
+
+	return req, err
+}
+
+func (s *InventoryService) ListRequisitions(ctx context.Context, tenantID string) ([]db.InventoryRequisition, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, tenant_id, requester_id, department, purpose, items, status, created_at, updated_at
+		FROM inventory_requisitions
+		WHERE tenant_id = $1
+		ORDER BY created_at DESC
+	`, tID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []db.InventoryRequisition
+	for rows.Next() {
+		var r db.InventoryRequisition
+		if err := rows.Scan(&r.ID, &r.TenantID, &r.RequesterID, &r.Department, &r.Purpose, &r.Items, &r.Status, &r.CreatedAt, &r.UpdatedAt); err != nil {
+			return nil, err
+		}
+		list = append(list, r)
+	}
+	return list, nil
+}
+
+func (s *InventoryService) UpdateRequisitionStatus(ctx context.Context, tenantID, reqID, status, approverID string) (db.InventoryRequisition, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	rID := pgtype.UUID{}
+	rID.Scan(reqID)
+	uID := pgtype.UUID{}
+	uID.Scan(approverID)
+
+	var req db.InventoryRequisition
+	err := s.pool.QueryRow(ctx, `
+		UPDATE inventory_requisitions
+		SET status = $3, approved_by = $4, updated_at = NOW()
+		WHERE id = $1 AND tenant_id = $2
+		RETURNING id, tenant_id, requester_id, department, purpose, items, status, created_at, updated_at
+	`, rID, tID, status, uID).Scan(
+		&req.ID, &req.TenantID, &req.RequesterID, &req.Department, &req.Purpose, &req.Items, &req.Status, &req.CreatedAt, &req.UpdatedAt,
+	)
+
+	return req, err
+}

@@ -28,11 +28,29 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Get("/heads", h.ListFeeHeads)
 		r.Post("/plans", h.CreateFeePlan)
 		r.Post("/assign", h.AssignPlan)
+		
+		// Phase 11 Routes
+		r.Get("/structure", h.ListFeeClassConfigs)
+		r.Post("/structure", h.UpsertFeeClassConfig)
+		r.Get("/gateways", h.GetActiveGatewayConfig)
+		r.Post("/gateways", h.UpsertGatewayConfig)
+		r.Get("/scholarships", h.ListScholarships)
+		r.Post("/scholarships", h.UpsertScholarship)
+		r.Get("/optional", h.ListOptionalFeeItems)
+		r.Post("/select", h.SelectOptionalFee)
 	})
+	r.Route("/rules", func(r chi.Router) {
+		r.Get("/late-fees", h.ListLateFeeRules)
+		r.Post("/late-fees", h.CreateLateFeeRule)
+		r.Get("/concessions", h.ListConcessionRules)
+		r.Post("/concessions", h.CreateConcessionRule)
+	})
+	r.Post("/student-concessions", h.ApplyStudentConcession)
 	r.Route("/payments", func(r chi.Router) {
 		r.Post("/offline", h.IssueReceipt)
 		r.Get("/receipts", h.ListReceiptsByStudent)
 		r.Get("/reports/billing", h.GetBillingReport)
+		r.Get("/reports/collections", h.GetCollectionReport)
 		r.Post("/online", h.CreateOnlineOrder)
 		r.Post("/razorpay-webhook", h.HandleWebhook)
 		r.Get("/tally-export", h.ExportTally)
@@ -174,6 +192,188 @@ func (h *Handler) CancelReceipt(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(receipt)
+}
+
+func (h *Handler) UpsertFeeClassConfig(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		AYID       string  `json:"academic_year_id"`
+		ClassID    string  `json:"class_id"`
+		HeadID     string  `json:"fee_head_id"`
+		Amount     float64 `json:"amount"`
+		DueDate    string  `json:"due_date"`
+		IsOptional bool    `json:"is_optional"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	params := financeservice.FeeClassConfigParams{
+		TenantID:       middleware.GetTenantID(r.Context()),
+		AcademicYearID: req.AYID,
+		ClassID:        req.ClassID,
+		FeeHeadID:      req.HeadID,
+		Amount:         req.Amount,
+		IsOptional:     req.IsOptional,
+	}
+
+	if req.DueDate != "" {
+		t, err := time.Parse("2006-01-02", req.DueDate)
+		if err == nil {
+			params.DueDate = &t
+		}
+	}
+
+	cfg, err := h.svc.UpsertFeeClassConfig(r.Context(), params)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(cfg)
+}
+
+func (h *Handler) ListFeeClassConfigs(w http.ResponseWriter, r *http.Request) {
+	ayID := r.URL.Query().Get("academic_year_id")
+	classID := r.URL.Query().Get("class_id") // Optional
+	
+	if ayID == "" {
+		http.Error(w, "academic_year_id is required", http.StatusBadRequest)
+		return
+	}
+
+	var cIDPtr *string
+	if classID != "" {
+		cIDPtr = &classID
+	}
+
+	configs, err := h.svc.ListFeeClassConfigs(r.Context(), middleware.GetTenantID(r.Context()), ayID, cIDPtr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(configs)
+}
+
+func (h *Handler) UpsertGatewayConfig(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Provider      string          `json:"provider"`
+		APIKey        string          `json:"api_key"`
+		APISecret     string          `json:"api_secret"`
+		WebhookSecret string          `json:"webhook_secret"`
+		IsActive      bool            `json:"is_active"`
+		Settings      json.RawMessage `json:"settings"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	params := financeservice.GatewayConfigParams{
+		TenantID:      middleware.GetTenantID(r.Context()),
+		Provider:      req.Provider,
+		APIKey:        req.APIKey,
+		APISecret:     req.APISecret,
+		WebhookSecret: req.WebhookSecret,
+		IsActive:      req.IsActive,
+		Settings:      req.Settings,
+	}
+
+	cfg, err := h.svc.UpsertGatewayConfig(r.Context(), params)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(cfg)
+}
+
+func (h *Handler) GetActiveGatewayConfig(w http.ResponseWriter, r *http.Request) {
+	provider := r.URL.Query().Get("provider")
+	if provider == "" {
+		http.Error(w, "provider is required", http.StatusBadRequest)
+		return
+	}
+	
+	cfg, err := h.svc.GetActiveGatewayConfig(r.Context(), middleware.GetTenantID(r.Context()), provider)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(cfg)
+}
+
+func (h *Handler) ListOptionalFeeItems(w http.ResponseWriter, r *http.Request) {
+	items, err := h.svc.ListOptionalFeeItems(r.Context(), middleware.GetTenantID(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(items)
+}
+
+func (h *Handler) SelectOptionalFee(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		StudentID string `json:"student_id"`
+		ItemID    string `json:"item_id"`
+		AYID      string `json:"academic_year_id"`
+		Status    string `json:"status"` // 'active', 'inactive'
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	res, err := h.svc.SelectOptionalFee(r.Context(), middleware.GetTenantID(r.Context()), req.StudentID, req.ItemID, req.AYID, req.Status)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(res)
+}
+
+func (h *Handler) UpsertScholarship(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name        string  `json:"name"`
+		Type        string  `json:"type"`
+		Value       float64 `json:"value"`
+		Description string  `json:"description"`
+		IsActive    bool    `json:"is_active"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	params := financeservice.ScholarshipParams{
+		TenantID:    middleware.GetTenantID(r.Context()),
+		Name:        req.Name,
+		Type:        req.Type,
+		Value:       req.Value,
+		Description: req.Description,
+		IsActive:    req.IsActive,
+	}
+
+	s, err := h.svc.UpsertScholarship(r.Context(), params)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(s)
+}
+
+func (h *Handler) ListScholarships(w http.ResponseWriter, r *http.Request) {
+	activeStr := r.URL.Query().Get("active_only")
+	var activeOnly *bool
+	if activeStr != "" {
+		val := activeStr == "true"
+		activeOnly = &val
+	}
+
+	list, err := h.svc.ListScholarships(r.Context(), middleware.GetTenantID(r.Context()), activeOnly)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(list)
 }
 
 func (h *Handler) GetFeeSummary(w http.ResponseWriter, r *http.Request) {
@@ -390,4 +590,88 @@ func (h *Handler) GetBillingReport(w http.ResponseWriter, r *http.Request) {
 		"summary": summary,
 		"rows":    rows,
 	})
+}
+
+func (h *Handler) ListLateFeeRules(w http.ResponseWriter, r *http.Request) {
+	rules, err := h.svc.ListLateFeeRules(r.Context(), middleware.GetTenantID(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(rules)
+}
+
+func (h *Handler) CreateLateFeeRule(w http.ResponseWriter, r *http.Request) {
+	var req financeservice.LateFeeRule
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.svc.CreateLateFeeRule(r.Context(), middleware.GetTenantID(r.Context()), req); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+}
+
+func (h *Handler) ListConcessionRules(w http.ResponseWriter, r *http.Request) {
+	rules, err := h.svc.ListConcessionRules(r.Context(), middleware.GetTenantID(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(rules)
+}
+
+func (h *Handler) CreateConcessionRule(w http.ResponseWriter, r *http.Request) {
+	var req financeservice.ConcessionRule
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.svc.CreateConcessionRule(r.Context(), middleware.GetTenantID(r.Context()), req); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+}
+
+func (h *Handler) ApplyStudentConcession(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		StudentID string `json:"student_id"`
+		RuleID    string `json:"rule_id"`
+		Remarks   string `json:"remarks"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	err := h.svc.ApplyStudentConcession(r.Context(), req.StudentID, req.RuleID, middleware.GetUserID(r.Context()), req.Remarks)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) GetCollectionReport(w http.ResponseWriter, r *http.Request) {
+	fromStr := r.URL.Query().Get("from")
+	toStr := r.URL.Query().Get("to")
+
+	from, _ := time.Parse("2006-01-02", fromStr)
+	to, _ := time.Parse("2006-01-02", toStr)
+	if to.IsZero() {
+		to = time.Now()
+	}
+
+	report, err := h.svc.GetCollectionReport(r.Context(), middleware.GetTenantID(r.Context()), from, to)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(report)
 }

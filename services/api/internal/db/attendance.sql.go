@@ -19,11 +19,10 @@ type BatchUpsertAttendanceEntriesParams struct {
 }
 
 const createAttendanceSession = `-- name: CreateAttendanceSession :one
-
 INSERT INTO attendance_sessions (tenant_id, class_section_id, date, marked_by)
 VALUES ($1, $2, $3, $4)
 ON CONFLICT (class_section_id, date) DO UPDATE 
-SET updated_at = NOW() -- Assuming updated_at exists, if not just return
+SET updated_at = NOW() 
 RETURNING id, tenant_id, class_section_id, date, marked_by, created_at, updated_at
 `
 
@@ -33,7 +32,6 @@ type CreateAttendanceSessionParams struct {
 	Date           pgtype.Date `json:"date"`
 	MarkedBy       pgtype.UUID `json:"marked_by"`
 }
-
 
 func (q *Queries) CreateAttendanceSession(ctx context.Context, arg CreateAttendanceSessionParams) (AttendanceSession, error) {
 	row := q.db.QueryRow(ctx, createAttendanceSession,
@@ -280,11 +278,11 @@ ORDER BY created_at DESC
 
 type ListLeavesParams struct {
 	TenantID pgtype.UUID `json:"tenant_id"`
-	Column2  string      `json:"column_2"`
+	Status   string      `json:"status"`
 }
 
 func (q *Queries) ListLeaves(ctx context.Context, arg ListLeavesParams) ([]LeaveRequest, error) {
-	rows, err := q.db.Query(ctx, listLeaves, arg.TenantID, arg.Column2)
+	rows, err := q.db.Query(ctx, listLeaves, arg.TenantID, arg.Status)
 	if err != nil {
 		return nil, err
 	}

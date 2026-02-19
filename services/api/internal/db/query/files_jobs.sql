@@ -1,7 +1,8 @@
+-- name: CreateFile :one
 INSERT INTO files (
     tenant_id, bucket, key, name, mime_type, size, uploaded_by
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7
+    @tenant_id, @bucket, @key, @name, @mime_type, @size, @uploaded_by
 ) RETURNING *;
 
 -- name: GetFile :one

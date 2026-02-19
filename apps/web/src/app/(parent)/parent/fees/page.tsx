@@ -1,202 +1,307 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ReceiptCard, Card, CardContent, CardHeader, CardTitle, Progress, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@schoolerp/ui"
-import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
+import { 
+  Button, 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle, 
+  Tabs, 
+  TabsContent, 
+  TabsList, 
+  TabsTrigger,
+  Badge
+} from "@schoolerp/ui"
+import { 
+  Receipt, 
+  CreditCard, 
+  Clock, 
+  CheckCircle2, 
+  Download,
+  AlertTriangle
+} from "lucide-react"
+import { toast } from "sonner"
+import Script from "next/script"
 
-const STORAGE_KEY = "parent.selectedChildId.fees"
-const asArray = (payload: any) => (Array.isArray(payload) ? payload : payload?.data || [])
-const textValue = (value: unknown) => {
-  if (typeof value === "string") return value
-  if (value && typeof value === "object" && "String" in value) {
-    const s = (value as { String?: string }).String
-    return typeof s === "string" ? s : ""
-  }
-  return ""
+type FeeSummary = {
+  student_id: string
+  total_due: number
+  total_paid: number
+  balance: number
+  next_due_date?: string
+  heads: {
+      head_name: string
+      amount: number
+      paid: number
+      due: number
+  }[]
 }
-const uuidValue = (value: unknown) => {
-  if (typeof value === "string") return value
-  if (value && typeof value === "object" && "Bytes" in value) {
-    const b = (value as { Bytes?: unknown }).Bytes
-    if (typeof b === "string") return b
-  }
-  return ""
+
+type ReceiptRecord = {
+    id: string
+    receipt_number: string
+    amount: number
+    mode: string
+    created_at: string
+}
+
+// Mock student context
+const MOCK_CHILD_ID = "student_123" 
+
+declare global {
+    interface Window {
+        Razorpay: any;
+    }
 }
 
 export default function ParentFeesPage() {
-  const [children, setChildren] = useState<any[]>([])
-  const [selectedChildID, setSelectedChildID] = useState("")
-  const [summary, setSummary] = useState<any>(null)
-  const [receipts, setReceipts] = useState<any[]>([])
+  const [children, setChildren] = useState<{id: string, full_name: string, admission_number: string}[]>([])
+  const [selectedChild, setSelectedChild] = useState<string>("")
+  const [summary, setSummary] = useState<FeeSummary | null>(null)
+  const [receipts, setReceipts] = useState<ReceiptRecord[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-
-  const fetchChildren = async () => {
-    setLoading(true)
-    setError("")
-    try {
-      const res = await apiClient("/parent/me/children")
-      if (!res.ok) {
-        const msg = await res.text()
-        throw new Error(msg || "Failed to load children")
-      }
-      const payload = await res.json()
-      const data = asArray(payload)
-      const normalizedChildren = data.map((child: any) => ({
-        id: uuidValue(child?.id),
-        full_name: textValue(child?.full_name),
-        class_name: textValue(child?.class_name),
-        section_name: textValue(child?.section_name),
-      }))
-      setChildren(normalizedChildren)
-      if (normalizedChildren.length > 0) {
-        const saved = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : ""
-        const first = String(normalizedChildren[0].id)
-        const selected = normalizedChildren.some((child: any) => String(child.id) === saved) ? String(saved) : first
-        setSelectedChildID(selected)
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load children")
-      setChildren([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchFees = async (childID: string) => {
-    if (!childID) {
-      setSummary(null)
-      setReceipts([])
-      return
-    }
-
-    setLoading(true)
-    setError("")
-    try {
-      const [summaryRes, receiptsRes] = await Promise.all([
-        apiClient(`/parent/children/${childID}/fees/summary`),
-        apiClient(`/parent/children/${childID}/fees/receipts`),
-      ])
-
-      if (!summaryRes.ok) {
-        const msg = await summaryRes.text()
-        throw new Error(msg || "Failed to load fee summary")
-      }
-
-      const summaryPayload = await summaryRes.json()
-      setSummary(summaryPayload || null)
-
-      if (receiptsRes.ok) {
-        const receiptsPayload = await receiptsRes.json()
-        const receiptsData = asArray(receiptsPayload)
-        setReceipts(receiptsData)
-      } else {
-        setReceipts([])
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load fees")
-      setSummary(null)
-      setReceipts([])
-    } finally {
-      setLoading(false)
-    }
-  }
+  const [processing, setProcessing] = useState(false)
 
   useEffect(() => {
     fetchChildren()
   }, [])
 
   useEffect(() => {
-    if (selectedChildID) fetchFees(selectedChildID)
-  }, [selectedChildID])
+    if (selectedChild) {
+        fetchData(selectedChild)
+    }
+  }, [selectedChild])
 
-  useEffect(() => {
-    if (!selectedChildID) return
-    if (typeof window === "undefined") return
-    window.localStorage.setItem(STORAGE_KEY, selectedChildID)
-  }, [selectedChildID])
+  const fetchChildren = async () => {
+      try {
+          const res = await apiClient("/parent/me/children")
+          if (res.ok) {
+              const data = await res.json()
+              setChildren(data)
+              if (data.length > 0) {
+                  setSelectedChild(data[0].id)
+              }
+          }
+      } catch (err) {
+          toast.error("Failed to load children")
+      }
+  }
 
-  const totalFees = Number(summary?.total_amount ?? summary?.total ?? 0)
-  const paidFees = Number(summary?.paid_amount ?? summary?.paid ?? 0)
-  const percentage = totalFees > 0 ? (paidFees / totalFees) * 100 : 0
+  const fetchData = async (childId: string) => {
+    setLoading(true)
+    try {
+        // Fetch Summary
+        const sumRes = await apiClient(`/parent/children/${childId}/fees/summary`)
+        if (sumRes.ok) setSummary(await sumRes.json())
+
+        // Fetch Receipts
+        const recRes = await apiClient(`/parent/children/${childId}/fees/receipts`)
+        if (recRes.ok) setReceipts(await recRes.json())
+
+    } catch (err) {
+        toast.error("Failed to load fee data")
+    } finally {
+        setLoading(false)
+    }
+  }
+
+  const handlePayNow = async () => {
+      if (!summary || summary.balance <= 0 || !selectedChild) return
+      setProcessing(true)
+
+      try {
+          // 1. Create Order
+          const orderRes = await apiClient("/admin/payments/online", {
+              method: "POST",
+              body: JSON.stringify({
+                  student_id: selectedChild,
+                  amount: summary.balance
+              })
+          })
+          
+          if (!orderRes.ok) throw new Error("Failed to create order")
+          const order = await orderRes.json()
+
+          // 2. Load Gateway Config
+          // Assuming Razorpay for now
+          // Real impl: fetch provider from /admin/fees/gateways?provider=razorpay (public endpoint needed?)
+          // Usually the order response contains key_id or we have a public config endpoint.
+          
+          const keyRes = await apiClient("/admin/fees/gateways?provider=razorpay")
+          // For now, hardcoding or assuming env var
+          const key = process.env.NEXT_PUBLIC_RAZORPAY_KEY || "rzp_test_123" 
+
+          const options = {
+              key: key, 
+              amount: order.amount,
+              currency: order.currency,
+              name: "School ERP",
+              description: "Fee Payment",
+              order_id: order.id,
+              handler: async function (response: any) {
+                  toast.success("Payment Successful! Verifying...")
+                  setTimeout(() => fetchData(selectedChild), 2000)
+              },
+              prefill: {
+                  name: "Parent Name", 
+                  contact: "9999999999"
+              }
+          }
+
+          const rzp = new window.Razorpay(options)
+          rzp.open()
+
+      } catch (err) {
+          toast.error("Payment initiation failed")
+      } finally {
+          setProcessing(false)
+      }
+  }
+
+  const formatCurrency = (val: number) => 
+    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(val)
 
   return (
-    <div className="p-6 space-y-8">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Fees & Payments</h1>
-      </div>
-
-      <div className="max-w-sm">
-        <Select value={selectedChildID} onValueChange={setSelectedChildID}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select child" />
-          </SelectTrigger>
-          <SelectContent>
-            {children.map((child) => (
-              <SelectItem key={String(child.id)} value={String(child.id)}>
-                {child.full_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {error && (
-        <Card>
-          <CardContent className="pt-6 text-sm text-red-600 dark:text-red-400">{error}</CardContent>
-        </Card>
-      )}
-
-      {loading && <div className="text-sm text-muted-foreground">Loading fees...</div>}
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="md:col-span-1 shadow-md border-blue-100 bg-blue-50/30">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-blue-600 uppercase tracking-wider">Payment Status</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex justify-between items-end">
-              <span className="text-3xl font-black">₹{paidFees.toLocaleString()}</span>
-              <span className="text-sm font-medium text-gray-400">of ₹{totalFees.toLocaleString()}</span>
-            </div>
-            <Progress value={percentage} className="h-2" />
-            <p className="text-xs text-gray-500 font-medium">You have paid {Math.round(percentage)}% of the total annual fees.</p>
-          </CardContent>
-        </Card>
-
-        <div className="md:col-span-2 space-y-4">
-          <h2 className="text-xl font-bold">Payment History</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {receipts.map((r) => {
-              const status = String(r.status || "issued").toLowerCase() === "cancelled" ? "cancelled" : "issued"
-              return (
-              <ReceiptCard
-                key={String(r.id)}
-                receiptNumber={String(r.receipt_number || r.receiptNumber || "-")}
-                studentName={String(r.student_name || r.studentName || "Student")}
-                amount={Number(r.amount || 0)}
-                date={String(r.date || r.issued_at || "")}
-                mode={String(r.mode || "offline")}
-                status={status}
-                onDownload={() => {
-                  const url = String(r.url || r.receipt_url || "")
-                  if (url) {
-                    window.open(url, "_blank", "noopener,noreferrer")
-                    return
-                  }
-                  toast.info("Receipt download URL not available")
-                }}
-              />
-              )
-            })}
-          </div>
+    <div className="p-4 space-y-6 max-w-4xl mx-auto">
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" />
+      
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 className="text-2xl font-black text-slate-800 dark:text-white">Fee Center</h1>
+            <p className="text-slate-500">Manage your child's school fees and view history.</p>
         </div>
+        
+        {/* Child Selector */}
+        {children.length > 1 && (
+            <div className="flex gap-2">
+                {children.map(child => (
+                    <Button 
+                        key={child.id}
+                        variant={selectedChild === child.id ? "default" : "outline"}
+                        onClick={() => setSelectedChild(child.id)}
+                        className={`rounded-xl ${selectedChild === child.id ? "bg-indigo-600 hover:bg-indigo-500" : ""}`}
+                    >
+                       {child.full_name}
+                    </Button>
+                ))}
+            </div>
+        )}
       </div>
 
-      {!loading && receipts.length === 0 && (
-        <div className="text-sm text-muted-foreground">No receipts found for this student.</div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Balance Card */}
+        <Card className="bg-gradient-to-br from-indigo-600 to-indigo-800 text-white border-none rounded-3xl shadow-xl">
+            <CardContent className="pt-8 text-center space-y-2">
+                <p className="text-indigo-200 font-bold uppercase tracking-widest text-sm">Total Outstanding</p>
+                <h2 className="text-5xl font-black">{summary ? formatCurrency(summary.balance) : "..."}</h2>
+                <div className="pt-6">
+                    <Button 
+                        size="lg" 
+                        onClick={handlePayNow}
+                        disabled={!summary || summary.balance <= 0 || processing}
+                        className="w-full bg-white text-indigo-700 hover:bg-slate-100 font-bold text-lg h-14 rounded-xl shadow-lg"
+                    >
+                        {processing ? "Processing..." : "Pay Now"}
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
+
+        {/* Status Card */}
+        <Card className="rounded-3xl border-slate-200 dark:border-white/10">
+            <CardHeader>
+                <CardTitle className="text-lg">Payment Status</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-white/5 rounded-xl">
+                    <span className="text-slate-500 dark:text-slate-400">Next Due Date</span>
+                    <span className="font-bold text-slate-800 dark:text-white">
+                        {summary?.next_due_date ? new Date(summary.next_due_date).toLocaleDateString() : "No Dues"}
+                    </span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-white/5 rounded-xl">
+                    <span className="text-slate-500 dark:text-slate-400">Last Payment</span>
+                    <div className="text-right">
+                        <span className="font-bold text-slate-800 dark:text-white">
+                            {receipts.length > 0 ? formatCurrency(receipts[0].amount) : "-"}
+                        </span>
+                        <p className="text-xs text-slate-400">
+                             {receipts.length > 0 ? new Date(receipts[0].created_at).toLocaleDateString() : ""}
+                        </p>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="breakdown" className="w-full">
+        <TabsList className="w-full bg-slate-100 dark:bg-slate-900/50 p-1 rounded-2xl mb-6 grid grid-cols-2">
+            <TabsTrigger value="breakdown" className="rounded-xl py-2.5">Fee Breakdown</TabsTrigger>
+            <TabsTrigger value="history" className="rounded-xl py-2.5">History</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="breakdown">
+            <Card className="rounded-3xl border-slate-200 dark:border-white/10">
+                <CardContent className="pt-6 space-y-4">
+                    {summary?.heads.map((head, idx) => (
+                        <div key={idx} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-white/5 rounded-xl">
+                            <div>
+                                <h4 className="font-bold text-slate-800 dark:text-white">{head.head_name}</h4>
+                                <div className="flex gap-2 text-xs mt-1">
+                                    <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-none">
+                                        Paid: {formatCurrency(head.paid)}
+                                    </Badge>
+                                    {head.due > 0 && (
+                                        <Badge variant="outline" className="bg-red-100 text-red-700 border-none">
+                                            Due: {formatCurrency(head.due)}
+                                        </Badge>
+                                    )}
+                                </div>
+                            </div>
+                            <span className="font-bold text-slate-600 dark:text-slate-300">
+                                {formatCurrency(head.amount)}
+                            </span>
+                        </div>
+                    ))}
+                    {(!summary || summary.heads.length === 0) && (
+                        <p className="text-center py-10 text-slate-400">No fee records found.</p>
+                    )}
+                </CardContent>
+            </Card>
+        </TabsContent>
+        
+        <TabsContent value="history">
+            <Card className="rounded-3xl border-slate-200 dark:border-white/10">
+                <CardContent className="pt-6 space-y-4">
+                    {receipts.map(rec => (
+                        <div key={rec.id} className="flex justify-between items-center p-4 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-colors border border-transparent hover:border-slate-100 dark:hover:border-white/5">
+                            <div className="flex items-center gap-4">
+                                <div className="h-10 w-10 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center">
+                                    <CheckCircle2 className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-slate-800 dark:text-white">Receipt #{rec.receipt_number}</h4>
+                                    <p className="text-xs text-slate-500">{new Date(rec.created_at).toDateString()} • {rec.mode}</p>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <p className="font-black text-slate-800 dark:text-white">{formatCurrency(rec.amount)}</p>
+                                <Button variant="ghost" size="sm" className="h-6 text-xs text-indigo-600 hover:text-indigo-700 px-0">
+                                    <Download className="h-3 w-3 mr-1" /> Download
+                                </Button>
+                            </div>
+                        </div>
+                    ))}
+                     {receipts.length === 0 && (
+                        <p className="text-center py-10 text-slate-400">No payment history.</p>
+                    )}
+                </CardContent>
+            </Card>
+        </TabsContent>
+      </Tabs>
+      
     </div>
   )
 }

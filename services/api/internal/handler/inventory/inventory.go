@@ -37,6 +37,17 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	// Transactions
 	r.Post("/inventory/transactions", h.CreateTransaction)
 	r.Get("/inventory/transactions", h.ListTransactions)
+
+	// Purchase Orders
+	r.Post("/inventory/purchase-orders", h.CreatePurchaseOrder)
+	r.Get("/inventory/purchase-orders", h.ListPurchaseOrders)
+	r.Post("/inventory/purchase-orders/{id}/approve", h.ApprovePurchaseOrder)
+	r.Post("/inventory/purchase-orders/{id}/receive", h.ReceivePurchaseOrder)
+
+	// Requisitions
+	r.Post("/inventory/requisitions", h.CreateRequisition)
+	r.Get("/inventory/requisitions", h.ListRequisitions)
+	r.Put("/inventory/requisitions/{id}/status", h.UpdateRequisitionStatus)
 }
 
 // Category Handlers
@@ -334,6 +345,129 @@ func (h *Handler) ListTransactions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondJSON(w, http.StatusOK, items)
+}
+
+// Purchase Order Handlers
+
+type createPOReq struct {
+	PONumber   string `json:"po_number"`
+	SupplierID string `json:"supplier_id"`
+	Notes      string `json:"notes"`
+}
+
+func (h *Handler) CreatePurchaseOrder(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var req createPOReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	po, err := h.svc.CreatePurchaseOrder(ctx, inventory.CreatePurchaseOrderParams{
+		TenantID:   middleware.GetTenantID(ctx),
+		PONumber:   req.PONumber,
+		SupplierID: req.SupplierID,
+		Notes:      req.Notes,
+		UserID:     middleware.GetUserID(ctx),
+		RequestID:  middleware.GetReqID(ctx),
+		IP:         r.RemoteAddr,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusCreated, po)
+}
+
+func (h *Handler) ListPurchaseOrders(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit == 0 {
+		limit = 20
+	}
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+
+	pos, err := h.svc.ListPurchaseOrders(r.Context(), middleware.GetTenantID(r.Context()), int32(limit), int32(offset))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusOK, pos)
+}
+
+func (h *Handler) ApprovePurchaseOrder(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	poID := chi.URLParam(r, "id")
+	po, err := h.svc.ApprovePurchaseOrder(ctx, middleware.GetTenantID(ctx), poID, middleware.GetUserID(ctx), middleware.GetReqID(ctx), r.RemoteAddr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusOK, po)
+}
+
+func (h *Handler) ReceivePurchaseOrder(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	poID := chi.URLParam(r, "id")
+	po, err := h.svc.ReceivePurchaseOrder(ctx, middleware.GetTenantID(ctx), poID, middleware.GetUserID(ctx), middleware.GetReqID(ctx), r.RemoteAddr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusOK, po)
+}
+
+func (h *Handler) CreateRequisition(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var req struct {
+		Department string          `json:"department"`
+		Purpose    string          `json:"purpose"`
+		Items      json.RawMessage `json:"items"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	requisition, err := h.svc.CreateRequisition(ctx, inventory.CreateRequisitionParams{
+		TenantID:    middleware.GetTenantID(ctx),
+		RequesterID: middleware.GetUserID(ctx),
+		Department:  req.Department,
+		Purpose:     req.Purpose,
+		Items:       req.Items,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusCreated, requisition)
+}
+
+func (h *Handler) ListRequisitions(w http.ResponseWriter, r *http.Request) {
+	reqs, err := h.svc.ListRequisitions(r.Context(), middleware.GetTenantID(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusOK, reqs)
+}
+
+func (h *Handler) UpdateRequisitionStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	reqID := chi.URLParam(r, "id")
+	var req struct {
+		Status string `json:"status"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	requisition, err := h.svc.UpdateRequisitionStatus(ctx, middleware.GetTenantID(ctx), reqID, req.Status, middleware.GetUserID(ctx))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusOK, requisition)
 }
 
 func respondJSON(w http.ResponseWriter, status int, payload interface{}) {

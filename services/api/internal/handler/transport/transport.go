@@ -42,6 +42,10 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	// Allocations
 	r.Post("/transport/allocations", h.CreateAllocation)
 	r.Get("/transport/allocations", h.ListAllocations)
+
+	// Fuel Tracking
+	r.Post("/transport/fuel-logs", h.CreateFuelLog)
+	r.Get("/transport/fuel-logs", h.ListFuelLogs)
 }
 
 // Vehicle Handlers
@@ -412,6 +416,50 @@ func (h *Handler) ListAllocations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondJSON(w, http.StatusOK, allocs)
+}
+
+func (h *Handler) CreateFuelLog(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var req struct {
+		VehicleID       string    `json:"vehicle_id"`
+		FillDate        time.Time `json:"fill_date"`
+		Quantity        float64   `json:"quantity"`
+		CostPerUnit     float64   `json:"cost_per_unit"`
+		TotalCost       float64   `json:"total_cost"`
+		OdometerReading int32     `json:"odometer_reading"`
+		Remarks         string    `json:"remarks"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	log, err := h.svc.CreateFuelLog(ctx, transport.FuelLogParams{
+		TenantID:        middleware.GetTenantID(ctx),
+		VehicleID:       req.VehicleID,
+		FillDate:        req.FillDate,
+		Quantity:        req.Quantity,
+		CostPerUnit:     req.CostPerUnit,
+		TotalCost:       req.TotalCost,
+		OdometerReading: req.OdometerReading,
+		Remarks:         req.Remarks,
+		CreatedBy:       middleware.GetUserID(ctx),
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusCreated, log)
+}
+
+func (h *Handler) ListFuelLogs(w http.ResponseWriter, r *http.Request) {
+	vehicleID := r.URL.Query().Get("vehicle_id")
+	logs, err := h.svc.ListFuelLogs(r.Context(), middleware.GetTenantID(r.Context()), vehicleID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusOK, logs)
 }
 
 // Helpers

@@ -43,6 +43,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/", h.UpsertLessonPlan)
 		r.Get("/", h.ListLessonPlans)
 	})
+	r.Route("/subjects", func(r chi.Router) {
+		r.Get("/", h.ListSubjects)
+	})
 }
 
 func (h *Handler) RegisterStudentRoutes(r chi.Router) {
@@ -307,3 +310,12 @@ func (h *Handler) ListSubmissions(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(list)
 }
 
+
+func (h *Handler) ListSubjects(w http.ResponseWriter, r *http.Request) {
+	list, err := h.svc.ListSubjects(r.Context(), middleware.GetTenantID(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(list)
+}

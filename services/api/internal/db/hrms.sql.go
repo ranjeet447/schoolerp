@@ -55,12 +55,49 @@ func (q *Queries) CreateAdjustment(ctx context.Context, arg CreateAdjustmentPara
 	return i, err
 }
 
+const createClassTeacherAssignment = `-- name: CreateClassTeacherAssignment :one
+INSERT INTO class_teacher_assignments (tenant_id, academic_year_id, class_section_id, teacher_id, remarks)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, tenant_id, academic_year_id, class_section_id, teacher_id, is_active, remarks, assigned_at, created_at
+`
+
+type CreateClassTeacherAssignmentParams struct {
+	TenantID       pgtype.UUID `json:"tenant_id"`
+	AcademicYearID pgtype.UUID `json:"academic_year_id"`
+	ClassSectionID pgtype.UUID `json:"class_section_id"`
+	TeacherID      pgtype.UUID `json:"teacher_id"`
+	Remarks        pgtype.Text `json:"remarks"`
+}
+
+func (q *Queries) CreateClassTeacherAssignment(ctx context.Context, arg CreateClassTeacherAssignmentParams) (ClassTeacherAssignment, error) {
+	row := q.db.QueryRow(ctx, createClassTeacherAssignment,
+		arg.TenantID,
+		arg.AcademicYearID,
+		arg.ClassSectionID,
+		arg.TeacherID,
+		arg.Remarks,
+	)
+	var i ClassTeacherAssignment
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.AcademicYearID,
+		&i.ClassSectionID,
+		&i.TeacherID,
+		&i.IsActive,
+		&i.Remarks,
+		&i.AssignedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createEmployee = `-- name: CreateEmployee :one
 INSERT INTO employees (
     tenant_id, employee_code, full_name, email, phone, department, designation, join_date, salary_structure_id, bank_details, status
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
-) RETURNING id, tenant_id, user_id, employee_code, full_name, email, phone, department, designation, join_date, salary_structure_id, bank_details, status, created_at, updated_at
+) RETURNING id, tenant_id, user_id, employee_code, full_name, email, phone, department, designation, join_date, salary_structure_id, bank_details, status, created_at, updated_at, rfid_tag, biometric_id
 `
 
 type CreateEmployeeParams struct {
@@ -108,6 +145,47 @@ func (q *Queries) CreateEmployee(ctx context.Context, arg CreateEmployeeParams) 
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RfidTag,
+		&i.BiometricID,
+	)
+	return i, err
+}
+
+const createLeaveType = `-- name: CreateLeaveType :one
+INSERT INTO staff_leave_types (tenant_id, name, code, annual_allowance, carry_forward_limit, is_active)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, tenant_id, name, code, annual_allowance, carry_forward_limit, is_active, created_at
+`
+
+type CreateLeaveTypeParams struct {
+	TenantID          pgtype.UUID `json:"tenant_id"`
+	Name              string      `json:"name"`
+	Code              string      `json:"code"`
+	AnnualAllowance   pgtype.Int4 `json:"annual_allowance"`
+	CarryForwardLimit pgtype.Int4 `json:"carry_forward_limit"`
+	IsActive          pgtype.Bool `json:"is_active"`
+}
+
+// Leaves
+func (q *Queries) CreateLeaveType(ctx context.Context, arg CreateLeaveTypeParams) (StaffLeaveType, error) {
+	row := q.db.QueryRow(ctx, createLeaveType,
+		arg.TenantID,
+		arg.Name,
+		arg.Code,
+		arg.AnnualAllowance,
+		arg.CarryForwardLimit,
+		arg.IsActive,
+	)
+	var i StaffLeaveType
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Name,
+		&i.Code,
+		&i.AnnualAllowance,
+		&i.CarryForwardLimit,
+		&i.IsActive,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -237,6 +315,213 @@ func (q *Queries) CreateSalaryStructure(ctx context.Context, arg CreateSalaryStr
 	return i, err
 }
 
+const createStaffAward = `-- name: CreateStaffAward :one
+INSERT INTO staff_awards (
+    tenant_id, employee_id, award_name, category, awarded_date, awarded_by, description, bonus_amount
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8
+) RETURNING id, tenant_id, employee_id, award_name, category, awarded_date, awarded_by, description, bonus_amount, created_at
+`
+
+type CreateStaffAwardParams struct {
+	TenantID    pgtype.UUID    `json:"tenant_id"`
+	EmployeeID  pgtype.UUID    `json:"employee_id"`
+	AwardName   string         `json:"award_name"`
+	Category    pgtype.Text    `json:"category"`
+	AwardedDate pgtype.Date    `json:"awarded_date"`
+	AwardedBy   pgtype.Text    `json:"awarded_by"`
+	Description pgtype.Text    `json:"description"`
+	BonusAmount pgtype.Numeric `json:"bonus_amount"`
+}
+
+// Awards
+func (q *Queries) CreateStaffAward(ctx context.Context, arg CreateStaffAwardParams) (StaffAward, error) {
+	row := q.db.QueryRow(ctx, createStaffAward,
+		arg.TenantID,
+		arg.EmployeeID,
+		arg.AwardName,
+		arg.Category,
+		arg.AwardedDate,
+		arg.AwardedBy,
+		arg.Description,
+		arg.BonusAmount,
+	)
+	var i StaffAward
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.EmployeeID,
+		&i.AwardName,
+		&i.Category,
+		&i.AwardedDate,
+		&i.AwardedBy,
+		&i.Description,
+		&i.BonusAmount,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createStaffBonus = `-- name: CreateStaffBonus :one
+INSERT INTO staff_bonus_history (
+    tenant_id, employee_id, amount, bonus_type, payment_date, payroll_run_id, remarks
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7
+) RETURNING id, tenant_id, employee_id, amount, bonus_type, payment_date, payroll_run_id, remarks, created_at
+`
+
+type CreateStaffBonusParams struct {
+	TenantID     pgtype.UUID    `json:"tenant_id"`
+	EmployeeID   pgtype.UUID    `json:"employee_id"`
+	Amount       pgtype.Numeric `json:"amount"`
+	BonusType    string         `json:"bonus_type"`
+	PaymentDate  pgtype.Date    `json:"payment_date"`
+	PayrollRunID pgtype.UUID    `json:"payroll_run_id"`
+	Remarks      pgtype.Text    `json:"remarks"`
+}
+
+// Bonus History
+func (q *Queries) CreateStaffBonus(ctx context.Context, arg CreateStaffBonusParams) (StaffBonusHistory, error) {
+	row := q.db.QueryRow(ctx, createStaffBonus,
+		arg.TenantID,
+		arg.EmployeeID,
+		arg.Amount,
+		arg.BonusType,
+		arg.PaymentDate,
+		arg.PayrollRunID,
+		arg.Remarks,
+	)
+	var i StaffBonusHistory
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.EmployeeID,
+		&i.Amount,
+		&i.BonusType,
+		&i.PaymentDate,
+		&i.PayrollRunID,
+		&i.Remarks,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createStaffLeaveRequest = `-- name: CreateStaffLeaveRequest :one
+INSERT INTO staff_leave_requests (
+    tenant_id, employee_id, leave_type_id, start_date, end_date, reason, status
+) VALUES (
+    $1, $2, $3, $4, $5, $6, 'pending'
+) RETURNING id, tenant_id, employee_id, leave_type_id, start_date, end_date, reason, status, reviewed_by, reviewed_at, remarks, created_at
+`
+
+type CreateStaffLeaveRequestParams struct {
+	TenantID    pgtype.UUID `json:"tenant_id"`
+	EmployeeID  pgtype.UUID `json:"employee_id"`
+	LeaveTypeID pgtype.UUID `json:"leave_type_id"`
+	StartDate   pgtype.Date `json:"start_date"`
+	EndDate     pgtype.Date `json:"end_date"`
+	Reason      pgtype.Text `json:"reason"`
+}
+
+func (q *Queries) CreateStaffLeaveRequest(ctx context.Context, arg CreateStaffLeaveRequestParams) (StaffLeaveRequest, error) {
+	row := q.db.QueryRow(ctx, createStaffLeaveRequest,
+		arg.TenantID,
+		arg.EmployeeID,
+		arg.LeaveTypeID,
+		arg.StartDate,
+		arg.EndDate,
+		arg.Reason,
+	)
+	var i StaffLeaveRequest
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.EmployeeID,
+		&i.LeaveTypeID,
+		&i.StartDate,
+		&i.EndDate,
+		&i.Reason,
+		&i.Status,
+		&i.ReviewedBy,
+		&i.ReviewedAt,
+		&i.Remarks,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createStaffTransfer = `-- name: CreateStaffTransfer :one
+INSERT INTO staff_transfers (
+    tenant_id, employee_id, from_branch_id, to_branch_id, transfer_date, reason, authorized_by, status
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8
+) RETURNING id, tenant_id, employee_id, from_branch_id, to_branch_id, transfer_date, reason, authorized_by, status, created_at
+`
+
+type CreateStaffTransferParams struct {
+	TenantID     pgtype.UUID `json:"tenant_id"`
+	EmployeeID   pgtype.UUID `json:"employee_id"`
+	FromBranchID pgtype.UUID `json:"from_branch_id"`
+	ToBranchID   pgtype.UUID `json:"to_branch_id"`
+	TransferDate pgtype.Date `json:"transfer_date"`
+	Reason       pgtype.Text `json:"reason"`
+	AuthorizedBy pgtype.UUID `json:"authorized_by"`
+	Status       string      `json:"status"`
+}
+
+// Transfers
+func (q *Queries) CreateStaffTransfer(ctx context.Context, arg CreateStaffTransferParams) (StaffTransfer, error) {
+	row := q.db.QueryRow(ctx, createStaffTransfer,
+		arg.TenantID,
+		arg.EmployeeID,
+		arg.FromBranchID,
+		arg.ToBranchID,
+		arg.TransferDate,
+		arg.Reason,
+		arg.AuthorizedBy,
+		arg.Status,
+	)
+	var i StaffTransfer
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.EmployeeID,
+		&i.FromBranchID,
+		&i.ToBranchID,
+		&i.TransferDate,
+		&i.Reason,
+		&i.AuthorizedBy,
+		&i.Status,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createTeacherSubjectSpecialization = `-- name: CreateTeacherSubjectSpecialization :one
+INSERT INTO teacher_subject_specializations (tenant_id, teacher_id, subject_id)
+VALUES ($1, $2, $3)
+RETURNING id, tenant_id, teacher_id, subject_id, created_at
+`
+
+type CreateTeacherSubjectSpecializationParams struct {
+	TenantID  pgtype.UUID `json:"tenant_id"`
+	TeacherID pgtype.UUID `json:"teacher_id"`
+	SubjectID pgtype.UUID `json:"subject_id"`
+}
+
+func (q *Queries) CreateTeacherSubjectSpecialization(ctx context.Context, arg CreateTeacherSubjectSpecializationParams) (TeacherSubjectSpecialization, error) {
+	row := q.db.QueryRow(ctx, createTeacherSubjectSpecialization, arg.TenantID, arg.TeacherID, arg.SubjectID)
+	var i TeacherSubjectSpecialization
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.TeacherID,
+		&i.SubjectID,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getApprovedAdjustmentsForRun = `-- name: GetApprovedAdjustmentsForRun :many
 SELECT id, tenant_id, employee_id, payroll_run_id, type, amount, description, status, approved_by, approved_at, created_at, updated_at FROM payroll_adjustments
 WHERE tenant_id = $1 AND employee_id = $2 AND status = 'approved' AND payroll_run_id IS NULL
@@ -282,7 +567,7 @@ func (q *Queries) GetApprovedAdjustmentsForRun(ctx context.Context, arg GetAppro
 }
 
 const getEmployee = `-- name: GetEmployee :one
-SELECT id, tenant_id, user_id, employee_code, full_name, email, phone, department, designation, join_date, salary_structure_id, bank_details, status, created_at, updated_at FROM employees WHERE id = $1 AND tenant_id = $2
+SELECT id, tenant_id, user_id, employee_code, full_name, email, phone, department, designation, join_date, salary_structure_id, bank_details, status, created_at, updated_at, rfid_tag, biometric_id FROM employees WHERE id = $1 AND tenant_id = $2
 `
 
 type GetEmployeeParams struct {
@@ -309,6 +594,8 @@ func (q *Queries) GetEmployee(ctx context.Context, arg GetEmployeeParams) (Emplo
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RfidTag,
+		&i.BiometricID,
 	)
 	return i, err
 }
@@ -379,7 +666,7 @@ func (q *Queries) GetEmployeePayslips(ctx context.Context, arg GetEmployeePaysli
 
 const getEmployeeSalaryInfo = `-- name: GetEmployeeSalaryInfo :one
 SELECT 
-    e.id, e.tenant_id, e.user_id, e.employee_code, e.full_name, e.email, e.phone, e.department, e.designation, e.join_date, e.salary_structure_id, e.bank_details, e.status, e.created_at, e.updated_at,
+    e.id, e.tenant_id, e.user_id, e.employee_code, e.full_name, e.email, e.phone, e.department, e.designation, e.join_date, e.salary_structure_id, e.bank_details, e.status, e.created_at, e.updated_at, e.rfid_tag, e.biometric_id,
     ss.basic,
     ss.hra,
     ss.da,
@@ -411,6 +698,8 @@ type GetEmployeeSalaryInfoRow struct {
 	Status            string             `json:"status"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	RfidTag           pgtype.Text        `json:"rfid_tag"`
+	BiometricID       pgtype.Text        `json:"biometric_id"`
 	Basic             pgtype.Numeric     `json:"basic"`
 	Hra               pgtype.Numeric     `json:"hra"`
 	Da                pgtype.Numeric     `json:"da"`
@@ -437,6 +726,8 @@ func (q *Queries) GetEmployeeSalaryInfo(ctx context.Context, arg GetEmployeeSala
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RfidTag,
+		&i.BiometricID,
 		&i.Basic,
 		&i.Hra,
 		&i.Da,
@@ -531,8 +822,70 @@ func (q *Queries) LinkAdjustmentToRun(ctx context.Context, arg LinkAdjustmentToR
 	return err
 }
 
+const listClassTeacherAssignments = `-- name: ListClassTeacherAssignments :many
+SELECT ct.id, ct.tenant_id, ct.academic_year_id, ct.class_section_id, ct.teacher_id, ct.is_active, ct.remarks, ct.assigned_at, ct.created_at, e.full_name as teacher_name, s.name as section_name, c.name as class_name
+FROM class_teacher_assignments ct
+JOIN employees e ON ct.teacher_id = e.id
+JOIN sections s ON ct.class_section_id = s.id
+JOIN classes c ON s.class_id = c.id
+WHERE ct.tenant_id = $1 AND ct.academic_year_id = $2
+`
+
+type ListClassTeacherAssignmentsParams struct {
+	TenantID       pgtype.UUID `json:"tenant_id"`
+	AcademicYearID pgtype.UUID `json:"academic_year_id"`
+}
+
+type ListClassTeacherAssignmentsRow struct {
+	ID             pgtype.UUID        `json:"id"`
+	TenantID       pgtype.UUID        `json:"tenant_id"`
+	AcademicYearID pgtype.UUID        `json:"academic_year_id"`
+	ClassSectionID pgtype.UUID        `json:"class_section_id"`
+	TeacherID      pgtype.UUID        `json:"teacher_id"`
+	IsActive       pgtype.Bool        `json:"is_active"`
+	Remarks        pgtype.Text        `json:"remarks"`
+	AssignedAt     pgtype.Timestamptz `json:"assigned_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	TeacherName    string             `json:"teacher_name"`
+	SectionName    string             `json:"section_name"`
+	ClassName      string             `json:"class_name"`
+}
+
+func (q *Queries) ListClassTeacherAssignments(ctx context.Context, arg ListClassTeacherAssignmentsParams) ([]ListClassTeacherAssignmentsRow, error) {
+	rows, err := q.db.Query(ctx, listClassTeacherAssignments, arg.TenantID, arg.AcademicYearID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListClassTeacherAssignmentsRow
+	for rows.Next() {
+		var i ListClassTeacherAssignmentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.AcademicYearID,
+			&i.ClassSectionID,
+			&i.TeacherID,
+			&i.IsActive,
+			&i.Remarks,
+			&i.AssignedAt,
+			&i.CreatedAt,
+			&i.TeacherName,
+			&i.SectionName,
+			&i.ClassName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEmployees = `-- name: ListEmployees :many
-SELECT id, tenant_id, user_id, employee_code, full_name, email, phone, department, designation, join_date, salary_structure_id, bank_details, status, created_at, updated_at FROM employees
+SELECT id, tenant_id, user_id, employee_code, full_name, email, phone, department, designation, join_date, salary_structure_id, bank_details, status, created_at, updated_at, rfid_tag, biometric_id FROM employees
 WHERE tenant_id = $1
 ORDER BY full_name
 LIMIT $2 OFFSET $3
@@ -569,6 +922,47 @@ func (q *Queries) ListEmployees(ctx context.Context, arg ListEmployeesParams) ([
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.RfidTag,
+			&i.BiometricID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLeaveTypes = `-- name: ListLeaveTypes :many
+SELECT id, tenant_id, name, code, annual_allowance, carry_forward_limit, is_active, created_at FROM staff_leave_types
+WHERE tenant_id = $1 AND ($2::BOOLEAN = false OR is_active = $2::BOOLEAN)
+`
+
+type ListLeaveTypesParams struct {
+	TenantID pgtype.UUID `json:"tenant_id"`
+	IsActive bool        `json:"is_active"`
+}
+
+func (q *Queries) ListLeaveTypes(ctx context.Context, arg ListLeaveTypesParams) ([]StaffLeaveType, error) {
+	rows, err := q.db.Query(ctx, listLeaveTypes, arg.TenantID, arg.IsActive)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StaffLeaveType
+	for rows.Next() {
+		var i StaffLeaveType
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Name,
+			&i.Code,
+			&i.AnnualAllowance,
+			&i.CarryForwardLimit,
+			&i.IsActive,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -716,6 +1110,236 @@ func (q *Queries) ListSalaryStructures(ctx context.Context, tenantID pgtype.UUID
 	return items, nil
 }
 
+const listStaffAwards = `-- name: ListStaffAwards :many
+SELECT sa.id, sa.tenant_id, sa.employee_id, sa.award_name, sa.category, sa.awarded_date, sa.awarded_by, sa.description, sa.bonus_amount, sa.created_at, e.full_name as employee_name
+FROM staff_awards sa
+JOIN employees e ON sa.employee_id = e.id
+WHERE sa.tenant_id = $1
+ORDER BY sa.awarded_date DESC
+`
+
+type ListStaffAwardsRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	TenantID     pgtype.UUID        `json:"tenant_id"`
+	EmployeeID   pgtype.UUID        `json:"employee_id"`
+	AwardName    string             `json:"award_name"`
+	Category     pgtype.Text        `json:"category"`
+	AwardedDate  pgtype.Date        `json:"awarded_date"`
+	AwardedBy    pgtype.Text        `json:"awarded_by"`
+	Description  pgtype.Text        `json:"description"`
+	BonusAmount  pgtype.Numeric     `json:"bonus_amount"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	EmployeeName string             `json:"employee_name"`
+}
+
+func (q *Queries) ListStaffAwards(ctx context.Context, tenantID pgtype.UUID) ([]ListStaffAwardsRow, error) {
+	rows, err := q.db.Query(ctx, listStaffAwards, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStaffAwardsRow
+	for rows.Next() {
+		var i ListStaffAwardsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.EmployeeID,
+			&i.AwardName,
+			&i.Category,
+			&i.AwardedDate,
+			&i.AwardedBy,
+			&i.Description,
+			&i.BonusAmount,
+			&i.CreatedAt,
+			&i.EmployeeName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStaffLeaveRequests = `-- name: ListStaffLeaveRequests :many
+SELECT lr.id, lr.tenant_id, lr.employee_id, lr.leave_type_id, lr.start_date, lr.end_date, lr.reason, lr.status, lr.reviewed_by, lr.reviewed_at, lr.remarks, lr.created_at, lt.name as leave_name, e.full_name as employee_name
+FROM staff_leave_requests lr
+JOIN staff_leave_types lt ON lr.leave_type_id = lt.id
+JOIN employees e ON lr.employee_id = e.id
+WHERE lr.tenant_id = $1
+  AND ($2::UUID IS NULL OR lr.employee_id = $2::UUID)
+  AND ($3::TEXT = '' OR lr.status = $3::TEXT)
+ORDER BY lr.created_at DESC
+`
+
+type ListStaffLeaveRequestsParams struct {
+	TenantID   pgtype.UUID `json:"tenant_id"`
+	EmployeeID pgtype.UUID `json:"employee_id"`
+	Status     string      `json:"status"`
+}
+
+type ListStaffLeaveRequestsRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	TenantID     pgtype.UUID        `json:"tenant_id"`
+	EmployeeID   pgtype.UUID        `json:"employee_id"`
+	LeaveTypeID  pgtype.UUID        `json:"leave_type_id"`
+	StartDate    pgtype.Date        `json:"start_date"`
+	EndDate      pgtype.Date        `json:"end_date"`
+	Reason       pgtype.Text        `json:"reason"`
+	Status       string             `json:"status"`
+	ReviewedBy   pgtype.UUID        `json:"reviewed_by"`
+	ReviewedAt   pgtype.Timestamptz `json:"reviewed_at"`
+	Remarks      pgtype.Text        `json:"remarks"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	LeaveName    string             `json:"leave_name"`
+	EmployeeName string             `json:"employee_name"`
+}
+
+func (q *Queries) ListStaffLeaveRequests(ctx context.Context, arg ListStaffLeaveRequestsParams) ([]ListStaffLeaveRequestsRow, error) {
+	rows, err := q.db.Query(ctx, listStaffLeaveRequests, arg.TenantID, arg.EmployeeID, arg.Status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStaffLeaveRequestsRow
+	for rows.Next() {
+		var i ListStaffLeaveRequestsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.EmployeeID,
+			&i.LeaveTypeID,
+			&i.StartDate,
+			&i.EndDate,
+			&i.Reason,
+			&i.Status,
+			&i.ReviewedBy,
+			&i.ReviewedAt,
+			&i.Remarks,
+			&i.CreatedAt,
+			&i.LeaveName,
+			&i.EmployeeName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStaffTransfers = `-- name: ListStaffTransfers :many
+SELECT st.id, st.tenant_id, st.employee_id, st.from_branch_id, st.to_branch_id, st.transfer_date, st.reason, st.authorized_by, st.status, st.created_at, e.full_name as employee_name
+FROM staff_transfers st
+JOIN employees e ON st.employee_id = e.id
+WHERE st.tenant_id = $1
+ORDER BY st.transfer_date DESC
+`
+
+type ListStaffTransfersRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	TenantID     pgtype.UUID        `json:"tenant_id"`
+	EmployeeID   pgtype.UUID        `json:"employee_id"`
+	FromBranchID pgtype.UUID        `json:"from_branch_id"`
+	ToBranchID   pgtype.UUID        `json:"to_branch_id"`
+	TransferDate pgtype.Date        `json:"transfer_date"`
+	Reason       pgtype.Text        `json:"reason"`
+	AuthorizedBy pgtype.UUID        `json:"authorized_by"`
+	Status       string             `json:"status"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	EmployeeName string             `json:"employee_name"`
+}
+
+func (q *Queries) ListStaffTransfers(ctx context.Context, tenantID pgtype.UUID) ([]ListStaffTransfersRow, error) {
+	rows, err := q.db.Query(ctx, listStaffTransfers, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStaffTransfersRow
+	for rows.Next() {
+		var i ListStaffTransfersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.EmployeeID,
+			&i.FromBranchID,
+			&i.ToBranchID,
+			&i.TransferDate,
+			&i.Reason,
+			&i.AuthorizedBy,
+			&i.Status,
+			&i.CreatedAt,
+			&i.EmployeeName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTeacherSubjectSpecializations = `-- name: ListTeacherSubjectSpecializations :many
+SELECT ts.id, ts.tenant_id, ts.teacher_id, ts.subject_id, ts.created_at, e.full_name as teacher_name, s.name as subject_name
+FROM teacher_subject_specializations ts
+JOIN employees e ON ts.teacher_id = e.id
+JOIN subjects s ON ts.subject_id = s.id
+WHERE ts.tenant_id = $1 
+  AND ($2::BOOLEAN = false OR ts.teacher_id = $3::UUID)
+`
+
+type ListTeacherSubjectSpecializationsParams struct {
+	TenantID      pgtype.UUID `json:"tenant_id"`
+	FilterTeacher bool        `json:"filter_teacher"`
+	TeacherID     pgtype.UUID `json:"teacher_id"`
+}
+
+type ListTeacherSubjectSpecializationsRow struct {
+	ID          pgtype.UUID        `json:"id"`
+	TenantID    pgtype.UUID        `json:"tenant_id"`
+	TeacherID   pgtype.UUID        `json:"teacher_id"`
+	SubjectID   pgtype.UUID        `json:"subject_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	TeacherName string             `json:"teacher_name"`
+	SubjectName string             `json:"subject_name"`
+}
+
+func (q *Queries) ListTeacherSubjectSpecializations(ctx context.Context, arg ListTeacherSubjectSpecializationsParams) ([]ListTeacherSubjectSpecializationsRow, error) {
+	rows, err := q.db.Query(ctx, listTeacherSubjectSpecializations, arg.TenantID, arg.FilterTeacher, arg.TeacherID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTeacherSubjectSpecializationsRow
+	for rows.Next() {
+		var i ListTeacherSubjectSpecializationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.TeacherID,
+			&i.SubjectID,
+			&i.CreatedAt,
+			&i.TeacherName,
+			&i.SubjectName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateAdjustmentStatus = `-- name: UpdateAdjustmentStatus :exec
 UPDATE payroll_adjustments
 SET status = $3, approved_by = $4, approved_at = NOW(), updated_at = NOW()
@@ -744,7 +1368,7 @@ UPDATE employees SET
     full_name = $3, email = $4, phone = $5, department = $6, designation = $7, 
     salary_structure_id = $8, bank_details = $9, status = $10, updated_at = NOW()
 WHERE id = $1 AND tenant_id = $2
-RETURNING id, tenant_id, user_id, employee_code, full_name, email, phone, department, designation, join_date, salary_structure_id, bank_details, status, created_at, updated_at
+RETURNING id, tenant_id, user_id, employee_code, full_name, email, phone, department, designation, join_date, salary_structure_id, bank_details, status, created_at, updated_at, rfid_tag, biometric_id
 `
 
 type UpdateEmployeeParams struct {
@@ -790,6 +1414,49 @@ func (q *Queries) UpdateEmployee(ctx context.Context, arg UpdateEmployeeParams) 
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RfidTag,
+		&i.BiometricID,
+	)
+	return i, err
+}
+
+const updateLeaveRequestStatus = `-- name: UpdateLeaveRequestStatus :one
+UPDATE staff_leave_requests
+SET status = $1, reviewed_by = $2, reviewed_at = NOW(), remarks = $3
+WHERE id = $4 AND tenant_id = $5
+RETURNING id, tenant_id, employee_id, leave_type_id, start_date, end_date, reason, status, reviewed_by, reviewed_at, remarks, created_at
+`
+
+type UpdateLeaveRequestStatusParams struct {
+	Status     string      `json:"status"`
+	ReviewedBy pgtype.UUID `json:"reviewed_by"`
+	Remarks    pgtype.Text `json:"remarks"`
+	ID         pgtype.UUID `json:"id"`
+	TenantID   pgtype.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) UpdateLeaveRequestStatus(ctx context.Context, arg UpdateLeaveRequestStatusParams) (StaffLeaveRequest, error) {
+	row := q.db.QueryRow(ctx, updateLeaveRequestStatus,
+		arg.Status,
+		arg.ReviewedBy,
+		arg.Remarks,
+		arg.ID,
+		arg.TenantID,
+	)
+	var i StaffLeaveRequest
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.EmployeeID,
+		&i.LeaveTypeID,
+		&i.StartDate,
+		&i.EndDate,
+		&i.Reason,
+		&i.Status,
+		&i.ReviewedBy,
+		&i.ReviewedAt,
+		&i.Remarks,
+		&i.CreatedAt,
 	)
 	return i, err
 }

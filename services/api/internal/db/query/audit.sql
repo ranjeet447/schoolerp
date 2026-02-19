@@ -1,3 +1,4 @@
+-- name: CreateAuditLog :one
 INSERT INTO audit_logs (
     tenant_id, user_id, request_id, action, 
     resource_type, resource_id, before_state, after_state, 

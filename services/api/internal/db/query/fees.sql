@@ -1,3 +1,4 @@
+-- name: CreateFeeHead :one
 INSERT INTO fee_heads (tenant_id, name, type)
 VALUES ($1, $2, $3)
 RETURNING *;
@@ -136,6 +137,94 @@ LEFT JOIN fee_plan_items fpi ON fp.id = fpi.plan_id
 LEFT JOIN tally_ledger_mappings tlm ON fpi.head_id = tlm.fee_head_id AND r.tenant_id = tlm.tenant_id
 WHERE r.tenant_id = $1 AND r.created_at BETWEEN $2 AND $3
 ORDER BY r.created_at ASC;
+
+-- name: UpsertFeeClassConfig :one
+INSERT INTO fee_class_configurations (
+    tenant_id, academic_year_id, class_id, fee_head_id, amount, due_date, is_optional
+) VALUES (
+    @tenant_id, @academic_year_id, @class_id, @fee_head_id, @amount, @due_date, @is_optional
+)
+ON CONFLICT (tenant_id, academic_year_id, class_id, fee_head_id) DO UPDATE
+SET amount = EXCLUDED.amount, 
+    due_date = EXCLUDED.due_date,
+    is_optional = EXCLUDED.is_optional,
+    updated_at = NOW()
+RETURNING *;
+
+-- name: ListFeeClassConfigs :many
+SELECT fc.*, fh.name as fee_head_name, c.name as class_name
+FROM fee_class_configurations fc
+JOIN fee_heads fh ON fc.fee_head_id = fh.id
+JOIN classes c ON fc.class_id = c.id
+WHERE fc.tenant_id = @tenant_id 
+  AND fc.academic_year_id = @academic_year_id
+  AND (@class_id::UUID IS NULL OR fc.class_id = @class_id::UUID)
+ORDER BY c.level, fh.name;
+
+-- name: UpsertScholarship :one
+INSERT INTO fee_discounts_scholarships (
+    tenant_id, name, type, value, description, is_active
+) VALUES (
+    @tenant_id, @name, @type, @value, @description, @is_active
+) RETURNING *;
+
+-- name: ListScholarships :many
+SELECT * FROM fee_discounts_scholarships
+WHERE tenant_id = @tenant_id AND (@is_active::BOOLEAN = false OR is_active = @is_active::BOOLEAN)
+ORDER BY created_at DESC;
+
+-- name: AssignScholarship :one
+INSERT INTO student_scholarships (
+    tenant_id, student_id, scholarship_id, academic_year_id, approved_by
+) VALUES (
+    @tenant_id, @student_id, @scholarship_id, @academic_year_id, @approved_by
+) RETURNING *;
+
+-- name: UpsertGatewayConfig :one
+INSERT INTO payment_gateway_configs (
+    tenant_id, provider, api_key, api_secret, webhook_secret, is_active, settings
+) VALUES (
+    @tenant_id, @provider, @api_key, @api_secret, @webhook_secret, @is_active, @settings
+)
+ON CONFLICT (tenant_id, provider) DO UPDATE
+SET api_key = EXCLUDED.api_key,
+    api_secret = EXCLUDED.api_secret,
+    webhook_secret = EXCLUDED.webhook_secret,
+    is_active = EXCLUDED.is_active,
+    settings = EXCLUDED.settings,
+    updated_at = NOW()
+RETURNING *;
+
+-- name: GetActiveGatewayConfig :one
+SELECT * FROM payment_gateway_configs
+WHERE tenant_id = @tenant_id AND provider = @provider AND is_active = true;
+
+-- name: GetTenantActiveGateway :one
+SELECT * FROM payment_gateway_configs
+WHERE tenant_id = @tenant_id AND is_active = true
+LIMIT 1;
+
+-- name: CreateAutoDebitMandate :one
+INSERT INTO auto_debit_mandates (
+    tenant_id, student_id, provider, mandate_ref, max_amount, status, start_date, end_date
+) VALUES (
+    @tenant_id, @student_id, @provider, @mandate_ref, @max_amount, @status, @start_date, @end_date
+) RETURNING *;
+
+-- name: ListOptionalFeeItems :many
+SELECT * FROM optional_fee_items
+WHERE tenant_id = @tenant_id
+ORDER BY category, name;
+
+-- name: UpsertStudentOptionalFee :one
+INSERT INTO student_optional_fees (
+    tenant_id, student_id, item_id, academic_year_id, status
+) VALUES (
+    @tenant_id, @student_id, @item_id, @academic_year_id, @status
+)
+ON CONFLICT (tenant_id, student_id, item_id, academic_year_id) DO UPDATE
+SET status = EXCLUDED.status
+RETURNING *;
 
 
 

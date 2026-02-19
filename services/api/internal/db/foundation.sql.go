@@ -149,7 +149,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 const createUserIdentity = `-- name: CreateUserIdentity :one
 INSERT INTO user_identities (id, user_id, provider, identifier, credential)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, user_id, provider, identifier, credential, last_login, created_at
+RETURNING id, user_id, provider, identifier, credential, last_login, created_at, credential_updated_at
 `
 
 type CreateUserIdentityParams struct {
@@ -177,6 +177,7 @@ func (q *Queries) CreateUserIdentity(ctx context.Context, arg CreateUserIdentity
 		&i.Credential,
 		&i.LastLogin,
 		&i.CreatedAt,
+		&i.CredentialUpdatedAt,
 	)
 	return i, err
 }
@@ -222,8 +223,6 @@ func (q *Queries) GetApprovalRequest(ctx context.Context, id pgtype.UUID) (Appro
 }
 
 const getPolicy = `-- name: GetPolicy :one
-
-
 SELECT id, tenant_id, module, action, logic, is_active, created_at, updated_at FROM policies
 WHERE tenant_id = $1 AND module = $2 AND action = $3 AND is_active = TRUE
 `
@@ -234,8 +233,6 @@ type GetPolicyParams struct {
 	Action   string      `json:"action"`
 }
 
-
-// foundation.sql
 // Policies
 func (q *Queries) GetPolicy(ctx context.Context, arg GetPolicyParams) (Policy, error) {
 	row := q.db.QueryRow(ctx, getPolicy, arg.TenantID, arg.Module, arg.Action)

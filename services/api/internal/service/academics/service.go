@@ -652,3 +652,30 @@ func (s *Service) saveCertificateRequests(ctx context.Context, tenantID pgtype.U
 	return err
 }
 
+func (s *Service) ListSubjects(ctx context.Context, tenantID string) ([]HomeworkSubjectOption, error) {
+	tUUID := pgtype.UUID{}
+	if err := tUUID.Scan(tenantID); err != nil {
+		return nil, fmt.Errorf("invalid tenant_id")
+	}
+
+	rows, err := s.q.ListSubjects(ctx, tUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	subjects := make([]HomeworkSubjectOption, 0, len(rows))
+	for _, row := range rows {
+		if !row.ID.Valid {
+			continue
+		}
+		subjects = append(subjects, HomeworkSubjectOption{
+			ID:   row.ID.String(),
+			Name: row.Name,
+			Code: row.Code.String,
+			Type: row.Type.String,
+		})
+	}
+
+	return subjects, nil
+}
+

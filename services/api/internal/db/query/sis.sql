@@ -1,7 +1,8 @@
+-- name: CreateStudent :one
 INSERT INTO students (
     tenant_id, admission_number, full_name, date_of_birth, gender, section_id, status
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7
+    @tenant_id, @admission_number, @full_name, @date_of_birth, @gender, @section_id, @status
 ) RETURNING *;
 
 -- name: GetStudent :one
@@ -122,3 +123,21 @@ WHERE g.user_id = $1 AND s.tenant_id = $2;
 -- name: CountStudents :one
 SELECT count(*) FROM students
 WHERE tenant_id = $1;
+
+-- name: PromoteStudent :one
+INSERT INTO student_promotions (
+    tenant_id, student_id, from_academic_year_id, to_academic_year_id,
+    from_section_id, to_section_id, promoted_by, status, remarks
+) VALUES (
+    @tenant_id, @student_id, @from_academic_year_id, @to_academic_year_id,
+    @from_section_id, @to_section_id, @promoted_by, @status, @remarks
+) RETURNING *;
+
+-- name: CreatePromotionRule :one
+INSERT INTO promotion_rules (
+    tenant_id, priority, min_aggregate_percent, min_subject_percent,
+    required_attendance_percent, is_active
+) VALUES (
+    @tenant_id, @priority, @min_aggregate_percent, @min_subject_percent,
+    @required_attendance_percent, @is_active
+) RETURNING *;

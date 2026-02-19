@@ -2,8 +2,36 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { apiClient } from "@/lib/api-client"
-import { Button, Card, CardContent, CardHeader, CardTitle, Input } from "@schoolerp/ui"
-import { Download, RefreshCw } from "lucide-react"
+import { 
+  Button, 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle, 
+  Input, 
+  Tabs, 
+  TabsContent, 
+  TabsList, 
+  TabsTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@schoolerp/ui"
+import { 
+  Download, 
+  RefreshCw, 
+  Plus, 
+  Settings, 
+  BarChart3, 
+  Receipt, 
+  Percent, 
+  Clock,
+  TrendingUp,
+  CreditCard,
+  Wallet
+} from "lucide-react"
 import { toast } from "sonner"
 
 type BillingSummary = {
@@ -23,6 +51,30 @@ type BillingRow = {
   admission_number: string
   student_name: string
   tally_ledger_name: string
+}
+
+type LateFeeRule = {
+  id?: string
+  fee_head_id?: string
+  rule_type: 'fixed' | 'daily'
+  amount: number
+  grace_days: number
+  is_active: boolean
+}
+
+type ConcessionRule = {
+  id?: string
+  name: string
+  discount_type: 'percentage' | 'fixed'
+  value: number
+  category: string
+  priority: number
+  is_active: boolean
+}
+
+type CollectionItem = {
+  head_name: string
+  total_amount: number
 }
 
 const formatCurrency = (value: number) =>
@@ -45,58 +97,46 @@ export default function AdminFinancePage() {
   const [toDate, setToDate] = useState(defaults.to)
   const [summary, setSummary] = useState<BillingSummary | null>(null)
   const [rows, setRows] = useState<BillingRow[]>([])
+  const [collectionReport, setCollectionReport] = useState<CollectionItem[]>([])
+  const [lateFeeRules, setLateFeeRules] = useState<LateFeeRule[]>([])
+  const [concessionRules, setConcessionRules] = useState<ConcessionRule[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
-  const fetchReport = async (silent = false) => {
-    if (silent) setRefreshing(true)
-    else setLoading(true)
-
+  const fetchBackendData = async () => {
+    setLoading(true)
     try {
-      const res = await apiClient(
-        `/admin/payments/reports/billing?from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}`,
-      )
-      if (!res.ok) {
-        const message = await res.text()
-        throw new Error(message || "Failed to load billing report")
+      // 1. Fetch Billing Report
+      const bilRes = await apiClient(`/admin/payments/reports/billing?from=${fromDate}&to=${toDate}`)
+      if (bilRes.ok) {
+        const payload = await bilRes.json()
+        setSummary(payload.summary)
+        setRows(payload.rows || [])
       }
 
-      const payload = await res.json()
-      const rawSummary = payload?.summary || {}
-      const rawRows = Array.isArray(payload?.rows) ? payload.rows : []
+      // 2. Fetch Collection Report (Head-wise)
+      const colRes = await apiClient(`/admin/payments/reports/collections?from=${fromDate}&to=${toDate}`)
+      if (colRes.ok) {
+        const payload = await colRes.json()
+        setCollectionReport(payload || [])
+      }
 
-      setSummary({
-        from_date: rawSummary.from_date || fromDate,
-        to_date: rawSummary.to_date || toDate,
-        receipt_count: Number(rawSummary.receipt_count || 0),
-        total_collections: Number(rawSummary.total_collections || 0),
-        average_receipt: Number(rawSummary.average_receipt || 0),
-        by_mode: typeof rawSummary.by_mode === "object" && rawSummary.by_mode ? rawSummary.by_mode : {},
-      })
+      // 3. Fetch Rules
+      const lateRes = await apiClient("/admin/rules/late-fees")
+      if (lateRes.ok) setLateFeeRules(await lateRes.json())
 
-      setRows(
-        rawRows.map((row: any) => ({
-          receipt_number: String(row?.receipt_number || "-"),
-          amount_paid: Number(row?.amount_paid || 0),
-          created_at: String(row?.created_at || ""),
-          payment_mode: String(row?.payment_mode || "unknown"),
-          admission_number: String(row?.admission_number || "-"),
-          student_name: String(row?.student_name || "-"),
-          tally_ledger_name: String(row?.tally_ledger_name || "-"),
-        })),
-      )
+      const conRes = await apiClient("/admin/rules/concessions")
+      if (conRes.ok) setConcessionRules(await conRes.json())
+
     } catch (err) {
-      setSummary(null)
-      setRows([])
-      toast.error(err instanceof Error ? err.message : "Failed to load billing report")
+      toast.error("Failed to sync finance data")
     } finally {
       setLoading(false)
-      setRefreshing(false)
     }
   }
 
   useEffect(() => {
-    fetchReport(false)
+    fetchBackendData()
   }, [])
 
   const downloadCsv = async () => {
@@ -104,129 +144,252 @@ export default function AdminFinancePage() {
       const res = await apiClient(
         `/admin/payments/tally-export?from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}`,
       )
-      if (!res.ok) {
-        const message = await res.text()
-        throw new Error(message || "Failed to export CSV")
-      }
+      if (!res.ok) throw new Error("Export failed")
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement("a")
       anchor.href = url
-      anchor.download = `admin-billing-report-${fromDate}-to-${toDate}.csv`
-      document.body.appendChild(anchor)
+      anchor.download = `billing-export-${fromDate}-to-${toDate}.csv`
       anchor.click()
-      document.body.removeChild(anchor)
       URL.revokeObjectURL(url)
-      toast.success("CSV export downloaded")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to export CSV")
+      toast.error("Failed to export CSV")
     }
   }
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Fees & Finance</h1>
-          <p className="text-sm text-muted-foreground">Billing collections summary and receipt ledger.</p>
+          <h1 className="text-4xl font-black text-white tracking-tight">Finance Control</h1>
+          <p className="text-slate-400 font-medium">Manage fee rules, track collections, and analyze revenue.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => fetchReport(true)} disabled={refreshing} className="gap-2">
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} /> Refresh
+          <Button variant="outline" onClick={fetchBackendData} disabled={refreshing} className="bg-slate-900 border-white/10 hover:bg-slate-800">
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} /> Refresh
           </Button>
-          <Button onClick={downloadCsv} className="gap-2">
-            <Download className="h-4 w-4" /> Export CSV
+          <Button onClick={downloadCsv} className="bg-emerald-600 hover:bg-emerald-500 text-white">
+            <Download className="h-4 w-4 mr-2" /> Tally Export
           </Button>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Date Range</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-          <Button onClick={() => fetchReport(true)} disabled={!fromDate || !toDate || refreshing}>Apply</Button>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="dashboard" className="w-full">
+        <TabsList className="bg-slate-900/50 p-1 border border-white/5 rounded-2xl mb-6">
+          <TabsTrigger value="dashboard" className="rounded-xl px-6 py-2.5 data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all">
+            <BarChart3 className="h-4 w-4 mr-2" /> Dashboard
+          </TabsTrigger>
+          <TabsTrigger value="rules" className="rounded-xl px-6 py-2.5 data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all">
+            <Clock className="h-4 w-4 mr-2" /> Late Fees & Discounts
+          </TabsTrigger>
+          <TabsTrigger value="ledger" className="rounded-xl px-6 py-2.5 data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all">
+            <Receipt className="h-4 w-4 mr-2" /> Daily Ledger
+          </TabsTrigger>
+        </TabsList>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Total Collections</CardTitle></CardHeader>
-          <CardContent className="text-2xl font-bold">{formatCurrency(summary?.total_collections || 0)}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Receipts Count</CardTitle></CardHeader>
-          <CardContent className="text-2xl font-bold">{summary?.receipt_count || 0}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Average Receipt</CardTitle></CardHeader>
-          <CardContent className="text-2xl font-bold">{formatCurrency(summary?.average_receipt || 0)}</CardContent>
-        </Card>
-      </div>
+        <TabsContent value="dashboard" className="space-y-6">
+          <Card className="bg-slate-900/50 border-white/5 backdrop-blur-xl rounded-3xl overflow-hidden">
+            <CardHeader className="border-b border-white/5 pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-bold uppercase tracking-widest text-slate-400">Date Filter</CardTitle>
+                <TrendingUp className="h-4 w-4 text-emerald-400" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase ml-1">From Date</label>
+                <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="bg-slate-800/50 border-white/5 rounded-xl h-11" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase ml-1">To Date</label>
+                <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="bg-slate-800/50 border-white/5 rounded-xl h-11" />
+              </div>
+              <div className="flex items-end">
+                <Button onClick={fetchBackendData} className="w-full h-11 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold">Apply Filter</Button>
+              </div>
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Collections by Mode</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {!summary || Object.keys(summary.by_mode || {}).length === 0 ? (
-            <p className="text-sm text-muted-foreground">No mode breakdown available.</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {Object.entries(summary.by_mode).map(([mode, amount]) => (
-                <div key={mode} className="rounded border p-3">
-                  <p className="text-xs uppercase text-muted-foreground">{mode}</p>
-                  <p className="text-lg font-semibold">{formatCurrency(amount)}</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="bg-gradient-to-br from-indigo-600/20 to-indigo-900/20 border-indigo-500/20 rounded-3xl p-6">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="h-12 w-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400">
+                  <TrendingUp className="h-6 w-6" />
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Collections</p>
+                  <h3 className="text-3xl font-black text-white">{formatCurrency(summary?.total_collections || 0)}</h3>
+                </div>
+              </div>
+            </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Receipt Ledger</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <p className="text-sm text-muted-foreground">Loading report...</p>
-          ) : rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No receipts found for selected range.</p>
-          ) : (
+            <Card className="bg-gradient-to-br from-emerald-600/20 to-emerald-900/20 border-emerald-500/20 rounded-3xl p-6">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="h-12 w-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center text-emerald-400">
+                  <CreditCard className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Receipts Count</p>
+                  <h3 className="text-3xl font-black text-white">{summary?.receipt_count || 0}</h3>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-amber-600/20 to-amber-900/20 border-amber-500/20 rounded-3xl p-6">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="h-12 w-12 bg-amber-500/20 rounded-2xl flex items-center justify-center text-amber-400">
+                  <Wallet className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Average Value</p>
+                  <h3 className="text-3xl font-black text-white">{formatCurrency(summary?.average_receipt || 0)}</h3>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="bg-slate-900/50 border-white/5 rounded-3xl">
+              <CardHeader className="border-b border-white/5">
+                <CardTitle className="text-lg font-bold">Revenue by Head</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="space-y-4">
+                  {collectionReport.length > 0 ? collectionReport.map((item) => (
+                    <div key={item.head_name} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition-colors">
+                      <span className="font-bold text-slate-300">{item.head_name}</span>
+                      <span className="font-black text-white">{formatCurrency(item.total_amount)}</span>
+                    </div>
+                  )) : (
+                    <p className="text-center py-10 text-slate-500">No data for selected period</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-900/50 border-white/5 rounded-3xl">
+              <CardHeader className="border-b border-white/5">
+                <CardTitle className="text-lg font-bold">Payment Methods</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="grid grid-cols-2 gap-4">
+                  {Object.entries(summary?.by_mode || {}).map(([mode, amount]) => (
+                    <div key={mode} className="p-5 bg-white/5 rounded-2xl border border-white/5">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{mode}</p>
+                      <p className="text-xl font-black text-white">{formatCurrency(amount)}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="rules" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="bg-slate-900/50 border-white/5 rounded-3xl">
+              <CardHeader className="border-b border-white/5 flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-indigo-400" /> Late Fee Policies
+                </CardTitle>
+                <Button size="sm" className="bg-indigo-600 rounded-xl h-8 px-3">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-4">
+                {lateFeeRules.length > 0 ? lateFeeRules.map((rule) => (
+                  <div key={rule.id} className="p-4 bg-white/5 rounded-2xl border border-white/5 flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-white capitalize">{rule.rule_type} Charge</h4>
+                      <p className="text-xs text-slate-400">Grace: {rule.grace_days} days | {rule.is_active ? 'Active' : 'Paused'}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-black text-white">{formatCurrency(rule.amount)}</p>
+                    </div>
+                  </div>
+                )) : (
+                  <p className="text-center py-10 text-slate-500">No late fee rules defined</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-900/50 border-white/5 rounded-3xl">
+              <CardHeader className="border-b border-white/5 flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Percent className="h-5 w-5 text-emerald-400" /> Concessions & Discounts
+                </CardTitle>
+                <Button size="sm" className="bg-emerald-600 rounded-xl h-8 px-3">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-4">
+                {concessionRules.length > 0 ? concessionRules.map((rule) => (
+                  <div key={rule.id} className="p-4 bg-white/5 rounded-2xl border border-white/5 flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-white">{rule.name}</h4>
+                      <p className="text-xs text-slate-400">Category: {rule.category} | Priority: {rule.priority}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-black text-emerald-400">
+                        {rule.discount_type === 'percentage' ? `${rule.value}%` : formatCurrency(rule.value)}
+                      </p>
+                    </div>
+                  </div>
+                )) : (
+                  <p className="text-center py-10 text-slate-500">No discount rules defined</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="ledger" className="space-y-6">
+          <Card className="bg-slate-900/50 border-white/5 rounded-3xl overflow-hidden">
+            <CardHeader className="border-b border-white/5 bg-white/5 px-8 py-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-2xl font-black">Daily Collection Ledger</CardTitle>
+                  <p className="text-sm text-slate-400">Chronological list of all payments received.</p>
+                </div>
+              </div>
+            </CardHeader>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <th className="px-3 py-2">Date</th>
-                    <th className="px-3 py-2">Receipt No</th>
-                    <th className="px-3 py-2">Student</th>
-                    <th className="px-3 py-2">Admission</th>
-                    <th className="px-3 py-2">Mode</th>
-                    <th className="px-3 py-2">Ledger</th>
-                    <th className="px-3 py-2 text-right">Amount</th>
+                <thead className="bg-white/5 border-b border-white/5">
+                  <tr className="text-left text-xs uppercase tracking-widest text-slate-500 font-black">
+                    <th className="px-8 py-4">Date</th>
+                    <th className="px-8 py-4">Receipt #</th>
+                    <th className="px-8 py-4">Student</th>
+                    <th className="px-8 py-4">Admission</th>
+                    <th className="px-8 py-4">Mode</th>
+                    <th className="px-8 py-4 text-right">Amount</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {rows.map((row, index) => (
-                    <tr key={`${row.receipt_number}-${index}`} className="border-t">
-                      <td className="px-3 py-2 text-sm">{row.created_at ? row.created_at.slice(0, 10) : "-"}</td>
-                      <td className="px-3 py-2 text-sm font-medium">{row.receipt_number}</td>
-                      <td className="px-3 py-2 text-sm">{row.student_name}</td>
-                      <td className="px-3 py-2 text-sm text-muted-foreground">{row.admission_number}</td>
-                      <td className="px-3 py-2 text-sm capitalize">{row.payment_mode}</td>
-                      <td className="px-3 py-2 text-sm text-muted-foreground">{row.tally_ledger_name || "-"}</td>
-                      <td className="px-3 py-2 text-sm text-right font-semibold">{formatCurrency(row.amount_paid)}</td>
+                <tbody className="divide-y divide-white/5">
+                  {rows.length > 0 ? rows.map((row, idx) => (
+                    <tr key={`${row.receipt_number}-${idx}`} className="hover:bg-white/5 transition-colors group">
+                      <td className="px-8 py-5 text-sm text-slate-300 font-medium">{row.created_at.slice(0, 10)}</td>
+                      <td className="px-8 py-5 text-sm font-black text-indigo-400">{row.receipt_number}</td>
+                      <td className="px-8 py-5 text-sm text-white font-bold">{row.student_name}</td>
+                      <td className="px-8 py-5 text-sm text-slate-500">{row.admission_number}</td>
+                      <td className="px-8 py-5">
+                        <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-xs font-bold uppercase tracking-tighter text-slate-400 group-hover:text-white transition-colors">
+                          {row.payment_mode}
+                        </span>
+                      </td>
+                      <td className="px-8 py-5 text-right font-black text-white">{formatCurrency(row.amount_paid)}</td>
                     </tr>
-                  ))}
+                  )) : (
+                    <tr>
+                      <td colSpan={6} className="px-8 py-20 text-center text-slate-500">No receipts found for this range.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

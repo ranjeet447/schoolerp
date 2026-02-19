@@ -1,3 +1,4 @@
+-- name: CreateExam :one
 INSERT INTO exams (
     tenant_id, academic_year_id, name, start_date, end_date
 ) VALUES (
@@ -103,4 +104,61 @@ FROM marks_entries me
 JOIN exams e ON me.exam_id = e.id
 JOIN exam_subjects es ON me.exam_id = es.exam_id AND me.subject_id = es.subject_id
 WHERE e.tenant_id = $1 AND e.academic_year_id = $2 AND e.status = 'published';
+-- Question Paper Management
+-- name: CreateQuestionPaper :one
+INSERT INTO exam_question_papers (
+    tenant_id, exam_id, subject_id, set_name, file_path, 
+    is_encrypted, unlock_at, is_previous_year, academic_year_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING *;
 
+-- name: ListQuestionPapers :many
+SELECT qp.*, s.name as subject_name, e.name as exam_name
+FROM exam_question_papers qp
+LEFT JOIN subjects s ON s.id = qp.subject_id
+LEFT JOIN exams e ON e.id = qp.exam_id
+WHERE qp.tenant_id = @tenant_id 
+  AND (@filter_exam::BOOLEAN = false OR qp.exam_id = @exam_id::UUID)
+ORDER BY qp.created_at DESC;
+
+-- name: GetQuestionPaper :one
+SELECT * FROM exam_question_papers WHERE id = $1 AND tenant_id = $2;
+
+-- name: LogPaperAccess :exec
+INSERT INTO paper_access_logs (paper_id, user_id, ip_address, user_agent)
+VALUES ($1, $2, $3, $4);
+
+-- name: CreateQuestionBankEntry :one
+INSERT INTO exam_question_bank (
+    tenant_id, subject_id, topic, difficulty, question_type,
+    question_text, options, correct_answer, marks
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING *;
+
+-- name: ListQuestionBank :many
+SELECT * FROM exam_question_bank
+WHERE tenant_id = $1 
+AND ($2::BOOLEAN = false OR subject_id = $3::UUID)
+AND ($4::BOOLEAN = false OR topic = $5::TEXT)
+ORDER BY created_at DESC;
+
+-- name: AddQuestionToPaper :exec
+INSERT INTO exam_paper_questions (paper_id, question_id, sort_order)
+VALUES ($1, $2, $3);
+
+-- name: GetPaperQuestions :many
+SELECT qb.*, pq.sort_order
+FROM exam_paper_questions pq
+JOIN exam_question_bank qb ON pq.question_id = qb.id
+WHERE pq.paper_id = $1
+ORDER BY pq.sort_order;
+
+-- name: GetRandomQuestions :many
+SELECT * FROM exam_question_bank
+WHERE tenant_id = @tenant_id
+  AND subject_id = @subject_id
+  AND (@topic::TEXT = '' OR topic = @topic)
+  AND (@difficulty::TEXT = '' OR difficulty = @difficulty)
+  AND (@question_type::TEXT = '' OR question_type = @question_type)
+ORDER BY RANDOM()
+LIMIT @limit_count;

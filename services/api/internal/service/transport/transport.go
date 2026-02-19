@@ -3,6 +3,7 @@ package transport
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -440,4 +441,76 @@ func (s *TransportService) ListAllocations(ctx context.Context, tenantID string)
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(tenantID)
 	return s.q.ListAllocations(ctx, tUUID)
+}
+
+// Fuel Tracking
+
+type FuelLogParams struct {
+	TenantID         string
+	VehicleID        string
+	FillDate         time.Time
+	Quantity         float64
+	CostPerUnit      float64
+	TotalCost        float64
+	OdometerReading  int32
+	Remarks          string
+	CreatedBy        string
+}
+
+func (s *TransportService) CreateFuelLog(ctx context.Context, p FuelLogParams) (db.TransportFuelLog, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(p.TenantID)
+	vID := pgtype.UUID{}
+	vID.Scan(p.VehicleID)
+	uID := pgtype.UUID{}
+	uID.Scan(p.CreatedBy)
+
+	var log db.TransportFuelLog
+	err := s.pool.QueryRow(ctx, `
+		INSERT INTO transport_fuel_logs (tenant_id, vehicle_id, fill_date, quantity, cost_per_unit, total_cost, odometer_reading, remarks, created_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		RETURNING id, tenant_id, vehicle_id, fill_date, quantity, cost_per_unit, total_cost, odometer_reading, remarks, created_by, created_at
+	`, 
+		tID, vID, p.FillDate, p.Quantity, p.CostPerUnit, p.TotalCost, 
+		pgtype.Int4{Int32: p.OdometerReading, Valid: p.OdometerReading > 0},
+		pgtype.Text{String: p.Remarks, Valid: p.Remarks != ""},
+		uID,
+	).Scan(
+		&log.ID, &log.TenantID, &log.VehicleID, &log.FillDate, &log.Quantity, &log.CostPerUnit, &log.TotalCost, &log.OdometerReading, &log.Remarks, &log.CreatedBy, &log.CreatedAt,
+	)
+
+	return log, err
+}
+
+func (s *TransportService) ListFuelLogs(ctx context.Context, tenantID, vehicleID string) ([]db.TransportFuelLog, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+
+	var query string
+	var args []interface{}
+	if vehicleID != "" {
+		vID := pgtype.UUID{}
+		vID.Scan(vehicleID)
+		query = "SELECT id, tenant_id, vehicle_id, fill_date, quantity, cost_per_unit, total_cost, odometer_reading, remarks, created_by, created_at FROM transport_fuel_logs WHERE tenant_id = $1 AND vehicle_id = $2 ORDER BY fill_date DESC"
+		args = []interface{}{tID, vID}
+	} else {
+		query = "SELECT id, tenant_id, vehicle_id, fill_date, quantity, cost_per_unit, total_cost, odometer_reading, remarks, created_by, created_at FROM transport_fuel_logs WHERE tenant_id = $1 ORDER BY fill_date DESC"
+		args = []interface{}{tID}
+	}
+
+	rows, err := s.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var logs []db.TransportFuelLog
+	for rows.Next() {
+		var l db.TransportFuelLog
+		if err := rows.Scan(&l.ID, &l.TenantID, &l.VehicleID, &l.FillDate, &l.Quantity, &l.CostPerUnit, &l.TotalCost, &l.OdometerReading, &l.Remarks, &l.CreatedBy, &l.CreatedAt); err != nil {
+			return nil, err
+		}
+		logs = append(logs, l)
+	}
+	return logs, nil
 }

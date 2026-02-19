@@ -2,7 +2,7 @@ version: "2"
 sql:
   - engine: "postgresql"
     queries: "services/api/internal/db/query"
-    schema: "infra/migrations"
+    schema: "services/api/internal/db/schema.sql"
     gen:
       go:
         package: "db"
@@ -13,7 +13,7 @@ sql:
         emit_exact_table_names: false
   - engine: "postgresql"
     queries: "services/api/internal/db/query"
-    schema: "infra/migrations"
+    schema: "services/api/internal/db/schema.sql"
     gen:
       go:
         package: "db"

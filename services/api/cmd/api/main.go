@@ -32,7 +32,9 @@ import (
 	"github.com/schoolerp/api/internal/handler/alumni"
 	"github.com/schoolerp/api/internal/handler/attendance"
 	authhandler "github.com/schoolerp/api/internal/handler/auth"
+	"github.com/schoolerp/api/internal/handler/biometric"
 	"github.com/schoolerp/api/internal/handler/communication"
+	dashhandler "github.com/schoolerp/api/internal/handler/dashboard"
 	"github.com/schoolerp/api/internal/handler/exams"
 	"github.com/schoolerp/api/internal/handler/files"
 	"github.com/schoolerp/api/internal/handler/finance"
@@ -55,7 +57,9 @@ import (
 	alumniservice "github.com/schoolerp/api/internal/service/alumni"
 	attendservice "github.com/schoolerp/api/internal/service/attendance"
 	authservice "github.com/schoolerp/api/internal/service/auth"
+	bioservice "github.com/schoolerp/api/internal/service/biometric"
 	commservice "github.com/schoolerp/api/internal/service/communication"
+	dashservice "github.com/schoolerp/api/internal/service/dashboard"
 	examservice "github.com/schoolerp/api/internal/service/exams"
 	fileservice "github.com/schoolerp/api/internal/service/files"
 	financeservice "github.com/schoolerp/api/internal/service/finance"
@@ -141,8 +145,13 @@ func main() {
 
 	// Initialize Services
 	studentService := sisservice.NewStudentService(querier, auditLogger, quotaSvc)
+	student360Service := sisservice.NewStudent360Service(pool, auditLogger)
+	dashboardService := dashservice.NewDashboardService(pool, auditLogger)
+	biometricService := bioservice.NewBiometricService(pool, auditLogger)
+	customFieldService := sisservice.NewCustomFieldService(pool, auditLogger)
 	attendanceService := attendservice.NewService(querier, auditLogger, policyEval, approvalSvc, locksSvc)
-	financeService := financeservice.NewService(querier, auditLogger, policyEval, locksSvc, &financeservice.RazorpayProvider{
+	staffAttendService := attendservice.NewStaffAttendanceService(pool, auditLogger)
+	financeService := financeservice.NewService(querier, pool, auditLogger, policyEval, locksSvc, &financeservice.RazorpayProvider{
 		KeyID:     os.Getenv("RAZORPAY_KEY_ID"),
 		KeySecret: os.Getenv("RAZORPAY_KEY_SECRET"),
 	})
@@ -164,6 +173,13 @@ func main() {
 	tenantService := tenantservice.NewService(querier, pool)
 	marketingService := marketingservice.NewService(pool)
 
+	calendarService := academicservice.NewCalendarService(pool, auditLogger)
+	resourceService := academicservice.NewResourceService(pool, auditLogger)
+	idCardService := sisservice.NewIDCardService(pool, auditLogger)
+	hostelService := sisservice.NewHostelService(pool, auditLogger)
+	scheduleService := academicservice.NewScheduleService(pool, auditLogger)
+	promotionService := sisservice.NewPromotionService(querier, auditLogger)
+
 	aiService, err := aiservice.NewService()
 	if err != nil {
 		log.Warn().Err(err).Msg("AI Service failed to initialize (missing API key?)")
@@ -184,7 +200,9 @@ func main() {
 
 	// Initialize Handlers
 	studentHandler := sis.NewHandler(studentService)
+	customFieldHandler := sis.NewCustomFieldHandler(customFieldService)
 	attendanceHandler := attendance.NewHandler(attendanceService)
+	staffAttendHandler := attendance.NewStaffHandler(staffAttendService)
 	financeHandler := finance.NewHandler(financeService)
 	noticeHandler := notices.NewHandler(noticeService)
 	notificationHandler := notification.NewHandler(notificationService)
@@ -205,6 +223,16 @@ func main() {
 	tenantHandler := tenant.NewHandler(tenantService)
 	aiHandler := aihandler.NewAIHandler(aiService, querier)
 	marketingHandler := marketing.NewHandler(marketingService)
+
+	calendarHandler := academic.NewCalendarHandler(calendarService)
+	resourceHandler := academic.NewResourceHandler(resourceService)
+	idCardHandler := sis.NewIDCardHandler(idCardService)
+	student360Handler := sis.NewStudent360Handler(student360Service)
+	dashboardHandler := dashhandler.NewHandler(dashboardService)
+	biometricHandler := biometric.NewHandler(biometricService)
+	hostelHandler := sis.NewHostelHandler(hostelService)
+	scheduleHandler := academic.NewScheduleHandler(scheduleService)
+	promotionHandler := sis.NewPromotionHandler(promotionService)
 
 	r := chi.NewRouter()
 
@@ -274,7 +302,12 @@ func main() {
 		r.Route("/admin", func(r chi.Router) {
 			r.Use(middleware.RoleGuard("super_admin", "tenant_admin"))
 			studentHandler.RegisterRoutes(r)
+			student360Handler.RegisterRoutes(r)
+			dashboardHandler.RegisterRoutes(r)
+			biometricHandler.RegisterRoutes(r)
+			customFieldHandler.RegisterRoutes(r)
 			attendanceHandler.RegisterRoutes(r)
+			staffAttendHandler.RegisterRoutes(r)
 			financeHandler.RegisterRoutes(r)
 			noticeHandler.RegisterRoutes(r)
 			notificationHandler.RegisterRoutes(r)
@@ -284,6 +317,12 @@ func main() {
 			libraryHandler.RegisterRoutes(r)
 			inventoryHandler.RegisterRoutes(r)
 			admissionHandler.RegisterAdminRoutes(r)
+			calendarHandler.RegisterRoutes(r)
+			resourceHandler.RegisterRoutes(r)
+			idCardHandler.RegisterRoutes(r)
+			hostelHandler.RegisterRoutes(r)
+			scheduleHandler.RegisterRoutes(r)
+			promotionHandler.RegisterRoutes(r)
 			hrmsHandler.RegisterRoutes(r)
 			safetyHandler.RegisterRoutes(r)
 			commHandler.RegisterRoutes(r)
@@ -311,6 +350,9 @@ func main() {
 			noticeHandler.RegisterRoutes(r)
 			examHandler.RegisterRoutes(r)
 			academicHandler.RegisterRoutes(r)
+			scheduleHandler.RegisterRoutes(r)
+			calendarHandler.RegisterRoutes(r)
+			resourceHandler.RegisterRoutes(r)
 		})
 
 		// Parent Routes

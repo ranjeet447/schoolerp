@@ -12,7 +12,6 @@ import (
 )
 
 const createAuditLog = `-- name: CreateAuditLog :one
-
 INSERT INTO audit_logs (
     tenant_id, user_id, request_id, action, 
     resource_type, resource_id, before_state, after_state, 
@@ -36,7 +35,6 @@ type CreateAuditLogParams struct {
 	ReasonCode   pgtype.Text `json:"reason_code"`
 	IpAddress    pgtype.Text `json:"ip_address"`
 }
-
 
 func (q *Queries) CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) (AuditLog, error) {
 	row := q.db.QueryRow(ctx, createAuditLog,

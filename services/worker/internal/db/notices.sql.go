@@ -31,7 +31,6 @@ func (q *Queries) AcknowledgeNotice(ctx context.Context, arg AcknowledgeNoticePa
 }
 
 const createNotice = `-- name: CreateNotice :one
-
 INSERT INTO notices (tenant_id, title, body, scope, created_by)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING id, tenant_id, title, body, scope, publish_at, created_by, created_at, updated_at
@@ -44,7 +43,6 @@ type CreateNoticeParams struct {
 	Scope     []byte      `json:"scope"`
 	CreatedBy pgtype.UUID `json:"created_by"`
 }
-
 
 func (q *Queries) CreateNotice(ctx context.Context, arg CreateNoticeParams) (Notice, error) {
 	row := q.db.QueryRow(ctx, createNotice,

@@ -36,8 +36,23 @@ func (q *Queries) AddExamSubject(ctx context.Context, arg AddExamSubjectParams) 
 	return err
 }
 
-const createExam = `-- name: CreateExam :one
+const addQuestionToPaper = `-- name: AddQuestionToPaper :exec
+INSERT INTO exam_paper_questions (paper_id, question_id, sort_order)
+VALUES ($1, $2, $3)
+`
 
+type AddQuestionToPaperParams struct {
+	PaperID    pgtype.UUID `json:"paper_id"`
+	QuestionID pgtype.UUID `json:"question_id"`
+	SortOrder  pgtype.Int4 `json:"sort_order"`
+}
+
+func (q *Queries) AddQuestionToPaper(ctx context.Context, arg AddQuestionToPaperParams) error {
+	_, err := q.db.Exec(ctx, addQuestionToPaper, arg.PaperID, arg.QuestionID, arg.SortOrder)
+	return err
+}
+
+const createExam = `-- name: CreateExam :one
 INSERT INTO exams (
     tenant_id, academic_year_id, name, start_date, end_date
 ) VALUES (
@@ -52,7 +67,6 @@ type CreateExamParams struct {
 	StartDate      pgtype.Date `json:"start_date"`
 	EndDate        pgtype.Date `json:"end_date"`
 }
-
 
 func (q *Queries) CreateExam(ctx context.Context, arg CreateExamParams) (Exam, error) {
 	row := q.db.QueryRow(ctx, createExam,
@@ -73,6 +87,107 @@ func (q *Queries) CreateExam(ctx context.Context, arg CreateExamParams) (Exam, e
 		&i.Status,
 		&i.CreatedAt,
 		&i.Type,
+	)
+	return i, err
+}
+
+const createQuestionBankEntry = `-- name: CreateQuestionBankEntry :one
+INSERT INTO exam_question_bank (
+    tenant_id, subject_id, topic, difficulty, question_type,
+    question_text, options, correct_answer, marks
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, tenant_id, subject_id, topic, difficulty, question_type, question_text, options, correct_answer, marks, created_at, updated_at
+`
+
+type CreateQuestionBankEntryParams struct {
+	TenantID      pgtype.UUID    `json:"tenant_id"`
+	SubjectID     pgtype.UUID    `json:"subject_id"`
+	Topic         pgtype.Text    `json:"topic"`
+	Difficulty    string         `json:"difficulty"`
+	QuestionType  string         `json:"question_type"`
+	QuestionText  string         `json:"question_text"`
+	Options       []byte         `json:"options"`
+	CorrectAnswer pgtype.Text    `json:"correct_answer"`
+	Marks         pgtype.Numeric `json:"marks"`
+}
+
+func (q *Queries) CreateQuestionBankEntry(ctx context.Context, arg CreateQuestionBankEntryParams) (ExamQuestionBank, error) {
+	row := q.db.QueryRow(ctx, createQuestionBankEntry,
+		arg.TenantID,
+		arg.SubjectID,
+		arg.Topic,
+		arg.Difficulty,
+		arg.QuestionType,
+		arg.QuestionText,
+		arg.Options,
+		arg.CorrectAnswer,
+		arg.Marks,
+	)
+	var i ExamQuestionBank
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.SubjectID,
+		&i.Topic,
+		&i.Difficulty,
+		&i.QuestionType,
+		&i.QuestionText,
+		&i.Options,
+		&i.CorrectAnswer,
+		&i.Marks,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createQuestionPaper = `-- name: CreateQuestionPaper :one
+INSERT INTO exam_question_papers (
+    tenant_id, exam_id, subject_id, set_name, file_path, 
+    is_encrypted, unlock_at, is_previous_year, academic_year_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, tenant_id, exam_id, subject_id, set_name, file_path, is_encrypted, unlock_at, is_previous_year, academic_year_id, created_at, updated_at
+`
+
+type CreateQuestionPaperParams struct {
+	TenantID       pgtype.UUID        `json:"tenant_id"`
+	ExamID         pgtype.UUID        `json:"exam_id"`
+	SubjectID      pgtype.UUID        `json:"subject_id"`
+	SetName        string             `json:"set_name"`
+	FilePath       string             `json:"file_path"`
+	IsEncrypted    pgtype.Bool        `json:"is_encrypted"`
+	UnlockAt       pgtype.Timestamptz `json:"unlock_at"`
+	IsPreviousYear pgtype.Bool        `json:"is_previous_year"`
+	AcademicYearID pgtype.UUID        `json:"academic_year_id"`
+}
+
+// Question Paper Management
+func (q *Queries) CreateQuestionPaper(ctx context.Context, arg CreateQuestionPaperParams) (ExamQuestionPaper, error) {
+	row := q.db.QueryRow(ctx, createQuestionPaper,
+		arg.TenantID,
+		arg.ExamID,
+		arg.SubjectID,
+		arg.SetName,
+		arg.FilePath,
+		arg.IsEncrypted,
+		arg.UnlockAt,
+		arg.IsPreviousYear,
+		arg.AcademicYearID,
+	)
+	var i ExamQuestionPaper
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.ExamID,
+		&i.SubjectID,
+		&i.SetName,
+		&i.FilePath,
+		&i.IsEncrypted,
+		&i.UnlockAt,
+		&i.IsPreviousYear,
+		&i.AcademicYearID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -255,6 +370,153 @@ func (q *Queries) GetMarksForAggregation(ctx context.Context, arg GetMarksForAgg
 	return items, nil
 }
 
+const getPaperQuestions = `-- name: GetPaperQuestions :many
+SELECT qb.id, qb.tenant_id, qb.subject_id, qb.topic, qb.difficulty, qb.question_type, qb.question_text, qb.options, qb.correct_answer, qb.marks, qb.created_at, qb.updated_at, pq.sort_order
+FROM exam_paper_questions pq
+JOIN exam_question_bank qb ON pq.question_id = qb.id
+WHERE pq.paper_id = $1
+ORDER BY pq.sort_order
+`
+
+type GetPaperQuestionsRow struct {
+	ID            pgtype.UUID        `json:"id"`
+	TenantID      pgtype.UUID        `json:"tenant_id"`
+	SubjectID     pgtype.UUID        `json:"subject_id"`
+	Topic         pgtype.Text        `json:"topic"`
+	Difficulty    string             `json:"difficulty"`
+	QuestionType  string             `json:"question_type"`
+	QuestionText  string             `json:"question_text"`
+	Options       []byte             `json:"options"`
+	CorrectAnswer pgtype.Text        `json:"correct_answer"`
+	Marks         pgtype.Numeric     `json:"marks"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	SortOrder     pgtype.Int4        `json:"sort_order"`
+}
+
+func (q *Queries) GetPaperQuestions(ctx context.Context, paperID pgtype.UUID) ([]GetPaperQuestionsRow, error) {
+	rows, err := q.db.Query(ctx, getPaperQuestions, paperID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetPaperQuestionsRow
+	for rows.Next() {
+		var i GetPaperQuestionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.SubjectID,
+			&i.Topic,
+			&i.Difficulty,
+			&i.QuestionType,
+			&i.QuestionText,
+			&i.Options,
+			&i.CorrectAnswer,
+			&i.Marks,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.SortOrder,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getQuestionPaper = `-- name: GetQuestionPaper :one
+SELECT id, tenant_id, exam_id, subject_id, set_name, file_path, is_encrypted, unlock_at, is_previous_year, academic_year_id, created_at, updated_at FROM exam_question_papers WHERE id = $1 AND tenant_id = $2
+`
+
+type GetQuestionPaperParams struct {
+	ID       pgtype.UUID `json:"id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) GetQuestionPaper(ctx context.Context, arg GetQuestionPaperParams) (ExamQuestionPaper, error) {
+	row := q.db.QueryRow(ctx, getQuestionPaper, arg.ID, arg.TenantID)
+	var i ExamQuestionPaper
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.ExamID,
+		&i.SubjectID,
+		&i.SetName,
+		&i.FilePath,
+		&i.IsEncrypted,
+		&i.UnlockAt,
+		&i.IsPreviousYear,
+		&i.AcademicYearID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getRandomQuestions = `-- name: GetRandomQuestions :many
+SELECT id, tenant_id, subject_id, topic, difficulty, question_type, question_text, options, correct_answer, marks, created_at, updated_at FROM exam_question_bank
+WHERE tenant_id = $1
+  AND subject_id = $2
+  AND ($3::TEXT = '' OR topic = $3)
+  AND ($4::TEXT = '' OR difficulty = $4)
+  AND ($5::TEXT = '' OR question_type = $5)
+ORDER BY RANDOM()
+LIMIT $6
+`
+
+type GetRandomQuestionsParams struct {
+	TenantID     pgtype.UUID `json:"tenant_id"`
+	SubjectID    pgtype.UUID `json:"subject_id"`
+	Topic        string      `json:"topic"`
+	Difficulty   string      `json:"difficulty"`
+	QuestionType string      `json:"question_type"`
+	LimitCount   int32       `json:"limit_count"`
+}
+
+func (q *Queries) GetRandomQuestions(ctx context.Context, arg GetRandomQuestionsParams) ([]ExamQuestionBank, error) {
+	rows, err := q.db.Query(ctx, getRandomQuestions,
+		arg.TenantID,
+		arg.SubjectID,
+		arg.Topic,
+		arg.Difficulty,
+		arg.QuestionType,
+		arg.LimitCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ExamQuestionBank
+	for rows.Next() {
+		var i ExamQuestionBank
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.SubjectID,
+			&i.Topic,
+			&i.Difficulty,
+			&i.QuestionType,
+			&i.QuestionText,
+			&i.Options,
+			&i.CorrectAnswer,
+			&i.Marks,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listExamSubjects = `-- name: ListExamSubjects :many
 SELECT es.exam_id, es.subject_id, es.max_marks, es.exam_date, s.name as subject_name
 FROM exam_subjects es
@@ -362,6 +624,129 @@ func (q *Queries) ListGradingScales(ctx context.Context, tenantID pgtype.UUID) (
 	return items, nil
 }
 
+const listQuestionBank = `-- name: ListQuestionBank :many
+SELECT id, tenant_id, subject_id, topic, difficulty, question_type, question_text, options, correct_answer, marks, created_at, updated_at FROM exam_question_bank
+WHERE tenant_id = $1 
+AND ($2::BOOLEAN = false OR subject_id = $3::UUID)
+AND ($4::BOOLEAN = false OR topic = $5::TEXT)
+ORDER BY created_at DESC
+`
+
+type ListQuestionBankParams struct {
+	TenantID pgtype.UUID `json:"tenant_id"`
+	Column2  bool        `json:"column_2"`
+	Column3  pgtype.UUID `json:"column_3"`
+	Column4  bool        `json:"column_4"`
+	Column5  string      `json:"column_5"`
+}
+
+func (q *Queries) ListQuestionBank(ctx context.Context, arg ListQuestionBankParams) ([]ExamQuestionBank, error) {
+	rows, err := q.db.Query(ctx, listQuestionBank,
+		arg.TenantID,
+		arg.Column2,
+		arg.Column3,
+		arg.Column4,
+		arg.Column5,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ExamQuestionBank
+	for rows.Next() {
+		var i ExamQuestionBank
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.SubjectID,
+			&i.Topic,
+			&i.Difficulty,
+			&i.QuestionType,
+			&i.QuestionText,
+			&i.Options,
+			&i.CorrectAnswer,
+			&i.Marks,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listQuestionPapers = `-- name: ListQuestionPapers :many
+SELECT qp.id, qp.tenant_id, qp.exam_id, qp.subject_id, qp.set_name, qp.file_path, qp.is_encrypted, qp.unlock_at, qp.is_previous_year, qp.academic_year_id, qp.created_at, qp.updated_at, s.name as subject_name, e.name as exam_name
+FROM exam_question_papers qp
+LEFT JOIN subjects s ON s.id = qp.subject_id
+LEFT JOIN exams e ON e.id = qp.exam_id
+WHERE qp.tenant_id = $1 
+  AND ($2::BOOLEAN = false OR qp.exam_id = $3::UUID)
+ORDER BY qp.created_at DESC
+`
+
+type ListQuestionPapersParams struct {
+	TenantID   pgtype.UUID `json:"tenant_id"`
+	FilterExam bool        `json:"filter_exam"`
+	ExamID     pgtype.UUID `json:"exam_id"`
+}
+
+type ListQuestionPapersRow struct {
+	ID             pgtype.UUID        `json:"id"`
+	TenantID       pgtype.UUID        `json:"tenant_id"`
+	ExamID         pgtype.UUID        `json:"exam_id"`
+	SubjectID      pgtype.UUID        `json:"subject_id"`
+	SetName        string             `json:"set_name"`
+	FilePath       string             `json:"file_path"`
+	IsEncrypted    pgtype.Bool        `json:"is_encrypted"`
+	UnlockAt       pgtype.Timestamptz `json:"unlock_at"`
+	IsPreviousYear pgtype.Bool        `json:"is_previous_year"`
+	AcademicYearID pgtype.UUID        `json:"academic_year_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	SubjectName    pgtype.Text        `json:"subject_name"`
+	ExamName       pgtype.Text        `json:"exam_name"`
+}
+
+func (q *Queries) ListQuestionPapers(ctx context.Context, arg ListQuestionPapersParams) ([]ListQuestionPapersRow, error) {
+	rows, err := q.db.Query(ctx, listQuestionPapers, arg.TenantID, arg.FilterExam, arg.ExamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListQuestionPapersRow
+	for rows.Next() {
+		var i ListQuestionPapersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.ExamID,
+			&i.SubjectID,
+			&i.SetName,
+			&i.FilePath,
+			&i.IsEncrypted,
+			&i.UnlockAt,
+			&i.IsPreviousYear,
+			&i.AcademicYearID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.SubjectName,
+			&i.ExamName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWeightageConfigs = `-- name: ListWeightageConfigs :many
 SELECT id, tenant_id, academic_year_id, exam_type, weight_percentage, created_at FROM exam_weightage_config WHERE tenant_id = $1 AND academic_year_id = $2
 `
@@ -396,6 +781,28 @@ func (q *Queries) ListWeightageConfigs(ctx context.Context, arg ListWeightageCon
 		return nil, err
 	}
 	return items, nil
+}
+
+const logPaperAccess = `-- name: LogPaperAccess :exec
+INSERT INTO paper_access_logs (paper_id, user_id, ip_address, user_agent)
+VALUES ($1, $2, $3, $4)
+`
+
+type LogPaperAccessParams struct {
+	PaperID   pgtype.UUID `json:"paper_id"`
+	UserID    pgtype.UUID `json:"user_id"`
+	IpAddress pgtype.Text `json:"ip_address"`
+	UserAgent pgtype.Text `json:"user_agent"`
+}
+
+func (q *Queries) LogPaperAccess(ctx context.Context, arg LogPaperAccessParams) error {
+	_, err := q.db.Exec(ctx, logPaperAccess,
+		arg.PaperID,
+		arg.UserID,
+		arg.IpAddress,
+		arg.UserAgent,
+	)
+	return err
 }
 
 const publishExam = `-- name: PublishExam :one

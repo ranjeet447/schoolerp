@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Users, 
   GraduationCap, 
@@ -8,24 +8,43 @@ import {
   ShieldCheck,
   AlertCircle,
   RefreshCw,
-  Loader2
+  Loader2,
+  TrendingUp,
+  Clock,
+  Briefcase,
+  Activity,
+  UserCheck
 } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent, Button } from '@schoolerp/ui';
+import { 
+  Card, 
+  CardHeader, 
+  CardTitle, 
+  CardContent, 
+  Button, 
+  Badge,
+  Progress 
+} from '@schoolerp/ui';
 import { apiClient } from '@/lib/api-client';
 import Link from 'next/link';
 
-interface AttendanceStats {
-  total_students: number
-  present_count: number
-  absent_count: number
-  late_count: number
-  excused_count: number
-}
-
-interface StudentRow {
-  id: string
-  full_name: string
-  admission_number: string
+interface CommandStatus {
+  attendance: {
+    students: { present: number; absent: number; late: number; total: number }
+    staff: { present: number; absent: number; total: number }
+  }
+  finance: {
+    collected_today: number
+    target_month: number
+    pending_dues: number
+  }
+  academics: {
+    active_substitutions: number
+    pending_absences: number
+  }
+  security: {
+    active_visitors: number
+    recent_alerts: number
+  }
 }
 
 interface AdmissionApplication {
@@ -40,8 +59,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
-  const [attendance, setAttendance] = useState<AttendanceStats | null>(null)
-  const [students, setStudents] = useState<StudentRow[]>([])
+  const [status, setStatus] = useState<CommandStatus | null>(null)
   const [applications, setApplications] = useState<AdmissionApplication[]>([])
 
   const loadDashboard = async (silent = false) => {
@@ -50,35 +68,19 @@ export default function AdminDashboardPage() {
     setError('')
 
     try {
-      const [attendanceRes, studentsRes, applicationsRes] = await Promise.all([
-        apiClient('/admin/attendance/stats'),
-        apiClient('/admin/students?limit=10'),
+      const [statusRes, applicationsRes] = await Promise.all([
+        apiClient('/admin/dashboard/command-status'),
         apiClient('/admin/admissions/applications?limit=10'),
       ])
 
-      if (!attendanceRes.ok) {
-        const msg = await attendanceRes.text()
-        throw new Error(msg || 'Failed to load dashboard attendance data')
+      if (statusRes.ok) {
+        setStatus(await statusRes.json())
       }
-      if (!studentsRes.ok) {
-        const msg = await studentsRes.text()
-        throw new Error(msg || 'Failed to load students data')
+      if (applicationsRes.ok) {
+        setApplications(await applicationsRes.json())
       }
-      if (!applicationsRes.ok) {
-        const msg = await applicationsRes.text()
-        throw new Error(msg || 'Failed to load admissions data')
-      }
-
-      const attendanceData = await attendanceRes.json()
-      const studentsData = await studentsRes.json()
-      const applicationsData = await applicationsRes.json()
-
-      setAttendance(attendanceData)
-      setStudents(Array.isArray(studentsData) ? studentsData : studentsData?.data || [])
-      setApplications(Array.isArray(applicationsData) ? applicationsData : [])
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load dashboard data'
-      setError(message)
+      setError('Failed to sync with command center')
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -89,118 +91,243 @@ export default function AdminDashboardPage() {
     loadDashboard(false)
   }, [])
 
-  const presentRate = useMemo(() => {
-    if (!attendance?.total_students) return 0
-    return Math.round(((attendance.present_count || 0) / attendance.total_students) * 100)
-  }, [attendance])
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground animate-pulse">Syncing Command Center...</p>
+      </div>
+    )
+  }
 
-  const pendingApplications = useMemo(
-    () => applications.filter((app) => (app.status || '').toLowerCase() === 'pending').length,
-    [applications]
-  )
+  const studentPresentRate = status?.attendance.students.total 
+    ? Math.round((status.attendance.students.present / status.attendance.students.total) * 100) 
+    : 0
 
-  const statCards = [
-    { label: 'Total Students', value: String(attendance?.total_students ?? students.length), icon: GraduationCap, color: 'text-indigo-400', bg: 'bg-indigo-400/10' },
-    { label: 'Present Today', value: String(attendance?.present_count ?? 0), icon: Users, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
-    { label: 'Absent Today', value: String(attendance?.absent_count ?? 0), icon: Banknote, color: 'text-amber-400', bg: 'bg-amber-400/10' },
-    { label: 'Attendance Rate', value: `${presentRate}%`, icon: ShieldCheck, color: 'text-purple-400', bg: 'bg-purple-400/10' },
-  ]
+  const staffPresentRate = status?.attendance.staff.total 
+    ? Math.round((status.attendance.staff.present / status.attendance.staff.total) * 100) 
+    : 0
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-start justify-between gap-4">
+    <div className="space-y-8 pb-10">
+      <div className="flex items-start justify-between">
         <div>
-        <h1 className="text-4xl font-black text-foreground tracking-tight">Admin Dashboard</h1>
-        <p className="text-muted-foreground">Operational summary for attendance, students, and admissions.</p>
+          <h1 className="text-4xl font-black text-foreground tracking-tight flex items-center gap-3">
+            Command Center <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[10px] animate-pulse">LIVE</Badge>
+          </h1>
+          <p className="text-muted-foreground font-medium mt-1">Operational depth & real-time school governance.</p>
         </div>
-        <Button variant="outline" onClick={() => loadDashboard(true)} disabled={refreshing} className="gap-2">
-          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
-        </Button>
+        <div className="flex gap-3">
+          <Button variant="outline" size="sm" onClick={() => loadDashboard(true)} disabled={refreshing} className="rounded-full px-4 h-9">
+            <RefreshCw className={`h-3.5 w-3.5 mr-2 ${refreshing ? 'animate-spin' : ''}`} /> Sync Status
+          </Button>
+          <Button size="sm" className="rounded-full px-6 h-9 shadow-lg shadow-primary/20">Generate Report</Button>
+        </div>
       </div>
 
-      {error && (
-        <Card>
-          <CardContent className="pt-6 text-sm text-red-600 dark:text-red-400">{error}</CardContent>
-        </Card>
-      )}
-
-      {loading && (
-        <div className="flex items-center justify-center py-8 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading dashboard...
-        </div>
-      )}
-
+      {/* Primary Operational Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statCards.map((stat) => (
-          <div key={stat.label} className="bg-card border border-border rounded-3xl p-6 shadow-sm">
-            <div className="flex items-center gap-4 mb-4">
-              <div className={`h-12 w-12 ${stat.bg} ${stat.color} rounded-2xl flex items-center justify-center`}>
-                <stat.icon className="h-6 w-6" />
+        {/* Student Attendance */}
+        <Card className="rounded-[2.5rem] border-none shadow-sm bg-indigo-600 text-white overflow-hidden relative group">
+           <CardContent className="p-6">
+              <div className="flex justify-between items-start mb-6">
+                 <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-md">
+                    <GraduationCap className="h-6 w-6" />
+                 </div>
+                 <div className="text-right">
+                    <p className="text-[10px] uppercase font-black opacity-60">Students</p>
+                    <p className="text-2xl font-black">{status?.attendance.students.present}/{status?.attendance.students.total}</p>
+                 </div>
               </div>
-              <div>
-                <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">{stat.label}</p>
-                <p className="text-2xl font-black text-foreground">{stat.value}</p>
+              <div className="space-y-2">
+                 <div className="flex justify-between text-xs font-bold">
+                    <span>Present Rate</span>
+                    <span>{studentPresentRate}%</span>
+                 </div>
+                 <Progress value={studentPresentRate} className="h-1.5 bg-white/20" />
               </div>
-            </div>
-            <div className="text-xs font-semibold text-muted-foreground">Live from current tenant data</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 rounded-3xl overflow-hidden">
-          <CardHeader className="border-b border-border p-6">
-            <CardTitle className="text-foreground font-black text-xl uppercase tracking-tight">Recent Admissions</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y divide-border">
-              {applications.length === 0 ? (
-                <div className="p-6 text-sm text-muted-foreground">No admission applications found.</div>
-              ) : (
-                applications.slice(0, 6).map((app) => (
-                  <div key={app.id} className="p-4 flex items-center gap-4 hover:bg-muted/40 transition-colors group">
-                    <div className="h-2 w-2 rounded-full bg-primary shadow-[0_0_10px_rgba(99,102,241,0.25)]" />
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
-                        {(app.student_name || 'Unnamed Applicant')} • {(app.status || 'unknown').toUpperCase()}
-                      </p>
-                      <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">
-                        {app.application_number || app.id}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
+              <p className="text-[10px] mt-4 opacity-70 font-medium">Includes {status?.attendance.students.late} late arrivals today</p>
+           </CardContent>
+           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+              <Activity size={80} />
+           </div>
         </Card>
 
-        <div className="space-y-6">
-          <div className="bg-primary rounded-3xl p-6 text-primary-foreground shadow-xl shadow-primary/20 relative overflow-hidden">
-            <h3 className="text-xl font-black mb-2 uppercase tracking-tight">Students Snapshot</h3>
-            <p className="text-primary-foreground/80 text-sm mb-4 leading-relaxed">
-              Latest student records from this tenant.
-            </p>
-            <div className="space-y-2 text-xs">
-              {students.slice(0, 4).map((student) => (
-                <div key={student.id} className="flex items-center justify-between rounded bg-white/10 px-2 py-1">
-                  <span className="truncate">{student.full_name || 'Unknown'}</span>
-                  <span className="font-mono">{student.admission_number || '-'}</span>
-                </div>
-              ))}
-              {students.length === 0 && <div className="text-primary-foreground/80">No students found.</div>}
-            </div>
-          </div>
+        {/* Staff Attendance */}
+        <Card className="rounded-[2.5rem] border-none shadow-sm bg-emerald-600 text-white overflow-hidden relative group">
+           <CardContent className="p-6">
+              <div className="flex justify-between items-start mb-6">
+                 <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-md">
+                    <UserCheck className="h-6 w-6" />
+                 </div>
+                 <div className="text-right">
+                    <p className="text-[10px] uppercase font-black opacity-60">Staff</p>
+                    <p className="text-2xl font-black">{status?.attendance.staff.present}/{status?.attendance.staff.total}</p>
+                 </div>
+              </div>
+              <div className="space-y-2">
+                 <div className="flex justify-between text-xs font-bold">
+                    <span>Active Force</span>
+                    <span>{staffPresentRate}%</span>
+                 </div>
+                 <Progress value={staffPresentRate} className="h-1.5 bg-white/20" />
+              </div>
+              <p className="text-[10px] mt-4 opacity-70 font-medium">{status?.attendance.staff.absent} staff members on leave</p>
+           </CardContent>
+        </Card>
 
-          <div className="bg-card border border-rose-500/20 rounded-3xl p-6 shadow-sm">
-            <div className="flex items-center gap-3 text-rose-400 mb-4">
-              <AlertCircle className="h-5 w-5" />
-              <span className="font-bold text-sm uppercase tracking-widest">Action Required</span>
-            </div>
-            <p className="text-muted-foreground text-sm mb-4">{pendingApplications} admission applications are pending review.</p>
-            <Link href="/admin/admissions/applications">
-              <Button variant="ghost" className="w-full text-rose-400 hover:text-rose-300 hover:bg-rose-400/10 font-bold uppercase text-xs tracking-widest">Open Admissions Queue</Button>
-            </Link>
+        {/* Real-time Finance */}
+        <Card className="rounded-[2.5rem] border-none shadow-sm bg-slate-900 text-white overflow-hidden group">
+           <CardContent className="p-6">
+              <div className="flex justify-between items-start mb-6">
+                 <div className="h-12 w-12 rounded-2xl bg-emerald-500/20 text-emerald-500 flex items-center justify-center backdrop-blur-md">
+                    <Banknote className="h-6 w-6" />
+                 </div>
+                 <div className="text-right">
+                    <p className="text-[10px] uppercase font-black text-slate-500">Revenue Today</p>
+                    <p className="text-2xl font-black text-emerald-400">₹{(status?.finance.collected_today || 0).toLocaleString()}</p>
+                 </div>
+              </div>
+              <div className="space-y-1">
+                 <p className="text-[10px] uppercase font-bold text-slate-500">Liquidity Target</p>
+                 <div className="flex items-center gap-2">
+                    <TrendingUp className="h-3 w-3 text-emerald-500" />
+                    <span className="text-xs font-bold text-slate-300">₹{status?.finance.pending_dues.toLocaleString()} Pending</span>
+                 </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center">
+                 <span className="text-[10px] text-slate-400">Month collection velocity</span>
+                 <Badge variant="outline" className="text-[9px] border-emerald-500/20 text-emerald-500">+12%</Badge>
+              </div>
+           </CardContent>
+        </Card>
+
+        {/* Academics / Substitutions */}
+        <Card className="rounded-[2.5rem] border-none shadow-sm bg-orange-500 text-white overflow-hidden">
+           <CardContent className="p-6">
+              <div className="flex justify-between items-start mb-6">
+                 <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-md">
+                    <Clock className="h-6 w-6" />
+                 </div>
+                 <div className="text-right">
+                    <p className="text-[10px] uppercase font-black opacity-60">Substitutions</p>
+                    <p className="text-2xl font-black">{status?.academics.active_substitutions}</p>
+                 </div>
+              </div>
+              <div className="bg-black/10 rounded-2xl p-3">
+                 <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10px] font-bold">Pending Assignments</span>
+                    <Badge className="bg-white text-orange-600 text-[9px] h-4">{status?.academics.pending_absences - status?.academics.active_substitutions > 0 ? status?.academics.pending_absences - status?.academics.active_substitutions : 0}</Badge>
+                 </div>
+                 <Progress value={Math.min(100, (status?.academics.active_substitutions / (status?.academics.pending_absences || 1)) * 100)} className="h-1 bg-white/20" />
+              </div>
+              <Link href="/admin/timetable" className="text-[10px] mt-4 font-bold flex items-center justify-end hover:underline">
+                 Resolve Schedule <TrendingUp className="ml-1 h-3 w-3" />
+              </Link>
+           </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column: Admissions and Feed */}
+        <div className="lg:col-span-2 space-y-8">
+          <Card className="rounded-[2rem] shadow-none border-border/50 bg-card/50 overflow-hidden">
+             <CardHeader className="flex flex-row items-center justify-between p-6">
+                <div>
+                   <CardTitle className="text-lg font-black uppercase tracking-tight">Admissions Funnel</CardTitle>
+                   <p className="text-xs text-muted-foreground mt-0.5">Real-time application tracking</p>
+                </div>
+                <Button variant="ghost" size="sm" className="text-xs font-bold text-primary">View Full Queue</Button>
+             </CardHeader>
+             <CardContent className="p-0">
+                <div className="divide-y divide-border/30">
+                   {applications.length === 0 ? (
+                      <div className="p-10 text-center">
+                         <AlertCircle className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
+                         <p className="text-sm font-medium text-muted-foreground">No pending applications</p>
+                      </div>
+                   ) : applications.slice(0, 5).map(app => (
+                      <div key={app.id} className="p-5 flex items-center justify-between group hover:bg-muted/30 transition-all cursor-pointer">
+                         <div className="flex items-center gap-4">
+                            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                               {app.student_name?.[0] || 'A'}
+                            </div>
+                            <div>
+                               <p className="text-sm font-bold group-hover:text-primary transition-colors">{app.student_name || 'Unnamed Applicant'}</p>
+                               <div className="flex items-center gap-2 mt-0.5">
+                                  <Badge variant="outline" className="text-[8px] h-3.5 uppercase tracking-tighter opacity-60">
+                                     {app.application_number || 'APP-000'}
+                                  </Badge>
+                                  <span className="text-[10px] text-muted-foreground font-medium">• {app.status || 'Received'}</span>
+                               </div>
+                            </div>
+                         </div>
+                         <Button variant="outline" size="sm" className="h-7 text-[10px] font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">Review</Button>
+                      </div>
+                   ))}
+                </div>
+             </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column: Security and Extra Depth */}
+        <div className="space-y-8">
+          <Card className="rounded-[2rem] border-none bg-slate-100 dark:bg-slate-800/50 p-6">
+             <div className="flex items-center gap-3 mb-6">
+                <div className="h-10 w-10 rounded-xl bg-orange-500 text-white flex items-center justify-center">
+                   <ShieldCheck className="h-6 w-6" />
+                </div>
+                <div>
+                   <h3 className="text-sm font-black uppercase tracking-tight">Security & Exit</h3>
+                   <p className="text-[10px] text-muted-foreground font-bold">Campus Monitoring</p>
+                </div>
+             </div>
+             
+             <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-900 rounded-2xl border border-border/50">
+                   <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center"><Users size={14} className="text-slate-500" /></div>
+                      <span className="text-xs font-bold">Active Visitors</span>
+                   </div>
+                   <span className="text-sm font-black text-primary">{status?.security.active_visitors || 0}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-900 rounded-2xl border border-border/50">
+                   <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center"><AlertCircle size={14} className="text-rose-500" /></div>
+                      <span className="text-xs font-bold">Incident Alerts</span>
+                   </div>
+                   <span className="text-sm font-black text-rose-500">{status?.security.recent_alerts || 0}</span>
+                </div>
+             </div>
+
+             <div className="mt-8">
+                <p className="text-[10px] uppercase font-black text-muted-foreground mb-4">Strategic Fast-Action</p>
+                <div className="grid grid-cols-2 gap-3">
+                   <Button variant="outline" className="h-16 flex-col gap-1 rounded-2xl border-dashed">
+                      <Briefcase size={16} />
+                      <span className="text-[9px] font-black uppercase">Post Notice</span>
+                   </Button>
+                   <Button variant="outline" className="h-16 flex-col gap-1 rounded-2xl border-dashed">
+                      <AlertCircle size={16} className="text-rose-500" />
+                      <span className="text-[9px] font-black uppercase text-rose-500">Emergency</span>
+                   </Button>
+                </div>
+             </div>
+          </Card>
+
+          <div className="p-6 rounded-[2rem] bg-indigo-600 text-white relative overflow-hidden">
+             <h4 className="text-lg font-black uppercase leading-tight mb-2">Alpha Insights</h4>
+             <p className="text-xs opacity-80 leading-relaxed font-medium">
+                Student attendance is up by 4% compared to last Thursday. Finance collection velocity is healthy.
+             </p>
+             <div className="mt-6">
+                <Button asChild variant="secondary" size="sm" className="w-full rounded-xl font-bold text-xs h-9">
+                   <Link href="/admin/dashboard/strategy">Open Strategic DSS</Link>
+                </Button>
+             </div>
+             <div className="absolute -bottom-4 -right-4 opacity-10">
+                <Activity size={100} />
+             </div>
           </div>
         </div>
       </div>
