@@ -7,9 +7,14 @@
 - **I18n**: `next-intl`.
 
 ## App Layouts
-- `/admin/*`: Dark mode default, complex data tables, audit logs.
-- `/teacher/*`: Action-oriented, bulk attendance, marks entry.
-- `/parent/*`: Lean, read-heavy, fee payments, mobile-first.
+The web app serves 4 distinct role-based shells:
+
+| Layout | Path | Description |
+|---|---|---|
+| **Admin** | `/admin/*` | Dark mode default, complex data tables, audit logs, 27+ page directories |
+| **Teacher** | `/teacher/*` | Action-oriented: attendance marking, homework creation, marks entry |
+| **Parent** | `/parent/*` | Read-heavy, mobile-first: fees, notices, results, child profiles |
+| **Platform** | `/platform/*` | Super Admin control plane: tenants, plans, billing, monitoring |
 
 ## Data Fetching
 - **Server Components**: Prefer for initial page load and SEO.
@@ -27,3 +32,8 @@
 ## PWA & Mobile
 - Service worker for offline asset caching.
 - Capacitor wrapper for native push.
+- ErrorState component for offline detection.
+
+## Related Docs
+- [UI Screen Checklist](./UI_SCREEN_CHECKLIST.md) — Pages & Storybook coverage
+- [Storybook & Component System](./12-storybook-component-system.md)
