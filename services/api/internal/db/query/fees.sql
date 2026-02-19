@@ -237,6 +237,18 @@ SELECT * FROM optional_fee_items
 WHERE tenant_id = @tenant_id
 ORDER BY category, name;
 
+-- name: UpsertOptionalFeeItem :one
+INSERT INTO optional_fee_items (
+    tenant_id, name, amount, category
+) VALUES (
+    @tenant_id, @name, @amount, @category
+)
+ON CONFLICT (tenant_id, name) DO UPDATE
+SET amount = EXCLUDED.amount,
+    category = EXCLUDED.category
+RETURNING *;
+
+
 -- name: UpsertStudentOptionalFee :one
 INSERT INTO student_optional_fees (
     tenant_id, student_id, item_id, academic_year_id, status

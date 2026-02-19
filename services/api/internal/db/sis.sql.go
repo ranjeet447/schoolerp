@@ -101,7 +101,7 @@ INSERT INTO guardians (
     tenant_id, full_name, phone, email, address
 ) VALUES (
     $1, $2, $3, $4, $5
-) RETURNING id, tenant_id, full_name, phone, email, address, created_at, user_id
+) RETURNING id, tenant_id, full_name, phone, email, address, created_at, user_id, preferred_language
 `
 
 type CreateGuardianParams struct {
@@ -130,6 +130,7 @@ func (q *Queries) CreateGuardian(ctx context.Context, arg CreateGuardianParams) 
 		&i.Address,
 		&i.CreatedAt,
 		&i.UserID,
+		&i.PreferredLanguage,
 	)
 	return i, err
 }
@@ -309,6 +310,27 @@ func (q *Queries) DeleteStudent(ctx context.Context, arg DeleteStudentParams) er
 	return err
 }
 
+const getActiveAcademicYear = `-- name: GetActiveAcademicYear :one
+SELECT id, tenant_id, name, start_date, end_date, is_active, created_at FROM academic_years
+WHERE tenant_id = $1 AND is_active = TRUE
+LIMIT 1
+`
+
+func (q *Queries) GetActiveAcademicYear(ctx context.Context, tenantID pgtype.UUID) (AcademicYear, error) {
+	row := q.db.QueryRow(ctx, getActiveAcademicYear, tenantID)
+	var i AcademicYear
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Name,
+		&i.StartDate,
+		&i.EndDate,
+		&i.IsActive,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getChildrenByParentUser = `-- name: GetChildrenByParentUser :many
 SELECT s.id, s.tenant_id, s.branch_id, s.admission_number, s.roll_number, s.full_name, s.date_of_birth, s.gender, s.address, s.section_id, s.status, s.created_at, s.updated_at, s.house_id, s.rfid_tag, s.biometric_id, sec.name as section_name, c.name as class_name
 FROM students s
@@ -384,6 +406,53 @@ func (q *Queries) GetChildrenByParentUser(ctx context.Context, arg GetChildrenBy
 	return items, nil
 }
 
+const getHolidaysBetween = `-- name: GetHolidaysBetween :many
+SELECT id, tenant_id, title, description, event_type, start_time, end_time, is_all_day, location, target_audience, is_active, created_at, updated_at FROM school_events
+WHERE tenant_id = $1 AND event_type = 'holiday'
+AND start_time < $3 AND end_time > $2
+ORDER BY start_time
+`
+
+type GetHolidaysBetweenParams struct {
+	TenantID  pgtype.UUID        `json:"tenant_id"`
+	EndTime   pgtype.Timestamptz `json:"end_time"`
+	StartTime pgtype.Timestamptz `json:"start_time"`
+}
+
+func (q *Queries) GetHolidaysBetween(ctx context.Context, arg GetHolidaysBetweenParams) ([]SchoolEvent, error) {
+	rows, err := q.db.Query(ctx, getHolidaysBetween, arg.TenantID, arg.EndTime, arg.StartTime)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SchoolEvent
+	for rows.Next() {
+		var i SchoolEvent
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Title,
+			&i.Description,
+			&i.EventType,
+			&i.StartTime,
+			&i.EndTime,
+			&i.IsAllDay,
+			&i.Location,
+			&i.TargetAudience,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getStudent = `-- name: GetStudent :one
 SELECT s.id, s.tenant_id, s.branch_id, s.admission_number, s.roll_number, s.full_name, s.date_of_birth, s.gender, s.address, s.section_id, s.status, s.created_at, s.updated_at, s.house_id, s.rfid_tag, s.biometric_id, sec.name as section_name, c.name as class_name
 FROM students s
@@ -445,23 +514,24 @@ func (q *Queries) GetStudent(ctx context.Context, arg GetStudentParams) (GetStud
 }
 
 const getStudentGuardians = `-- name: GetStudentGuardians :many
-SELECT g.id, g.tenant_id, g.full_name, g.phone, g.email, g.address, g.created_at, g.user_id, sg.relationship, sg.is_primary
+SELECT g.id, g.tenant_id, g.full_name, g.phone, g.email, g.address, g.created_at, g.user_id, g.preferred_language, sg.relationship, sg.is_primary
 FROM guardians g
 JOIN student_guardians sg ON g.id = sg.guardian_id
 WHERE sg.student_id = $1
 `
 
 type GetStudentGuardiansRow struct {
-	ID           pgtype.UUID        `json:"id"`
-	TenantID     pgtype.UUID        `json:"tenant_id"`
-	FullName     string             `json:"full_name"`
-	Phone        string             `json:"phone"`
-	Email        pgtype.Text        `json:"email"`
-	Address      pgtype.Text        `json:"address"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UserID       pgtype.UUID        `json:"user_id"`
-	Relationship string             `json:"relationship"`
-	IsPrimary    pgtype.Bool        `json:"is_primary"`
+	ID                pgtype.UUID        `json:"id"`
+	TenantID          pgtype.UUID        `json:"tenant_id"`
+	FullName          string             `json:"full_name"`
+	Phone             string             `json:"phone"`
+	Email             pgtype.Text        `json:"email"`
+	Address           pgtype.Text        `json:"address"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	PreferredLanguage pgtype.Text        `json:"preferred_language"`
+	Relationship      string             `json:"relationship"`
+	IsPrimary         pgtype.Bool        `json:"is_primary"`
 }
 
 func (q *Queries) GetStudentGuardians(ctx context.Context, studentID pgtype.UUID) ([]GetStudentGuardiansRow, error) {
@@ -482,6 +552,7 @@ func (q *Queries) GetStudentGuardians(ctx context.Context, studentID pgtype.UUID
 			&i.Address,
 			&i.CreatedAt,
 			&i.UserID,
+			&i.PreferredLanguage,
 			&i.Relationship,
 			&i.IsPrimary,
 		); err != nil {
@@ -654,7 +725,7 @@ func (q *Queries) ListSectionsByTenant(ctx context.Context, tenantID pgtype.UUID
 }
 
 const listStudents = `-- name: ListStudents :many
-SELECT s.id, s.full_name, s.admission_number, s.status, s.section_id, sec.name as section_name, c.name as class_name
+SELECT s.id, s.full_name, s.admission_number, s.status, s.section_id, c.id as class_id, sec.name as section_name, c.name as class_name
 FROM students s
 LEFT JOIN sections sec ON s.section_id = sec.id
 LEFT JOIN classes c ON sec.class_id = c.id
@@ -674,6 +745,7 @@ type ListStudentsRow struct {
 	AdmissionNumber string      `json:"admission_number"`
 	Status          pgtype.Text `json:"status"`
 	SectionID       pgtype.UUID `json:"section_id"`
+	ClassID         pgtype.UUID `json:"class_id"`
 	SectionName     pgtype.Text `json:"section_name"`
 	ClassName       pgtype.Text `json:"class_name"`
 }
@@ -693,6 +765,7 @@ func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]L
 			&i.AdmissionNumber,
 			&i.Status,
 			&i.SectionID,
+			&i.ClassID,
 			&i.SectionName,
 			&i.ClassName,
 		); err != nil {

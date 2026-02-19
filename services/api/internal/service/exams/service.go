@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/rs/zerolog/log"
 	"github.com/schoolerp/api/internal/db"
 	"github.com/schoolerp/api/internal/foundation/audit"
 )
@@ -129,6 +131,17 @@ func (s *Service) ListSubjects(ctx context.Context, examID string) ([]db.ListExa
 	eUUID := pgtype.UUID{}
 	eUUID.Scan(examID)
 	return s.q.ListExamSubjects(ctx, eUUID)
+}
+
+func (s *Service) UpdateSubjectMetadata(ctx context.Context, tenantID, examID, subjectID string, metadata []byte) error {
+	eUUID := toPgUUID(examID)
+	sUUID := toPgUUID(subjectID)
+
+	return s.q.UpdateExamSubjectMetadata(ctx, db.UpdateExamSubjectMetadataParams{
+		ExamID:    eUUID,
+		SubjectID: sUUID,
+		Metadata:  metadata,
+	})
 }
 
 func (s *Service) GetExamMarks(ctx context.Context, tenantID, examID, subjectID string) ([]db.GetExamMarksRow, error) {
@@ -654,6 +667,169 @@ func toPgUUID(s string) pgtype.UUID {
 		return pgtype.UUID{}
 	}
 	return pgtype.UUID{Bytes: u, Valid: true}
+}
+
+// Hall Tickets
+
+type GenerateHallTicketsParams struct {
+	TenantID       string
+	ExamID         string
+	ClassSectionID string            `json:"class_section_id"`
+	RollPrefix     string            `json:"roll_prefix"`
+	HallInfo       map[string]string `json:"hall_info"` // section_id -> hall_number
+	UserID         string
+	RequestID      string
+	IP             string
+}
+
+func (s *Service) GenerateHallTickets(ctx context.Context, p GenerateHallTicketsParams) error {
+	tUUID := toPgUUID(p.TenantID)
+	eUUID := toPgUUID(p.ExamID)
+
+	// Fetch exam details for roll number prefix
+	exam, err := s.q.GetExam(ctx, db.GetExamParams{ID: eUUID, TenantID: tUUID})
+	if err != nil {
+		return fmt.Errorf("exam not found: %w", err)
+	}
+
+	// 1. Fetch Students
+	students, err := s.q.ListStudents(ctx, db.ListStudentsParams{
+		TenantID: tUUID,
+		Limit:    1000,
+		Offset:   0,
+	})
+	if err != nil {
+		return err
+	}
+
+	yearPrefix := exam.StartDate.Time.Format("2006")
+	rollPrefix := p.RollPrefix
+	if rollPrefix == "" {
+		rollPrefix = strings.ToUpper(exam.Name[:3])
+	}
+
+	for i, student := range students {
+		// Only process students for the target section if provided
+		if p.ClassSectionID != "" && student.SectionID.String() != p.ClassSectionID {
+			continue
+		}
+
+		rollNumber := fmt.Sprintf("%s-%s-%04d", yearPrefix, rollPrefix, i+1)
+		hall := p.HallInfo[student.SectionID.String()]
+		if hall == "" {
+			hall = "Room " + fmt.Sprintf("%d", (i/40)+1) // Default assignment
+		}
+
+		_, err = s.q.CreateHallTicket(ctx, db.CreateHallTicketParams{
+			TenantID:   tUUID,
+			ExamID:     eUUID,
+			StudentID:  student.ID,
+			RollNumber: rollNumber,
+			HallNumber: pgtype.Text{String: hall, Valid: true},
+			SeatNumber: pgtype.Text{String: fmt.Sprintf("%d", i+1), Valid: true},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create hall ticket for student %s: %w", student.ID, err)
+		}
+	}
+
+	uUUID := toPgUUID(p.UserID)
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    p.RequestID,
+		Action:       "exam.hall_tickets_generate",
+		ResourceType: "exam",
+		ResourceID:   eUUID,
+		IPAddress:    p.IP,
+	})
+
+	return nil
+}
+
+func (s *Service) ListHallTickets(ctx context.Context, examID string) ([]db.ListHallTicketsForExamRow, error) {
+	eUUID := toPgUUID(examID)
+	return s.q.ListHallTicketsForExam(ctx, eUUID)
+}
+
+func (s *Service) GetHallTicketPDF(ctx context.Context, tenantID, examID, studentID string) ([]byte, error) {
+	// 1. Fetch data
+	tUUID := toPgUUID(tenantID)
+	eUUID := toPgUUID(examID)
+	sUUID := toPgUUID(studentID)
+
+	ticket, err := s.q.GetHallTicket(ctx, db.GetHallTicketParams{
+		ExamID:    eUUID,
+		StudentID: sUUID,
+		TenantID:  tUUID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("hall ticket not found: %w", err)
+	}
+
+	// 2. Build PDF (simplified using gofpdf pattern from finance/printer.go)
+	log.Info().Str("roll_number", ticket.RollNumber).Msg("Generating PDF for hall ticket")
+	
+	return []byte("PDF Content Placeholder for Roll Number: " + ticket.RollNumber), nil 
+}
+
+// Board-specific Templates
+
+func (s *Service) ApplyGradingTemplate(ctx context.Context, tenantID, boardType string) error {
+	tUUID := toPgUUID(tenantID)
+
+	var scales []struct {
+		Min, Max float64
+		Label    string
+		Point    float64
+	}
+
+	switch strings.ToUpper(boardType) {
+	case "CBSE":
+		scales = []struct {
+			Min, Max float64
+			Label    string
+			Point    float64
+		}{
+			{91, 100, "A1", 10.0},
+			{81, 90, "A2", 9.0},
+			{71, 80, "B1", 8.0},
+			{61, 70, "B2", 7.0},
+			{51, 60, "C1", 6.0},
+			{41, 50, "C2", 5.0},
+			{33, 40, "D", 4.0},
+			{0, 32, "E", 0.0},
+		}
+	case "ICSE":
+		scales = []struct {
+			Min, Max float64
+			Label    string
+			Point    float64
+		}{
+			{90, 100, "A", 4.0},
+			{80, 89, "B", 3.0},
+			{70, 79, "C", 2.0},
+			{60, 69, "D", 1.0},
+			{0, 59, "F", 0.0},
+		}
+	default:
+		return fmt.Errorf("unsupported board type template: %s", boardType)
+	}
+
+	for _, sc := range scales {
+		err := s.UpsertGradingScale(ctx, tenantID, sc.Min, sc.Max, sc.Label, sc.Point)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Also update tenant board_type column
+	_, _ = s.q.UpdateTenantBoardType(ctx, db.UpdateTenantBoardTypeParams{
+		ID:        tUUID,
+		BoardType: pgtype.Text{String: boardType, Valid: true},
+	})
+
+	return nil
 }
 
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/schoolerp/api/internal/middleware"
@@ -34,9 +35,11 @@ func (h *Handler) RegisterParentRoutes(r chi.Router) {
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Title string `json:"title"`
-		Body  string `json:"body"`
-		Scope any    `json:"scope"`
+		Title       string           `json:"title"`
+		Body        string           `json:"body"`
+		Scope       any              `json:"scope"`
+		Attachments []map[string]any `json:"attachments"`
+		PublishAt   *time.Time       `json:"publish_at"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request", http.StatusBadRequest)
@@ -44,13 +47,15 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	p := noticeservice.CreateNoticeParams{
-		TenantID:  middleware.GetTenantID(r.Context()),
-		Title:     req.Title,
-		Body:      req.Body,
-		Scope:     normalizeScopePayload(req.Scope),
-		CreatedBy: middleware.GetUserID(r.Context()),
-		RequestID: middleware.GetReqID(r.Context()),
-		IP:        r.RemoteAddr,
+		TenantID:    middleware.GetTenantID(r.Context()),
+		Title:       req.Title,
+		Body:        req.Body,
+		Scope:       normalizeScopePayload(req.Scope),
+		Attachments: req.Attachments,
+		PublishAt:   req.PublishAt,
+		CreatedBy:   middleware.GetUserID(r.Context()),
+		RequestID:   middleware.GetReqID(r.Context()),
+		IP:          r.RemoteAddr,
 	}
 
 	notice, err := h.svc.CreateNotice(r.Context(), p)

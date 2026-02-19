@@ -1,7 +1,13 @@
 import * as React from "react"
 import { cn } from "../lib/utils"
 import { Badge } from "./badge"
-import { Calendar, User, Eye } from "lucide-react"
+import { Calendar, User, Eye, Paperclip, ExternalLink } from "lucide-react"
+
+interface Attachment {
+  id?: string
+  name: string
+  url: string
+}
 
 interface NoticeCardProps {
   title: string
@@ -12,6 +18,7 @@ interface NoticeCardProps {
   onAcknowledge?: () => void
   ackCount?: number
   showAckStatus?: boolean
+  attachments?: Attachment[]
 }
 
 export function NoticeCard({
@@ -23,6 +30,7 @@ export function NoticeCard({
   onAcknowledge,
   ackCount,
   showAckStatus = false,
+  attachments = [],
 }: NoticeCardProps) {
   return (
     <div className={cn(
@@ -51,6 +59,27 @@ export function NoticeCard({
         <div className="text-sm text-gray-600 line-clamp-3 mb-4 flex-grow">
           {body}
         </div>
+
+        {attachments && attachments.length > 0 && (
+          <div className="mt-2 space-y-2 mb-4">
+            <p className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Attachments</p>
+            <div className="flex flex-wrap gap-2">
+              {attachments.map((file, idx) => (
+                <a 
+                  key={file.id || idx} 
+                  href={file.url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 border rounded text-xs text-blue-600 hover:bg-blue-50 transition-colors"
+                >
+                  <Paperclip className="w-3 h-3" />
+                  <span className="truncate max-w-[150px]">{file.name}</span>
+                  <ExternalLink className="w-2.5 h-2.5 opacity-50" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="pt-4 border-t flex justify-between items-center">
           {showAckStatus ? (

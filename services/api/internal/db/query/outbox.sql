@@ -1,12 +1,13 @@
 -- name: CreateOutboxEvent :one
-INSERT INTO outbox (tenant_id, event_type, payload)
-VALUES (@tenant_id, @event_type, @payload)
+INSERT INTO outbox (tenant_id, event_type, payload, process_after)
+VALUES (@tenant_id, @event_type, @payload, @process_after)
 RETURNING *;
 
 -- name: GetPendingOutboxEvents :many
 SELECT * FROM outbox
-WHERE status = 'pending' OR (status = 'failed' AND retry_count < 5)
-ORDER BY created_at ASC
+WHERE (status = 'pending' OR (status = 'failed' AND retry_count < 5))
+  AND process_after <= NOW()
+ORDER BY process_after ASC, created_at ASC
 LIMIT @limit_count;
 
 -- name: UpdateOutboxEventStatus :exec

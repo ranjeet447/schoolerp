@@ -12,9 +12,9 @@ import (
 )
 
 const createTenant = `-- name: CreateTenant :one
-INSERT INTO tenants (id, name, subdomain, domain, config, is_active)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, name, subdomain, domain, logo_url, config, is_active, created_at, updated_at
+INSERT INTO tenants (id, name, subdomain, domain, config, board_type, is_active)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, name, subdomain, domain, logo_url, board_type, config, is_active, created_at, updated_at
 `
 
 type CreateTenantParams struct {
@@ -23,6 +23,7 @@ type CreateTenantParams struct {
 	Subdomain string      `json:"subdomain"`
 	Domain    pgtype.Text `json:"domain"`
 	Config    []byte      `json:"config"`
+	BoardType pgtype.Text `json:"board_type"`
 	IsActive  pgtype.Bool `json:"is_active"`
 }
 
@@ -33,6 +34,7 @@ func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) (Ten
 		arg.Subdomain,
 		arg.Domain,
 		arg.Config,
+		arg.BoardType,
 		arg.IsActive,
 	)
 	var i Tenant
@@ -42,6 +44,7 @@ func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) (Ten
 		&i.Subdomain,
 		&i.Domain,
 		&i.LogoUrl,
+		&i.BoardType,
 		&i.Config,
 		&i.IsActive,
 		&i.CreatedAt,
@@ -51,7 +54,7 @@ func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) (Ten
 }
 
 const getTenantByID = `-- name: GetTenantByID :one
-SELECT id, name, subdomain, domain, logo_url, config, is_active, created_at, updated_at FROM tenants
+SELECT id, name, subdomain, domain, logo_url, board_type, config, is_active, created_at, updated_at FROM tenants
 WHERE id = $1 LIMIT 1
 `
 
@@ -64,6 +67,7 @@ func (q *Queries) GetTenantByID(ctx context.Context, id pgtype.UUID) (Tenant, er
 		&i.Subdomain,
 		&i.Domain,
 		&i.LogoUrl,
+		&i.BoardType,
 		&i.Config,
 		&i.IsActive,
 		&i.CreatedAt,
@@ -73,7 +77,7 @@ func (q *Queries) GetTenantByID(ctx context.Context, id pgtype.UUID) (Tenant, er
 }
 
 const getTenantBySubdomain = `-- name: GetTenantBySubdomain :one
-SELECT id, name, subdomain, domain, logo_url, config, is_active, created_at, updated_at FROM tenants
+SELECT id, name, subdomain, domain, logo_url, board_type, config, is_active, created_at, updated_at FROM tenants
 WHERE subdomain = $1 LIMIT 1
 `
 
@@ -86,6 +90,37 @@ func (q *Queries) GetTenantBySubdomain(ctx context.Context, subdomain string) (T
 		&i.Subdomain,
 		&i.Domain,
 		&i.LogoUrl,
+		&i.BoardType,
+		&i.Config,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateTenantBoardType = `-- name: UpdateTenantBoardType :one
+UPDATE tenants
+SET board_type = $2, updated_at = NOW()
+WHERE id = $1
+RETURNING id, name, subdomain, domain, logo_url, board_type, config, is_active, created_at, updated_at
+`
+
+type UpdateTenantBoardTypeParams struct {
+	ID        pgtype.UUID `json:"id"`
+	BoardType pgtype.Text `json:"board_type"`
+}
+
+func (q *Queries) UpdateTenantBoardType(ctx context.Context, arg UpdateTenantBoardTypeParams) (Tenant, error) {
+	row := q.db.QueryRow(ctx, updateTenantBoardType, arg.ID, arg.BoardType)
+	var i Tenant
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Subdomain,
+		&i.Domain,
+		&i.LogoUrl,
+		&i.BoardType,
 		&i.Config,
 		&i.IsActive,
 		&i.CreatedAt,
@@ -98,7 +133,7 @@ const updateTenantConfig = `-- name: UpdateTenantConfig :one
 UPDATE tenants
 SET config = $2, updated_at = NOW()
 WHERE id = $1
-RETURNING id, name, subdomain, domain, logo_url, config, is_active, created_at, updated_at
+RETURNING id, name, subdomain, domain, logo_url, board_type, config, is_active, created_at, updated_at
 `
 
 type UpdateTenantConfigParams struct {
@@ -115,6 +150,7 @@ func (q *Queries) UpdateTenantConfig(ctx context.Context, arg UpdateTenantConfig
 		&i.Subdomain,
 		&i.Domain,
 		&i.LogoUrl,
+		&i.BoardType,
 		&i.Config,
 		&i.IsActive,
 		&i.CreatedAt,

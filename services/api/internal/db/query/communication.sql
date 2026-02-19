@@ -72,6 +72,19 @@ WHERE cm.room_id = $1
 ORDER BY cm.created_at ASC
 LIMIT $2 OFFSET $3;
 
+-- name: GetPTMSlotsStartingSoon :many
+SELECT 
+    ps.*, 
+    pe.title as event_title,
+    s.full_name as student_name,
+    s.id as student_id,
+    pe.tenant_id
+FROM ptm_slots ps
+JOIN ptm_events pe ON ps.event_id = pe.id
+JOIN students s ON ps.student_id = s.id
+WHERE ps.status = 'booked'
+AND (pe.event_date + ps.start_time) BETWEEN NOW() AND NOW() + INTERVAL '30 minutes';
+
 -- name: GetChatModerationSettings :one
 SELECT * FROM chat_moderation_settings WHERE tenant_id = $1;
 
@@ -96,3 +109,31 @@ FROM chat_rooms cr
 JOIN students s ON cr.student_id = s.id
 JOIN chat_participants cp ON cr.id = cp.room_id
 WHERE cp.user_id = $1 AND cr.tenant_id = $2;
+
+-- name: GetPTMSlotsForReminders :many
+SELECT 
+    ps.id as slot_id,
+    pe.id as event_id,
+    pe.tenant_id,
+    pe.title as event_title,
+    ps.start_time,
+    pe.event_date,
+    s.id as student_id,
+    s.full_name as student_name,
+    g.phone as guardian_phone
+FROM ptm_slots ps
+JOIN ptm_events pe ON ps.event_id = pe.id
+JOIN students s ON ps.student_id = s.id
+JOIN student_guardians sg ON s.id = sg.student_id AND sg.is_primary = true
+JOIN guardians g ON sg.guardian_id = g.id
+WHERE ps.status = 'booked'
+AND (pe.event_date + ps.start_time) BETWEEN @start_window::TIMESTAMPTZ AND @end_window::TIMESTAMPTZ
+AND NOT EXISTS (
+    SELECT 1 FROM ptm_reminder_logs prl
+    WHERE prl.slot_id = ps.id AND prl.reminder_type = @reminder_type
+);
+
+-- name: LogPTMReminder :one
+INSERT INTO ptm_reminder_logs (tenant_id, slot_id, student_id, reminder_type)
+VALUES ($1, $2, $3, $4)
+RETURNING *;

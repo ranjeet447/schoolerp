@@ -47,6 +47,10 @@ func NewClient(provider Provider, apiKey string) *Client {
 	}
 }
 
+func (c *Client) GetProvider() Provider {
+	return c.provider
+}
+
 type Message struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`

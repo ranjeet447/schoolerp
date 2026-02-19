@@ -6,10 +6,13 @@ import {
   Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   Tabs, TabsContent, TabsList, TabsTrigger, Switch
 } from "@schoolerp/ui"
-import { Calendar, Loader2, Plus, ShieldCheck, Lock, Unlock, FileText, History, ListChecks } from "lucide-react"
+import { Calendar, Loader2, Plus, ShieldCheck, Lock, Unlock, FileText, History, ListChecks, Printer, Download } from "lucide-react"
 import { SubjectSelect } from "@/components/ui/subject-select"
+import { SectionSelect } from "@/components/ui/section-select"
+import { ClassSelect } from "@/components/ui/class-select"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
+import { RubricGeneratorDialog } from "@/components/exams/rubric-generator-dialog"
 
 type ExamRow = {
   id: string
@@ -44,6 +47,14 @@ type PaperRow = {
   unlock_at: string
   is_previous_year: boolean
   academic_year_id: string
+}
+
+type HallTicketRow = {
+  student_id: string
+  student_name: string
+  roll_number: string
+  hall_number: string
+  seat_number: string
 }
 
 type YearRow = {
@@ -104,6 +115,14 @@ const normalizePaper = (item: any): PaperRow => ({
   academic_year_id: textValue(item?.academic_year_id),
 })
 
+const normalizeHallTicket = (item: any): HallTicketRow => ({
+  student_id: textValue(item?.student_id),
+  student_name: item?.student_name || "",
+  roll_number: item?.roll_number || "",
+  hall_number: textValue(item?.hall_number),
+  seat_number: textValue(item?.seat_number),
+})
+
 export default function AdminExamsPage() {
   const [exams, setExams] = useState<ExamRow[]>([])
   const [years, setYears] = useState<YearRow[]>([])
@@ -137,6 +156,17 @@ export default function AdminExamsPage() {
   const [pUnlockAt, setPUnlockAt] = useState("")
   const [pIsPrevious, setPIsPrevious] = useState(false)
 
+  // Hall Tickets State
+  const [hallTickets, setHallTickets] = useState<HallTicketRow[]>([])
+  const [targetClassID, setTargetClassID] = useState("")
+  const [targetSectionID, setTargetSectionID] = useState("")
+  const [rollPrefix, setRollPrefix] = useState("")
+  const [generating, setGenerating] = useState(false)
+  const [fetchingTickets, setFetchingTickets] = useState(false)
+
+  // Grading State
+  const [initializingGrading, setInitializingGrading] = useState(false)
+
   useEffect(() => {
     fetchInitialData()
     fetchPapers()
@@ -145,8 +175,10 @@ export default function AdminExamsPage() {
   useEffect(() => {
     if (selectedExamID) {
       fetchExamSubjects(selectedExamID)
+      fetchHallTickets(selectedExamID)
     } else {
       setExamSubjects([])
+      setHallTickets([])
     }
   }, [selectedExamID])
 
@@ -341,6 +373,57 @@ export default function AdminExamsPage() {
     }
   }
 
+  const fetchHallTickets = async (examID: string) => {
+    setFetchingTickets(true)
+    try {
+      const res = await apiClient(`/admin/exams/${examID}/hall-tickets`)
+      if (res.ok) {
+        const data = await res.json()
+        setHallTickets(Array.isArray(data) ? data.map(normalizeHallTicket) : [])
+      }
+    } catch (err) {
+      console.error("Failed to fetch hall tickets", err)
+    } finally {
+      setFetchingTickets(false)
+    }
+  }
+
+  const handleGenerateTickets = async () => {
+    if (!selectedExamID) return
+    setGenerating(true)
+    try {
+      const res = await apiClient(`/admin/exams/${selectedExamID}/hall-tickets`, {
+        method: "POST",
+        body: JSON.stringify({
+          class_section_id: targetSectionID || undefined,
+          roll_prefix: rollPrefix || undefined,
+        })
+      })
+      if (!res.ok) throw new Error("Failed to generate tickets")
+      toast.success("Hall tickets generated successfully")
+      await fetchHallTickets(selectedExamID)
+    } catch (err) {
+      toast.error("Failed to generate tickets")
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const handleDownloadPDF = async (studentID: string) => {
+    try {
+      const res = await apiClient(`/admin/exams/${selectedExamID}/hall-tickets/${studentID}/pdf`)
+      if (!res.ok) throw new Error("Failed to download PDF")
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `hall_ticket_${studentID}.pdf`
+      a.click()
+    } catch (err) {
+      toast.error("Failed to download hall ticket")
+    }
+  }
+
   const handleCalculate = async () => {
     if (!newAYID) {
       toast.error("Select an academic year")
@@ -365,6 +448,19 @@ export default function AdminExamsPage() {
     }
   }
 
+  const handleInitializeGrading = async () => {
+    setInitializingGrading(true)
+    try {
+      const res = await apiClient("/admin/grading/initialize", { method: "POST" })
+      if (!res.ok) throw new Error("Failed to initialize grading")
+      toast.success("Grading scales initialized based on board type")
+    } catch (err) {
+      toast.error("Failed to initialize grading")
+    } finally {
+      setInitializingGrading(false)
+    }
+  }
+
   return (
     <div className="p-6 space-y-8">
       <div className="flex justify-between items-center">
@@ -384,6 +480,9 @@ export default function AdminExamsPage() {
           </TabsTrigger>
           <TabsTrigger value="grading" className="gap-2">
             <History className="w-4 h-4" /> Grading & Aggregates
+          </TabsTrigger>
+          <TabsTrigger value="hall-tickets" className="gap-2">
+            <Printer className="w-4 h-4" /> Hall Tickets
           </TabsTrigger>
         </TabsList>
 
@@ -493,7 +592,16 @@ export default function AdminExamsPage() {
                                 {item.exam_date ? new Date(item.exam_date).toLocaleDateString() : "No Date"}
                             </div>
                           </div>
-                          <Badge variant="outline" className="bg-white">{item.max_marks} M</Badge>
+                          <div className="flex items-center gap-3">
+                            <RubricGeneratorDialog 
+                              subjectName={item.subject_name}
+                              subjectId={item.subject_id}
+                              examName={exams.find(e => e.id === selectedExamID)?.name || ""}
+                              examId={selectedExamID}
+                              maxMarks={item.max_marks}
+                            />
+                            <Badge variant="outline" className="bg-white">{item.max_marks} M</Badge>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -725,6 +833,15 @@ export default function AdminExamsPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-3">
+                            <Button 
+                              variant="outline" 
+                              className="w-full mb-4 border-dashed border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+                              onClick={handleInitializeGrading}
+                              disabled={initializingGrading}
+                            >
+                              {initializingGrading && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
+                              Sync Board-Specific Grading (CBSE/ICSE)
+                            </Button>
                             {/* Example of a policy item, would be a separate component/logic in full version */}
                             {[
                                 { label: 'A+', range: '91-100', color: 'bg-emerald-500' },
@@ -747,7 +864,102 @@ export default function AdminExamsPage() {
             </div>
           </div>
         </TabsContent>
-      </Tabs>
+
+        <TabsContent value="hall-tickets" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-1 space-y-6">
+              <Card className="border-none shadow-lg bg-white/50 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg">Generate Hall Tickets</CardTitle>
+                  <CardDescription>Assign roll numbers and room locations automatically.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Select Exam</Label>
+                    <Select value={selectedExamID} onValueChange={setSelectedExamID}>
+                      <SelectTrigger className="bg-white">
+                        <SelectValue placeholder="Select exam" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {exams.map((exam) => (
+                          <SelectItem key={exam.id} value={exam.id}>{exam.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Class (Optional filter)</Label>
+                    <ClassSelect value={targetClassID} onSelect={(v) => { setTargetClassID(v); setTargetSectionID(""); }} className="bg-white" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Section (Optional filter)</Label>
+                    <SectionSelect classId={targetClassID} value={targetSectionID} onSelect={setTargetSectionID} className="bg-white" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Roll Number Prefix</Label>
+                    <Input placeholder="e.g. FIN-A" value={rollPrefix} onChange={(e) => setRollPrefix(e.target.value)} className="bg-white" />
+                  </div>
+                  <Button className="w-full bg-slate-900 hover:bg-black font-bold h-12 rounded-xl mt-4" onClick={handleGenerateTickets} disabled={generating || !selectedExamID}>
+                    {generating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    <Printer className="w-5 h-5 mr-2" />
+                    Batch Generate Tickets
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="lg:col-span-2 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold">Generated Hall Tickets</h2>
+                <Badge variant="outline" className="font-bold tracking-widest uppercase text-[10px] px-3">
+                  {fetchingTickets ? "Syncing..." : `${hallTickets.length} Issued`}
+                </Badge>
+              </div>
+              <div className="bg-white/80 rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/50 border-b border-slate-100">
+                      <th className="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Student</th>
+                      <th className="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Roll Number</th>
+                      <th className="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Hall/Seat</th>
+                      <th className="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {hallTickets.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="p-12 text-center">
+                          <Printer className="w-12 h-12 text-slate-200 mx-auto mb-3" />
+                          <p className="text-sm text-slate-400 font-medium italic">No hall tickets issued yet for this exam.</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      hallTickets.map(ticket => (
+                        <tr key={ticket.student_id} className="border-b border-slate-50 hover:bg-indigo-50/30 transition-colors">
+                          <td className="p-4">
+                            <div className="font-bold text-slate-900">{ticket.student_name}</div>
+                          </td>
+                          <td className="p-4">
+                            <Badge className="font-mono bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-none">{ticket.roll_number}</Badge>
+                          </td>
+                          <td className="p-4 text-sm font-medium text-slate-500">
+                            {ticket.hall_number} / {ticket.seat_number}
+                          </td>
+                          <td className="p-4 text-right">
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-indigo-100 hover:text-indigo-600" onClick={() => handleDownloadPDF(ticket.student_id)}>
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+        </Tabs>
     </div>
   )
 }

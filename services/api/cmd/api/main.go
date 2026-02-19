@@ -24,6 +24,7 @@ import (
 	"github.com/schoolerp/api/internal/foundation/filestore"
 	"github.com/schoolerp/api/internal/foundation/i18n"
 	"github.com/schoolerp/api/internal/foundation/locks"
+	"github.com/schoolerp/api/internal/foundation/outbox"
 	"github.com/schoolerp/api/internal/foundation/policy"
 	"github.com/schoolerp/api/internal/foundation/quota"
 	aihandler "github.com/schoolerp/api/internal/handler"
@@ -32,6 +33,7 @@ import (
 	"github.com/schoolerp/api/internal/handler/alumni"
 	"github.com/schoolerp/api/internal/handler/attendance"
 	authhandler "github.com/schoolerp/api/internal/handler/auth"
+	"github.com/schoolerp/api/internal/handler/automation"
 	"github.com/schoolerp/api/internal/handler/biometric"
 	"github.com/schoolerp/api/internal/handler/communication"
 	dashhandler "github.com/schoolerp/api/internal/handler/dashboard"
@@ -57,6 +59,7 @@ import (
 	alumniservice "github.com/schoolerp/api/internal/service/alumni"
 	attendservice "github.com/schoolerp/api/internal/service/attendance"
 	authservice "github.com/schoolerp/api/internal/service/auth"
+	automationservice "github.com/schoolerp/api/internal/service/automation"
 	bioservice "github.com/schoolerp/api/internal/service/biometric"
 	commservice "github.com/schoolerp/api/internal/service/communication"
 	dashservice "github.com/schoolerp/api/internal/service/dashboard"
@@ -143,6 +146,16 @@ func main() {
 		log.Warn().Err(err).Msg("Failed to load i18n translations, falling back to keys")
 	}
 
+	// Initialize Outbox Processor
+	webhookSvc := automationservice.NewWebhookService()
+	autoEngine := automationservice.NewEngine(querier, webhookSvc)
+	outboxProc := outbox.NewProcessor(querier, autoEngine)
+	go outboxProc.Start(context.Background())
+
+	// Initialize Scheduler
+	autoScheduler := automationservice.NewScheduler(querier, autoEngine)
+	go autoScheduler.Start(context.Background())
+
 	// Initialize Services
 	studentService := sisservice.NewStudentService(querier, auditLogger, quotaSvc)
 	student360Service := sisservice.NewStudent360Service(pool, auditLogger)
@@ -172,6 +185,7 @@ func main() {
 	academicService := academicservice.NewService(querier, auditLogger)
 	tenantService := tenantservice.NewService(querier, pool)
 	marketingService := marketingservice.NewService(pool)
+	automationService := automationservice.NewAutomationService(querier)
 
 	calendarService := academicservice.NewCalendarService(pool, auditLogger)
 	resourceService := academicservice.NewResourceService(pool, auditLogger)
@@ -180,7 +194,7 @@ func main() {
 	scheduleService := academicservice.NewScheduleService(pool, auditLogger)
 	promotionService := sisservice.NewPromotionService(querier, auditLogger)
 
-	aiService, err := aiservice.NewService()
+	aiService, err := aiservice.NewService(querier)
 	if err != nil {
 		log.Warn().Err(err).Msg("AI Service failed to initialize (missing API key?)")
 	}
@@ -223,6 +237,7 @@ func main() {
 	tenantHandler := tenant.NewHandler(tenantService)
 	aiHandler := aihandler.NewAIHandler(aiService, querier)
 	marketingHandler := marketing.NewHandler(marketingService)
+	automationHandler := automation.NewAutomationHandler(automationService)
 
 	calendarHandler := academic.NewCalendarHandler(calendarService)
 	resourceHandler := academic.NewResourceHandler(resourceService)
@@ -330,6 +345,8 @@ func main() {
 			alumniHandler.RegisterRoutes(r)
 			rolesHandler.RegisterRoutes(r) // Role management endpoints
 			marketingHandler.RegisterAdminRoutes(r)
+			automationHandler.RegisterRoutes(r)
+			aiHandler.RegisterRoutes(r)
 
 			r.Post("/tenants/config", tenantHandler.UpdateConfig)
 			r.Get("/tenants/plugins", tenantHandler.ListPlugins)

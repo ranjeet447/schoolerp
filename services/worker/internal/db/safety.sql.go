@@ -11,13 +11,52 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const approveGatePass = `-- name: ApproveGatePass :one
+UPDATE gate_passes
+SET approved_by = $3, status = 'approved', qr_code = $4
+WHERE id = $1 AND tenant_id = $2 AND status = 'pending'
+RETURNING id, tenant_id, student_id, reason, requested_by, approved_by, status, qr_code, valid_from, valid_until, used_at, created_at
+`
+
+type ApproveGatePassParams struct {
+	ID         pgtype.UUID `json:"id"`
+	TenantID   pgtype.UUID `json:"tenant_id"`
+	ApprovedBy pgtype.UUID `json:"approved_by"`
+	QrCode     pgtype.Text `json:"qr_code"`
+}
+
+func (q *Queries) ApproveGatePass(ctx context.Context, arg ApproveGatePassParams) (GatePass, error) {
+	row := q.db.QueryRow(ctx, approveGatePass,
+		arg.ID,
+		arg.TenantID,
+		arg.ApprovedBy,
+		arg.QrCode,
+	)
+	var i GatePass
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.StudentID,
+		&i.Reason,
+		&i.RequestedBy,
+		&i.ApprovedBy,
+		&i.Status,
+		&i.QrCode,
+		&i.ValidFrom,
+		&i.ValidUntil,
+		&i.UsedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const checkOutVisitor = `-- name: CheckOutVisitor :one
 UPDATE visitor_logs
 SET 
     check_out_at = NOW(),
     remarks = COALESCE($3, remarks)
 WHERE id = $1 AND tenant_id = $2
-RETURNING id, tenant_id, visitor_id, purpose, contact_person_id, check_in_at, check_out_at, badge_number, remarks, created_at
+RETURNING id, tenant_id, visitor_id, purpose, contact_person_id, check_in_at, check_out_at, badge_number, remarks, entry_photo_url, created_at
 `
 
 type CheckOutVisitorParams struct {
@@ -39,6 +78,7 @@ func (q *Queries) CheckOutVisitor(ctx context.Context, arg CheckOutVisitorParams
 		&i.CheckOutAt,
 		&i.BadgeNumber,
 		&i.Remarks,
+		&i.EntryPhotoUrl,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -46,10 +86,10 @@ func (q *Queries) CheckOutVisitor(ctx context.Context, arg CheckOutVisitorParams
 
 const createDisciplineIncident = `-- name: CreateDisciplineIncident :one
 INSERT INTO discipline_incidents (
-    tenant_id, student_id, reporter_id, incident_date, category, title, description, action_taken, status, parent_visibility
+    tenant_id, student_id, reporter_id, incident_date, category, title, description, action_taken, status, severity, parent_visibility
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
-) RETURNING id, tenant_id, student_id, reporter_id, incident_date, category, title, description, action_taken, status, parent_visibility, created_at, updated_at
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+) RETURNING id, tenant_id, student_id, reporter_id, incident_date, category, title, description, action_taken, status, severity, parent_visibility, created_at, updated_at
 `
 
 type CreateDisciplineIncidentParams struct {
@@ -62,6 +102,7 @@ type CreateDisciplineIncidentParams struct {
 	Description      pgtype.Text        `json:"description"`
 	ActionTaken      pgtype.Text        `json:"action_taken"`
 	Status           string             `json:"status"`
+	Severity         pgtype.Text        `json:"severity"`
 	ParentVisibility pgtype.Bool        `json:"parent_visibility"`
 }
 
@@ -76,6 +117,7 @@ func (q *Queries) CreateDisciplineIncident(ctx context.Context, arg CreateDiscip
 		arg.Description,
 		arg.ActionTaken,
 		arg.Status,
+		arg.Severity,
 		arg.ParentVisibility,
 	)
 	var i DisciplineIncident
@@ -90,6 +132,7 @@ func (q *Queries) CreateDisciplineIncident(ctx context.Context, arg CreateDiscip
 		&i.Description,
 		&i.ActionTaken,
 		&i.Status,
+		&i.Severity,
 		&i.ParentVisibility,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -137,6 +180,52 @@ func (q *Queries) CreateEmergencyBroadcast(ctx context.Context, arg CreateEmerge
 	return i, err
 }
 
+const createGatePass = `-- name: CreateGatePass :one
+INSERT INTO gate_passes (
+    tenant_id, student_id, reason, requested_by, status, qr_code, valid_from, valid_until
+) VALUES (
+    $1, $2, $3, $4, 'pending', $5, $6, $7
+) RETURNING id, tenant_id, student_id, reason, requested_by, approved_by, status, qr_code, valid_from, valid_until, used_at, created_at
+`
+
+type CreateGatePassParams struct {
+	TenantID    pgtype.UUID        `json:"tenant_id"`
+	StudentID   pgtype.UUID        `json:"student_id"`
+	Reason      string             `json:"reason"`
+	RequestedBy pgtype.UUID        `json:"requested_by"`
+	QrCode      pgtype.Text        `json:"qr_code"`
+	ValidFrom   pgtype.Timestamptz `json:"valid_from"`
+	ValidUntil  pgtype.Timestamptz `json:"valid_until"`
+}
+
+func (q *Queries) CreateGatePass(ctx context.Context, arg CreateGatePassParams) (GatePass, error) {
+	row := q.db.QueryRow(ctx, createGatePass,
+		arg.TenantID,
+		arg.StudentID,
+		arg.Reason,
+		arg.RequestedBy,
+		arg.QrCode,
+		arg.ValidFrom,
+		arg.ValidUntil,
+	)
+	var i GatePass
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.StudentID,
+		&i.Reason,
+		&i.RequestedBy,
+		&i.ApprovedBy,
+		&i.Status,
+		&i.QrCode,
+		&i.ValidFrom,
+		&i.ValidUntil,
+		&i.UsedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createPickupAuthorization = `-- name: CreatePickupAuthorization :one
 INSERT INTO pickup_authorizations (
     tenant_id, student_id, name, relationship, phone, photo_url
@@ -175,6 +264,92 @@ func (q *Queries) CreatePickupAuthorization(ctx context.Context, arg CreatePicku
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createPickupEvent = `-- name: CreatePickupEvent :one
+
+INSERT INTO pickup_events (
+    tenant_id, student_id, auth_id, picked_up_by_name, relationship, photo_url, notes
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7
+) RETURNING id, tenant_id, student_id, auth_id, pickup_at, picked_up_by_name, relationship, photo_url, notes, created_at
+`
+
+type CreatePickupEventParams struct {
+	TenantID       pgtype.UUID `json:"tenant_id"`
+	StudentID      pgtype.UUID `json:"student_id"`
+	AuthID         pgtype.UUID `json:"auth_id"`
+	PickedUpByName pgtype.Text `json:"picked_up_by_name"`
+	Relationship   pgtype.Text `json:"relationship"`
+	PhotoUrl       pgtype.Text `json:"photo_url"`
+	Notes          pgtype.Text `json:"notes"`
+}
+
+func (q *Queries) CreatePickupEvent(ctx context.Context, arg CreatePickupEventParams) (PickupEvent, error) {
+	row := q.db.QueryRow(ctx, createPickupEvent,
+		arg.TenantID,
+		arg.StudentID,
+		arg.AuthID,
+		arg.PickedUpByName,
+		arg.Relationship,
+		arg.PhotoUrl,
+		arg.Notes,
+	)
+	var i PickupEvent
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.StudentID,
+		&i.AuthID,
+		&i.PickupAt,
+		&i.PickedUpByName,
+		&i.Relationship,
+		&i.PhotoUrl,
+		&i.Notes,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createPickupVerificationCode = `-- name: CreatePickupVerificationCode :one
+INSERT INTO pickup_verification_codes (
+    tenant_id, student_id, auth_id, code_type, code_value, expires_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING id, tenant_id, student_id, auth_id, code_type, code_value, expires_at, is_used, created_at
+`
+
+type CreatePickupVerificationCodeParams struct {
+	TenantID  pgtype.UUID        `json:"tenant_id"`
+	StudentID pgtype.UUID        `json:"student_id"`
+	AuthID    pgtype.UUID        `json:"auth_id"`
+	CodeType  string             `json:"code_type"`
+	CodeValue string             `json:"code_value"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
+func (q *Queries) CreatePickupVerificationCode(ctx context.Context, arg CreatePickupVerificationCodeParams) (PickupVerificationCode, error) {
+	row := q.db.QueryRow(ctx, createPickupVerificationCode,
+		arg.TenantID,
+		arg.StudentID,
+		arg.AuthID,
+		arg.CodeType,
+		arg.CodeValue,
+		arg.ExpiresAt,
+	)
+	var i PickupVerificationCode
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.StudentID,
+		&i.AuthID,
+		&i.CodeType,
+		&i.CodeValue,
+		&i.ExpiresAt,
+		&i.IsUsed,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -225,10 +400,10 @@ func (q *Queries) CreateVisitor(ctx context.Context, arg CreateVisitorParams) (V
 
 const createVisitorLog = `-- name: CreateVisitorLog :one
 INSERT INTO visitor_logs (
-    tenant_id, visitor_id, purpose, contact_person_id, badge_number, remarks
+    tenant_id, visitor_id, purpose, contact_person_id, badge_number, remarks, entry_photo_url
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
-) RETURNING id, tenant_id, visitor_id, purpose, contact_person_id, check_in_at, check_out_at, badge_number, remarks, created_at
+    $1, $2, $3, $4, $5, $6, $7
+) RETURNING id, tenant_id, visitor_id, purpose, contact_person_id, check_in_at, check_out_at, badge_number, remarks, entry_photo_url, created_at
 `
 
 type CreateVisitorLogParams struct {
@@ -238,6 +413,7 @@ type CreateVisitorLogParams struct {
 	ContactPersonID pgtype.UUID `json:"contact_person_id"`
 	BadgeNumber     pgtype.Text `json:"badge_number"`
 	Remarks         pgtype.Text `json:"remarks"`
+	EntryPhotoUrl   pgtype.Text `json:"entry_photo_url"`
 }
 
 func (q *Queries) CreateVisitorLog(ctx context.Context, arg CreateVisitorLogParams) (VisitorLog, error) {
@@ -248,6 +424,7 @@ func (q *Queries) CreateVisitorLog(ctx context.Context, arg CreateVisitorLogPara
 		arg.ContactPersonID,
 		arg.BadgeNumber,
 		arg.Remarks,
+		arg.EntryPhotoUrl,
 	)
 	var i VisitorLog
 	err := row.Scan(
@@ -260,6 +437,7 @@ func (q *Queries) CreateVisitorLog(ctx context.Context, arg CreateVisitorLogPara
 		&i.CheckOutAt,
 		&i.BadgeNumber,
 		&i.Remarks,
+		&i.EntryPhotoUrl,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -281,8 +459,35 @@ func (q *Queries) DeactivatePickupAuthorization(ctx context.Context, arg Deactiv
 	return err
 }
 
+const getActivePickupCode = `-- name: GetActivePickupCode :one
+SELECT id, tenant_id, student_id, auth_id, code_type, code_value, expires_at, is_used, created_at FROM pickup_verification_codes
+WHERE tenant_id = $1 AND code_value = $2 AND is_used = FALSE AND expires_at > NOW()
+`
+
+type GetActivePickupCodeParams struct {
+	TenantID  pgtype.UUID `json:"tenant_id"`
+	CodeValue string      `json:"code_value"`
+}
+
+func (q *Queries) GetActivePickupCode(ctx context.Context, arg GetActivePickupCodeParams) (PickupVerificationCode, error) {
+	row := q.db.QueryRow(ctx, getActivePickupCode, arg.TenantID, arg.CodeValue)
+	var i PickupVerificationCode
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.StudentID,
+		&i.AuthID,
+		&i.CodeType,
+		&i.CodeValue,
+		&i.ExpiresAt,
+		&i.IsUsed,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getDisciplineIncident = `-- name: GetDisciplineIncident :one
-SELECT id, tenant_id, student_id, reporter_id, incident_date, category, title, description, action_taken, status, parent_visibility, created_at, updated_at FROM discipline_incidents WHERE id = $1 AND tenant_id = $2
+SELECT id, tenant_id, student_id, reporter_id, incident_date, category, title, description, action_taken, status, severity, parent_visibility, created_at, updated_at FROM discipline_incidents WHERE id = $1 AND tenant_id = $2
 `
 
 type GetDisciplineIncidentParams struct {
@@ -304,7 +509,36 @@ func (q *Queries) GetDisciplineIncident(ctx context.Context, arg GetDisciplineIn
 		&i.Description,
 		&i.ActionTaken,
 		&i.Status,
+		&i.Severity,
 		&i.ParentVisibility,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getPickupAuthorization = `-- name: GetPickupAuthorization :one
+SELECT id, tenant_id, student_id, name, relationship, phone, photo_url, is_active, created_at, updated_at FROM pickup_authorizations
+WHERE id = $1 AND tenant_id = $2
+`
+
+type GetPickupAuthorizationParams struct {
+	ID       pgtype.UUID `json:"id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) GetPickupAuthorization(ctx context.Context, arg GetPickupAuthorizationParams) (PickupAuthorization, error) {
+	row := q.db.QueryRow(ctx, getPickupAuthorization, arg.ID, arg.TenantID)
+	var i PickupAuthorization
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.StudentID,
+		&i.Name,
+		&i.Relationship,
+		&i.Phone,
+		&i.PhotoUrl,
+		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -338,9 +572,49 @@ func (q *Queries) GetVisitorByPhone(ctx context.Context, arg GetVisitorByPhonePa
 	return i, err
 }
 
+const listActivePickupCodesForStudent = `-- name: ListActivePickupCodesForStudent :many
+SELECT id, tenant_id, student_id, auth_id, code_type, code_value, expires_at, is_used, created_at FROM pickup_verification_codes
+WHERE student_id = $1 AND tenant_id = $2 AND is_used = FALSE AND expires_at > NOW()
+`
+
+type ListActivePickupCodesForStudentParams struct {
+	StudentID pgtype.UUID `json:"student_id"`
+	TenantID  pgtype.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) ListActivePickupCodesForStudent(ctx context.Context, arg ListActivePickupCodesForStudentParams) ([]PickupVerificationCode, error) {
+	rows, err := q.db.Query(ctx, listActivePickupCodesForStudent, arg.StudentID, arg.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PickupVerificationCode
+	for rows.Next() {
+		var i PickupVerificationCode
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.StudentID,
+			&i.AuthID,
+			&i.CodeType,
+			&i.CodeValue,
+			&i.ExpiresAt,
+			&i.IsUsed,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDisciplineIncidents = `-- name: ListDisciplineIncidents :many
 SELECT 
-    di.id, di.tenant_id, di.student_id, di.reporter_id, di.incident_date, di.category, di.title, di.description, di.action_taken, di.status, di.parent_visibility, di.created_at, di.updated_at,
+    di.id, di.tenant_id, di.student_id, di.reporter_id, di.incident_date, di.category, di.title, di.description, di.action_taken, di.status, di.severity, di.parent_visibility, di.created_at, di.updated_at,
     s.full_name as student_name,
     u.full_name as reporter_name
 FROM discipline_incidents di
@@ -368,6 +642,7 @@ type ListDisciplineIncidentsRow struct {
 	Description      pgtype.Text        `json:"description"`
 	ActionTaken      pgtype.Text        `json:"action_taken"`
 	Status           string             `json:"status"`
+	Severity         pgtype.Text        `json:"severity"`
 	ParentVisibility pgtype.Bool        `json:"parent_visibility"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
@@ -395,6 +670,7 @@ func (q *Queries) ListDisciplineIncidents(ctx context.Context, arg ListDisciplin
 			&i.Description,
 			&i.ActionTaken,
 			&i.Status,
+			&i.Severity,
 			&i.ParentVisibility,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -470,6 +746,140 @@ func (q *Queries) ListEmergencyBroadcasts(ctx context.Context, arg ListEmergency
 	return items, nil
 }
 
+const listGatePasses = `-- name: ListGatePasses :many
+SELECT 
+    gp.id, gp.tenant_id, gp.student_id, gp.reason, gp.requested_by, gp.approved_by, gp.status, gp.qr_code, gp.valid_from, gp.valid_until, gp.used_at, gp.created_at,
+    s.full_name as student_name,
+    u.full_name as requested_by_name
+FROM gate_passes gp
+JOIN students s ON gp.student_id = s.id
+JOIN users u ON gp.requested_by = u.id
+WHERE gp.tenant_id = $1
+ORDER BY gp.created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListGatePassesParams struct {
+	TenantID pgtype.UUID `json:"tenant_id"`
+	Limit    int32       `json:"limit"`
+	Offset   int32       `json:"offset"`
+}
+
+type ListGatePassesRow struct {
+	ID              pgtype.UUID        `json:"id"`
+	TenantID        pgtype.UUID        `json:"tenant_id"`
+	StudentID       pgtype.UUID        `json:"student_id"`
+	Reason          string             `json:"reason"`
+	RequestedBy     pgtype.UUID        `json:"requested_by"`
+	ApprovedBy      pgtype.UUID        `json:"approved_by"`
+	Status          string             `json:"status"`
+	QrCode          pgtype.Text        `json:"qr_code"`
+	ValidFrom       pgtype.Timestamptz `json:"valid_from"`
+	ValidUntil      pgtype.Timestamptz `json:"valid_until"`
+	UsedAt          pgtype.Timestamptz `json:"used_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	StudentName     string             `json:"student_name"`
+	RequestedByName string             `json:"requested_by_name"`
+}
+
+func (q *Queries) ListGatePasses(ctx context.Context, arg ListGatePassesParams) ([]ListGatePassesRow, error) {
+	rows, err := q.db.Query(ctx, listGatePasses, arg.TenantID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGatePassesRow
+	for rows.Next() {
+		var i ListGatePassesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.StudentID,
+			&i.Reason,
+			&i.RequestedBy,
+			&i.ApprovedBy,
+			&i.Status,
+			&i.QrCode,
+			&i.ValidFrom,
+			&i.ValidUntil,
+			&i.UsedAt,
+			&i.CreatedAt,
+			&i.StudentName,
+			&i.RequestedByName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGatePassesForStudent = `-- name: ListGatePassesForStudent :many
+SELECT gp.id, gp.tenant_id, gp.student_id, gp.reason, gp.requested_by, gp.approved_by, gp.status, gp.qr_code, gp.valid_from, gp.valid_until, gp.used_at, gp.created_at, u.full_name as requested_by_name
+FROM gate_passes gp
+JOIN users u ON gp.requested_by = u.id
+WHERE gp.student_id = $1 AND gp.tenant_id = $2
+ORDER BY gp.created_at DESC
+`
+
+type ListGatePassesForStudentParams struct {
+	StudentID pgtype.UUID `json:"student_id"`
+	TenantID  pgtype.UUID `json:"tenant_id"`
+}
+
+type ListGatePassesForStudentRow struct {
+	ID              pgtype.UUID        `json:"id"`
+	TenantID        pgtype.UUID        `json:"tenant_id"`
+	StudentID       pgtype.UUID        `json:"student_id"`
+	Reason          string             `json:"reason"`
+	RequestedBy     pgtype.UUID        `json:"requested_by"`
+	ApprovedBy      pgtype.UUID        `json:"approved_by"`
+	Status          string             `json:"status"`
+	QrCode          pgtype.Text        `json:"qr_code"`
+	ValidFrom       pgtype.Timestamptz `json:"valid_from"`
+	ValidUntil      pgtype.Timestamptz `json:"valid_until"`
+	UsedAt          pgtype.Timestamptz `json:"used_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	RequestedByName string             `json:"requested_by_name"`
+}
+
+func (q *Queries) ListGatePassesForStudent(ctx context.Context, arg ListGatePassesForStudentParams) ([]ListGatePassesForStudentRow, error) {
+	rows, err := q.db.Query(ctx, listGatePassesForStudent, arg.StudentID, arg.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGatePassesForStudentRow
+	for rows.Next() {
+		var i ListGatePassesForStudentRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.StudentID,
+			&i.Reason,
+			&i.RequestedBy,
+			&i.ApprovedBy,
+			&i.Status,
+			&i.QrCode,
+			&i.ValidFrom,
+			&i.ValidUntil,
+			&i.UsedAt,
+			&i.CreatedAt,
+			&i.RequestedByName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPickupAuthorizations = `-- name: ListPickupAuthorizations :many
 SELECT id, tenant_id, student_id, name, relationship, phone, photo_url, is_active, created_at, updated_at FROM pickup_authorizations
 WHERE student_id = $1 AND tenant_id = $2 AND is_active = TRUE
@@ -511,9 +921,73 @@ func (q *Queries) ListPickupAuthorizations(ctx context.Context, arg ListPickupAu
 	return items, nil
 }
 
+const listPickupEvents = `-- name: ListPickupEvents :many
+SELECT 
+    pe.id, pe.tenant_id, pe.student_id, pe.auth_id, pe.pickup_at, pe.picked_up_by_name, pe.relationship, pe.photo_url, pe.notes, pe.created_at,
+    pa.name as auth_person_name,
+    pa.relationship as auth_person_relationship
+FROM pickup_events pe
+LEFT JOIN pickup_authorizations pa ON pe.auth_id = pa.id
+WHERE pe.student_id = $1 AND pe.tenant_id = $2
+ORDER BY pe.pickup_at DESC
+`
+
+type ListPickupEventsParams struct {
+	StudentID pgtype.UUID `json:"student_id"`
+	TenantID  pgtype.UUID `json:"tenant_id"`
+}
+
+type ListPickupEventsRow struct {
+	ID                     pgtype.UUID        `json:"id"`
+	TenantID               pgtype.UUID        `json:"tenant_id"`
+	StudentID              pgtype.UUID        `json:"student_id"`
+	AuthID                 pgtype.UUID        `json:"auth_id"`
+	PickupAt               pgtype.Timestamptz `json:"pickup_at"`
+	PickedUpByName         pgtype.Text        `json:"picked_up_by_name"`
+	Relationship           pgtype.Text        `json:"relationship"`
+	PhotoUrl               pgtype.Text        `json:"photo_url"`
+	Notes                  pgtype.Text        `json:"notes"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	AuthPersonName         pgtype.Text        `json:"auth_person_name"`
+	AuthPersonRelationship pgtype.Text        `json:"auth_person_relationship"`
+}
+
+func (q *Queries) ListPickupEvents(ctx context.Context, arg ListPickupEventsParams) ([]ListPickupEventsRow, error) {
+	rows, err := q.db.Query(ctx, listPickupEvents, arg.StudentID, arg.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPickupEventsRow
+	for rows.Next() {
+		var i ListPickupEventsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.StudentID,
+			&i.AuthID,
+			&i.PickupAt,
+			&i.PickedUpByName,
+			&i.Relationship,
+			&i.PhotoUrl,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.AuthPersonName,
+			&i.AuthPersonRelationship,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listVisitorLogs = `-- name: ListVisitorLogs :many
 SELECT 
-    vl.id, vl.tenant_id, vl.visitor_id, vl.purpose, vl.contact_person_id, vl.check_in_at, vl.check_out_at, vl.badge_number, vl.remarks, vl.created_at,
+    vl.id, vl.tenant_id, vl.visitor_id, vl.purpose, vl.contact_person_id, vl.check_in_at, vl.check_out_at, vl.badge_number, vl.remarks, vl.entry_photo_url, vl.created_at,
     v.full_name as visitor_name,
     v.phone as visitor_phone,
     u.full_name as contact_person_name
@@ -541,6 +1015,7 @@ type ListVisitorLogsRow struct {
 	CheckOutAt        pgtype.Timestamptz `json:"check_out_at"`
 	BadgeNumber       pgtype.Text        `json:"badge_number"`
 	Remarks           pgtype.Text        `json:"remarks"`
+	EntryPhotoUrl     pgtype.Text        `json:"entry_photo_url"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	VisitorName       string             `json:"visitor_name"`
 	VisitorPhone      string             `json:"visitor_phone"`
@@ -566,6 +1041,7 @@ func (q *Queries) ListVisitorLogs(ctx context.Context, arg ListVisitorLogsParams
 			&i.CheckOutAt,
 			&i.BadgeNumber,
 			&i.Remarks,
+			&i.EntryPhotoUrl,
 			&i.CreatedAt,
 			&i.VisitorName,
 			&i.VisitorPhone,
@@ -586,10 +1062,11 @@ UPDATE discipline_incidents
 SET 
     action_taken = $3,
     status = $4,
-    parent_visibility = $5,
+    severity = $5,
+    parent_visibility = $6,
     updated_at = NOW()
 WHERE id = $1 AND tenant_id = $2
-RETURNING id, tenant_id, student_id, reporter_id, incident_date, category, title, description, action_taken, status, parent_visibility, created_at, updated_at
+RETURNING id, tenant_id, student_id, reporter_id, incident_date, category, title, description, action_taken, status, severity, parent_visibility, created_at, updated_at
 `
 
 type UpdateDisciplineIncidentParams struct {
@@ -597,6 +1074,7 @@ type UpdateDisciplineIncidentParams struct {
 	TenantID         pgtype.UUID `json:"tenant_id"`
 	ActionTaken      pgtype.Text `json:"action_taken"`
 	Status           string      `json:"status"`
+	Severity         pgtype.Text `json:"severity"`
 	ParentVisibility pgtype.Bool `json:"parent_visibility"`
 }
 
@@ -606,6 +1084,7 @@ func (q *Queries) UpdateDisciplineIncident(ctx context.Context, arg UpdateDiscip
 		arg.TenantID,
 		arg.ActionTaken,
 		arg.Status,
+		arg.Severity,
 		arg.ParentVisibility,
 	)
 	var i DisciplineIncident
@@ -620,9 +1099,107 @@ func (q *Queries) UpdateDisciplineIncident(ctx context.Context, arg UpdateDiscip
 		&i.Description,
 		&i.ActionTaken,
 		&i.Status,
+		&i.Severity,
 		&i.ParentVisibility,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const updateVisitor = `-- name: UpdateVisitor :one
+UPDATE visitors
+SET 
+    full_name = $3,
+    email = $4,
+    id_type = $5,
+    id_number = $6,
+    photo_url = $7,
+    updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2
+RETURNING id, tenant_id, full_name, phone, email, id_type, id_number, photo_url, created_at, updated_at
+`
+
+type UpdateVisitorParams struct {
+	ID       pgtype.UUID `json:"id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+	FullName string      `json:"full_name"`
+	Email    pgtype.Text `json:"email"`
+	IDType   pgtype.Text `json:"id_type"`
+	IDNumber pgtype.Text `json:"id_number"`
+	PhotoUrl pgtype.Text `json:"photo_url"`
+}
+
+func (q *Queries) UpdateVisitor(ctx context.Context, arg UpdateVisitorParams) (Visitor, error) {
+	row := q.db.QueryRow(ctx, updateVisitor,
+		arg.ID,
+		arg.TenantID,
+		arg.FullName,
+		arg.Email,
+		arg.IDType,
+		arg.IDNumber,
+		arg.PhotoUrl,
+	)
+	var i Visitor
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.FullName,
+		&i.Phone,
+		&i.Email,
+		&i.IDType,
+		&i.IDNumber,
+		&i.PhotoUrl,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const useGatePass = `-- name: UseGatePass :one
+UPDATE gate_passes
+SET status = 'used', used_at = NOW()
+WHERE id = $1 AND tenant_id = $2 AND status = 'approved'
+RETURNING id, tenant_id, student_id, reason, requested_by, approved_by, status, qr_code, valid_from, valid_until, used_at, created_at
+`
+
+type UseGatePassParams struct {
+	ID       pgtype.UUID `json:"id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) UseGatePass(ctx context.Context, arg UseGatePassParams) (GatePass, error) {
+	row := q.db.QueryRow(ctx, useGatePass, arg.ID, arg.TenantID)
+	var i GatePass
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.StudentID,
+		&i.Reason,
+		&i.RequestedBy,
+		&i.ApprovedBy,
+		&i.Status,
+		&i.QrCode,
+		&i.ValidFrom,
+		&i.ValidUntil,
+		&i.UsedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const usePickupCode = `-- name: UsePickupCode :exec
+UPDATE pickup_verification_codes
+SET is_used = TRUE
+WHERE id = $1 AND tenant_id = $2
+`
+
+type UsePickupCodeParams struct {
+	ID       pgtype.UUID `json:"id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) UsePickupCode(ctx context.Context, arg UsePickupCodeParams) error {
+	_, err := q.db.Exec(ctx, usePickupCode, arg.ID, arg.TenantID)
+	return err
 }

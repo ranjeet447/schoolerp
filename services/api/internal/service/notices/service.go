@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/schoolerp/api/internal/db"
@@ -23,13 +24,15 @@ func NewService(q db.Querier, audit *audit.Logger) *Service {
 var classDigitsRegex = regexp.MustCompile(`\d+`)
 
 type CreateNoticeParams struct {
-	TenantID  string
-	Title     string
-	Body      string
-	Scope     map[string]any
-	CreatedBy string
-	RequestID string
-	IP        string
+	TenantID    string
+	Title       string
+	Body        string
+	Scope       map[string]any
+	Attachments []map[string]any `json:"attachments"` // [{id, name, url}]
+	PublishAt   *time.Time
+	CreatedBy   string
+	RequestID   string
+	IP          string
 }
 
 func (s *Service) CreateNotice(ctx context.Context, p CreateNoticeParams) (db.Notice, error) {
@@ -48,12 +51,24 @@ func (s *Service) CreateNotice(ctx context.Context, p CreateNoticeParams) (db.No
 		return db.Notice{}, err
 	}
 
+	attachmentsJSON, err := json.Marshal(p.Attachments)
+	if err != nil {
+		attachmentsJSON = []byte("[]")
+	}
+
+	publishAt := time.Now()
+	if p.PublishAt != nil {
+		publishAt = *p.PublishAt
+	}
+
 	notice, err := s.q.CreateNotice(ctx, db.CreateNoticeParams{
-		TenantID:  tUUID,
-		Title:     p.Title,
-		Body:      p.Body,
-		Scope:     scopeJSON,
-		CreatedBy: uUUID,
+		TenantID:    tUUID,
+		Title:       p.Title,
+		Body:        p.Body,
+		Scope:       scopeJSON,
+		Attachments: attachmentsJSON,
+		PublishAt:   pgtype.Timestamptz{Time: publishAt, Valid: true},
+		CreatedBy:   uUUID,
 	})
 	if err != nil {
 		return db.Notice{}, err
@@ -69,7 +84,7 @@ func (s *Service) CreateNotice(ctx context.Context, p CreateNoticeParams) (db.No
 		IPAddress:    p.IP,
 	})
 
-	// 5. Outbox Event for Notifications
+	// 5. Outbox Event for Notifications (Scheduled if PublishAt is in future)
 	payload, _ := json.Marshal(map[string]interface{}{
 		"notice_id": notice.ID,
 		"title":     notice.Title,
@@ -77,9 +92,10 @@ func (s *Service) CreateNotice(ctx context.Context, p CreateNoticeParams) (db.No
 		"created_by": p.CreatedBy,
 	})
 	_, _ = s.q.CreateOutboxEvent(ctx, db.CreateOutboxEventParams{
-		TenantID:  tUUID,
-		EventType: "notice.published",
-		Payload:   payload,
+		TenantID:     tUUID,
+		EventType:    "notice.published",
+		Payload:      payload,
+		ProcessAfter: pgtype.Timestamptz{Time: publishAt, Valid: true},
 	})
 
 	return notice, nil

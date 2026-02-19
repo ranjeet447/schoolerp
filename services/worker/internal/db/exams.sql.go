@@ -126,6 +126,56 @@ func (q *Queries) CreateExam(ctx context.Context, arg CreateExamParams) (Exam, e
 	return i, err
 }
 
+const createHallTicket = `-- name: CreateHallTicket :one
+INSERT INTO hall_tickets (
+    tenant_id, exam_id, student_id, roll_number, hall_number, seat_number, remarks
+) VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (exam_id, student_id) DO UPDATE SET
+    roll_number = EXCLUDED.roll_number,
+    hall_number = EXCLUDED.hall_number,
+    seat_number = EXCLUDED.seat_number,
+    remarks = EXCLUDED.remarks,
+    updated_at = NOW()
+RETURNING id, tenant_id, exam_id, student_id, roll_number, hall_number, seat_number, remarks, created_at, updated_at
+`
+
+type CreateHallTicketParams struct {
+	TenantID   pgtype.UUID `json:"tenant_id"`
+	ExamID     pgtype.UUID `json:"exam_id"`
+	StudentID  pgtype.UUID `json:"student_id"`
+	RollNumber string      `json:"roll_number"`
+	HallNumber pgtype.Text `json:"hall_number"`
+	SeatNumber pgtype.Text `json:"seat_number"`
+	Remarks    pgtype.Text `json:"remarks"`
+}
+
+// Hall Tickets
+func (q *Queries) CreateHallTicket(ctx context.Context, arg CreateHallTicketParams) (HallTicket, error) {
+	row := q.db.QueryRow(ctx, createHallTicket,
+		arg.TenantID,
+		arg.ExamID,
+		arg.StudentID,
+		arg.RollNumber,
+		arg.HallNumber,
+		arg.SeatNumber,
+		arg.Remarks,
+	)
+	var i HallTicket
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.ExamID,
+		&i.StudentID,
+		&i.RollNumber,
+		&i.HallNumber,
+		&i.SeatNumber,
+		&i.Remarks,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createQuestionBankEntry = `-- name: CreateQuestionBankEntry :one
 INSERT INTO exam_question_bank (
     tenant_id, subject_id, topic, difficulty, question_type,
@@ -353,6 +403,55 @@ func (q *Queries) GetExamResultsForStudent(ctx context.Context, arg GetExamResul
 	return items, nil
 }
 
+const getHallTicket = `-- name: GetHallTicket :one
+SELECT ht.id, ht.tenant_id, ht.exam_id, ht.student_id, ht.roll_number, ht.hall_number, ht.seat_number, ht.remarks, ht.created_at, ht.updated_at, s.full_name as student_name, e.name as exam_name
+FROM hall_tickets ht
+JOIN students s ON ht.student_id = s.id
+JOIN exams e ON ht.exam_id = e.id
+WHERE ht.exam_id = $1 AND ht.student_id = $2 AND ht.tenant_id = $3
+`
+
+type GetHallTicketParams struct {
+	ExamID    pgtype.UUID `json:"exam_id"`
+	StudentID pgtype.UUID `json:"student_id"`
+	TenantID  pgtype.UUID `json:"tenant_id"`
+}
+
+type GetHallTicketRow struct {
+	ID          pgtype.UUID        `json:"id"`
+	TenantID    pgtype.UUID        `json:"tenant_id"`
+	ExamID      pgtype.UUID        `json:"exam_id"`
+	StudentID   pgtype.UUID        `json:"student_id"`
+	RollNumber  string             `json:"roll_number"`
+	HallNumber  pgtype.Text        `json:"hall_number"`
+	SeatNumber  pgtype.Text        `json:"seat_number"`
+	Remarks     pgtype.Text        `json:"remarks"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	StudentName string             `json:"student_name"`
+	ExamName    string             `json:"exam_name"`
+}
+
+func (q *Queries) GetHallTicket(ctx context.Context, arg GetHallTicketParams) (GetHallTicketRow, error) {
+	row := q.db.QueryRow(ctx, getHallTicket, arg.ExamID, arg.StudentID, arg.TenantID)
+	var i GetHallTicketRow
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.ExamID,
+		&i.StudentID,
+		&i.RollNumber,
+		&i.HallNumber,
+		&i.SeatNumber,
+		&i.Remarks,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.StudentName,
+		&i.ExamName,
+	)
+	return i, err
+}
+
 const getMarksForAggregation = `-- name: GetMarksForAggregation :many
 SELECT 
     me.student_id,
@@ -553,7 +652,7 @@ func (q *Queries) GetRandomQuestions(ctx context.Context, arg GetRandomQuestions
 }
 
 const listExamSubjects = `-- name: ListExamSubjects :many
-SELECT es.exam_id, es.subject_id, es.max_marks, es.exam_date, s.name as subject_name
+SELECT es.exam_id, es.subject_id, es.max_marks, es.exam_date, es.metadata, s.name as subject_name
 FROM exam_subjects es
 JOIN subjects s ON es.subject_id = s.id
 WHERE es.exam_id = $1
@@ -564,6 +663,7 @@ type ListExamSubjectsRow struct {
 	SubjectID   pgtype.UUID `json:"subject_id"`
 	MaxMarks    int32       `json:"max_marks"`
 	ExamDate    pgtype.Date `json:"exam_date"`
+	Metadata    []byte      `json:"metadata"`
 	SubjectName string      `json:"subject_name"`
 }
 
@@ -581,6 +681,7 @@ func (q *Queries) ListExamSubjects(ctx context.Context, examID pgtype.UUID) ([]L
 			&i.SubjectID,
 			&i.MaxMarks,
 			&i.ExamDate,
+			&i.Metadata,
 			&i.SubjectName,
 		); err != nil {
 			return nil, err
@@ -648,6 +749,60 @@ func (q *Queries) ListGradingScales(ctx context.Context, tenantID pgtype.UUID) (
 			&i.GradeLabel,
 			&i.GradePoint,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listHallTicketsForExam = `-- name: ListHallTicketsForExam :many
+SELECT ht.id, ht.tenant_id, ht.exam_id, ht.student_id, ht.roll_number, ht.hall_number, ht.seat_number, ht.remarks, ht.created_at, ht.updated_at, s.full_name as student_name
+FROM hall_tickets ht
+JOIN students s ON ht.student_id = s.id
+WHERE ht.exam_id = $1
+ORDER BY ht.roll_number
+`
+
+type ListHallTicketsForExamRow struct {
+	ID          pgtype.UUID        `json:"id"`
+	TenantID    pgtype.UUID        `json:"tenant_id"`
+	ExamID      pgtype.UUID        `json:"exam_id"`
+	StudentID   pgtype.UUID        `json:"student_id"`
+	RollNumber  string             `json:"roll_number"`
+	HallNumber  pgtype.Text        `json:"hall_number"`
+	SeatNumber  pgtype.Text        `json:"seat_number"`
+	Remarks     pgtype.Text        `json:"remarks"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	StudentName string             `json:"student_name"`
+}
+
+func (q *Queries) ListHallTicketsForExam(ctx context.Context, examID pgtype.UUID) ([]ListHallTicketsForExamRow, error) {
+	rows, err := q.db.Query(ctx, listHallTicketsForExam, examID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListHallTicketsForExamRow
+	for rows.Next() {
+		var i ListHallTicketsForExamRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.ExamID,
+			&i.StudentID,
+			&i.RollNumber,
+			&i.HallNumber,
+			&i.SeatNumber,
+			&i.Remarks,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.StudentName,
 		); err != nil {
 			return nil, err
 		}
@@ -867,6 +1022,23 @@ func (q *Queries) PublishExam(ctx context.Context, arg PublishExamParams) (Exam,
 		&i.Type,
 	)
 	return i, err
+}
+
+const updateExamSubjectMetadata = `-- name: UpdateExamSubjectMetadata :exec
+UPDATE exam_subjects
+SET metadata = $3
+WHERE exam_id = $1 AND subject_id = $2
+`
+
+type UpdateExamSubjectMetadataParams struct {
+	ExamID    pgtype.UUID `json:"exam_id"`
+	SubjectID pgtype.UUID `json:"subject_id"`
+	Metadata  []byte      `json:"metadata"`
+}
+
+func (q *Queries) UpdateExamSubjectMetadata(ctx context.Context, arg UpdateExamSubjectMetadataParams) error {
+	_, err := q.db.Exec(ctx, updateExamSubjectMetadata, arg.ExamID, arg.SubjectID, arg.Metadata)
+	return err
 }
 
 const upsertGradingScale = `-- name: UpsertGradingScale :one

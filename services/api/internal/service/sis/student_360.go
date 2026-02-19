@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/schoolerp/api/internal/foundation/audit"
 )
@@ -29,6 +30,19 @@ type BehavioralLog struct {
 	IncidentDate time.Time `json:"incident_date"`
 	LoggedBy     string    `json:"logged_by"`
 	CreatedBy    string    `json:"created_by_name,omitempty"`
+}
+
+type DisciplineIncident struct {
+	ID               string    `json:"id"`
+	StudentID        string    `json:"student_id"`
+	Category         string    `json:"category"`
+	Title            string    `json:"title"`
+	Description      string    `json:"description"`
+	ActionTaken      string    `json:"action_taken"`
+	Status           string    `json:"status"`
+	Severity         string    `json:"severity"`
+	IncidentDate     time.Time `json:"incident_date"`
+	ReporterName     string    `json:"reporter_name"`
 }
 
 // Health Record Struct
@@ -59,11 +73,14 @@ type StudentDocument struct {
 type Student360 struct {
 	Profile      map[string]interface{} `json:"profile"`
 	Behavior     []BehavioralLog        `json:"behavior"`
+	Incidents    []DisciplineIncident   `json:"incidents"`
 	Health       *HealthRecord          `json:"health"`
 	Documents    []StudentDocument      `json:"documents"`
 	Finances     map[string]interface{} `json:"finances"`
 	Academics    map[string]interface{} `json:"academics"`
 	Guardians    []map[string]interface{} `json:"guardians"`
+	Pickups      []map[string]interface{} `json:"pickups"`
+	PickupAuths  []map[string]interface{} `json:"pickup_auths"`
 }
 
 // --- Behavioral Logic ---
@@ -197,10 +214,34 @@ func (s *Student360Service) GetStudent360(ctx context.Context, tenantID, student
 	// 2. Behavioral
 	behavior, _ := s.ListBehavioralLogs(ctx, studentID)
 
-	// 3. Health
+	// 3. Incidents
+	incidents := []DisciplineIncident{}
+	rows, _ := s.pool.Query(ctx, `
+		SELECT i.id, i.student_id, i.category, i.title, i.description, i.action_taken, i.status, i.severity, i.incident_date, u.full_name
+		FROM discipline_incidents i
+		LEFT JOIN users u ON i.reporter_id = u.id
+		WHERE i.student_id = $1
+		ORDER BY i.incident_date DESC
+	`, studentID)
+	if rows != nil {
+		for rows.Next() {
+			var i DisciplineIncident
+			var desc, action, severity, reporter pgtype.Text
+			if err := rows.Scan(&i.ID, &i.StudentID, &i.Category, &i.Title, &desc, &action, &i.Status, &severity, &i.IncidentDate, &reporter); err == nil {
+				i.Description = desc.String
+				i.ActionTaken = action.String
+				i.Severity = severity.String
+				i.ReporterName = reporter.String
+				incidents = append(incidents, i)
+			}
+		}
+		rows.Close()
+	}
+
+	// 4. Health
 	health, _ := s.GetHealthRecord(ctx, studentID)
 
-	// 4. Documents
+	// 5. Documents
 	docs, _ := s.ListDocuments(ctx, studentID)
 
 	// 5. Financial Snapshot (Real Data)
@@ -256,7 +297,7 @@ func (s *Student360Service) GetStudent360(ctx context.Context, tenantID, student
 
 	// Subject-wise Performance
 	subjectPerf := []map[string]interface{}{}
-	rows, _ := s.pool.Query(ctx, `
+	rows, _ = s.pool.Query(ctx, `
 		SELECT s.name, COALESCE(AVG(m.marks_obtained::float / NULLIF(m.max_marks, 0) * 100), 0) as percent
 		FROM marks_entries m
 		JOIN subjects s ON m.subject_id = s.id
@@ -325,14 +366,70 @@ func (s *Student360Service) GetStudent360(ctx context.Context, tenantID, student
 	}
 
 
+	// 8. Pickups
+	pickups := []map[string]interface{}{}
+	rows, _ = s.pool.Query(ctx, `
+		SELECT pe.id, pe.pickup_at, pe.picked_up_by_name, pe.relationship, pe.notes, pa.name as auth_name
+		FROM pickup_events pe
+		LEFT JOIN pickup_authorizations pa ON pe.auth_id = pa.id
+		WHERE pe.student_id = $1
+		ORDER BY pe.pickup_at DESC
+		LIMIT 10
+	`, studentID)
+	if rows != nil {
+		for rows.Next() {
+			var id, pickedUpBy, relationship, notes, authName pgtype.Text
+			var pickupAt time.Time
+			if err := rows.Scan(&id, &pickupAt, &pickedUpBy, &relationship, &notes, &authName); err == nil {
+				pickups = append(pickups, map[string]interface{}{
+					"id": id.String,
+					"pickup_at": pickupAt,
+					"name": pickedUpBy.String,
+					"relationship": relationship.String,
+					"notes": notes.String,
+					"auth_name": authName.String,
+				})
+			}
+		}
+		rows.Close()
+	}
+
+	// 9. Pickup Authorizations
+	pickupAuths := []map[string]interface{}{}
+	authRows, _ := s.pool.Query(ctx, `
+		SELECT id, name, relationship, phone, photo_url, is_active
+		FROM pickup_authorizations
+		WHERE student_id = $1 AND tenant_id = $2 AND is_active = TRUE
+	`, studentID, tenantID)
+	if authRows != nil {
+		for authRows.Next() {
+			var id, name, rel, phone, photo pgtype.Text
+			var active pgtype.Bool
+			if err := authRows.Scan(&id, &name, &rel, &phone, &photo, &active); err == nil {
+				pickupAuths = append(pickupAuths, map[string]interface{}{
+					"id":           id.String,
+					"name":         name.String,
+					"relationship": rel.String,
+					"phone":        phone.String,
+					"photo_url":    photo.String,
+					"is_active":    active.Bool,
+				})
+			}
+		}
+		authRows.Close()
+	}
+
 	return &Student360{
 		Profile:   profile,
 		Behavior:  behavior,
+		Incidents: incidents,
 		Health:    health,
 		Documents: docs,
 		Finances:  finance,
 		Academics: academics,
 		Guardians: guardians,
+		Pickups:   pickups,
+		PickupAuths: pickupAuths,
 	}, nil
 }
 

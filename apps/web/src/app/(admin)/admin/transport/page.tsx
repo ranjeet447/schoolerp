@@ -39,6 +39,8 @@ export default function TransportPage() {
   const [allocations, setAllocations] = useState([])
   const [fuelLogs, setFuelLogs] = useState([])
   const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
+
 
   useEffect(() => {
     fetchData()
@@ -63,6 +65,27 @@ export default function TransportPage() {
     setLoading(false)
   }
 
+  const handleGenerateFees = async () => {
+    if (!confirm("Are you sure you want to generate transport fees for all active allocations?")) return
+    
+    setGenerating(true)
+    try {
+      const res = await apiClient("/transport/generate-fees", { method: "POST" })
+      if (res.ok) {
+        const data = await res.json()
+        toast.success(`Generated fees for ${data.count} student(s)`)
+      } else {
+        const error = await res.text()
+        toast.error(error || "Generation failed")
+      }
+    } catch (err) {
+      toast.error("Network error during fee generation")
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center">
@@ -71,6 +94,10 @@ export default function TransportPage() {
           <p className="text-slate-400 font-medium">Coordinate fleet, routes, and student safety.</p>
         </div>
         <div className="flex gap-2">
+            <Button onClick={handleGenerateFees} disabled={generating} className="bg-emerald-600 hover:bg-emerald-700">
+                <Fuel className={`h-4 w-4 mr-2 ${generating ? 'animate-spin' : ''}`} /> 
+                {generating ? 'Generating...' : 'Generate Fees'}
+            </Button>
             <Button className="bg-indigo-600">
                 <Plus className="h-4 w-4 mr-2" /> Add Vehicle
             </Button>

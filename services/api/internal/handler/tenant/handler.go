@@ -106,7 +106,7 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 		r.Use(middleware.PermissionGuard("platform:user.write"))
 		r.Post("/internal-users", h.CreatePlatformInternalUser)
 		r.Patch("/internal-users/{user_id}", h.UpdatePlatformInternalUser)
-		r.Post("/internal-users/{user_id}/rotate-credentials", h.RotatePlatformInternalUserCredentials)
+//		r.Post("/internal-users/{user_id}/rotate-credentials", h.RotatePlatformInternalUserCredentials)
 		r.Post("/internal-users/{user_id}/revoke-sessions", h.RevokePlatformInternalUserSessions)
 
 		// Global User Management Actions

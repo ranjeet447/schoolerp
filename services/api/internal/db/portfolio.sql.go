@@ -74,6 +74,178 @@ func (q *Queries) GetGroupAnalytics(ctx context.Context, groupID pgtype.UUID) (G
 	return i, err
 }
 
+const getGroupEnrollmentTrend = `-- name: GetGroupEnrollmentTrend :many
+SELECT 
+    DATE_TRUNC('month', created_at) as month,
+    COUNT(id) as total_enrollments
+FROM students s
+JOIN school_group_members gm ON s.tenant_id = gm.tenant_id
+WHERE gm.group_id = $1 AND s.created_at >= NOW() - INTERVAL '1 year'
+GROUP BY 1
+ORDER BY 1
+`
+
+type GetGroupEnrollmentTrendRow struct {
+	Month            pgtype.Interval `json:"month"`
+	TotalEnrollments int64           `json:"total_enrollments"`
+}
+
+func (q *Queries) GetGroupEnrollmentTrend(ctx context.Context, groupID pgtype.UUID) ([]GetGroupEnrollmentTrendRow, error) {
+	rows, err := q.db.Query(ctx, getGroupEnrollmentTrend, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetGroupEnrollmentTrendRow
+	for rows.Next() {
+		var i GetGroupEnrollmentTrendRow
+		if err := rows.Scan(&i.Month, &i.TotalEnrollments); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getGroupFinancialAnalytics = `-- name: GetGroupFinancialAnalytics :one
+SELECT 
+    (
+        SELECT COALESCE(SUM(r.amount_paid), 0)::BIGINT
+        FROM school_group_members gm2
+        JOIN receipts r ON r.tenant_id = gm2.tenant_id AND r.status != 'cancelled'
+        WHERE gm2.group_id = gm.group_id
+    ) as total_collected,
+    (
+        SELECT COALESCE(SUM(fpi.amount), 0)::BIGINT
+        FROM school_group_members gm2
+        JOIN fee_plans fp ON fp.tenant_id = gm2.tenant_id
+        JOIN fee_plan_items fpi ON fpi.plan_id = fp.id
+        JOIN student_fee_plans sfp ON sfp.plan_id = fp.id
+        WHERE gm2.group_id = gm.group_id
+    ) - (
+        SELECT COALESCE(SUM(r.amount_paid), 0)::BIGINT
+        FROM school_group_members gm2
+        JOIN receipts r ON r.tenant_id = gm2.tenant_id AND r.status != 'cancelled'
+        WHERE gm2.group_id = gm.group_id
+    ) as total_pending,
+    (
+        SELECT COALESCE(SUM(ps.net_salary), 0)::NUMERIC(12, 2)
+        FROM school_group_members gm2
+        JOIN payroll_runs pr ON pr.tenant_id = gm2.tenant_id AND pr.status = 'completed'
+        JOIN payslips ps ON ps.payroll_run_id = pr.id AND ps.status = 'paid'
+        WHERE gm2.group_id = gm.group_id
+    ) as total_salaries,
+    (
+        SELECT COALESCE(SUM(po.total_amount), 0)::NUMERIC(12, 2)
+        FROM school_group_members gm2
+        JOIN purchase_orders po ON po.tenant_id = gm2.tenant_id AND po.status IN ('approved', 'received')
+        WHERE gm2.group_id = gm.group_id
+    ) as total_purchases
+FROM school_group_members gm
+WHERE gm.group_id = $1
+LIMIT 1
+`
+
+type GetGroupFinancialAnalyticsRow struct {
+	TotalCollected int64          `json:"total_collected"`
+	TotalPending   int32          `json:"total_pending"`
+	TotalSalaries  pgtype.Numeric `json:"total_salaries"`
+	TotalPurchases pgtype.Numeric `json:"total_purchases"`
+}
+
+func (q *Queries) GetGroupFinancialAnalytics(ctx context.Context, groupID pgtype.UUID) (GetGroupFinancialAnalyticsRow, error) {
+	row := q.db.QueryRow(ctx, getGroupFinancialAnalytics, groupID)
+	var i GetGroupFinancialAnalyticsRow
+	err := row.Scan(
+		&i.TotalCollected,
+		&i.TotalPending,
+		&i.TotalSalaries,
+		&i.TotalPurchases,
+	)
+	return i, err
+}
+
+const getGroupMemberComparison = `-- name: GetGroupMemberComparison :many
+SELECT 
+    t.name as school_name,
+    COUNT(DISTINCT s.id) as total_students,
+    (
+        SELECT COALESCE(SUM(r.amount_paid), 0)::BIGINT
+        FROM receipts r
+        WHERE r.tenant_id = t.id AND r.status != 'cancelled'
+    ) as total_collected
+FROM school_group_members gm
+JOIN tenants t ON gm.tenant_id = t.id
+LEFT JOIN students s ON s.tenant_id = t.id
+WHERE gm.group_id = $1
+GROUP BY t.id, t.name
+`
+
+type GetGroupMemberComparisonRow struct {
+	SchoolName     string `json:"school_name"`
+	TotalStudents  int64  `json:"total_students"`
+	TotalCollected int64  `json:"total_collected"`
+}
+
+func (q *Queries) GetGroupMemberComparison(ctx context.Context, groupID pgtype.UUID) ([]GetGroupMemberComparisonRow, error) {
+	rows, err := q.db.Query(ctx, getGroupMemberComparison, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetGroupMemberComparisonRow
+	for rows.Next() {
+		var i GetGroupMemberComparisonRow
+		if err := rows.Scan(&i.SchoolName, &i.TotalStudents, &i.TotalCollected); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getGroupRevenueTrend = `-- name: GetGroupRevenueTrend :many
+SELECT 
+    DATE_TRUNC('month', r.created_at) as month,
+    SUM(r.amount_paid)::BIGINT as total_collected
+FROM receipts r
+JOIN school_group_members gm ON r.tenant_id = gm.tenant_id
+WHERE gm.group_id = $1 AND r.status != 'cancelled' AND r.created_at >= NOW() - INTERVAL '1 year'
+GROUP BY 1
+ORDER BY 1
+`
+
+type GetGroupRevenueTrendRow struct {
+	Month          pgtype.Interval `json:"month"`
+	TotalCollected int64           `json:"total_collected"`
+}
+
+func (q *Queries) GetGroupRevenueTrend(ctx context.Context, groupID pgtype.UUID) ([]GetGroupRevenueTrendRow, error) {
+	rows, err := q.db.Query(ctx, getGroupRevenueTrend, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetGroupRevenueTrendRow
+	for rows.Next() {
+		var i GetGroupRevenueTrendRow
+		if err := rows.Scan(&i.Month, &i.TotalCollected); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getSchoolGroup = `-- name: GetSchoolGroup :one
 SELECT id, name, description, owner_user_id, created_at, updated_at FROM school_groups WHERE id = $1
 `

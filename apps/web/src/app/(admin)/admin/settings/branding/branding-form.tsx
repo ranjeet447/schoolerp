@@ -5,7 +5,8 @@ import { TenantConfig } from '@/lib/tenant-utils';
 import { Button, Input, Label, Switch, Card } from '@schoolerp/ui';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
-import { Save, Palette, Type, Image as ImageIcon, ShieldCheck } from 'lucide-react';
+import { Save, Palette, Type, Image as ImageIcon, ShieldCheck, GraduationCap } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@schoolerp/ui';
 
 interface BrandingFormProps {
   initialConfig: TenantConfig | null;
@@ -21,6 +22,7 @@ export default function BrandingForm({ initialConfig }: BrandingFormProps) {
       name_override: initialConfig?.branding?.name_override || '',
       logo_url: initialConfig?.branding?.logo_url || '',
     },
+    board_type: initialConfig?.board_type || 'CBSE',
   });
 
   const handleSave = async () => {
@@ -130,6 +132,34 @@ export default function BrandingForm({ initialConfig }: BrandingFormProps) {
             checked={config.white_label}
             onCheckedChange={(checked) => setConfig({ ...config, white_label: checked })}
           />
+        </div>
+      </Card>
+
+      <Card className="p-6 bg-indigo-950/30 border-indigo-500/20 backdrop-blur-sm">
+        <div className="flex items-center gap-3 mb-6">
+          <GraduationCap className="h-6 w-6 text-indigo-400" />
+          <h2 className="text-xl font-bold text-white">Academic Configuration</h2>
+        </div>
+        <div className="space-y-4">
+          <div className="grid gap-2">
+            <Label className="text-slate-300">Default Academic Board</Label>
+            <Select 
+              value={config.board_type} 
+              onValueChange={(value) => setConfig({ ...config, board_type: value })}
+            >
+              <SelectTrigger className="bg-slate-800/50 border-white/10 text-white">
+                <SelectValue placeholder="Select Board" />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-900 border-white/10 text-white">
+                <SelectItem value="CBSE">CBSE (Central Board of Secondary Education)</SelectItem>
+                <SelectItem value="ICSE">ICSE (Indian Certificate of Secondary Education)</SelectItem>
+                <SelectItem value="STATE">State Board</SelectItem>
+                <SelectItem value="IB">International Baccalaureate</SelectItem>
+                <SelectItem value="IGCSE">IGCSE</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-slate-400">This drives automated grading templates and report card formats.</p>
+          </div>
         </div>
       </Card>
 

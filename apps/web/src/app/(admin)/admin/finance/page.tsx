@@ -9,6 +9,7 @@ import {
   CardHeader, 
   CardTitle, 
   Input, 
+  Label,
   Tabs, 
   TabsContent, 
   TabsList, 
@@ -102,6 +103,7 @@ export default function AdminFinancePage() {
   const [collectionReport, setCollectionReport] = useState<CollectionItem[]>([])
   const [lateFeeRules, setLateFeeRules] = useState<LateFeeRule[]>([])
   const [concessionRules, setConcessionRules] = useState<ConcessionRule[]>([])
+  const [reminderConfigs, setReminderConfigs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -129,6 +131,9 @@ export default function AdminFinancePage() {
 
       const conRes = await apiClient("/admin/rules/concessions")
       if (conRes.ok) setConcessionRules(await conRes.json())
+
+      const remRes = await apiClient("/admin/rules/fee-reminders")
+      if (remRes.ok) setReminderConfigs(await remRes.json())
 
     } catch (err) {
       toast.error("Failed to sync finance data")
@@ -207,6 +212,9 @@ export default function AdminFinancePage() {
           </TabsTrigger>
           <TabsTrigger value="ledger" className="rounded-xl px-6 py-2.5 data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all">
             <Receipt className="h-4 w-4 mr-2" /> Daily Ledger
+          </TabsTrigger>
+          <TabsTrigger value="automation" className="rounded-xl px-6 py-2.5 data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all">
+            <RefreshCw className="h-4 w-4 mr-2" /> Automation
           </TabsTrigger>
         </TabsList>
 
@@ -423,6 +431,106 @@ export default function AdminFinancePage() {
               </table>
             </div>
           </Card>
+        </TabsContent>
+        <TabsContent value="automation" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="lg:col-span-1 bg-slate-900/50 border-white/5 rounded-3xl">
+              <CardHeader className="border-b border-white/5">
+                <CardTitle>Add Reminder Schedule</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <form 
+                  onSubmit={async (e) => {
+                    e.preventDefault()
+                    const formData = new FormData(e.currentTarget)
+                    const data = {
+                      days_offset: parseInt(formData.get("offset") as string),
+                      reminder_type: formData.get("type"),
+                      is_active: true
+                    }
+                    const res = await apiClient("/admin/rules/fee-reminders", { method: "POST", body: JSON.stringify(data) })
+                    if (res.ok) {
+                      toast.success("Reminder schedule saved")
+                      fetchBackendData()
+                      //@ts-ignore
+                      e.target.reset()
+                    }
+                  }} 
+                  className="space-y-4"
+                >
+                  <div className="space-y-1.5">
+                    <Label className="text-slate-400">Trigger Offset (Days)</Label>
+                    <Input name="offset" type="number" placeholder="e.g. -3 for 3 days before due" className="bg-slate-800/50 border-white/5" required />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-slate-400">Reminder Type</Label>
+                    <Select name="type" defaultValue="sms">
+                      <SelectTrigger className="bg-slate-800/50 border-white/5">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sms">SMS / WhatsApp</SelectItem>
+                        <SelectItem value="email">Email</SelectItem>
+                        <SelectItem value="push">App Push Notification</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold">Add Schedule</Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            <Card className="lg:col-span-2 bg-slate-900/50 border-white/5 rounded-3xl">
+              <CardHeader className="border-b border-white/5">
+                <CardTitle>Active Reminder Cycles</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="space-y-3">
+                  {reminderConfigs.length > 0 ? reminderConfigs.map((rem: any) => (
+                    <div key={rem.id} className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-400">
+                          <RefreshCw className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-white">
+                            {rem.days_offset === 0 ? "On Due Date" : 
+                             rem.days_offset < 0 ? `${Math.abs(rem.days_offset)} Days Before Due` : 
+                             `${rem.days_offset} Days After Due`}
+                          </p>
+                          <p className="text-xs text-slate-500 uppercase font-black">{rem.reminder_type} alert</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${rem.is_active ? 'bg-emerald-500/10 text-emerald-500' : 'bg-slate-500/10 text-slate-500'}`}>
+                          {rem.is_active ? 'Enabled' : 'Disabled'}
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={async () => {
+                            const res = await apiClient("/admin/rules/fee-reminders", { 
+                              method: "POST", 
+                              body: JSON.stringify({ ...rem, is_active: !rem.is_active }) 
+                            })
+                            if (res.ok) {
+                              toast.success("Schedule updated")
+                              fetchBackendData()
+                            }
+                          }}
+                          className="hover:bg-white/10"
+                        >
+                          {rem.is_active ? 'Pause' : 'Resume'}
+                        </Button>
+                      </div>
+                    </div>
+                  )) : (
+                    <p className="text-center py-10 text-slate-500">No automated reminders configured.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

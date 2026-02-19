@@ -34,8 +34,39 @@ export default function AdminNoticesPage() {
   const [title, setTitle] = useState("")
   const [body, setBody] = useState("")
   const [scope, setScope] = useState("")
+  const [publishAt, setPublishAt] = useState("")
+  const [attachments, setAttachments] = useState<any[]>([])
   const [scopeTargets, setScopeTargets] = useState<ScopeTarget[]>(DEFAULT_SCOPES)
   const [loading, setLoading] = useState(false)
+  const [uploading, setUploading] = useState(false)
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    const formData = new FormData()
+    formData.append("file", file)
+
+    try {
+      const res = await fetch("/api/files/upload", {
+        method: "POST",
+        body: formData
+      })
+      if (!res.ok) throw new Error("Upload failed")
+      const result = await res.json()
+      setAttachments(prev => [...prev, { id: result.id, name: result.name, url: result.url }])
+      toast.success(`Uploaded: ${result.name}`)
+    } catch (err) {
+      toast.error("Failed to upload file")
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const removeAttachment = (idx: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== idx))
+  }
 
   useEffect(() => {
     fetchNotices()
@@ -106,7 +137,13 @@ export default function AdminNoticesPage() {
     try {
       const res = await apiClient("/admin/notices", {
         method: "POST",
-        body: JSON.stringify({ title, body, scope })
+        body: JSON.stringify({ 
+          title, 
+          body, 
+          scope, 
+          attachments,
+          publish_at: publishAt ? new Date(publishAt).toISOString() : null
+        })
       })
       if (res.ok) {
         toast.success("Notice published successfully")
@@ -114,6 +151,8 @@ export default function AdminNoticesPage() {
         setTitle("")
         setBody("")
         setScope("")
+        setAttachments([])
+        setPublishAt("")
       }
     } catch (err) {
       toast.error("Failed to publish notice")
@@ -160,6 +199,36 @@ export default function AdminNoticesPage() {
                     onChange={(e) => setBody(e.target.value)}
                     required 
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>Attachments</Label>
+                  <div className="space-y-2">
+                    <Input 
+                      type="file" 
+                      onChange={handleFileUpload}
+                      disabled={uploading}
+                      className="cursor-pointer"
+                    />
+                    {attachments.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {attachments.map((at, i) => (
+                          <Badge key={i} variant="secondary" className="pr-1 gap-1">
+                            {at.name}
+                            <button type="button" onClick={() => removeAttachment(i)} className="hover:text-red-500">×</button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Schedule Publishing (Optional)</Label>
+                  <Input 
+                    type="datetime-local" 
+                    value={publishAt}
+                    onChange={(e) => setPublishAt(e.target.value)}
+                  />
+                  <p className="text-[10px] text-gray-400">Leave blank to publish immediately</p>
                 </div>
                 <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>
                   {loading ? "Publishing..." : "Publish Notice"}

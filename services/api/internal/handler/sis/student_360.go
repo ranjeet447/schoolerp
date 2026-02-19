@@ -2,6 +2,7 @@ package sis
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -27,6 +28,7 @@ func (h *Student360Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/health", h.UpsertHealthRecord)
 		r.Get("/documents", h.ListDocuments)
 		r.Post("/documents", h.UploadDocument)
+		r.Get("/export", h.ExportPortfolioPDF)
 	})
 }
 
@@ -126,4 +128,18 @@ func (h *Student360Handler) UploadDocument(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	json.NewEncoder(w).Encode(map[string]string{"id": id})
+}
+func (h *Student360Handler) ExportPortfolioPDF(w http.ResponseWriter, r *http.Request) {
+	studentID := chi.URLParam(r, "studentID")
+	tenantID := middleware.GetTenantID(r.Context())
+
+	pdfBytes, err := h.svc.GetStudentPortfolioPDF(r.Context(), tenantID, studentID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=portfolio_%s.pdf", studentID))
+	w.Write(pdfBytes)
 }

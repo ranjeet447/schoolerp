@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"os"
 	"os/signal"
@@ -89,6 +90,23 @@ func main() {
 		}
 	}()
 
+	// Cron: Homework + PTM reminders every 10 minutes
+	reminderTicker := time.NewTicker(10 * time.Minute)
+	defer reminderTicker.Stop()
+
+	go func() {
+		// Run once at startup
+		processReminders(ctx, querier)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-reminderTicker.C:
+				processReminders(ctx, querier)
+			}
+		}
+	}()
+
 	// Start Notification Consumer
 	go notifConsumer.Start(ctx)
 
@@ -117,3 +135,56 @@ func processPoll(ctx context.Context, q db.Querier, pdfSvc *pdf.Processor) {
 		}
 	}
 }
+
+func processReminders(ctx context.Context, q db.Querier) {
+	// 1. Homework Due-Date Reminders
+	homeworks, err := q.GetHomeworkDueSoon(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("Error fetching homework due soon")
+	} else {
+		for _, h := range homeworks {
+			students, err := q.GetStudentsMissingSubmissionForHomework(ctx, h.ID)
+			if err != nil {
+				continue
+			}
+			for _, st := range students {
+				payload, _ := json.Marshal(map[string]interface{}{
+					"homework_id":    h.ID,
+					"student_id":     st.StudentID,
+					"student_name":   st.FullName,
+					"due_date":       h.DueDate.Time.Format(time.RFC3339),
+					"homework_title": h.Title,
+				})
+				_, _ = q.CreateOutboxEvent(ctx, db.CreateOutboxEventParams{
+					TenantID:  h.TenantID,
+					EventType: "academics.homework.reminder",
+					Payload:   payload,
+				})
+			}
+		}
+		log.Info().Int("count", len(homeworks)).Msg("Processed homework reminders")
+	}
+
+	// 2. PTM Slot Reminders
+	slots, err := q.GetPTMSlotsStartingSoon(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("Error fetching PTM slots starting soon")
+	} else {
+		for _, slot := range slots {
+			payload, _ := json.Marshal(map[string]interface{}{
+				"slot_id":      slot.ID,
+				"event_title":  slot.EventTitle,
+				"student_name": slot.StudentName,
+				"student_id":   slot.StudentID,
+				"start_time":   slot.StartTime,
+			})
+			_, _ = q.CreateOutboxEvent(ctx, db.CreateOutboxEventParams{
+				TenantID:  slot.TenantID,
+				EventType: "communication.ptm.reminder",
+				Payload:   payload,
+			})
+		}
+		log.Info().Int("count", len(slots)).Msg("Processed PTM reminders")
+	}
+}
+

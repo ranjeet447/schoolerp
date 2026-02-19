@@ -77,6 +77,98 @@ func NewService(q db.Querier, audit *audit.Logger) *Service {
 	return &Service{q: q, audit: audit}
 }
 
+type AcademicWeek struct {
+	WeekNumber  int32     `json:"week_number"`
+	StartDate   time.Time `json:"start_date"`
+	EndDate     time.Time `json:"end_date"`
+	IsHoliday   bool      `json:"is_holiday"`
+	HolidayName string    `json:"holiday_name,omitempty"`
+}
+
+func (s *Service) GetAcademicCalendar(ctx context.Context, tenantID string) ([]AcademicWeek, error) {
+	tID := toPgUUID(tenantID)
+	ay, err := s.q.GetActiveAcademicYear(ctx, tID)
+	if err != nil {
+		return nil, fmt.Errorf("active academic year not found: %w", err)
+	}
+
+	start := ay.StartDate.Time
+	end := ay.EndDate.Time
+
+	// Fetch holidays using dedicated holiday table
+	var sDate, eDate pgtype.Date
+	sDate.Scan(start.Format("2006-01-02"))
+	eDate.Scan(end.Format("2006-01-02"))
+
+	holidays, err := s.q.ListHolidays(ctx, db.ListHolidaysParams{
+		TenantID:    tID,
+		HolidayDate: sDate,
+		HolidayDate_2: eDate,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch holidays: %w", err)
+	}
+
+	var weeks []AcademicWeek
+	current := start
+	// Align to Monday
+	for current.Weekday() != time.Monday {
+		current = current.AddDate(0, 0, -1)
+	}
+
+	weekNum := int32(1)
+	for current.Before(end) {
+		weekStart := current
+		weekEnd := current.AddDate(0, 0, 6)
+		
+		isHoliday := false
+		holidayName := ""
+		
+		for _, h := range holidays {
+			// If holiday falls within the week
+			if h.HolidayDate.Time.After(weekStart.AddDate(0, 0, -1)) && h.HolidayDate.Time.Before(weekEnd.AddDate(0, 0, 1)) {
+				isHoliday = true
+				holidayName = h.Name
+				break
+			}
+		}
+
+		weeks = append(weeks, AcademicWeek{
+			WeekNumber:  weekNum,
+			StartDate:   weekStart,
+			EndDate:     weekEnd,
+			IsHoliday:   isHoliday,
+			HolidayName: holidayName,
+		})
+		
+		current = current.AddDate(0, 0, 7)
+		weekNum++
+	}
+
+	return weeks, nil
+}
+
+func (s *Service) CalculateEffectiveWeek(ctx context.Context, tenantID string, calendarWeek int32) (int32, error) {
+	weeks, err := s.GetAcademicCalendar(ctx, tenantID)
+	if err != nil {
+		return 0, err
+	}
+
+	effectiveWeek := int32(0)
+	for _, w := range weeks {
+		if !w.IsHoliday {
+			effectiveWeek++
+		}
+		if w.WeekNumber == calendarWeek {
+			if w.IsHoliday {
+				return 0, fmt.Errorf("week %d is a holiday", calendarWeek)
+			}
+			return effectiveWeek, nil
+		}
+	}
+	return 0, fmt.Errorf("week %d not found in academic year", calendarWeek)
+}
+
 type CreateHomeworkParams struct {
 	TenantID       string
 	SubjectID      string
@@ -86,6 +178,7 @@ type CreateHomeworkParams struct {
 	Description    string
 	DueDate        pgtype.Timestamptz
 	Attachments    []byte // JSONB
+	ResourceID     string
 
 	// Audit
 	UserID    string
@@ -123,6 +216,11 @@ func (s *Service) CreateHomework(ctx context.Context, p CreateHomeworkParams) (d
 	teachUUID := pgtype.UUID{}
 	teachUUID.Scan(p.TeacherID)
 
+	rID := pgtype.UUID{}
+	if p.ResourceID != "" {
+		rID.Scan(p.ResourceID)
+	}
+
 	hw, err := s.q.CreateHomework(ctx, db.CreateHomeworkParams{
 		TenantID:       tUUID,
 		SubjectID:      sUUID,
@@ -132,6 +230,7 @@ func (s *Service) CreateHomework(ctx context.Context, p CreateHomeworkParams) (d
 		Description:    pgtype.Text{String: p.Description, Valid: p.Description != ""},
 		DueDate:        p.DueDate,
 		Attachments:    p.Attachments,
+		ResourceID:     rID,
 	})
 	if err != nil {
 		return db.Homework{}, err
@@ -210,6 +309,30 @@ func (s *Service) UpsertLessonPlan(ctx context.Context, tenantID, subjectID, cla
 		WeekNumber:   week,
 		PlannedTopic: topic,
 		CoveredAt:    covered,
+		ReviewStatus: "pending",
+	})
+}
+
+func (s *Service) UpdateLessonPlanStatus(ctx context.Context, id, tenantID, status, remarks string) (db.LessonPlan, error) {
+	uID := pgtype.UUID{}
+	uID.Scan(id)
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+
+	return s.q.UpdateLessonPlanStatus(ctx, db.UpdateLessonPlanStatusParams{
+		ID:            uID,
+		TenantID:      tID,
+		ReviewStatus:  status,
+		ReviewRemarks: pgtype.Text{String: remarks, Valid: remarks != ""},
+	})
+}
+
+func (s *Service) GetSyllabusLag(ctx context.Context, tenantID string, currentWeek int32) ([]db.GetSyllabusLagRow, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	return s.q.GetSyllabusLag(ctx, db.GetSyllabusLagParams{
+		TenantID:   tID,
+		WeekNumber: currentWeek,
 	})
 }
 
@@ -306,7 +429,7 @@ func (s *Service) ListSubmissions(ctx context.Context, homeworkID string) ([]db.
 	return s.q.ListSubmissions(ctx, hUUID)
 }
 
-func (s *Service) ListLessonPlans(ctx context.Context, tenantID, subjectID, classID string) ([]db.LessonPlan, error) {
+func (s *Service) ListLessonPlans(ctx context.Context, tenantID, subjectID, classID string) ([]db.ListLessonPlansRow, error) {
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(tenantID)
 	sUUID := pgtype.UUID{}
@@ -677,5 +800,39 @@ func (s *Service) ListSubjects(ctx context.Context, tenantID string) ([]Homework
 	}
 
 	return subjects, nil
+}
+
+func (s *Service) ProcessHomeworkReminders(ctx context.Context) error {
+	// 1. Get homework due soon (within 24h for reminder)
+	homeworks, err := s.q.GetHomeworkDueSoon(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch homework due soon: %w", err)
+	}
+
+	for _, h := range homeworks {
+		// 2. Get students missing submission
+		students, err := s.q.GetStudentsMissingSubmissionForHomework(ctx, h.ID)
+		if err != nil {
+			continue // Log error and continue with next homework
+		}
+
+		for _, st := range students {
+			payload, _ := json.Marshal(map[string]interface{}{
+				"homework_id":   h.ID,
+				"student_id":    st.StudentID,
+				"student_name":  st.FullName,
+				"due_date":      h.DueDate.Time.Format(time.RFC3339),
+				"homework_title": h.Title,
+			})
+
+			_, _ = s.q.CreateOutboxEvent(ctx, db.CreateOutboxEventParams{
+				TenantID:  h.TenantID,
+				EventType: "academics.homework.reminder",
+				Payload:   payload,
+			})
+		}
+	}
+
+	return nil
 }
 

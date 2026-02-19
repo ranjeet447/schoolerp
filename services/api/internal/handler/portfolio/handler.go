@@ -24,6 +24,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Get("/groups/{id}/members", h.ListGroupMembers)
 		r.Post("/groups/{id}/members", h.AddGroupMember)
 		r.Get("/groups/{id}/analytics", h.GetGroupAnalytics)
+		r.Get("/groups/{id}/financial-analytics", h.GetGroupFinancialAnalytics)
 	})
 }
 
@@ -105,6 +106,18 @@ func (h *Handler) GetGroupAnalytics(w http.ResponseWriter, r *http.Request) {
 	groupID := chi.URLParam(r, "id")
 
 	analytics, err := h.svc.GetGroupAnalytics(r.Context(), groupID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(analytics)
+}
+func (h *Handler) GetGroupFinancialAnalytics(w http.ResponseWriter, r *http.Request) {
+	groupID := chi.URLParam(r, "id")
+
+	analytics, err := h.svc.GetGroupFinancialAnalytics(r.Context(), groupID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

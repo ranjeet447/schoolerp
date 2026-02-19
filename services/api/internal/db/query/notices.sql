@@ -1,6 +1,6 @@
 -- name: CreateNotice :one
-INSERT INTO notices (tenant_id, title, body, scope, created_by)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO notices (tenant_id, title, body, scope, attachments, publish_at, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: GetNotice :one
@@ -12,7 +12,7 @@ SELECT n.*, u.full_name as author_name
 FROM notices n
 LEFT JOIN users u ON n.created_by = u.id
 WHERE n.tenant_id = $1
-ORDER BY n.created_at DESC;
+ORDER BY n.publish_at DESC, n.created_at DESC;
 
 -- name: AcknowledgeNotice :one
 INSERT INTO notice_acks (notice_id, user_id)
@@ -27,13 +27,12 @@ JOIN users u ON na.user_id = u.id
 WHERE na.notice_id = $1;
 
 -- name: ListNoticesForParent :many
--- This is a bit simplified, in real prod you'd filter by scope.
--- For now, we fetch all notices for the tenant.
+-- Fetch notices that are published (publish_at <= NOW())
 SELECT n.*, na.ack_at
 FROM notices n
 LEFT JOIN notice_acks na ON n.id = na.notice_id AND na.user_id = $2
-WHERE n.tenant_id = $1
-ORDER BY n.created_at DESC;
+WHERE n.tenant_id = $1 AND n.publish_at <= NOW()
+ORDER BY n.publish_at DESC;
 
 -- name: DeleteNotice :exec
 DELETE FROM notices

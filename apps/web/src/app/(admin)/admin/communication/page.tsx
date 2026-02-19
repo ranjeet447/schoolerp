@@ -62,6 +62,11 @@ export default function AdminCommunicationPage() {
   const [ptmEvents, setPtmEvents] = useState<PtmEventRow[]>([])
   const [loading, setLoading] = useState(true)
   const [savingModeration, setSavingModeration] = useState(false)
+  const [savingPtmSettings, setSavingPtmSettings] = useState(false)
+
+  const [ptmSettings, setPtmSettings] = useState({
+    automated_reminders_enabled: false,
+  })
 
   const [eventTypeFilter, setEventTypeFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
@@ -81,7 +86,7 @@ export default function AdminCommunicationPage() {
   const fetchAll = async () => {
     setLoading(true)
     try {
-      await Promise.all([fetchEvents(), fetchPTMEvents(), fetchModerationSettings()])
+      await Promise.all([fetchEvents(), fetchPTMEvents(), fetchModerationSettings(), fetchPTMSettings()])
     } finally {
       setLoading(false)
     }
@@ -142,6 +147,35 @@ export default function AdminCommunicationPage() {
       is_enabled: Boolean(data?.is_enabled?.Bool ?? data?.is_enabled),
     })
     setBlockedKeywordsInput(blockedKeywords.join(", "))
+  }
+
+  const fetchPTMSettings = async () => {
+    try {
+      const res = await apiClient("/admin/communication/ptm/settings")
+      if (res.ok) {
+        const data = await res.json()
+        setPtmSettings(data)
+      }
+    } catch (err) {
+      console.error("Failed to fetch PTM settings", err)
+    }
+  }
+
+  const savePTMSettings = async (enabled: boolean) => {
+    setSavingPtmSettings(true)
+    try {
+      const res = await apiClient("/admin/communication/ptm/settings", {
+        method: "PUT",
+        body: JSON.stringify({ automated_reminders_enabled: enabled }),
+      })
+      if (!res.ok) throw new Error("Failed to save")
+      toast.success("PTM settings updated")
+      setPtmSettings({ automated_reminders_enabled: enabled })
+    } catch (err) {
+      toast.error("Failed to update PTM settings")
+    } finally {
+      setSavingPtmSettings(false)
+    }
   }
 
   const saveModerationSettings = async () => {

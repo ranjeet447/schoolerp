@@ -10,6 +10,7 @@ CREATE TABLE tenants (
     subdomain TEXT UNIQUE NOT NULL,
     domain TEXT UNIQUE, -- Custom domain
     logo_url TEXT,
+    board_type TEXT DEFAULT 'other', -- 'CBSE', 'ICSE', 'STATE', 'OTHER'
     config JSONB DEFAULT '{}', -- Branding, term terminology overrides
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -626,6 +627,7 @@ CREATE TABLE notices (
     title TEXT NOT NULL,
     body TEXT NOT NULL,
     scope JSONB NOT NULL, -- {"type": "class", "target": "uuid"}
+    attachments JSONB DEFAULT '[]',
     publish_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -839,6 +841,7 @@ CREATE TABLE library_books (
     tenant_id UUID NOT NULL REFERENCES tenants(id),
     title TEXT NOT NULL,
     isbn TEXT,
+    barcode TEXT UNIQUE,
     publisher TEXT,
     published_year INTEGER,
     category_id UUID REFERENCES library_categories(id),
@@ -1235,6 +1238,7 @@ CREATE TABLE IF NOT EXISTS outbox (
     status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
     retry_count INT DEFAULT 0,
     error_message TEXT,
+    process_after TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     processed_at TIMESTAMPTZ
 );
@@ -1325,6 +1329,7 @@ CREATE TABLE homework (
     due_date TIMESTAMP WITH TIME ZONE NOT NULL,
     submission_allowed BOOLEAN DEFAULT TRUE,
     attachments JSONB DEFAULT '[]', -- Array of S3 refs
+    resource_id UUID REFERENCES learning_resources(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -1352,6 +1357,8 @@ CREATE TABLE lesson_plans (
     week_number INTEGER NOT NULL,
     planned_topic TEXT NOT NULL,
     covered_at TIMESTAMP WITH TIME ZONE,
+    review_status TEXT NOT NULL DEFAULT 'pending',
+    review_remarks TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(tenant_id, subject_id, class_id, week_number)
@@ -1397,6 +1404,7 @@ CREATE TABLE discipline_incidents (
     description TEXT,
     action_taken TEXT,
     status VARCHAR(20) NOT NULL DEFAULT 'reported', -- "reported", "investigating", "resolved", "dismissed"
+    severity VARCHAR(20) DEFAULT 'low' CHECK (severity IN ('low', 'medium', 'high', 'critical')),
     parent_visibility BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -1427,6 +1435,7 @@ CREATE TABLE visitor_logs (
     check_out_at TIMESTAMP WITH TIME ZONE,
     badge_number VARCHAR(50),
     remarks TEXT,
+    entry_photo_url TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -1443,6 +1452,26 @@ CREATE TABLE pickup_authorizations (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- 4. Pickup Events (Logs)
+CREATE TABLE pickup_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    auth_id UUID REFERENCES pickup_authorizations(id) ON DELETE SET NULL,
+    pickup_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    picked_up_by_name VARCHAR(255),
+    relationship VARCHAR(100),
+    photo_url TEXT,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_pickup_events_student ON pickup_events(student_id);
+CREATE INDEX idx_pickup_events_tenant ON pickup_events(tenant_id);
+CREATE INDEX idx_pickup_events_at ON pickup_events(pickup_at);
+
+
 
 -- 4. Emergency Broadcasts
 CREATE TABLE emergency_broadcasts (
@@ -1493,6 +1522,18 @@ CREATE TABLE ptm_slots (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(event_id, start_time)
 );
+
+CREATE TABLE ptm_reminder_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    slot_id UUID NOT NULL REFERENCES ptm_slots(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    reminder_type VARCHAR(20) NOT NULL, -- '24h', '1h'
+    sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(tenant_id, slot_id, student_id, reminder_type)
+);
+
+CREATE INDEX idx_ptm_reminder_logs_slot ON ptm_reminder_logs(slot_id);
 
 -- 2. Moderated Chat
 CREATE TABLE chat_rooms (
@@ -3224,8 +3265,10 @@ CREATE TABLE optional_fee_items (
     name TEXT NOT NULL, -- Transport: Zone A, Uniform Set
     amount DECIMAL(12, 2) NOT NULL,
     category TEXT, -- Transport, Books, Uniform, Activity
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(tenant_id, name)
 );
+
 
 CREATE TABLE student_optional_fees (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -3306,3 +3349,209 @@ CREATE INDEX idx_staff_tasks_assigned ON staff_tasks(assigned_to, status);
 CREATE INDEX idx_staff_tasks_tenant ON staff_tasks(tenant_id);
 CREATE INDEX idx_fuel_logs_vehicle ON transport_fuel_logs(vehicle_id, fill_date);
 CREATE INDEX idx_inv_req_status ON inventory_requisitions(tenant_id, status);
+
+-- 000063_p0_feature_completion.up.sql
+
+-- 1. Notice Enhancements
+-- (Actually updated in place above)
+CREATE INDEX idx_notices_publish_at ON notices(tenant_id, publish_at);
+
+-- 2. Outbox Scheduling Support
+-- (Actually updated in place above)
+CREATE INDEX idx_outbox_process_after ON outbox(status, process_after);
+
+-- 3. Fee Reminder Configuration
+CREATE TABLE fee_reminder_configs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    days_offset INTEGER NOT NULL, -- e.g., 7
+    reminder_type TEXT NOT NULL CHECK (reminder_type IN ('before_due', 'after_due', 'on_due')),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(tenant_id, days_offset, reminder_type)
+);
+
+-- 4. Track which students were already reminded for a specific fee and offset
+CREATE TABLE fee_reminder_logs (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    fee_head_id UUID NOT NULL REFERENCES fee_heads(id) ON DELETE CASCADE,
+    reminder_config_id UUID NOT NULL REFERENCES fee_reminder_configs(id) ON DELETE CASCADE,
+    reminded_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(student_id, fee_head_id, reminder_config_id)
+);
+
+-- 000064_p1_features.up.sql
+
+CREATE TABLE IF NOT EXISTS hall_tickets (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    roll_number TEXT NOT NULL,
+    hall_number TEXT,
+    seat_number TEXT,
+    remarks TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(exam_id, student_id),
+    UNIQUE(exam_id, roll_number)
+);
+
+CREATE INDEX idx_hall_tickets_exam ON hall_tickets(exam_id);
+CREATE INDEX idx_hall_tickets_student ON hall_tickets(student_id);
+-- Student Confidential Notes
+CREATE TABLE IF NOT EXISTS student_confidential_notes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    created_by UUID NOT NULL REFERENCES users(id),
+    encrypted_content TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_conf_notes_student ON student_confidential_notes(student_id);
+CREATE INDEX IF NOT EXISTS idx_conf_notes_tenant ON student_confidential_notes(tenant_id);
+-- Gate Passes for secure student exit
+CREATE TABLE IF NOT EXISTS gate_passes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    reason TEXT NOT NULL,
+    requested_by UUID NOT NULL REFERENCES users(id),
+    approved_by UUID REFERENCES users(id),
+    status TEXT NOT NULL DEFAULT 'pending',
+    qr_code TEXT,
+    valid_from TIMESTAMPTZ,
+    valid_until TIMESTAMPTZ,
+    used_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_gate_passes_student ON gate_passes(student_id);
+CREATE INDEX idx_gate_passes_tenant ON gate_passes(tenant_id);
+CREATE INDEX idx_gate_passes_status ON gate_passes(tenant_id, status);
+
+-- Pickup Verification Codes (QR/OTP)
+CREATE TABLE IF NOT EXISTS pickup_verification_codes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    auth_id UUID REFERENCES pickup_authorizations(id) ON DELETE CASCADE,
+    code_type TEXT NOT NULL, -- 'qr', 'otp'
+    code_value TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    is_used BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_pickup_codes_student ON pickup_verification_codes(student_id, is_used);
+CREATE INDEX idx_pickup_codes_value ON pickup_verification_codes(code_value) WHERE is_used = FALSE;
+
+
+-- Holidays for Lesson Planning
+CREATE TABLE IF NOT EXISTS holidays (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    holiday_date DATE NOT NULL,
+    holiday_type TEXT NOT NULL DEFAULT 'public', -- 'public', 'local', 'restricted'
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(tenant_id, holiday_date)
+);
+
+-- Library Reading Progress Journal
+CREATE TABLE IF NOT EXISTS library_reading_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    book_id UUID NOT NULL REFERENCES library_books(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'reading', -- 'reading', 'completed', 'wishlist'
+    current_page INTEGER DEFAULT 0,
+    total_pages INTEGER DEFAULT 0,
+    rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(student_id, book_id)
+);
+
+-- 000071_automation_studio.up.sql
+CREATE TABLE automation_rules (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id),
+    name TEXT NOT NULL,
+    description TEXT,
+    trigger_event TEXT NOT NULL,
+    condition_json JSONB DEFAULT '{}'::jsonb,
+    action_json JSONB NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_by UUID REFERENCES users(id)
+);
+
+CREATE INDEX idx_automation_rules_tenant_trigger ON automation_rules(tenant_id, trigger_event) WHERE is_active = true;
+
+ALTER TABLE library_reading_logs ADD COLUMN metadata JSONB DEFAULT '{}'::jsonb;
+
+-- 000072_multilingual_alerts.up.sql
+ALTER TABLE guardians ADD COLUMN IF NOT EXISTS preferred_language TEXT DEFAULT 'en';
+
+-- Add seed templates for Hindi (hi)
+-- Note: These are usually seeded via a separate script or migration, 
+-- but we include them here for completeness in schema.sql if it's used for fresh setups.
+INSERT INTO notification_templates (code, channel, locale, subject, body)
+VALUES 
+('attendance.absent', 'sms', 'hi', 'अनुपस्थिति सूचना', 'नमस्ते, आपका बच्चा आज अनुपस्थित है।'),
+('fee.reminder', 'sms', 'hi', 'शुल्क अनुस्मारक', 'नमस्ते, आपके बच्चे का स्कूल शुल्क देय है। कृपया भुगतान करें।')
+ON CONFLICT DO NOTHING;
+
+-- Add metadata column to exam_subjects
+ALTER TABLE exam_subjects ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
+
+-- Batch 6: AI & Library Enhancements
+CREATE TABLE ai_query_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id),
+    provider TEXT NOT NULL,
+    model TEXT NOT NULL,
+    tokens_used INTEGER DEFAULT 0,
+    cost DECIMAL(12, 6) DEFAULT 0,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE library_reading_progress (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    asset_id UUID NOT NULL REFERENCES library_books(id) ON DELETE CASCADE, -- assuming asset_id maps to books for now
+    pages_read INTEGER NOT NULL,
+    total_pages INTEGER NOT NULL,
+    recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_ai_logs_tenant ON ai_query_logs(tenant_id);
+CREATE INDEX idx_reading_progress_student ON library_reading_progress(student_id);
+
+-- Update automation_rules for scheduling
+ALTER TABLE automation_rules ADD COLUMN trigger_type TEXT NOT NULL DEFAULT 'event' CHECK (trigger_type IN ('event', 'time'));
+ALTER TABLE automation_rules ADD COLUMN schedule_cron TEXT; -- optional cron expression
+
+-- AI Chat Sessions for multi-turn conversations
+CREATE TABLE ai_chat_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id),
+    external_id TEXT NOT NULL, -- WhatsApp number, etc.
+    messages JSONB NOT NULL DEFAULT '[]',
+    metadata JSONB DEFAULT '{}',
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX idx_ai_sessions_external ON ai_chat_sessions(tenant_id, external_id);

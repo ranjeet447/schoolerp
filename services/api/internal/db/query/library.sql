@@ -24,11 +24,11 @@ ORDER BY name;
 
 -- name: CreateBook :one
 INSERT INTO library_books (
-    tenant_id, title, isbn, publisher, published_year, category_id, 
+    tenant_id, title, isbn, barcode, publisher, published_year, category_id, 
     total_copies, available_copies, shelf_location, cover_image_url, 
     price, language, status
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
 ) RETURNING *;
 
 -- name: CreateBookAuthor :exec
@@ -36,13 +36,16 @@ INSERT INTO library_book_authors (book_id, author_id) VALUES ($1, $2);
 
 -- name: UpdateBook :one
 UPDATE library_books
-SET title = $3, isbn = $4, publisher = $5, published_year = $6, category_id = $7,
-    total_copies = $8, shelf_location = $9, price = $10, language = $11, updated_at = NOW()
+SET title = $3, isbn = $4, barcode = $5, publisher = $6, published_year = $7, category_id = $8,
+    total_copies = $9, shelf_location = $10, price = $11, language = $12, updated_at = NOW()
 WHERE id = $1 AND tenant_id = $2
 RETURNING *;
 
 -- name: GetBook :one
 SELECT * FROM library_books WHERE id = $1 AND tenant_id = $2;
+
+-- name: GetBookByBarcode :one
+SELECT * FROM library_books WHERE barcode = $1 AND tenant_id = $2;
 
 -- name: ListBooks :many
 SELECT * FROM library_books
@@ -98,3 +101,8 @@ ORDER BY created_at;
 
 -- name: DeleteDigitalAsset :exec
 UPDATE library_digital_assets SET is_active = FALSE WHERE id = $1;
+
+-- name: GetActiveIssueByBook :one
+SELECT * FROM library_issues 
+WHERE book_id = $1 AND tenant_id = $2 AND status = 'issued' 
+ORDER BY issue_date DESC LIMIT 1;

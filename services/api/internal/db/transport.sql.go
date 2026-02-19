@@ -236,6 +236,65 @@ func (q *Queries) DeleteVehicle(ctx context.Context, arg DeleteVehicleParams) er
 	return err
 }
 
+const getActiveTransportAllocationsWithCosts = `-- name: GetActiveTransportAllocationsWithCosts :many
+SELECT 
+    ta.id as allocation_id,
+    ta.student_id,
+    ta.tenant_id,
+    ta.route_id,
+    ta.stop_id,
+    tr.name as route_name,
+    trs.name as stop_name,
+    trs.pickup_cost,
+    trs.drop_cost
+FROM transport_allocations ta
+JOIN transport_routes tr ON ta.route_id = tr.id
+JOIN transport_route_stops trs ON ta.stop_id = trs.id
+WHERE ta.tenant_id = $1 AND ta.status = 'active'
+`
+
+type GetActiveTransportAllocationsWithCostsRow struct {
+	AllocationID pgtype.UUID `json:"allocation_id"`
+	StudentID    pgtype.UUID `json:"student_id"`
+	TenantID     pgtype.UUID `json:"tenant_id"`
+	RouteID      pgtype.UUID `json:"route_id"`
+	StopID       pgtype.UUID `json:"stop_id"`
+	RouteName    string      `json:"route_name"`
+	StopName     string      `json:"stop_name"`
+	PickupCost   pgtype.Int8 `json:"pickup_cost"`
+	DropCost     pgtype.Int8 `json:"drop_cost"`
+}
+
+func (q *Queries) GetActiveTransportAllocationsWithCosts(ctx context.Context, tenantID pgtype.UUID) ([]GetActiveTransportAllocationsWithCostsRow, error) {
+	rows, err := q.db.Query(ctx, getActiveTransportAllocationsWithCosts, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetActiveTransportAllocationsWithCostsRow
+	for rows.Next() {
+		var i GetActiveTransportAllocationsWithCostsRow
+		if err := rows.Scan(
+			&i.AllocationID,
+			&i.StudentID,
+			&i.TenantID,
+			&i.RouteID,
+			&i.StopID,
+			&i.RouteName,
+			&i.StopName,
+			&i.PickupCost,
+			&i.DropCost,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getMaxStopSequence = `-- name: GetMaxStopSequence :one
 SELECT COALESCE(MAX(sequence_order), 0)::INTEGER FROM transport_route_stops
 WHERE route_id = $1

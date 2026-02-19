@@ -139,3 +139,13 @@ func decrypt(cryptoText string) ([]byte, error) {
 	}
 	return nil, lastErr
 }
+
+func generateOTP(length int) string {
+	const digits = "0123456789"
+	result := make([]byte, length)
+	_, _ = io.ReadFull(rand.Reader, result)
+	for i := 0; i < length; i++ {
+		result[i] = digits[int(result[i])%len(digits)]
+	}
+	return string(result)
+}

@@ -46,6 +46,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	// Fuel Tracking
 	r.Post("/transport/fuel-logs", h.CreateFuelLog)
 	r.Get("/transport/fuel-logs", h.ListFuelLogs)
+
+	// Fee Generation (Bulk)
+	r.Post("/transport/generate-fees", h.GenerateFees)
 }
 
 // Vehicle Handlers
@@ -461,6 +464,21 @@ func (h *Handler) ListFuelLogs(w http.ResponseWriter, r *http.Request) {
 	}
 	respondJSON(w, http.StatusOK, logs)
 }
+
+func (h *Handler) GenerateFees(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	count, err := h.svc.GenerateTransportFees(r.Context(), tenantID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"message": "Transport fees generated successfully",
+		"count":   count,
+	})
+}
+
 
 // Helpers
 

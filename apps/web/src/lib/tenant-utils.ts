@@ -22,6 +22,7 @@ export async function getTenantId(): Promise<string> {
 export interface TenantConfig {
   name: string;
   white_label: boolean;
+  board_type?: string;
   branding: {
     primary_color?: string;
     name_override?: string;

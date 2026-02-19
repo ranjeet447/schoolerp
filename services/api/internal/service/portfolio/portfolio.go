@@ -61,3 +61,27 @@ func (s *Service) GetGroupAnalytics(ctx context.Context, groupID string) (db.Get
 	gID.Scan(groupID)
 	return s.q.GetGroupAnalytics(ctx, gID)
 }
+
+func (s *Service) GetGroupFinancialAnalytics(ctx context.Context, groupID string) (db.GetGroupFinancialAnalyticsRow, error) {
+	gID := pgtype.UUID{}
+	gID.Scan(groupID)
+	return s.q.GetGroupFinancialAnalytics(ctx, gID)
+}
+
+func (s *Service) GetGroupMemberComparison(ctx context.Context, groupID string) ([]db.GetGroupMemberComparisonRow, error) {
+	gID := pgtype.UUID{}
+	gID.Scan(groupID)
+	return s.q.GetGroupMemberComparison(ctx, gID)
+}
+
+func (s *Service) GetGroupEnrollmentTrend(ctx context.Context, groupID string) ([]db.GetGroupEnrollmentTrendRow, error) {
+	gID := pgtype.UUID{}
+	gID.Scan(groupID)
+	return s.q.GetGroupEnrollmentTrend(ctx, gID)
+}
+
+func (s *Service) GetGroupRevenueTrend(ctx context.Context, groupID string) ([]db.GetGroupRevenueTrendRow, error) {
+	gID := pgtype.UUID{}
+	gID.Scan(groupID)
+	return s.q.GetGroupRevenueTrend(ctx, gID)
+}

@@ -3,9 +3,9 @@
 -- name: CreateHomework :one
 INSERT INTO homework (
     tenant_id, subject_id, class_section_id, teacher_id, 
-    title, description, due_date, attachments
+    title, description, due_date, attachments, resource_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
 ) RETURNING *;
 
 -- name: ListHomeworkForSection :many
@@ -48,21 +48,42 @@ RETURNING *;
 
 -- name: UpsertLessonPlan :one
 INSERT INTO lesson_plans (
-    tenant_id, subject_id, class_id, week_number, planned_topic, covered_at
+    tenant_id, subject_id, class_id, week_number, planned_topic, covered_at, review_status, review_remarks
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
+    $1, $2, $3, $4, $5, $6, $7, $8
 )
 ON CONFLICT (tenant_id, subject_id, class_id, week_number)
 DO UPDATE SET 
     planned_topic = EXCLUDED.planned_topic,
     covered_at = EXCLUDED.covered_at,
+    review_status = COALESCE(NULLIF(EXCLUDED.review_status, ''), lesson_plans.review_status),
+    review_remarks = EXCLUDED.review_remarks,
     updated_at = NOW()
 RETURNING *;
 
 -- name: ListLessonPlans :many
-SELECT * FROM lesson_plans 
-WHERE tenant_id = $1 AND subject_id = $2 AND class_id = $3
-ORDER BY week_number ASC;
+SELECT lp.*, s.name as subject_name, c.name as class_name
+FROM lesson_plans lp
+JOIN subjects s ON lp.subject_id = s.id
+JOIN classes c ON lp.class_id = c.id
+WHERE lp.tenant_id = $1 AND lp.subject_id = $2 AND lp.class_id = $3
+ORDER BY lp.week_number ASC;
+
+-- name: UpdateLessonPlanStatus :one
+UPDATE lesson_plans
+SET review_status = $3, review_remarks = $4, updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2
+RETURNING *;
+
+-- name: GetSyllabusLag :many
+SELECT lp.*, s.name as subject_name, c.name as class_name
+FROM lesson_plans lp
+JOIN subjects s ON lp.subject_id = s.id
+JOIN classes c ON lp.class_id = c.id
+WHERE lp.tenant_id = $1 
+AND lp.week_number < $2 -- current week number
+AND lp.covered_at IS NULL
+ORDER BY lp.week_number ASC;
 
 -- name: GetHomeworkForStudent :many
 -- This searches homework for the section the student is currently in

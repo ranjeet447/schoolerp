@@ -29,8 +29,76 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	
 	// Circulation
 	r.Post("/library/issues", h.IssueBook)
+	r.Post("/library/issues/scan-issue", h.ScanIssueBook)
+	r.Post("/library/issues/scan-return", h.ScanReturnBook)
 	r.Get("/library/issues", h.ListIssues)
 	r.Post("/library/issues/{id}/return", h.ReturnBook)
+
+	// Digital Assets
+	r.Post("/library/books/{book_id}/assets", h.CreateDigitalAsset)
+	r.Get("/library/books/{book_id}/assets", h.ListDigitalAssets)
+	r.Delete("/library/assets/{id}", h.DeleteDigitalAsset)
+
+	h.RegisterReadingProgressRoutes(r)
+}
+
+type scanIssueReq struct {
+	Barcode   string `json:"barcode"`
+	StudentID string `json:"student_id"`
+	Days      int    `json:"days"`
+}
+
+func (h *Handler) ScanIssueBook(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var req scanIssueReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.Barcode) == "" || strings.TrimSpace(req.StudentID) == "" {
+		http.Error(w, "barcode and student_id are required", http.StatusBadRequest)
+		return
+	}
+
+	issue, err := h.svc.ScanBookForIssue(ctx, library.IssueBookParams{
+		TenantID:  middleware.GetTenantID(ctx),
+		StudentID: req.StudentID,
+		UserID:    middleware.GetUserID(ctx),
+		Days:      req.Days,
+		RequestID: middleware.GetReqID(ctx),
+		IP:        r.RemoteAddr,
+	}, req.Barcode)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusCreated, issue)
+}
+
+type scanReturnReq struct {
+	Barcode string `json:"barcode"`
+	Remarks string `json:"remarks"`
+}
+
+func (h *Handler) ScanReturnBook(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var req scanReturnReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.Barcode) == "" {
+		http.Error(w, "barcode is required", http.StatusBadRequest)
+		return
+	}
+
+	issue, err := h.svc.ScanBookForReturn(ctx, middleware.GetTenantID(ctx), middleware.GetUserID(ctx), req.Barcode, req.Remarks)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusOK, issue)
 }
 
 // Book Handlers
@@ -256,6 +324,44 @@ func (h *Handler) ListIssues(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondJSON(w, http.StatusOK, issues)
+}
+
+func (h *Handler) CreateDigitalAsset(w http.ResponseWriter, r *http.Request) {
+	bookID := chi.URLParam(r, "book_id")
+	var req library.CreateDigitalAssetParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	req.TenantID = middleware.GetTenantID(r.Context())
+	req.BookID = bookID
+
+	asset, err := h.svc.CreateDigitalAsset(r.Context(), req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusCreated, asset)
+}
+
+func (h *Handler) ListDigitalAssets(w http.ResponseWriter, r *http.Request) {
+	bookID := chi.URLParam(r, "book_id")
+	assets, err := h.svc.ListDigitalAssets(r.Context(), middleware.GetTenantID(r.Context()), bookID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusOK, assets)
+}
+
+func (h *Handler) DeleteDigitalAsset(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	err := h.svc.DeleteDigitalAsset(r.Context(), middleware.GetTenantID(r.Context()), id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respondJSON(w, http.StatusNoContent, nil)
 }
 
 func respondJSON(w http.ResponseWriter, status int, payload interface{}) {

@@ -2,6 +2,7 @@ package communication
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -101,6 +102,50 @@ func (s *Service) BookSlot(ctx context.Context, eventID, slotID, studentID, rema
 		StudentID:      pgtype.UUID{Bytes: stID.Bytes, Valid: true},
 		BookingRemarks: pgtype.Text{String: remarks, Valid: remarks != ""},
 	})
+}
+
+type PTMSettings struct {
+	AutomatedRemindersEnabled bool `json:"automated_reminders_enabled"`
+}
+
+func (s *Service) GetPTMSettings(ctx context.Context, tenantID string) (PTMSettings, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+
+	tenant, err := s.q.GetTenantByID(ctx, tID)
+	if err != nil {
+		return PTMSettings{}, err
+	}
+
+	var config map[string]interface{}
+	json.Unmarshal(tenant.Config, &config)
+
+	enabled, _ := config["ptm_reminders_enabled"].(bool)
+	return PTMSettings{AutomatedRemindersEnabled: enabled}, nil
+}
+
+func (s *Service) UpdatePTMSettings(ctx context.Context, tenantID string, enabled bool) error {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+
+	tenant, err := s.q.GetTenantByID(ctx, tID)
+	if err != nil {
+		return err
+	}
+
+	var config map[string]interface{}
+	json.Unmarshal(tenant.Config, &config)
+	if config == nil {
+		config = make(map[string]interface{})
+	}
+	config["ptm_reminders_enabled"] = enabled
+
+	configBytes, _ := json.Marshal(config)
+	_, err = s.q.UpdateTenantConfig(ctx, db.UpdateTenantConfigParams{
+		ID:     tID,
+		Config: configBytes,
+	})
+	return err
 }
 
 // Moderated Chat
@@ -277,4 +322,29 @@ func (s *Service) ListMessagingEvents(ctx context.Context, tenantID, eventTypeFi
 	}
 
 	return filtered, nil
+}
+
+func (s *Service) ProcessPTMReminders(ctx context.Context) error {
+	slots, err := s.q.GetPTMSlotsStartingSoon(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, slot := range slots {
+		payload, _ := json.Marshal(map[string]interface{}{
+			"slot_id":      slot.ID,
+			"event_title":  slot.EventTitle,
+			"student_name": slot.StudentName,
+			"student_id":   slot.StudentID,
+			"start_time":   slot.StartTime,
+		})
+
+		_, _ = s.q.CreateOutboxEvent(ctx, db.CreateOutboxEventParams{
+			TenantID:  slot.TenantID,
+			EventType: "communication.ptm.reminder",
+			Payload:   payload,
+		})
+	}
+
+	return nil
 }

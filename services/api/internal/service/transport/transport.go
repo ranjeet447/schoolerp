@@ -514,3 +514,57 @@ func (s *TransportService) ListFuelLogs(ctx context.Context, tenantID, vehicleID
 	}
 	return logs, nil
 }
+
+func (s *TransportService) GenerateTransportFees(ctx context.Context, tenantID string) (int, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+
+	// 1. Get active academic year
+	academicYear, err := s.q.GetActiveAcademicYear(ctx, tUUID)
+	if err != nil {
+		return 0, fmt.Errorf("active academic year not found: %w", err)
+	}
+
+	// 2. Get all active transport allocations
+	allocations, err := s.q.GetActiveTransportAllocationsWithCosts(ctx, tUUID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get allocations: %w", err)
+	}
+
+	count := 0
+	for _, alloc := range allocations {
+		if !alloc.PickupCost.Valid {
+			continue
+		}
+
+		// 3. Upsert optional fee item for this stop
+		itemName := fmt.Sprintf("Transport: %s", alloc.StopName)
+		amount := pgtype.Numeric{}
+		amount.Scan(fmt.Sprintf("%d.%d", alloc.PickupCost.Int64/100, alloc.PickupCost.Int64%100))
+
+		item, err := s.q.UpsertOptionalFeeItem(ctx, db.UpsertOptionalFeeItemParams{
+			TenantID: tUUID,
+			Name:     itemName,
+			Amount:   amount,
+			Category: pgtype.Text{String: "Transport", Valid: true},
+		})
+		if err != nil {
+			continue
+		}
+
+		// 4. Link student to this item
+		_, err = s.q.UpsertStudentOptionalFee(ctx, db.UpsertStudentOptionalFeeParams{
+			TenantID:       tUUID,
+			StudentID:      alloc.StudentID,
+			ItemID:         item.ID,
+			AcademicYearID: academicYear.ID,
+			Status:         "selected",
+		})
+		if err == nil {
+			count++
+		}
+	}
+
+	return count, nil
+}
+

@@ -87,3 +87,20 @@ WHERE id = $1;
 -- name: GetMaxStopSequence :one
 SELECT COALESCE(MAX(sequence_order), 0)::INTEGER FROM transport_route_stops
 WHERE route_id = $1;
+
+-- name: GetActiveTransportAllocationsWithCosts :many
+SELECT 
+    ta.id as allocation_id,
+    ta.student_id,
+    ta.tenant_id,
+    ta.route_id,
+    ta.stop_id,
+    tr.name as route_name,
+    trs.name as stop_name,
+    trs.pickup_cost,
+    trs.drop_cost
+FROM transport_allocations ta
+JOIN transport_routes tr ON ta.route_id = tr.id
+JOIN transport_route_stops trs ON ta.stop_id = trs.id
+WHERE ta.tenant_id = $1 AND ta.status = 'active';
+

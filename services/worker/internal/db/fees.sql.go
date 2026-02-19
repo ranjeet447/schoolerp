@@ -1201,6 +1201,44 @@ func (q *Queries) UpsertLedgerMapping(ctx context.Context, arg UpsertLedgerMappi
 	return i, err
 }
 
+const upsertOptionalFeeItem = `-- name: UpsertOptionalFeeItem :one
+INSERT INTO optional_fee_items (
+    tenant_id, name, amount, category
+) VALUES (
+    $1, $2, $3, $4
+)
+ON CONFLICT (tenant_id, name) DO UPDATE
+SET amount = EXCLUDED.amount,
+    category = EXCLUDED.category
+RETURNING id, tenant_id, name, amount, category, created_at
+`
+
+type UpsertOptionalFeeItemParams struct {
+	TenantID pgtype.UUID    `json:"tenant_id"`
+	Name     string         `json:"name"`
+	Amount   pgtype.Numeric `json:"amount"`
+	Category pgtype.Text    `json:"category"`
+}
+
+func (q *Queries) UpsertOptionalFeeItem(ctx context.Context, arg UpsertOptionalFeeItemParams) (OptionalFeeItem, error) {
+	row := q.db.QueryRow(ctx, upsertOptionalFeeItem,
+		arg.TenantID,
+		arg.Name,
+		arg.Amount,
+		arg.Category,
+	)
+	var i OptionalFeeItem
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Name,
+		&i.Amount,
+		&i.Category,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const upsertScholarship = `-- name: UpsertScholarship :one
 INSERT INTO fee_discounts_scholarships (
     tenant_id, name, type, value, description, is_active

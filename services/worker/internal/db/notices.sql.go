@@ -31,17 +31,19 @@ func (q *Queries) AcknowledgeNotice(ctx context.Context, arg AcknowledgeNoticePa
 }
 
 const createNotice = `-- name: CreateNotice :one
-INSERT INTO notices (tenant_id, title, body, scope, created_by)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, tenant_id, title, body, scope, publish_at, created_by, created_at, updated_at
+INSERT INTO notices (tenant_id, title, body, scope, attachments, publish_at, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, tenant_id, title, body, scope, attachments, publish_at, created_by, created_at, updated_at
 `
 
 type CreateNoticeParams struct {
-	TenantID  pgtype.UUID `json:"tenant_id"`
-	Title     string      `json:"title"`
-	Body      string      `json:"body"`
-	Scope     []byte      `json:"scope"`
-	CreatedBy pgtype.UUID `json:"created_by"`
+	TenantID    pgtype.UUID        `json:"tenant_id"`
+	Title       string             `json:"title"`
+	Body        string             `json:"body"`
+	Scope       []byte             `json:"scope"`
+	Attachments []byte             `json:"attachments"`
+	PublishAt   pgtype.Timestamptz `json:"publish_at"`
+	CreatedBy   pgtype.UUID        `json:"created_by"`
 }
 
 func (q *Queries) CreateNotice(ctx context.Context, arg CreateNoticeParams) (Notice, error) {
@@ -50,6 +52,8 @@ func (q *Queries) CreateNotice(ctx context.Context, arg CreateNoticeParams) (Not
 		arg.Title,
 		arg.Body,
 		arg.Scope,
+		arg.Attachments,
+		arg.PublishAt,
 		arg.CreatedBy,
 	)
 	var i Notice
@@ -59,6 +63,7 @@ func (q *Queries) CreateNotice(ctx context.Context, arg CreateNoticeParams) (Not
 		&i.Title,
 		&i.Body,
 		&i.Scope,
+		&i.Attachments,
 		&i.PublishAt,
 		&i.CreatedBy,
 		&i.CreatedAt,
@@ -83,7 +88,7 @@ func (q *Queries) DeleteNotice(ctx context.Context, arg DeleteNoticeParams) erro
 }
 
 const getNotice = `-- name: GetNotice :one
-SELECT id, tenant_id, title, body, scope, publish_at, created_by, created_at, updated_at FROM notices
+SELECT id, tenant_id, title, body, scope, attachments, publish_at, created_by, created_at, updated_at FROM notices
 WHERE id = $1 AND tenant_id = $2
 `
 
@@ -101,6 +106,7 @@ func (q *Queries) GetNotice(ctx context.Context, arg GetNoticeParams) (Notice, e
 		&i.Title,
 		&i.Body,
 		&i.Scope,
+		&i.Attachments,
 		&i.PublishAt,
 		&i.CreatedBy,
 		&i.CreatedAt,
@@ -149,24 +155,25 @@ func (q *Queries) GetNoticeAcks(ctx context.Context, noticeID pgtype.UUID) ([]Ge
 }
 
 const listNotices = `-- name: ListNotices :many
-SELECT n.id, n.tenant_id, n.title, n.body, n.scope, n.publish_at, n.created_by, n.created_at, n.updated_at, u.full_name as author_name
+SELECT n.id, n.tenant_id, n.title, n.body, n.scope, n.attachments, n.publish_at, n.created_by, n.created_at, n.updated_at, u.full_name as author_name
 FROM notices n
 LEFT JOIN users u ON n.created_by = u.id
 WHERE n.tenant_id = $1
-ORDER BY n.created_at DESC
+ORDER BY n.publish_at DESC, n.created_at DESC
 `
 
 type ListNoticesRow struct {
-	ID         pgtype.UUID        `json:"id"`
-	TenantID   pgtype.UUID        `json:"tenant_id"`
-	Title      string             `json:"title"`
-	Body       string             `json:"body"`
-	Scope      []byte             `json:"scope"`
-	PublishAt  pgtype.Timestamptz `json:"publish_at"`
-	CreatedBy  pgtype.UUID        `json:"created_by"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
-	AuthorName pgtype.Text        `json:"author_name"`
+	ID          pgtype.UUID        `json:"id"`
+	TenantID    pgtype.UUID        `json:"tenant_id"`
+	Title       string             `json:"title"`
+	Body        string             `json:"body"`
+	Scope       []byte             `json:"scope"`
+	Attachments []byte             `json:"attachments"`
+	PublishAt   pgtype.Timestamptz `json:"publish_at"`
+	CreatedBy   pgtype.UUID        `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	AuthorName  pgtype.Text        `json:"author_name"`
 }
 
 func (q *Queries) ListNotices(ctx context.Context, tenantID pgtype.UUID) ([]ListNoticesRow, error) {
@@ -184,6 +191,7 @@ func (q *Queries) ListNotices(ctx context.Context, tenantID pgtype.UUID) ([]List
 			&i.Title,
 			&i.Body,
 			&i.Scope,
+			&i.Attachments,
 			&i.PublishAt,
 			&i.CreatedBy,
 			&i.CreatedAt,
@@ -201,11 +209,11 @@ func (q *Queries) ListNotices(ctx context.Context, tenantID pgtype.UUID) ([]List
 }
 
 const listNoticesForParent = `-- name: ListNoticesForParent :many
-SELECT n.id, n.tenant_id, n.title, n.body, n.scope, n.publish_at, n.created_by, n.created_at, n.updated_at, na.ack_at
+SELECT n.id, n.tenant_id, n.title, n.body, n.scope, n.attachments, n.publish_at, n.created_by, n.created_at, n.updated_at, na.ack_at
 FROM notices n
 LEFT JOIN notice_acks na ON n.id = na.notice_id AND na.user_id = $2
-WHERE n.tenant_id = $1
-ORDER BY n.created_at DESC
+WHERE n.tenant_id = $1 AND n.publish_at <= NOW()
+ORDER BY n.publish_at DESC
 `
 
 type ListNoticesForParentParams struct {
@@ -214,20 +222,20 @@ type ListNoticesForParentParams struct {
 }
 
 type ListNoticesForParentRow struct {
-	ID        pgtype.UUID        `json:"id"`
-	TenantID  pgtype.UUID        `json:"tenant_id"`
-	Title     string             `json:"title"`
-	Body      string             `json:"body"`
-	Scope     []byte             `json:"scope"`
-	PublishAt pgtype.Timestamptz `json:"publish_at"`
-	CreatedBy pgtype.UUID        `json:"created_by"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-	AckAt     pgtype.Timestamptz `json:"ack_at"`
+	ID          pgtype.UUID        `json:"id"`
+	TenantID    pgtype.UUID        `json:"tenant_id"`
+	Title       string             `json:"title"`
+	Body        string             `json:"body"`
+	Scope       []byte             `json:"scope"`
+	Attachments []byte             `json:"attachments"`
+	PublishAt   pgtype.Timestamptz `json:"publish_at"`
+	CreatedBy   pgtype.UUID        `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	AckAt       pgtype.Timestamptz `json:"ack_at"`
 }
 
-// This is a bit simplified, in real prod you'd filter by scope.
-// For now, we fetch all notices for the tenant.
+// Fetch notices that are published (publish_at <= NOW())
 func (q *Queries) ListNoticesForParent(ctx context.Context, arg ListNoticesForParentParams) ([]ListNoticesForParentRow, error) {
 	rows, err := q.db.Query(ctx, listNoticesForParent, arg.TenantID, arg.UserID)
 	if err != nil {
@@ -243,6 +251,7 @@ func (q *Queries) ListNoticesForParent(ctx context.Context, arg ListNoticesForPa
 			&i.Title,
 			&i.Body,
 			&i.Scope,
+			&i.Attachments,
 			&i.PublishAt,
 			&i.CreatedBy,
 			&i.CreatedAt,

@@ -13,7 +13,7 @@ LEFT JOIN classes c ON sec.class_id = c.id
 WHERE s.id = $1 AND s.tenant_id = $2;
 
 -- name: ListStudents :many
-SELECT s.id, s.full_name, s.admission_number, s.status, s.section_id, sec.name as section_name, c.name as class_name
+SELECT s.id, s.full_name, s.admission_number, s.status, s.section_id, c.id as class_id, sec.name as section_name, c.name as class_name
 FROM students s
 LEFT JOIN sections sec ON s.section_id = sec.id
 LEFT JOIN classes c ON sec.class_id = c.id
@@ -70,6 +70,12 @@ SELECT * FROM academic_years
 WHERE tenant_id = $1
 ORDER BY start_date DESC;
 
+-- name: GetActiveAcademicYear :one
+SELECT * FROM academic_years
+WHERE tenant_id = $1 AND is_active = TRUE
+LIMIT 1;
+
+
 -- name: CreateClass :one
 INSERT INTO classes (
     tenant_id, name, level, stream
@@ -98,6 +104,12 @@ ORDER BY name;
 SELECT * FROM sections
 WHERE tenant_id = $1
 ORDER BY class_id, name;
+
+-- name: GetHolidaysBetween :many
+SELECT * FROM school_events
+WHERE tenant_id = $1 AND event_type = 'holiday'
+AND start_time < $3 AND end_time > $2
+ORDER BY start_time;
 
 -- name: CreateSubject :one
 INSERT INTO subjects (

@@ -14,9 +14,10 @@ import (
 )
 
 type Consumer struct {
-	q     db.Querier
-	notif notification.Adapter
-	limit int32
+	q                    db.Querier
+	notif                notification.Adapter
+	limit                int32
+	lastFeeReminderRunAt time.Time
 }
 
 func NewConsumer(q db.Querier, notif notification.Adapter) *Consumer {
@@ -38,8 +39,113 @@ func (c *Consumer) Start(ctx context.Context) {
 		case <-ticker.C:
 			c.processEvents(ctx)
 			c.processHomeworkReminders(ctx)
+			c.processFeeReminders(ctx)
+			c.processPTMReminders(ctx)
 		}
 	}
+}
+
+func (c *Consumer) processFeeReminders(ctx context.Context) {
+	now := time.Now()
+	// Only run once a day (at roughly the same time or whenever the worker is up)
+	if c.lastFeeReminderRunAt.Year() == now.Year() && c.lastFeeReminderRunAt.YearDay() == now.YearDay() {
+		return
+	}
+
+	log.Printf("[Worker] Starting daily fee reminder scan")
+	configs, err := c.q.GetActiveReminderConfigs(ctx)
+	if err != nil {
+		log.Printf("[Worker] error fetching active reminder configs: %v", err)
+		return
+	}
+
+	// For simplicity, we assume one academic year for now or fetch active ones
+	// In a real app, you'd iterate per tenant's active academic year
+
+	for _, cfg := range configs {
+		// Fetch target students for this specific config
+		// We'll use the target date as today
+		targetDate := pgtype.Date{Time: now, Valid: true}
+		
+		// Note: The query GetStudentsForFeeReminder needs academic_year_id.
+		// We'll need a way to resolve the active AY for the tenant.
+		ay, err := c.getActiveAcademicYear(ctx, cfg.TenantID)
+		if err != nil {
+			log.Printf("[Worker] error resolving AY for tenant %s: %v", cfg.TenantID, err)
+			continue
+		}
+
+		targets, err := c.q.GetStudentsForFeeReminder(ctx, db.GetStudentsForFeeReminderParams{
+			TenantID:         cfg.TenantID,
+			AcademicYearID:   ay.ID,
+			TargetDueDate:    targetDate,
+			ReminderConfigID: cfg.ID,
+		})
+		if err != nil {
+			log.Printf("[Worker] error fetching targets for config %s: %v", cfg.ID, err)
+			continue
+		}
+
+		for _, target := range targets {
+			expected, _ := target.ExpectedAmount.Float64Value()
+			pendingAmount := expected.Float64 - float64(target.PaidAmount)
+			studentName := target.StudentName
+			dueDate := target.DueDate.Time.Format("02 Jan 2006")
+			feeHeadName := target.FeeHeadName
+
+			msg, err := c.resolveFeeReminderMessage(ctx, cfg.TenantID, target.StudentID, studentName, pendingAmount, feeHeadName, dueDate)
+			if err != nil {
+				log.Printf("[Worker] error resolving fee reminder message: %v", err)
+				msg = fmt.Sprintf("Dear Parent, a payment of %.2f is pending for %s (Student: %s). Due date: %s. Please pay earliest.", 
+					pendingAmount, feeHeadName, studentName, dueDate)
+			}
+			
+			payload, _ := json.Marshal(map[string]interface{}{
+				"student_id": target.StudentID,
+				"title":      "Fee Reminder",
+				"message":    msg,
+			})
+
+			_, err = c.q.CreateOutboxEvent(ctx, db.CreateOutboxEventParams{
+				TenantID:     cfg.TenantID,
+				EventType:    "fee.reminder",
+				Payload:      payload,
+				ProcessAfter: pgtype.Timestamptz{Time: now, Valid: true},
+			})
+			if err != nil {
+				log.Printf("[Worker] error creating outbox event for reminder: %v", err)
+				continue
+			}
+
+			// Log the reminder to avoid duplicates
+			_, err = c.q.LogFeeReminder(ctx, db.LogFeeReminderParams{
+				TenantID:         cfg.TenantID,
+				StudentID:        target.StudentID,
+				FeeHeadID:        target.FeeHeadID,
+				ReminderConfigID: cfg.ID,
+			})
+			if err != nil {
+				log.Printf("[Worker] error logging fee reminder: %v", err)
+			}
+		}
+	}
+
+	c.lastFeeReminderRunAt = now
+	log.Printf("[Worker] Daily fee reminder scan completed")
+}
+
+func (c *Consumer) getActiveAcademicYear(ctx context.Context, tenantID pgtype.UUID) (db.AcademicYear, error) {
+	// Simple helper to find active AY
+	ays, err := c.q.ListAcademicYears(ctx, tenantID)
+	if err != nil {
+		return db.AcademicYear{}, err
+	}
+	for _, ay := range ays {
+		if ay.IsActive.Bool {
+			return ay, nil
+		}
+	}
+	return db.AcademicYear{}, fmt.Errorf("no active academic year found")
 }
 
 func (c *Consumer) processHomeworkReminders(ctx context.Context) {
@@ -135,9 +241,12 @@ func (c *Consumer) handleEvent(ctx context.Context, event db.Outbox) error {
 			return nil
 		}
 
-		message := "Your child is marked absent today."
-		if strings.TrimSpace(studentName) != "" {
-			message = fmt.Sprintf("%s is marked absent today.", studentName)
+		message, err := c.resolveAbsentMessage(ctx, event.TenantID, studentID, studentName, phone)
+		if err != nil {
+			return err
+		}
+		if message == "" {
+			return nil
 		}
 		return c.notif.SendSMS(ctx, phone, message)
 
@@ -310,4 +419,141 @@ func (c *Consumer) tenantPushRecipients(ctx context.Context, tenantID pgtype.UUI
 		}
 	}
 	return out, nil
+}
+func (c *Consumer) processPTMReminders(ctx context.Context) {
+	now := time.Now()
+	
+	// Look for slots starting in 24 hours (+/- 1 hour window)
+	startWindow := now.Add(23 * time.Hour)
+	endWindow := now.Add(25 * time.Hour)
+	
+	slots, err := c.q.GetPTMSlotsForReminders(ctx, db.GetPTMSlotsForRemindersParams{
+		StartWindow:  pgtype.Timestamptz{Time: startWindow, Valid: true},
+		EndWindow:    pgtype.Timestamptz{Time: endWindow, Valid: true},
+		ReminderType: "24h",
+	})
+	if err != nil {
+		log.Printf("[Worker] error fetching ptm slots for reminders: %v", err)
+		return
+	}
+	
+	for _, slot := range slots {
+		// Check if PTM reminders are enabled for this tenant
+		tenant, err := c.q.GetTenantByID(ctx, slot.TenantID)
+		if err != nil {
+			log.Printf("[Worker] error fetching tenant %s: %v", slot.TenantID, err)
+			continue
+		}
+		
+		var config map[string]interface{}
+		json.Unmarshal(tenant.Config, &config)
+		if enabled, ok := config["ptm_reminders_enabled"].(bool); !ok || !enabled {
+			continue
+		}
+
+		msg := fmt.Sprintf("Reminder: Dear Parent, you have a Parent-Teacher Meeting tomorrow (%s) at %s for %s. We look forward to seeing you.", 
+			slot.EventDate.Time.Format("02 Jan"), 
+			formatPGTime(slot.StartTime),
+			slot.StudentName)
+			
+		err = c.notif.SendSMS(ctx, slot.GuardianPhone, msg)
+		if err != nil {
+			log.Printf("[Worker] error sending PTM reminder to %s: %v", slot.GuardianPhone, err)
+			continue
+		}
+		
+		// Log to avoid duplicate
+		_, err = c.q.LogPTMReminder(ctx, db.LogPTMReminderParams{
+			TenantID:     slot.TenantID,
+			SlotID:       slot.SlotID,
+			StudentID:    slot.StudentID,
+			ReminderType: "24h",
+		})
+		if err != nil {
+			log.Printf("[Worker] error logging PTM reminder: %v", err)
+		}
+	}
+}
+
+func formatPGTime(t pgtype.Time) string {
+	if !t.Valid {
+		return ""
+	}
+	usec := t.Microseconds
+	h := usec / 3600000000
+	m := (usec / 60000000) % 60
+	return fmt.Sprintf("%02d:%02d", h, m)
+}
+
+func (c *Consumer) resolveAbsentMessage(ctx context.Context, tenantID pgtype.UUID, studentID, studentName, phone string) (string, error) {
+	// 1. Resolve guardian's locale
+	locale := "en"
+	studentUUID := pgtype.UUID{}
+	studentUUID.Scan(studentID)
+
+	guardians, err := c.q.GetStudentGuardians(ctx, studentUUID)
+	if err == nil {
+		for _, g := range guardians {
+			if strings.TrimSpace(g.Phone) == phone && g.PreferredLanguage.Valid {
+				locale = g.PreferredLanguage.String
+				break
+			}
+		}
+	}
+
+	// 2. Resolve template
+	tmpl, err := c.q.ResolveNotificationTemplate(ctx, db.ResolveNotificationTemplateParams{
+		TenantID: tenantID,
+		Code:     "attendance.absent",
+		Channel:  "sms",
+		Locale:   locale,
+	})
+
+	if err != nil {
+		// Fallback to basic English if template not found
+		if strings.TrimSpace(studentName) != "" {
+			return fmt.Sprintf("%s is marked absent today.", studentName), nil
+		}
+		return "Your child is marked absent today.", nil
+	}
+
+	// 3. Simple variable replacement
+	body := tmpl.Body
+	body = strings.ReplaceAll(body, "{{student_name}}", studentName)
+	return body, nil
+}
+
+func (c *Consumer) resolveFeeReminderMessage(ctx context.Context, tenantID pgtype.UUID, studentID pgtype.UUID, studentName string, amount float64, feeHead string, dueDate string) (string, error) {
+	// 1. Resolve guardian's locale
+	locale := "en"
+	guardians, err := c.q.GetStudentGuardians(ctx, studentID)
+	if err == nil {
+		for _, g := range guardians {
+			if g.IsPrimary.Valid && g.IsPrimary.Bool && g.PreferredLanguage.Valid {
+				locale = g.PreferredLanguage.String
+				break
+			}
+		}
+	}
+
+	// 2. Resolve template
+	tmpl, err := c.q.ResolveNotificationTemplate(ctx, db.ResolveNotificationTemplateParams{
+		TenantID: tenantID,
+		Code:     "fee.reminder",
+		Channel:  "sms",
+		Locale:   locale,
+	})
+
+	if err != nil {
+		return fmt.Sprintf("Dear Parent, a payment of %.2f is pending for %s (Student: %s). Due date: %s. Please pay earliest.", 
+			amount, feeHead, studentName, dueDate), nil
+	}
+
+	// 3. Variable replacement
+	body := tmpl.Body
+	body = strings.ReplaceAll(body, "{{student_name}}", studentName)
+	body = strings.ReplaceAll(body, "{{amount}}", fmt.Sprintf("%.2f", amount))
+	body = strings.ReplaceAll(body, "{{fee_head}}", feeHead)
+	body = strings.ReplaceAll(body, "{{due_date}}", dueDate)
+	return body, nil
 }

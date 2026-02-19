@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -42,10 +43,15 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Route("/lesson-plans", func(r chi.Router) {
 		r.Post("/", h.UpsertLessonPlan)
 		r.Get("/", h.ListLessonPlans)
+		r.Get("/lag", h.GetSyllabusLag)
+		r.Patch("/{id}/status", h.UpdateLessonPlanStatus)
 	})
 	r.Route("/subjects", func(r chi.Router) {
 		r.Get("/", h.ListSubjects)
 	})
+	r.Get("/calendar", h.GetAcademicCalendar)
+
+	h.RegisterHolidayRoutes(r)
 }
 
 func (h *Handler) RegisterStudentRoutes(r chi.Router) {
@@ -183,6 +189,7 @@ func (h *Handler) CreateHomework(w http.ResponseWriter, r *http.Request) {
 		Description    string    `json:"description"`
 		DueDate        time.Time `json:"due_date"`
 		Attachments    []byte    `json:"attachments"`
+		ResourceID     string    `json:"resource_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request", http.StatusBadRequest)
@@ -198,6 +205,7 @@ func (h *Handler) CreateHomework(w http.ResponseWriter, r *http.Request) {
 		Description:    req.Description,
 		DueDate:        pgtype.Timestamptz{Time: req.DueDate, Valid: true},
 		Attachments:    req.Attachments,
+		ResourceID:     req.ResourceID,
 		UserID:         middleware.GetUserID(r.Context()),
 		RequestID:      middleware.GetReqID(r.Context()),
 		IP:             r.RemoteAddr,
@@ -318,4 +326,45 @@ func (h *Handler) ListSubjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	json.NewEncoder(w).Encode(list)
+}
+
+func (h *Handler) GetSyllabusLag(w http.ResponseWriter, r *http.Request) {
+	weekStr := r.URL.Query().Get("current_week")
+	week, _ := strconv.Atoi(weekStr)
+	if week == 0 {
+		week = 1
+	}
+	lag, err := h.svc.GetSyllabusLag(r.Context(), middleware.GetTenantID(r.Context()), int32(week))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(lag)
+}
+
+func (h *Handler) UpdateLessonPlanStatus(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var req struct {
+		Status  string `json:"status"`
+		Remarks string `json:"remarks"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	lp, err := h.svc.UpdateLessonPlanStatus(r.Context(), id, middleware.GetTenantID(r.Context()), req.Status, req.Remarks)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(lp)
+}
+
+func (h *Handler) GetAcademicCalendar(w http.ResponseWriter, r *http.Request) {
+	calendar, err := h.svc.GetAcademicCalendar(r.Context(), middleware.GetTenantID(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(calendar)
 }

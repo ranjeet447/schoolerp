@@ -15,10 +15,10 @@ const createHomework = `-- name: CreateHomework :one
 
 INSERT INTO homework (
     tenant_id, subject_id, class_section_id, teacher_id, 
-    title, description, due_date, attachments
+    title, description, due_date, attachments, resource_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8
-) RETURNING id, tenant_id, subject_id, class_section_id, teacher_id, title, description, due_date, submission_allowed, attachments, created_at, updated_at
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
+) RETURNING id, tenant_id, subject_id, class_section_id, teacher_id, title, description, due_date, submission_allowed, attachments, resource_id, created_at, updated_at
 `
 
 type CreateHomeworkParams struct {
@@ -30,6 +30,7 @@ type CreateHomeworkParams struct {
 	Description    pgtype.Text        `json:"description"`
 	DueDate        pgtype.Timestamptz `json:"due_date"`
 	Attachments    []byte             `json:"attachments"`
+	ResourceID     pgtype.UUID        `json:"resource_id"`
 }
 
 // homework.sql
@@ -43,6 +44,7 @@ func (q *Queries) CreateHomework(ctx context.Context, arg CreateHomeworkParams) 
 		arg.Description,
 		arg.DueDate,
 		arg.Attachments,
+		arg.ResourceID,
 	)
 	var i Homework
 	err := row.Scan(
@@ -56,6 +58,7 @@ func (q *Queries) CreateHomework(ctx context.Context, arg CreateHomeworkParams) 
 		&i.DueDate,
 		&i.SubmissionAllowed,
 		&i.Attachments,
+		&i.ResourceID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -63,7 +66,7 @@ func (q *Queries) CreateHomework(ctx context.Context, arg CreateHomeworkParams) 
 }
 
 const getHomework = `-- name: GetHomework :one
-SELECT id, tenant_id, subject_id, class_section_id, teacher_id, title, description, due_date, submission_allowed, attachments, created_at, updated_at FROM homework WHERE id = $1 AND tenant_id = $2
+SELECT id, tenant_id, subject_id, class_section_id, teacher_id, title, description, due_date, submission_allowed, attachments, resource_id, created_at, updated_at FROM homework WHERE id = $1 AND tenant_id = $2
 `
 
 type GetHomeworkParams struct {
@@ -85,6 +88,7 @@ func (q *Queries) GetHomework(ctx context.Context, arg GetHomeworkParams) (Homew
 		&i.DueDate,
 		&i.SubmissionAllowed,
 		&i.Attachments,
+		&i.ResourceID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -92,7 +96,7 @@ func (q *Queries) GetHomework(ctx context.Context, arg GetHomeworkParams) (Homew
 }
 
 const getHomeworkDueSoon = `-- name: GetHomeworkDueSoon :many
-SELECT id, tenant_id, subject_id, class_section_id, teacher_id, title, description, due_date, submission_allowed, attachments, created_at, updated_at FROM homework
+SELECT id, tenant_id, subject_id, class_section_id, teacher_id, title, description, due_date, submission_allowed, attachments, resource_id, created_at, updated_at FROM homework
 WHERE due_date BETWEEN NOW() AND NOW() + INTERVAL '4 hours'
 AND submission_allowed = TRUE
 `
@@ -117,6 +121,7 @@ func (q *Queries) GetHomeworkDueSoon(ctx context.Context) ([]Homework, error) {
 			&i.DueDate,
 			&i.SubmissionAllowed,
 			&i.Attachments,
+			&i.ResourceID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -131,7 +136,7 @@ func (q *Queries) GetHomeworkDueSoon(ctx context.Context) ([]Homework, error) {
 }
 
 const getHomeworkForStudent = `-- name: GetHomeworkForStudent :many
-SELECT h.id, h.tenant_id, h.subject_id, h.class_section_id, h.teacher_id, h.title, h.description, h.due_date, h.submission_allowed, h.attachments, h.created_at, h.updated_at, s.name as subject_name, hs.status as submission_status
+SELECT h.id, h.tenant_id, h.subject_id, h.class_section_id, h.teacher_id, h.title, h.description, h.due_date, h.submission_allowed, h.attachments, h.resource_id, h.created_at, h.updated_at, s.name as subject_name, hs.status as submission_status
 FROM homework h
 JOIN subjects s ON h.subject_id = s.id
 JOIN students st ON h.class_section_id = st.section_id
@@ -156,6 +161,7 @@ type GetHomeworkForStudentRow struct {
 	DueDate           pgtype.Timestamptz `json:"due_date"`
 	SubmissionAllowed pgtype.Bool        `json:"submission_allowed"`
 	Attachments       []byte             `json:"attachments"`
+	ResourceID        pgtype.UUID        `json:"resource_id"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	SubjectName       string             `json:"subject_name"`
@@ -183,6 +189,7 @@ func (q *Queries) GetHomeworkForStudent(ctx context.Context, arg GetHomeworkForS
 			&i.DueDate,
 			&i.SubmissionAllowed,
 			&i.Attachments,
+			&i.ResourceID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SubjectName,
@@ -231,6 +238,72 @@ func (q *Queries) GetStudentsMissingSubmissionForHomework(ctx context.Context, i
 	return items, nil
 }
 
+const getSyllabusLag = `-- name: GetSyllabusLag :many
+SELECT lp.id, lp.tenant_id, lp.subject_id, lp.class_id, lp.week_number, lp.planned_topic, lp.covered_at, lp.review_status, lp.review_remarks, lp.created_at, lp.updated_at, s.name as subject_name, c.name as class_name
+FROM lesson_plans lp
+JOIN subjects s ON lp.subject_id = s.id
+JOIN classes c ON lp.class_id = c.id
+WHERE lp.tenant_id = $1 
+AND lp.week_number < $2 -- current week number
+AND lp.covered_at IS NULL
+ORDER BY lp.week_number ASC
+`
+
+type GetSyllabusLagParams struct {
+	TenantID   pgtype.UUID `json:"tenant_id"`
+	WeekNumber int32       `json:"week_number"`
+}
+
+type GetSyllabusLagRow struct {
+	ID            pgtype.UUID        `json:"id"`
+	TenantID      pgtype.UUID        `json:"tenant_id"`
+	SubjectID     pgtype.UUID        `json:"subject_id"`
+	ClassID       pgtype.UUID        `json:"class_id"`
+	WeekNumber    int32              `json:"week_number"`
+	PlannedTopic  string             `json:"planned_topic"`
+	CoveredAt     pgtype.Timestamptz `json:"covered_at"`
+	ReviewStatus  string             `json:"review_status"`
+	ReviewRemarks pgtype.Text        `json:"review_remarks"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	SubjectName   string             `json:"subject_name"`
+	ClassName     string             `json:"class_name"`
+}
+
+func (q *Queries) GetSyllabusLag(ctx context.Context, arg GetSyllabusLagParams) ([]GetSyllabusLagRow, error) {
+	rows, err := q.db.Query(ctx, getSyllabusLag, arg.TenantID, arg.WeekNumber)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetSyllabusLagRow
+	for rows.Next() {
+		var i GetSyllabusLagRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.SubjectID,
+			&i.ClassID,
+			&i.WeekNumber,
+			&i.PlannedTopic,
+			&i.CoveredAt,
+			&i.ReviewStatus,
+			&i.ReviewRemarks,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.SubjectName,
+			&i.ClassName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const gradeSubmission = `-- name: GradeSubmission :one
 UPDATE homework_submissions
 SET status = $2::TEXT, teacher_feedback = $3, updated_at = NOW()
@@ -262,7 +335,7 @@ func (q *Queries) GradeSubmission(ctx context.Context, arg GradeSubmissionParams
 }
 
 const listHomeworkForSection = `-- name: ListHomeworkForSection :many
-SELECT h.id, h.tenant_id, h.subject_id, h.class_section_id, h.teacher_id, h.title, h.description, h.due_date, h.submission_allowed, h.attachments, h.created_at, h.updated_at, s.name as subject_name, u.full_name as teacher_name
+SELECT h.id, h.tenant_id, h.subject_id, h.class_section_id, h.teacher_id, h.title, h.description, h.due_date, h.submission_allowed, h.attachments, h.resource_id, h.created_at, h.updated_at, s.name as subject_name, u.full_name as teacher_name
 FROM homework h
 JOIN subjects s ON h.subject_id = s.id
 JOIN users u ON h.teacher_id = u.id
@@ -286,6 +359,7 @@ type ListHomeworkForSectionRow struct {
 	DueDate           pgtype.Timestamptz `json:"due_date"`
 	SubmissionAllowed pgtype.Bool        `json:"submission_allowed"`
 	Attachments       []byte             `json:"attachments"`
+	ResourceID        pgtype.UUID        `json:"resource_id"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	SubjectName       string             `json:"subject_name"`
@@ -312,6 +386,7 @@ func (q *Queries) ListHomeworkForSection(ctx context.Context, arg ListHomeworkFo
 			&i.DueDate,
 			&i.SubmissionAllowed,
 			&i.Attachments,
+			&i.ResourceID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SubjectName,
@@ -328,9 +403,12 @@ func (q *Queries) ListHomeworkForSection(ctx context.Context, arg ListHomeworkFo
 }
 
 const listLessonPlans = `-- name: ListLessonPlans :many
-SELECT id, tenant_id, subject_id, class_id, week_number, planned_topic, covered_at, created_at, updated_at FROM lesson_plans 
-WHERE tenant_id = $1 AND subject_id = $2 AND class_id = $3
-ORDER BY week_number ASC
+SELECT lp.id, lp.tenant_id, lp.subject_id, lp.class_id, lp.week_number, lp.planned_topic, lp.covered_at, lp.review_status, lp.review_remarks, lp.created_at, lp.updated_at, s.name as subject_name, c.name as class_name
+FROM lesson_plans lp
+JOIN subjects s ON lp.subject_id = s.id
+JOIN classes c ON lp.class_id = c.id
+WHERE lp.tenant_id = $1 AND lp.subject_id = $2 AND lp.class_id = $3
+ORDER BY lp.week_number ASC
 `
 
 type ListLessonPlansParams struct {
@@ -339,15 +417,31 @@ type ListLessonPlansParams struct {
 	ClassID   pgtype.UUID `json:"class_id"`
 }
 
-func (q *Queries) ListLessonPlans(ctx context.Context, arg ListLessonPlansParams) ([]LessonPlan, error) {
+type ListLessonPlansRow struct {
+	ID            pgtype.UUID        `json:"id"`
+	TenantID      pgtype.UUID        `json:"tenant_id"`
+	SubjectID     pgtype.UUID        `json:"subject_id"`
+	ClassID       pgtype.UUID        `json:"class_id"`
+	WeekNumber    int32              `json:"week_number"`
+	PlannedTopic  string             `json:"planned_topic"`
+	CoveredAt     pgtype.Timestamptz `json:"covered_at"`
+	ReviewStatus  string             `json:"review_status"`
+	ReviewRemarks pgtype.Text        `json:"review_remarks"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	SubjectName   string             `json:"subject_name"`
+	ClassName     string             `json:"class_name"`
+}
+
+func (q *Queries) ListLessonPlans(ctx context.Context, arg ListLessonPlansParams) ([]ListLessonPlansRow, error) {
 	rows, err := q.db.Query(ctx, listLessonPlans, arg.TenantID, arg.SubjectID, arg.ClassID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []LessonPlan
+	var items []ListLessonPlansRow
 	for rows.Next() {
-		var i LessonPlan
+		var i ListLessonPlansRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.TenantID,
@@ -356,8 +450,12 @@ func (q *Queries) ListLessonPlans(ctx context.Context, arg ListLessonPlansParams
 			&i.WeekNumber,
 			&i.PlannedTopic,
 			&i.CoveredAt,
+			&i.ReviewStatus,
+			&i.ReviewRemarks,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.SubjectName,
+			&i.ClassName,
 		); err != nil {
 			return nil, err
 		}
@@ -465,37 +563,26 @@ func (q *Queries) SubmitHomework(ctx context.Context, arg SubmitHomeworkParams) 
 	return i, err
 }
 
-const upsertLessonPlan = `-- name: UpsertLessonPlan :one
-INSERT INTO lesson_plans (
-    tenant_id, subject_id, class_id, week_number, planned_topic, covered_at
-) VALUES (
-    $1, $2, $3, $4, $5, $6
-)
-ON CONFLICT (tenant_id, subject_id, class_id, week_number)
-DO UPDATE SET 
-    planned_topic = EXCLUDED.planned_topic,
-    covered_at = EXCLUDED.covered_at,
-    updated_at = NOW()
-RETURNING id, tenant_id, subject_id, class_id, week_number, planned_topic, covered_at, created_at, updated_at
+const updateLessonPlanStatus = `-- name: UpdateLessonPlanStatus :one
+UPDATE lesson_plans
+SET review_status = $3, review_remarks = $4, updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2
+RETURNING id, tenant_id, subject_id, class_id, week_number, planned_topic, covered_at, review_status, review_remarks, created_at, updated_at
 `
 
-type UpsertLessonPlanParams struct {
-	TenantID     pgtype.UUID        `json:"tenant_id"`
-	SubjectID    pgtype.UUID        `json:"subject_id"`
-	ClassID      pgtype.UUID        `json:"class_id"`
-	WeekNumber   int32              `json:"week_number"`
-	PlannedTopic string             `json:"planned_topic"`
-	CoveredAt    pgtype.Timestamptz `json:"covered_at"`
+type UpdateLessonPlanStatusParams struct {
+	ID            pgtype.UUID `json:"id"`
+	TenantID      pgtype.UUID `json:"tenant_id"`
+	ReviewStatus  string      `json:"review_status"`
+	ReviewRemarks pgtype.Text `json:"review_remarks"`
 }
 
-func (q *Queries) UpsertLessonPlan(ctx context.Context, arg UpsertLessonPlanParams) (LessonPlan, error) {
-	row := q.db.QueryRow(ctx, upsertLessonPlan,
+func (q *Queries) UpdateLessonPlanStatus(ctx context.Context, arg UpdateLessonPlanStatusParams) (LessonPlan, error) {
+	row := q.db.QueryRow(ctx, updateLessonPlanStatus,
+		arg.ID,
 		arg.TenantID,
-		arg.SubjectID,
-		arg.ClassID,
-		arg.WeekNumber,
-		arg.PlannedTopic,
-		arg.CoveredAt,
+		arg.ReviewStatus,
+		arg.ReviewRemarks,
 	)
 	var i LessonPlan
 	err := row.Scan(
@@ -506,6 +593,63 @@ func (q *Queries) UpsertLessonPlan(ctx context.Context, arg UpsertLessonPlanPara
 		&i.WeekNumber,
 		&i.PlannedTopic,
 		&i.CoveredAt,
+		&i.ReviewStatus,
+		&i.ReviewRemarks,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertLessonPlan = `-- name: UpsertLessonPlan :one
+INSERT INTO lesson_plans (
+    tenant_id, subject_id, class_id, week_number, planned_topic, covered_at, review_status, review_remarks
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8
+)
+ON CONFLICT (tenant_id, subject_id, class_id, week_number)
+DO UPDATE SET 
+    planned_topic = EXCLUDED.planned_topic,
+    covered_at = EXCLUDED.covered_at,
+    review_status = COALESCE(NULLIF(EXCLUDED.review_status, ''), lesson_plans.review_status),
+    review_remarks = EXCLUDED.review_remarks,
+    updated_at = NOW()
+RETURNING id, tenant_id, subject_id, class_id, week_number, planned_topic, covered_at, review_status, review_remarks, created_at, updated_at
+`
+
+type UpsertLessonPlanParams struct {
+	TenantID      pgtype.UUID        `json:"tenant_id"`
+	SubjectID     pgtype.UUID        `json:"subject_id"`
+	ClassID       pgtype.UUID        `json:"class_id"`
+	WeekNumber    int32              `json:"week_number"`
+	PlannedTopic  string             `json:"planned_topic"`
+	CoveredAt     pgtype.Timestamptz `json:"covered_at"`
+	ReviewStatus  string             `json:"review_status"`
+	ReviewRemarks pgtype.Text        `json:"review_remarks"`
+}
+
+func (q *Queries) UpsertLessonPlan(ctx context.Context, arg UpsertLessonPlanParams) (LessonPlan, error) {
+	row := q.db.QueryRow(ctx, upsertLessonPlan,
+		arg.TenantID,
+		arg.SubjectID,
+		arg.ClassID,
+		arg.WeekNumber,
+		arg.PlannedTopic,
+		arg.CoveredAt,
+		arg.ReviewStatus,
+		arg.ReviewRemarks,
+	)
+	var i LessonPlan
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.SubjectID,
+		&i.ClassID,
+		&i.WeekNumber,
+		&i.PlannedTopic,
+		&i.CoveredAt,
+		&i.ReviewStatus,
+		&i.ReviewRemarks,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

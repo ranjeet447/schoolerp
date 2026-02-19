@@ -26,6 +26,8 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Get("/ptm/events", h.ListPTMEvents)
 		r.Get("/ptm/events/{id}/slots", h.GetPTMSlots)
 		r.Post("/ptm/events/{id}/slots/{slot_id}/book", h.BookPTMSlot)
+		r.Get("/ptm/settings", h.GetPTMSettings)
+		r.Put("/ptm/settings", h.UpdatePTMSettings)
 
 		r.Post("/chats/{room_id}/messages", h.SendMessage)
 		r.Get("/chats/{room_id}/history", h.GetChatHistory)
@@ -270,4 +272,31 @@ func (h *Handler) ListMessagingEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	json.NewEncoder(w).Encode(events)
+}
+
+func (h *Handler) GetPTMSettings(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	settings, err := h.svc.GetPTMSettings(r.Context(), tenantID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(settings)
+}
+
+func (h *Handler) UpdatePTMSettings(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	var req struct {
+		Enabled bool `json:"automated_reminders_enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.svc.UpdatePTMSettings(r.Context(), tenantID, req.Enabled); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }

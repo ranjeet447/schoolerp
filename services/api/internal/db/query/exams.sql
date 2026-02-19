@@ -176,3 +176,35 @@ ON CONFLICT (exam_id, subject_id, student_id)
 DO UPDATE SET 
     marks_obtained = EXCLUDED.marks_obtained, 
     entered_by = EXCLUDED.entered_by;
+
+-- Hall Tickets
+-- name: CreateHallTicket :one
+INSERT INTO hall_tickets (
+    tenant_id, exam_id, student_id, roll_number, hall_number, seat_number, remarks
+) VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (exam_id, student_id) DO UPDATE SET
+    roll_number = EXCLUDED.roll_number,
+    hall_number = EXCLUDED.hall_number,
+    seat_number = EXCLUDED.seat_number,
+    remarks = EXCLUDED.remarks,
+    updated_at = NOW()
+RETURNING *;
+
+-- name: GetHallTicket :one
+SELECT ht.*, s.full_name as student_name, e.name as exam_name
+FROM hall_tickets ht
+JOIN students s ON ht.student_id = s.id
+JOIN exams e ON ht.exam_id = e.id
+WHERE ht.exam_id = $1 AND ht.student_id = $2 AND ht.tenant_id = $3;
+
+-- name: ListHallTicketsForExam :many
+SELECT ht.*, s.full_name as student_name
+FROM hall_tickets ht
+JOIN students s ON ht.student_id = s.id
+WHERE ht.exam_id = $1
+ORDER BY ht.roll_number;
+
+-- name: UpdateExamSubjectMetadata :exec
+UPDATE exam_subjects
+SET metadata = $3
+WHERE exam_id = $1 AND subject_id = $2;

@@ -31,6 +31,19 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Get("/broadcasts", h.ListBroadcasts)
 		r.Get("/pickups/{student_id}", h.ListPickupAuths)
 		r.Post("/pickups", h.CreatePickupAuth)
+		r.Get("/notes/student/{student_id}", h.ListConfidentialNotes)
+		r.Post("/notes/student/{student_id}", h.CreateConfidentialNote)
+		r.Delete("/notes/{id}", h.DeleteConfidentialNote)
+		r.Post("/gate-passes", h.CreateGatePass)
+		r.Post("/gate-passes/{id}/approve", h.ApproveGatePass)
+		r.Post("/gate-passes/{id}/use", h.UseGatePass)
+		r.Get("/gate-passes", h.ListGatePasses)
+		r.Get("/gate-passes/student/{student_id}", h.ListGatePassesForStudent)
+		r.Post("/pickups/events", h.CreatePickupEvent)
+		r.Get("/pickups/events/student/{student_id}", h.ListPickupEvents)
+		r.Post("/pickups/generate-code", h.GeneratePickupCode)
+		r.Post("/pickups/verify", h.VerifyPickupCode)
+		r.Get("/pickups/active-codes/{student_id}", h.ListActivePickupCodesForStudent)
 	})
 }
 
@@ -287,3 +300,199 @@ func (h *Handler) ListBroadcasts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(broadcasts)
 }
+
+func (h *Handler) CreateConfidentialNote(w http.ResponseWriter, r *http.Request) {
+	studentID := chi.URLParam(r, "student_id")
+	var req struct {
+		Note        string `json:"note"`
+		IsSensitive bool   `json:"is_sensitive"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	note, err := h.svc.CreateConfidentialNote(r.Context(), middleware.GetTenantID(r.Context()), studentID, middleware.GetUserID(r.Context()), req.Note)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(note)
+}
+
+func (h *Handler) ListConfidentialNotes(w http.ResponseWriter, r *http.Request) {
+	studentID := chi.URLParam(r, "student_id")
+	notes, err := h.svc.ListConfidentialNotes(r.Context(), middleware.GetTenantID(r.Context()), studentID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(notes)
+}
+
+func (h *Handler) DeleteConfidentialNote(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.svc.DeleteConfidentialNote(r.Context(), middleware.GetTenantID(r.Context()), id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) CreateGatePass(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		StudentID string `json:"student_id"`
+		Reason    string `json:"reason"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	gp, err := h.svc.CreateGatePass(r.Context(), middleware.GetTenantID(r.Context()), req.StudentID, middleware.GetUserID(r.Context()), req.Reason)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(gp)
+}
+
+func (h *Handler) ApproveGatePass(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	gp, err := h.svc.ApproveGatePass(r.Context(), middleware.GetTenantID(r.Context()), id, middleware.GetUserID(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(gp)
+}
+
+func (h *Handler) UseGatePass(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	gp, err := h.svc.UseGatePass(r.Context(), middleware.GetTenantID(r.Context()), id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(gp)
+}
+
+func (h *Handler) ListGatePasses(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	off, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if limit == 0 {
+		limit = 50
+	}
+	list, err := h.svc.ListGatePasses(r.Context(), middleware.GetTenantID(r.Context()), int32(limit), int32(off))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(list)
+}
+
+func (h *Handler) ListGatePassesForStudent(w http.ResponseWriter, r *http.Request) {
+	studentID := chi.URLParam(r, "student_id")
+	list, err := h.svc.ListGatePassesForStudent(r.Context(), middleware.GetTenantID(r.Context()), studentID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(list)
+}
+
+func (h *Handler) CreatePickupEvent(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		StudentID      string `json:"student_id"`
+		AuthID         string `json:"auth_id"`
+		PickedUpByName string `json:"picked_up_by_name"`
+		Relationship   string `json:"relationship"`
+		PhotoURL       string `json:"photo_url"`
+		Notes          string `json:"notes"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	event, err := h.svc.CreatePickupEvent(r.Context(), safetyservice.CreatePickupEventParams{
+		TenantID:       middleware.GetTenantID(r.Context()),
+		StudentID:      req.StudentID,
+		AuthID:         req.AuthID,
+		PickedUpByName: req.PickedUpByName,
+		Relationship:   req.Relationship,
+		PhotoURL:       req.PhotoURL,
+		Notes:          req.Notes,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(event)
+}
+
+func (h *Handler) ListPickupEvents(w http.ResponseWriter, r *http.Request) {
+	studentID := chi.URLParam(r, "student_id")
+	list, err := h.svc.ListPickupEvents(r.Context(), middleware.GetTenantID(r.Context()), studentID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(list)
+}
+
+func (h *Handler) GeneratePickupCode(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	var req struct {
+		StudentID string `json:"student_id"`
+		AuthID    string `json:"auth_id"`
+		CodeType  string `json:"code_type"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	code, err := h.svc.GeneratePickupCode(r.Context(), tenantID, req.StudentID, req.AuthID, req.CodeType)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(code)
+}
+
+func (h *Handler) VerifyPickupCode(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	var req struct {
+		Code  string `json:"code"`
+		Notes string `json:"notes"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	event, err := h.svc.VerifyPickupCode(r.Context(), tenantID, req.Code, req.Notes)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(event)
+}
+
+func (h *Handler) ListActivePickupCodesForStudent(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	studentID := chi.URLParam(r, "student_id")
+
+	codes, err := h.svc.ListActivePickupCodesForStudent(r.Context(), tenantID, studentID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(codes)
+}
+

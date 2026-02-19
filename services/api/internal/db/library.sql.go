@@ -41,18 +41,19 @@ func (q *Queries) CreateAuthor(ctx context.Context, arg CreateAuthorParams) (Lib
 
 const createBook = `-- name: CreateBook :one
 INSERT INTO library_books (
-    tenant_id, title, isbn, publisher, published_year, category_id, 
+    tenant_id, title, isbn, barcode, publisher, published_year, category_id, 
     total_copies, available_copies, shelf_location, cover_image_url, 
     price, language, status
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
-) RETURNING id, tenant_id, title, isbn, publisher, published_year, category_id, total_copies, available_copies, shelf_location, cover_image_url, price, language, status, created_at, updated_at
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+) RETURNING id, tenant_id, title, isbn, barcode, publisher, published_year, category_id, total_copies, available_copies, shelf_location, cover_image_url, price, language, status, created_at, updated_at
 `
 
 type CreateBookParams struct {
 	TenantID        pgtype.UUID    `json:"tenant_id"`
 	Title           string         `json:"title"`
 	Isbn            pgtype.Text    `json:"isbn"`
+	Barcode         pgtype.Text    `json:"barcode"`
 	Publisher       pgtype.Text    `json:"publisher"`
 	PublishedYear   pgtype.Int4    `json:"published_year"`
 	CategoryID      pgtype.UUID    `json:"category_id"`
@@ -70,6 +71,7 @@ func (q *Queries) CreateBook(ctx context.Context, arg CreateBookParams) (Library
 		arg.TenantID,
 		arg.Title,
 		arg.Isbn,
+		arg.Barcode,
 		arg.Publisher,
 		arg.PublishedYear,
 		arg.CategoryID,
@@ -87,6 +89,7 @@ func (q *Queries) CreateBook(ctx context.Context, arg CreateBookParams) (Library
 		&i.TenantID,
 		&i.Title,
 		&i.Isbn,
+		&i.Barcode,
 		&i.Publisher,
 		&i.PublishedYear,
 		&i.CategoryID,
@@ -206,8 +209,40 @@ func (q *Queries) DeleteDigitalAsset(ctx context.Context, id pgtype.UUID) error 
 	return err
 }
 
+const getActiveIssueByBook = `-- name: GetActiveIssueByBook :one
+SELECT id, tenant_id, book_id, student_id, user_id, issue_date, due_date, return_date, fine_amount, status, remarks, created_at, updated_at FROM library_issues 
+WHERE book_id = $1 AND tenant_id = $2 AND status = 'issued' 
+ORDER BY issue_date DESC LIMIT 1
+`
+
+type GetActiveIssueByBookParams struct {
+	BookID   pgtype.UUID `json:"book_id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) GetActiveIssueByBook(ctx context.Context, arg GetActiveIssueByBookParams) (LibraryIssue, error) {
+	row := q.db.QueryRow(ctx, getActiveIssueByBook, arg.BookID, arg.TenantID)
+	var i LibraryIssue
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.BookID,
+		&i.StudentID,
+		&i.UserID,
+		&i.IssueDate,
+		&i.DueDate,
+		&i.ReturnDate,
+		&i.FineAmount,
+		&i.Status,
+		&i.Remarks,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getBook = `-- name: GetBook :one
-SELECT id, tenant_id, title, isbn, publisher, published_year, category_id, total_copies, available_copies, shelf_location, cover_image_url, price, language, status, created_at, updated_at FROM library_books WHERE id = $1 AND tenant_id = $2
+SELECT id, tenant_id, title, isbn, barcode, publisher, published_year, category_id, total_copies, available_copies, shelf_location, cover_image_url, price, language, status, created_at, updated_at FROM library_books WHERE id = $1 AND tenant_id = $2
 `
 
 type GetBookParams struct {
@@ -223,6 +258,41 @@ func (q *Queries) GetBook(ctx context.Context, arg GetBookParams) (LibraryBook, 
 		&i.TenantID,
 		&i.Title,
 		&i.Isbn,
+		&i.Barcode,
+		&i.Publisher,
+		&i.PublishedYear,
+		&i.CategoryID,
+		&i.TotalCopies,
+		&i.AvailableCopies,
+		&i.ShelfLocation,
+		&i.CoverImageUrl,
+		&i.Price,
+		&i.Language,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getBookByBarcode = `-- name: GetBookByBarcode :one
+SELECT id, tenant_id, title, isbn, barcode, publisher, published_year, category_id, total_copies, available_copies, shelf_location, cover_image_url, price, language, status, created_at, updated_at FROM library_books WHERE barcode = $1 AND tenant_id = $2
+`
+
+type GetBookByBarcodeParams struct {
+	Barcode  pgtype.Text `json:"barcode"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) GetBookByBarcode(ctx context.Context, arg GetBookByBarcodeParams) (LibraryBook, error) {
+	row := q.db.QueryRow(ctx, getBookByBarcode, arg.Barcode, arg.TenantID)
+	var i LibraryBook
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Title,
+		&i.Isbn,
+		&i.Barcode,
 		&i.Publisher,
 		&i.PublishedYear,
 		&i.CategoryID,
@@ -350,7 +420,7 @@ func (q *Queries) ListAuthors(ctx context.Context, tenantID pgtype.UUID) ([]Libr
 }
 
 const listBooks = `-- name: ListBooks :many
-SELECT id, tenant_id, title, isbn, publisher, published_year, category_id, total_copies, available_copies, shelf_location, cover_image_url, price, language, status, created_at, updated_at FROM library_books
+SELECT id, tenant_id, title, isbn, barcode, publisher, published_year, category_id, total_copies, available_copies, shelf_location, cover_image_url, price, language, status, created_at, updated_at FROM library_books
 WHERE tenant_id = $1
 ORDER BY title
 LIMIT $2 OFFSET $3
@@ -376,6 +446,7 @@ func (q *Queries) ListBooks(ctx context.Context, arg ListBooksParams) ([]Library
 			&i.TenantID,
 			&i.Title,
 			&i.Isbn,
+			&i.Barcode,
 			&i.Publisher,
 			&i.PublishedYear,
 			&i.CategoryID,
@@ -598,10 +669,10 @@ func (q *Queries) ReturnBook(ctx context.Context, arg ReturnBookParams) (Library
 
 const updateBook = `-- name: UpdateBook :one
 UPDATE library_books
-SET title = $3, isbn = $4, publisher = $5, published_year = $6, category_id = $7,
-    total_copies = $8, shelf_location = $9, price = $10, language = $11, updated_at = NOW()
+SET title = $3, isbn = $4, barcode = $5, publisher = $6, published_year = $7, category_id = $8,
+    total_copies = $9, shelf_location = $10, price = $11, language = $12, updated_at = NOW()
 WHERE id = $1 AND tenant_id = $2
-RETURNING id, tenant_id, title, isbn, publisher, published_year, category_id, total_copies, available_copies, shelf_location, cover_image_url, price, language, status, created_at, updated_at
+RETURNING id, tenant_id, title, isbn, barcode, publisher, published_year, category_id, total_copies, available_copies, shelf_location, cover_image_url, price, language, status, created_at, updated_at
 `
 
 type UpdateBookParams struct {
@@ -609,6 +680,7 @@ type UpdateBookParams struct {
 	TenantID      pgtype.UUID    `json:"tenant_id"`
 	Title         string         `json:"title"`
 	Isbn          pgtype.Text    `json:"isbn"`
+	Barcode       pgtype.Text    `json:"barcode"`
 	Publisher     pgtype.Text    `json:"publisher"`
 	PublishedYear pgtype.Int4    `json:"published_year"`
 	CategoryID    pgtype.UUID    `json:"category_id"`
@@ -624,6 +696,7 @@ func (q *Queries) UpdateBook(ctx context.Context, arg UpdateBookParams) (Library
 		arg.TenantID,
 		arg.Title,
 		arg.Isbn,
+		arg.Barcode,
 		arg.Publisher,
 		arg.PublishedYear,
 		arg.CategoryID,
@@ -638,6 +711,7 @@ func (q *Queries) UpdateBook(ctx context.Context, arg UpdateBookParams) (Library
 		&i.TenantID,
 		&i.Title,
 		&i.Isbn,
+		&i.Barcode,
 		&i.Publisher,
 		&i.PublishedYear,
 		&i.CategoryID,

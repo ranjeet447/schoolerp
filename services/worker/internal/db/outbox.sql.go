@@ -12,19 +12,25 @@ import (
 )
 
 const createOutboxEvent = `-- name: CreateOutboxEvent :one
-INSERT INTO outbox (tenant_id, event_type, payload)
-VALUES ($1, $2, $3)
-RETURNING id, tenant_id, event_type, payload, status, retry_count, error_message, created_at, processed_at
+INSERT INTO outbox (tenant_id, event_type, payload, process_after)
+VALUES ($1, $2, $3, $4)
+RETURNING id, tenant_id, event_type, payload, status, retry_count, error_message, process_after, created_at, processed_at
 `
 
 type CreateOutboxEventParams struct {
-	TenantID  pgtype.UUID `json:"tenant_id"`
-	EventType string      `json:"event_type"`
-	Payload   []byte      `json:"payload"`
+	TenantID     pgtype.UUID        `json:"tenant_id"`
+	EventType    string             `json:"event_type"`
+	Payload      []byte             `json:"payload"`
+	ProcessAfter pgtype.Timestamptz `json:"process_after"`
 }
 
 func (q *Queries) CreateOutboxEvent(ctx context.Context, arg CreateOutboxEventParams) (Outbox, error) {
-	row := q.db.QueryRow(ctx, createOutboxEvent, arg.TenantID, arg.EventType, arg.Payload)
+	row := q.db.QueryRow(ctx, createOutboxEvent,
+		arg.TenantID,
+		arg.EventType,
+		arg.Payload,
+		arg.ProcessAfter,
+	)
 	var i Outbox
 	err := row.Scan(
 		&i.ID,
@@ -34,6 +40,7 @@ func (q *Queries) CreateOutboxEvent(ctx context.Context, arg CreateOutboxEventPa
 		&i.Status,
 		&i.RetryCount,
 		&i.ErrorMessage,
+		&i.ProcessAfter,
 		&i.CreatedAt,
 		&i.ProcessedAt,
 	)
@@ -41,9 +48,10 @@ func (q *Queries) CreateOutboxEvent(ctx context.Context, arg CreateOutboxEventPa
 }
 
 const getPendingOutboxEvents = `-- name: GetPendingOutboxEvents :many
-SELECT id, tenant_id, event_type, payload, status, retry_count, error_message, created_at, processed_at FROM outbox
-WHERE status = 'pending' OR (status = 'failed' AND retry_count < 5)
-ORDER BY created_at ASC
+SELECT id, tenant_id, event_type, payload, status, retry_count, error_message, process_after, created_at, processed_at FROM outbox
+WHERE (status = 'pending' OR (status = 'failed' AND retry_count < 5))
+  AND process_after <= NOW()
+ORDER BY process_after ASC, created_at ASC
 LIMIT $1
 `
 
@@ -64,6 +72,7 @@ func (q *Queries) GetPendingOutboxEvents(ctx context.Context, limitCount int32) 
 			&i.Status,
 			&i.RetryCount,
 			&i.ErrorMessage,
+			&i.ProcessAfter,
 			&i.CreatedAt,
 			&i.ProcessedAt,
 		); err != nil {
@@ -78,7 +87,7 @@ func (q *Queries) GetPendingOutboxEvents(ctx context.Context, limitCount int32) 
 }
 
 const listOutboxEvents = `-- name: ListOutboxEvents :many
-SELECT id, tenant_id, event_type, payload, status, retry_count, error_message, created_at, processed_at FROM outbox
+SELECT id, tenant_id, event_type, payload, status, retry_count, error_message, process_after, created_at, processed_at FROM outbox
 WHERE tenant_id = $1
 ORDER BY created_at DESC
 LIMIT $3 OFFSET $2
@@ -107,6 +116,7 @@ func (q *Queries) ListOutboxEvents(ctx context.Context, arg ListOutboxEventsPara
 			&i.Status,
 			&i.RetryCount,
 			&i.ErrorMessage,
+			&i.ProcessAfter,
 			&i.CreatedAt,
 			&i.ProcessedAt,
 		); err != nil {

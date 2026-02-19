@@ -10,6 +10,7 @@ import { Plus, BookOpen, Search, RefreshCw } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { Book } from "@/types/library"
 import { BookDialog } from "@/components/library/book-dialog"
+import Link from "next/link"
 
 export default function BooksPage() {
   const [books, setBooks] = useState<Book[]>([])
@@ -180,9 +181,16 @@ export default function BooksPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => handleEdit(book)}>
-                        Edit
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href={`/admin/library/digital-assets?book_id=${book.id}&title=${encodeURIComponent(book.title)}`}>
+                            Assets
+                          </Link>
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleEdit(book)}>
+                          Edit
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

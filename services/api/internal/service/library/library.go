@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/schoolerp/api/internal/db"
@@ -491,5 +492,135 @@ func (s *LibraryService) ListDigitalAssets(ctx context.Context, tenantID, bookID
 	return s.q.ListDigitalAssets(ctx, db.ListDigitalAssetsParams{
 		BookID:   bID,
 		TenantID: tID,
+	})
+}
+
+func (s *LibraryService) DeleteDigitalAsset(ctx context.Context, tenantID, id string) error {
+	// Verify tenant matches if needed, or just delete by ID if globally unique
+	uID := pgtype.UUID{}
+	uID.Scan(id)
+	return s.q.DeleteDigitalAsset(ctx, uID)
+}
+
+func (s *LibraryService) ScanBookForIssue(ctx context.Context, p IssueBookParams, barcode string) (db.LibraryIssue, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(p.TenantID)
+	
+	book, err := s.q.GetBookByBarcode(ctx, db.GetBookByBarcodeParams{
+		Barcode:  pgtype.Text{String: barcode, Valid: true},
+		TenantID: tID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return db.LibraryIssue{}, errors.New("book not found with this barcode")
+		}
+		return db.LibraryIssue{}, fmt.Errorf("lookup failed: %w", err)
+	}
+
+	p.BookID = book.ID.String()
+	return s.IssueBook(ctx, p)
+}
+
+func (s *LibraryService) ScanBookForReturn(ctx context.Context, tenantID, userID, barcode, remarks string) (db.LibraryIssue, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	
+	book, err := s.q.GetBookByBarcode(ctx, db.GetBookByBarcodeParams{
+		Barcode:  pgtype.Text{String: barcode, Valid: true},
+		TenantID: tID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return db.LibraryIssue{}, errors.New("book not found with this barcode")
+		}
+		return db.LibraryIssue{}, fmt.Errorf("lookup failed: %w", err)
+	}
+
+	// Find the active issue
+	issue, err := s.q.GetActiveIssueByBook(ctx, db.GetActiveIssueByBookParams{
+		BookID:   book.ID,
+		TenantID: tID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return db.LibraryIssue{}, errors.New("no active issue found for this book")
+		}
+		return db.LibraryIssue{}, fmt.Errorf("failed to find active issue: %w", err)
+	}
+
+	return s.ReturnBook(ctx, ReturnBookParams{
+		TenantID: tenantID,
+		IssueID:  issue.ID.String(),
+		UserID:   userID,
+		Remarks:  remarks,
+	})
+}
+
+func (s *LibraryService) UpsertReadingLog(ctx context.Context, p db.UpsertReadingLogParams) (db.LibraryReadingLog, error) {
+	return s.q.UpsertReadingLog(ctx, p)
+}
+
+func (s *LibraryService) GetStudentReadingLogs(ctx context.Context, tenantID, studentID string) ([]db.GetStudentReadingLogsRow, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+	sID := pgtype.UUID{}
+	sID.Scan(studentID)
+
+	return s.q.GetStudentReadingLogs(ctx, db.GetStudentReadingLogsParams{
+		TenantID:  tID,
+		StudentID: sID,
+	})
+}
+
+func (s *LibraryService) ListRecentReadingLogs(ctx context.Context, tenantID string, limit int32) ([]db.ListRecentReadingLogsRow, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+
+	return s.q.ListRecentReadingLogs(ctx, db.ListRecentReadingLogsParams{
+		TenantID: tID,
+		Limit:    limit,
+	})
+}
+
+func (s *LibraryService) UpdateReadingProgress(ctx context.Context, tenantID, studentID, bookID string, pagesRead, totalPages int) (db.LibraryReadingProgress, error) {
+	sID := pgtype.UUID{}
+	sID.Scan(studentID)
+	bID := pgtype.UUID{}
+	bID.Scan(bookID)
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+
+	progress, err := s.q.CreateReadingProgress(ctx, db.CreateReadingProgressParams{
+		StudentID:  sID,
+		AssetID:    bID,
+		PagesRead:  int32(pagesRead),
+		TotalPages: int32(totalPages),
+	})
+	if err != nil {
+		return db.LibraryReadingProgress{}, err
+	}
+
+	// Also update the current log state for quick lookup
+	_, _ = s.q.UpsertReadingLog(ctx, db.UpsertReadingLogParams{
+		TenantID:    tID,
+		StudentID:   sID,
+		BookID:      bID,
+		Status:      "reading",
+		CurrentPage: pgtype.Int4{Int32: int32(pagesRead), Valid: true},
+		TotalPages:  pgtype.Int4{Int32: int32(totalPages), Valid: true},
+	})
+	
+	return progress, nil
+}
+
+func (s *LibraryService) GetReadingVelocity(ctx context.Context, studentID, bookID string) ([]db.GetReadingVelocityRow, error) {
+	sID := pgtype.UUID{}
+	sID.Scan(studentID)
+	bID := pgtype.UUID{}
+	bID.Scan(bookID)
+
+	return s.q.GetReadingVelocity(ctx, db.GetReadingVelocityParams{
+		StudentID: sID,
+		AssetID:   bID,
 	})
 }

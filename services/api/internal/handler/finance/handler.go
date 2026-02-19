@@ -45,6 +45,8 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/late-fees", h.CreateLateFeeRule)
 		r.Get("/concessions", h.ListConcessionRules)
 		r.Post("/concessions", h.CreateConcessionRule)
+		r.Get("/fee-reminders", h.ListFeeReminderConfigs)
+		r.Post("/fee-reminders", h.UpsertFeeReminderConfig)
 	})
 	r.Post("/student-concessions", h.ApplyStudentConcession)
 	r.Route("/payments", func(r chi.Router) {
@@ -702,4 +704,29 @@ func (h *Handler) GetCollectionReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(report)
+}
+
+func (h *Handler) ListFeeReminderConfigs(w http.ResponseWriter, r *http.Request) {
+	configs, err := h.svc.ListFeeReminderConfigs(r.Context(), middleware.GetTenantID(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(configs)
+}
+
+func (h *Handler) UpsertFeeReminderConfig(w http.ResponseWriter, r *http.Request) {
+	var req financeservice.ReminderConfigParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	req.TenantID = middleware.GetTenantID(r.Context())
+	cfg, err := h.svc.UpsertFeeReminderConfig(r.Context(), req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(cfg)
 }

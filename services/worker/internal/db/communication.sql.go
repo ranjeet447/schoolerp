@@ -350,6 +350,142 @@ func (q *Queries) GetPTMSlots(ctx context.Context, eventID pgtype.UUID) ([]GetPT
 	return items, nil
 }
 
+const getPTMSlotsForReminders = `-- name: GetPTMSlotsForReminders :many
+SELECT 
+    ps.id as slot_id,
+    pe.id as event_id,
+    pe.tenant_id,
+    pe.title as event_title,
+    ps.start_time,
+    pe.event_date,
+    s.id as student_id,
+    s.full_name as student_name,
+    g.phone as guardian_phone
+FROM ptm_slots ps
+JOIN ptm_events pe ON ps.event_id = pe.id
+JOIN students s ON ps.student_id = s.id
+JOIN student_guardians sg ON s.id = sg.student_id AND sg.is_primary = true
+JOIN guardians g ON sg.guardian_id = g.id
+WHERE ps.status = 'booked'
+AND (pe.event_date + ps.start_time) BETWEEN $1::TIMESTAMPTZ AND $2::TIMESTAMPTZ
+AND NOT EXISTS (
+    SELECT 1 FROM ptm_reminder_logs prl
+    WHERE prl.slot_id = ps.id AND prl.reminder_type = $3
+)
+`
+
+type GetPTMSlotsForRemindersParams struct {
+	StartWindow  pgtype.Timestamptz `json:"start_window"`
+	EndWindow    pgtype.Timestamptz `json:"end_window"`
+	ReminderType string             `json:"reminder_type"`
+}
+
+type GetPTMSlotsForRemindersRow struct {
+	SlotID        pgtype.UUID `json:"slot_id"`
+	EventID       pgtype.UUID `json:"event_id"`
+	TenantID      pgtype.UUID `json:"tenant_id"`
+	EventTitle    string      `json:"event_title"`
+	StartTime     pgtype.Time `json:"start_time"`
+	EventDate     pgtype.Date `json:"event_date"`
+	StudentID     pgtype.UUID `json:"student_id"`
+	StudentName   string      `json:"student_name"`
+	GuardianPhone string      `json:"guardian_phone"`
+}
+
+func (q *Queries) GetPTMSlotsForReminders(ctx context.Context, arg GetPTMSlotsForRemindersParams) ([]GetPTMSlotsForRemindersRow, error) {
+	rows, err := q.db.Query(ctx, getPTMSlotsForReminders, arg.StartWindow, arg.EndWindow, arg.ReminderType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetPTMSlotsForRemindersRow
+	for rows.Next() {
+		var i GetPTMSlotsForRemindersRow
+		if err := rows.Scan(
+			&i.SlotID,
+			&i.EventID,
+			&i.TenantID,
+			&i.EventTitle,
+			&i.StartTime,
+			&i.EventDate,
+			&i.StudentID,
+			&i.StudentName,
+			&i.GuardianPhone,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getPTMSlotsStartingSoon = `-- name: GetPTMSlotsStartingSoon :many
+SELECT 
+    ps.id, ps.event_id, ps.start_time, ps.end_time, ps.student_id, ps.status, ps.booking_remarks, ps.booked_at, ps.updated_at, 
+    pe.title as event_title,
+    s.full_name as student_name,
+    s.id as student_id,
+    pe.tenant_id
+FROM ptm_slots ps
+JOIN ptm_events pe ON ps.event_id = pe.id
+JOIN students s ON ps.student_id = s.id
+WHERE ps.status = 'booked'
+AND (pe.event_date + ps.start_time) BETWEEN NOW() AND NOW() + INTERVAL '30 minutes'
+`
+
+type GetPTMSlotsStartingSoonRow struct {
+	ID             pgtype.UUID        `json:"id"`
+	EventID        pgtype.UUID        `json:"event_id"`
+	StartTime      pgtype.Time        `json:"start_time"`
+	EndTime        pgtype.Time        `json:"end_time"`
+	StudentID      pgtype.UUID        `json:"student_id"`
+	Status         string             `json:"status"`
+	BookingRemarks pgtype.Text        `json:"booking_remarks"`
+	BookedAt       pgtype.Timestamptz `json:"booked_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	EventTitle     string             `json:"event_title"`
+	StudentName    string             `json:"student_name"`
+	StudentID_2    pgtype.UUID        `json:"student_id_2"`
+	TenantID       pgtype.UUID        `json:"tenant_id"`
+}
+
+func (q *Queries) GetPTMSlotsStartingSoon(ctx context.Context) ([]GetPTMSlotsStartingSoonRow, error) {
+	rows, err := q.db.Query(ctx, getPTMSlotsStartingSoon)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetPTMSlotsStartingSoonRow
+	for rows.Next() {
+		var i GetPTMSlotsStartingSoonRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.EventID,
+			&i.StartTime,
+			&i.EndTime,
+			&i.StudentID,
+			&i.Status,
+			&i.BookingRemarks,
+			&i.BookedAt,
+			&i.UpdatedAt,
+			&i.EventTitle,
+			&i.StudentName,
+			&i.StudentID_2,
+			&i.TenantID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPTMEvents = `-- name: ListPTMEvents :many
 SELECT 
     pe.id, pe.tenant_id, pe.title, pe.description, pe.event_date, pe.start_time, pe.end_time, pe.slot_duration_minutes, pe.teacher_id, pe.created_at, pe.updated_at,
@@ -461,6 +597,38 @@ func (q *Queries) ListStudentChatRooms(ctx context.Context, arg ListStudentChatR
 		return nil, err
 	}
 	return items, nil
+}
+
+const logPTMReminder = `-- name: LogPTMReminder :one
+INSERT INTO ptm_reminder_logs (tenant_id, slot_id, student_id, reminder_type)
+VALUES ($1, $2, $3, $4)
+RETURNING id, tenant_id, slot_id, student_id, reminder_type, sent_at
+`
+
+type LogPTMReminderParams struct {
+	TenantID     pgtype.UUID `json:"tenant_id"`
+	SlotID       pgtype.UUID `json:"slot_id"`
+	StudentID    pgtype.UUID `json:"student_id"`
+	ReminderType string      `json:"reminder_type"`
+}
+
+func (q *Queries) LogPTMReminder(ctx context.Context, arg LogPTMReminderParams) (PtmReminderLog, error) {
+	row := q.db.QueryRow(ctx, logPTMReminder,
+		arg.TenantID,
+		arg.SlotID,
+		arg.StudentID,
+		arg.ReminderType,
+	)
+	var i PtmReminderLog
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.SlotID,
+		&i.StudentID,
+		&i.ReminderType,
+		&i.SentAt,
+	)
+	return i, err
 }
 
 const upsertChatModerationSettings = `-- name: UpsertChatModerationSettings :one

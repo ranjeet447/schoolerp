@@ -115,6 +115,11 @@ func (s *Service) UpdateConfig(ctx context.Context, tenantID string, config map[
 		return err
 	}
 
+	// Sync board_type to dedicated column if present
+	if bt, ok := config["board_type"].(string); ok {
+		_, _ = s.db.Exec(ctx, "UPDATE tenants SET board_type = $1 WHERE id = $2", bt, tid)
+	}
+
 	_, err = s.q.UpdateTenantConfig(ctx, db.UpdateTenantConfigParams{
 		ID:     tid,
 		Config: configBytes,
@@ -243,6 +248,8 @@ type PlatformSummary struct {
 	TotalCollections int64 `json:"total_collections"`
 }
 
+
+
 type PlatformTenant struct {
 	ID                string    `json:"id"`
 	Name              string    `json:"name"`
@@ -256,6 +263,7 @@ type PlatformTenant struct {
 	Timezone          string    `json:"timezone,omitempty"`
 	Locale            string    `json:"locale,omitempty"`
 	AcademicYear      string    `json:"academic_year,omitempty"`
+	BoardType         string    `json:"board_type,omitempty"`
 	WhiteLabel        bool      `json:"white_label"`
 	BrandPrimaryColor string    `json:"brand_primary_color,omitempty"`
 	BrandNameOverride string    `json:"brand_name_override,omitempty"`
@@ -308,6 +316,7 @@ type UpdateTenantParams struct {
 	Subdomain *string `json:"subdomain"`
 	Domain    *string `json:"domain"`
 	IsActive  *bool   `json:"is_active"`
+	BoardType *string `json:"board_type"`
 }
 
 func (s *Service) OnboardSchool(ctx context.Context, params OnboardSchoolParams) (string, error) {
@@ -343,6 +352,7 @@ func (s *Service) OnboardSchool(ctx context.Context, params OnboardSchoolParams)
 		Subdomain: params.Subdomain,
 		Domain:    pgtype.Text{String: params.Domain, Valid: params.Domain != ""},
 		Config:    configBytes,
+		BoardType: pgtype.Text{String: "other", Valid: true},
 		IsActive:  pgtype.Bool{Bool: true, Valid: true},
 	})
 	if err != nil {
@@ -570,6 +580,7 @@ func (s *Service) ListPlatformTenants(ctx context.Context, filters TenantDirecto
 			&row.Timezone,
 			&row.Locale,
 			&row.AcademicYear,
+			&row.BoardType,
 			&row.WhiteLabel,
 			&row.BrandPrimaryColor,
 			&row.BrandNameOverride,
@@ -660,6 +671,7 @@ func (s *Service) GetPlatformTenant(ctx context.Context, tenantID string) (Platf
 		&row.Timezone,
 		&row.Locale,
 		&row.AcademicYear,
+		&row.BoardType,
 		&row.WhiteLabel,
 		&row.BrandPrimaryColor,
 		&row.BrandNameOverride,

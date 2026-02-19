@@ -20,7 +20,10 @@ import {
   MoreVertical,
   ChevronRight,
   Info,
-  Clock
+  Clock,
+  Lock,
+  FileDown,
+  ShieldAlert
 } from "lucide-react"
 import { 
   Button, 
@@ -42,14 +45,20 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
   SelectValue,
   Textarea
 } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
+import { StudentPickupCode } from "@/components/safety/student-pickup-code"
 
 // Types
 interface BehavioralLog {
@@ -60,6 +69,18 @@ interface BehavioralLog {
   remarks: string
   incident_date: string
   created_by_name?: string
+}
+
+interface DisciplineIncident {
+  id: string
+  category: string
+  title: string
+  description: string
+  action_taken: string
+  status: string
+  severity: 'low' | 'medium' | 'high' | 'critical'
+  incident_date: string
+  reporter_name?: string
 }
 
 interface HealthRecord {
@@ -82,6 +103,7 @@ interface StudentDocument {
 interface Student360 {
   profile: any
   behavior: BehavioralLog[]
+  incidents: DisciplineIncident[]
   health: HealthRecord | null
   documents: StudentDocument[]
   finances: {
@@ -103,12 +125,58 @@ interface Student360 {
     relationship: string
     is_primary: boolean
   }[]
+  pickups: {
+    id: string
+    pickup_at: string
+    name: string
+    relationship: string
+    notes: string
+    auth_name: string
+  }[]
+  pickup_auths: {
+    id: string
+    name: string
+    relationship: string
+    phone: string
+    photo_url?: string
+    is_active: boolean
+  }[]
+  reading_logs?: any[]
 }
 
 export default function StudentProfileClient({ id }: { id: string }) {
   const [data, setData] = useState<Student360 | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+
+  // Pickup Dialog State
+  const [isLogPickupOpen, setIsLogPickupOpen] = useState(false)
+  const [pickupForm, setPickupForm] = useState({
+    auth_id: "",
+    picked_up_by_name: "",
+    relationship: "",
+    notes: ""
+  })
+  const [isLogging, setIsLogging] = useState(false)
+
+  // Admin Notes State
+  const [adminNotes, setAdminNotes] = useState<any[]>([])
+  const [isNotesLoading, setIsNotesLoading] = useState(false)
+  const [newNote, setNewNote] = useState({ content: "" })
+
+  // Reading Logs State
+  const [readingLogs, setReadingLogs] = useState<any[]>([])
+  const [isReadingLoading, setIsReadingLoading] = useState(false)
+  const [isUpdateProgressOpen, setIsUpdateProgressOpen] = useState(false)
+  const [allBooks, setAllBooks] = useState<any[]>([])
+  const [logForm_reading, setLogForm_reading] = useState({
+    book_id: "",
+    status: "reading",
+    current_page: 0,
+    total_pages: 100,
+    notes: "",
+    rating: 5
+  })
 
   // Form States
   const [logForm, setLogForm] = useState({ type: 'merit', category: 'General', points: 0, remarks: '' })
@@ -163,6 +231,108 @@ export default function StudentProfileClient({ id }: { id: string }) {
       })
       if (res.ok) fetch360Data()
     } catch (e) { console.error(e) }
+  }
+
+  const logPickup = async () => {
+    if (!pickupForm.picked_up_by_name) return
+    setIsLogging(true)
+    try {
+      await apiClient(`/safety/pickups/events`, {
+        method: 'POST',
+        body: JSON.stringify({
+          student_id: id,
+          ...pickupForm
+        })
+      })
+      // Refresh data
+      const response = await apiClient(`/admin/students/${id}/360`)
+      const resData = await response.json()
+      setData(resData)
+      setIsLogPickupOpen(false)
+      setPickupForm({ auth_id: "", picked_up_by_name: "", relationship: "", notes: "" })
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setIsLogging(false)
+    }
+  }
+
+  const handleExportPDF = async () => {
+    try {
+      const response = await apiClient(`/admin/students/${id}/360/export`)
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `portfolio_${id}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error("Export failed", err)
+    }
+  }
+
+  const fetchAdminNotes = async () => {
+    setIsNotesLoading(true)
+    try {
+      const response = await apiClient(`/admin/sis/students/${id}/confidential-notes`)
+      const notes = await response.json()
+      setAdminNotes(notes)
+    } catch (err) {
+      console.error("Failed to fetch notes", err)
+    } finally {
+      setIsNotesLoading(false)
+    }
+  }
+
+  const saveAdminNote = async () => {
+    if (!newNote.content) return
+    try {
+      await apiClient(`/admin/sis/students/${id}/confidential-notes`, {
+        method: 'POST',
+        body: JSON.stringify(newNote)
+      })
+      setNewNote({ content: "" })
+      fetchAdminNotes()
+    } catch (err) {
+      console.error("Failed to save note", err)
+    }
+  }
+
+  const fetchAllBooks = async () => {
+    try {
+      const res = await apiClient("/library/books")
+      const books = await res.json()
+      setAllBooks(books)
+    } catch (e) { console.error(e) }
+  }
+
+  const saveReadingLog = async () => {
+    try {
+      await apiClient(`/library/reading-progress`, {
+        method: 'POST',
+        body: JSON.stringify({
+          student_id: id,
+          ...logForm_reading
+        })
+      })
+      setIsUpdateProgressOpen(false)
+      fetchReadingLogs()
+    } catch (e) { console.error(e) }
+  }
+
+  const fetchReadingLogs = async () => {
+    setIsReadingLoading(true)
+    try {
+      const response = await apiClient(`/library/reading-progress/${id}`)
+      const logs = await response.json()
+      setReadingLogs(logs)
+    } catch (err) {
+      console.error("Failed to fetch reading logs", err)
+    } finally {
+      setIsReadingLoading(false)
+    }
   }
 
   if (loading) {
@@ -227,15 +397,104 @@ export default function StudentProfileClient({ id }: { id: string }) {
         </div>
         
         <div className="lg:col-span-3">
-          <Tabs defaultValue="behavior" className="w-full">
-            <TabsList className="grid grid-cols-6 w-full bg-muted/50 p-1">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="behavior" className="gap-2"><ShieldCheck className="h-4 w-4" /> Behavior</TabsTrigger>
-              <TabsTrigger value="academics" className="gap-2"><Medal className="h-4 w-4" /> Academics</TabsTrigger>
-              <TabsTrigger value="health" className="gap-2"><HeartPulse className="h-4 w-4" /> Health</TabsTrigger>
-              <TabsTrigger value="documents" className="gap-2"><FileText className="h-4 w-4" /> Vault</TabsTrigger>
-              <TabsTrigger value="guardians">Relations</TabsTrigger>
-            </TabsList>
+            <Tabs defaultValue="insights" className="w-full">
+              <TabsList className="flex flex-wrap h-auto bg-slate-50/50 p-1 border border-slate-200">
+                <TabsTrigger value="insights" className="gap-2"><TrendingUp className="h-4 w-4" /> Insights</TabsTrigger>
+                <TabsTrigger value="overview" className="gap-2"><Search className="h-4 w-4" /> 360° Profile</TabsTrigger>
+                <TabsTrigger value="academics" className="gap-2"><Medal className="h-4 w-4" /> Academics</TabsTrigger>
+                <TabsTrigger value="health" className="gap-2"><HeartPulse className="h-4 w-4" /> Health</TabsTrigger>
+                <TabsTrigger value="documents" className="gap-2"><FileText className="h-4 w-4" /> Vault</TabsTrigger>
+                <TabsTrigger value="pickups" className="gap-2"><Clock className="h-4 w-4" /> Pickups</TabsTrigger>
+                <TabsTrigger value="reading" onClick={fetchReadingLogs} className="gap-2"><FileText className="h-4 w-4" /> Reading Journal</TabsTrigger>
+                <TabsTrigger value="admin-notes" onClick={fetchAdminNotes} className="gap-2 font-bold text-amber-600"><Lock className="h-4 w-4" /> Admin Notes</TabsTrigger>
+                <TabsTrigger value="guardians">Relations</TabsTrigger>
+              </TabsList>
+
+            <TabsContent value="insights" className="mt-6">
+                <div className="flex justify-end mb-4">
+                  <Button variant="outline" size="sm" className="gap-2" onClick={handleExportPDF}>
+                    <FileDown className="h-4 w-4" /> Export Portfolio PDF
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                   <Card className="md:col-span-2">
+                      <CardHeader>
+                         <CardTitle className="text-sm font-bold">Academic Performance Trend</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                         <div className="h-[200px] flex items-end gap-2 px-4 pb-8 border-b">
+                            {data.academics.attendance_trends.map((t, idx) => (
+                               <div key={idx} className="flex-1 flex flex-col items-center gap-2 group cursor-pointer">
+                                  <div 
+                                    className="w-full bg-primary/20 rounded-t-sm transition-all hover:bg-primary/40 relative" 
+                                    style={{ height: `${t.percent}%` }}
+                                  >
+                                     <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold opacity-0 group-hover:opacity-100">{t.percent}%</div>
+                                  </div>
+                                  <span className="text-[10px] text-muted-foreground font-medium">{t.month}</span>
+                               </div>
+                            ))}
+                         </div>
+                         <div className="grid grid-cols-2 gap-4 mt-6">
+                            <div className="p-3 rounded-lg border bg-slate-50/50">
+                               <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Total Attendance</p>
+                               <p className="text-xl font-black text-primary">{data.academics.attendance_percentage}%</p>
+                            </div>
+                            <div className="p-3 rounded-lg border bg-slate-50/50">
+                               <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Exam Average</p>
+                               <p className="text-xl font-black text-blue-600">{data.academics.latest_exam_avg}%</p>
+                            </div>
+                         </div>
+                      </CardContent>
+                   </Card>
+
+                   <div className="space-y-6">
+                      <Card>
+                         <CardHeader>
+                            <CardTitle className="text-sm font-bold">Behavioral Summary</CardTitle>
+                         </CardHeader>
+                         <CardContent>
+                            <div className="space-y-4">
+                               <div className="flex items-center justify-between">
+                                  <span className="text-xs">Merit Points</span>
+                                  <span className="text-xs font-bold text-green-600">+{data.behavior.filter(l => l.type === 'merit').reduce((acc, l) => acc + l.points, 0)}</span>
+                               </div>
+                               <div className="flex items-center justify-between">
+                                  <span className="text-xs">Demerit Points</span>
+                                  <span className="text-xs font-bold text-red-600">-{data.behavior.filter(l => l.type === 'demerit').reduce((acc, l) => acc + (l.points || 0), 0)}</span>
+                               </div>
+                               <div className="pt-2 border-t flex items-center justify-between">
+                                  <span className="text-xs font-bold">Net Standing</span>
+                                  <Badge className={data.behavior.reduce((acc, l) => acc + (l.type === 'merit' ? l.points : -(l.points || 0)), 0) >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                                     {data.behavior.reduce((acc, l) => acc + (l.type === 'merit' ? l.points : -(l.points || 0)), 0)} pts
+                                  </Badge>
+                               </div>
+                            </div>
+                         </CardContent>
+                      </Card>
+
+                      <Card>
+                         <CardHeader>
+                            <CardTitle className="text-sm font-bold">Health & Status</CardTitle>
+                         </CardHeader>
+                         <CardContent>
+                            <div className="space-y-2">
+                               <div className="flex justify-between text-xs">
+                                  <span className="text-muted-foreground">Blood Group</span>
+                                  <span className="font-bold">{data.health?.blood_group || 'N/A'}</span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-muted-foreground">Financial Status</span>
+                                  <Badge variant={data.finances.balance > 0 ? "destructive" : "outline"} className="text-[8px] h-4">
+                                    {data.finances.balance > 0 ? "Due" : "Cleared"}
+                                  </Badge>
+                                </div>
+                            </div>
+                         </CardContent>
+                      </Card>
+                   </div>
+                </div>
+            </TabsContent>
 
             <TabsContent value="overview" className="mt-6 space-y-6">
                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -411,13 +670,55 @@ export default function StudentProfileClient({ id }: { id: string }) {
                         </CardContent>
                      </Card>
                   </div>
-                  <div className="lg:col-span-2">
+                  <div className="lg:col-span-2 space-y-6">
+                     {/* Formal Incidents */}
+                     {data.incidents.length > 0 && (
+                        <div className="space-y-3">
+                           <h3 className="text-xs font-bold uppercase text-red-600 tracking-wider mb-2">Formal Disciplinary Incidents</h3>
+                           {data.incidents.map(inc => (
+                              <div key={inc.id} className={`p-4 rounded-lg border bg-white shadow-sm flex gap-4 border-l-4 ${
+                                 inc.severity === 'critical' ? 'border-l-red-600' :
+                                 inc.severity === 'high' ? 'border-l-orange-500' :
+                                 inc.severity === 'medium' ? 'border-l-amber-400' : 'border-l-slate-300'
+                              }`}>
+                                 <div className="flex-1">
+                                    <div className="flex justify-between items-start">
+                                       <div className="flex items-center gap-2">
+                                          <span className="text-sm font-bold">{inc.title}</span>
+                                          <Badge variant="outline" className={`text-[9px] uppercase ${
+                                             inc.severity === 'critical' ? 'bg-red-50 text-red-700 border-red-200' :
+                                             inc.severity === 'high' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                                             'bg-slate-50 text-slate-700'
+                                          }`}>
+                                             {inc.severity}
+                                          </Badge>
+                                       </div>
+                                       <span className="text-[10px] text-muted-foreground">{new Date(inc.incident_date).toLocaleDateString()}</span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-1">{inc.description}</p>
+                                    {inc.action_taken && (
+                                       <div className="mt-2 p-2 bg-slate-50 rounded border border-slate-100 text-[10px]">
+                                          <span className="font-bold">Action Taken:</span> {inc.action_taken}
+                                       </div>
+                                    )}
+                                    <div className="mt-3 flex items-center justify-between">
+                                       <span className="text-[9px] text-muted-foreground font-medium">By: {inc.reporter_name || 'System'}</span>
+                                       <Badge className="text-[8px] h-4">{inc.status}</Badge>
+                                    </div>
+                                 </div>
+                              </div>
+                           ))}
+                        </div>
+                     )}
+
+                     {/* Merit/Demerit Log */}
                      <div className="space-y-3">
+                        <h3 className="text-xs font-bold uppercase text-slate-600 tracking-wider mb-2">Merit & Behavioral Log</h3>
                         {data.behavior.length === 0 ? (
                            <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-lg bg-muted/10 text-muted-foreground">
                               <Info className="h-8 w-8 mb-2 opacity-20" />
                               <p className="text-sm font-medium">Clean Record</p>
-                              <p className="text-[10px]">No behavioral incidents logged for this student yet.</p>
+                              <p className="text-[10px]">No behavioral anecdotes logged yet.</p>
                            </div>
                         ) : data.behavior.map(log => (
                            <div key={log.id} className={`p-4 rounded-lg border flex gap-4 transition-all hover:bg-muted/5 ${log.type === 'merit' ? 'border-l-4 border-l-green-500' : log.type === 'demerit' ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-blue-500'}`}>
@@ -433,7 +734,9 @@ export default function StudentProfileClient({ id }: { id: string }) {
                                  </div>
                                  <p className="text-[11px] text-muted-foreground mt-1">{log.remarks}</p>
                                  <div className="mt-3 flex items-center gap-2">
-                                    <div className="h-4 w-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-bold">JD</div>
+                                    <div className="h-4 w-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-bold">
+                                       {log.created_by_name?.split(' ').map(n=>n[0]).join('') || 'AD'}
+                                    </div>
                                     <span className="text-[9px] text-muted-foreground">Logged by: {log.created_by_name || 'Admin'}</span>
                                  </div>
                               </div>
@@ -502,6 +805,124 @@ export default function StudentProfileClient({ id }: { id: string }) {
                 </Card>
             </TabsContent>
 
+            <TabsContent value="admin-notes" className="mt-6">
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <Card className="md:col-span-2">
+                     <CardHeader>
+                        <CardTitle>Internal Staff Notes</CardTitle>
+                     </CardHeader>
+                     <CardContent>
+                        <div className="space-y-6">
+                           {isNotesLoading ? (
+                              <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+                           ) : adminNotes.length === 0 ? (
+                              <p className="text-center text-muted-foreground italic py-8">No internal notes found.</p>
+                           ) : (
+                               adminNotes.map((n: any) => (
+                                 <div key={n.id} className="p-4 rounded-lg border bg-slate-50 relative group">
+                                    <div className="flex justify-between items-start mb-2">
+                                       <span className="text-[10px] font-bold uppercase text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                                          {n.created_by || "Staff"}
+                                       </span>
+                                       <span className="text-[10px] text-muted-foreground">
+                                          {n.created_at}
+                                       </span>
+                                    </div>
+                                    <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                       {n.content}
+                                    </p>
+                                    <div className="flex items-center gap-1 mt-2 text-[10px] text-amber-600 font-bold uppercase">
+                                       <ShieldAlert className="h-3 w-3" /> Encrypted at Rest
+                                    </div>
+                                 </div>
+                              ))
+                           )}
+                        </div>
+                     </CardContent>
+                  </Card>
+
+                   <Card>
+                     <CardHeader>
+                        <CardTitle className="text-sm font-bold">Add Confidential Note</CardTitle>
+                     </CardHeader>
+                     <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                           <Label className="text-[10px] font-bold uppercase">Note Content</Label>
+                           <Textarea 
+                              value={newNote.content}
+                              onChange={e => setNewNote({...newNote, content: e.target.value})}
+                              placeholder="Enter sensitive details here..."
+                              className="min-h-[120px] text-xs"
+                           />
+                        </div>
+                        <div className="flex items-center gap-2">
+                           <ShieldAlert className="h-4 w-4 text-amber-600" />
+                           <span className="text-xs text-amber-600 font-bold uppercase">Auto-Encrypted</span>
+                        </div>
+                        <Button className="w-full" onClick={saveAdminNote} disabled={!newNote.content}>
+                           Save Internal Note
+                        </Button>
+                        <p className="text-[10px] text-muted-foreground italic leading-tight">
+                           Confidential notes are only visible to administrators and principal. All content is stored with AES-GCM encryption.
+                        </p>
+                     </CardContent>
+                  </Card>
+               </div>
+            </TabsContent>
+
+            <TabsContent value="reading" className="mt-6">
+               <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                     <CardTitle>Library Reading Journal</CardTitle>
+                     <Button size="sm" variant="outline" className="gap-2 h-8 text-[10px]" onClick={() => {
+                        fetchAllBooks()
+                        setIsUpdateProgressOpen(true)
+                     }}>
+                        <TrendingUp className="h-3 w-3" /> Update Progress
+                     </Button>
+                  </CardHeader>
+                  <CardContent>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {isReadingLoading ? (
+                           <div className="col-span-full py-10 flex justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>
+                        ) : readingLogs.length === 0 ? (
+                           <div className="col-span-full py-12 border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-muted-foreground bg-muted/5">
+                              <Info className="h-8 w-8 mb-2 opacity-20" />
+                              <p className="text-sm font-medium">Journal Empty</p>
+                              <p className="text-[10px]">No reading progress recorded for this student.</p>
+                           </div>
+                        ) : readingLogs.map((log: any) => (
+                           <div key={log.id} className="p-4 rounded-lg border bg-background flex gap-4">
+                              <div className="h-16 w-12 bg-slate-100 rounded overflow-hidden flex-shrink-0">
+                                 {log.cover_image_url ? (
+                                    <img src={log.cover_image_url} alt={log.book_title} className="h-full w-full object-cover" />
+                                 ) : (
+                                    <div className="h-full w-full flex items-center justify-center text-slate-400 text-[8px] font-bold uppercase p-1 text-center">No Cover</div>
+                                 )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                 <p className="text-xs font-bold truncate">{log.book_title}</p>
+                                 <div className="flex items-center gap-2 mt-1">
+                                    <Badge className={`text-[8px] h-3.5 ${log.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                                       {log.status.toUpperCase()}
+                                    </Badge>
+                                    <span className="text-[10px] text-muted-foreground">Page {log.current_page} of {log.total_pages}</span>
+                                 </div>
+                                 <div className="mt-2 w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+                                    <div 
+                                       className="h-full bg-primary" 
+                                       style={{ width: `${(log.current_page / log.total_pages) * 100}%` }}
+                                    />
+                                 </div>
+                                 {log.notes && <p className="text-[10px] text-muted-foreground mt-2 line-clamp-1 italic">"{log.notes}"</p>}
+                              </div>
+                           </div>
+                        ))}
+                     </div>
+                  </CardContent>
+               </Card>
+            </TabsContent>
+
             <TabsContent value="documents" className="mt-6">
                <Card>
                   <CardHeader className="flex flex-row items-center justify-between">
@@ -535,6 +956,58 @@ export default function StudentProfileClient({ id }: { id: string }) {
                             </div>
                          ))}
                       </div>
+                   </CardContent>
+                </Card>
+             </TabsContent>
+
+            <TabsContent value="pickups" className="mt-6 space-y-6">
+               <StudentPickupCode studentId={id} />
+               
+               <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                     <CardTitle>Pickup History</CardTitle>
+                     <Button size="sm" className="gap-2" onClick={() => setIsLogPickupOpen(true)}><Plus className="h-4 w-4" /> Log Pickup</Button>
+                  </CardHeader>
+                  <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead className="text-xs font-bold uppercase">Date & Time</TableHead>
+                            <TableHead className="text-xs font-bold uppercase">Picked Up By</TableHead>
+                            <TableHead className="text-xs font-bold uppercase">Authorized Person</TableHead>
+                            <TableHead className="text-xs font-bold uppercase">Notes</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {data.pickups.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={4} className="h-24 text-center text-muted-foreground italic">
+                                No pickup events recorded yet.
+                              </TableCell>
+                            </TableRow>
+                          ) : data.pickups.map((p) => (
+                            <TableRow key={p.id}>
+                              <TableCell className="text-xs font-medium">
+                                {new Date(p.pickup_at).toLocaleString()}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-col">
+                                  <span className="text-xs font-bold">{p.name}</span>
+                                  <span className="text-[10px] text-muted-foreground uppercase">{p.relationship}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="text-[10px]">
+                                  {p.auth_name || "Emergency/Other"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground max-w-md truncate">
+                                {p.notes}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                   </CardContent>
                </Card>
             </TabsContent>
@@ -584,6 +1057,142 @@ export default function StudentProfileClient({ id }: { id: string }) {
           </Tabs>
         </div>
       </div>
+
+      <Dialog open={isLogPickupOpen} onOpenChange={setIsLogPickupOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Log Student Pickup</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-6 py-4">
+            <div className="space-y-2">
+              <Label>Select Authorized Person (Optional)</Label>
+              <Select 
+                onValueChange={(val) => {
+                  const auth = data.pickup_auths.find(a => a.id === val)
+                  if (auth) {
+                    setPickupForm({
+                      ...pickupForm,
+                      auth_id: auth.id,
+                      picked_up_by_name: auth.name,
+                      relationship: auth.relationship
+                    })
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose from authorized list" />
+                </SelectTrigger>
+                <SelectContent>
+                  {data.pickup_auths.map(auth => (
+                    <SelectItem key={auth.id} value={auth.id}>
+                      {auth.name} ({auth.relationship})
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="none">Other / Emergency</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Picked Up By Name *</Label>
+                <Input 
+                  value={pickupForm.picked_up_by_name}
+                  onChange={e => setPickupForm({...pickupForm, picked_up_by_name: e.target.value})}
+                  placeholder="Full Name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Relationship *</Label>
+                <Input 
+                  value={pickupForm.relationship}
+                  onChange={e => setPickupForm({...pickupForm, relationship: e.target.value})}
+                  placeholder="e.g. Father, Uncle"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Internal Notes / Remarks</Label>
+              <Textarea 
+                value={pickupForm.notes}
+                onChange={e => setPickupForm({...pickupForm, notes: e.target.value})}
+                placeholder="Any special remarks..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsLogPickupOpen(false)}>Cancel</Button>
+            <Button onClick={logPickup} disabled={isLogging || !pickupForm.picked_up_by_name}>
+              {isLogging ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Confirm & Log Pickup
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isUpdateProgressOpen} onOpenChange={setIsUpdateProgressOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Reading Progress</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Select Book</Label>
+              <Select value={logForm_reading.book_id} onValueChange={v => setLogForm_reading({...logForm_reading, book_id: v})}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a book..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {allBooks.map(b => (
+                    <SelectItem key={b.id} value={b.id}>{b.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={logForm_reading.status} onValueChange={v => setLogForm_reading({...logForm_reading, status: v})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="reading">Currently Reading</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Rating (1-5)</Label>
+                <Input type="number" min="1" max="5" value={logForm_reading.rating} onChange={e => setLogForm_reading({...logForm_reading, rating: parseInt(e.target.value)})} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Current Page</Label>
+                <Input type="number" value={logForm_reading.current_page} onChange={e => setLogForm_reading({...logForm_reading, current_page: parseInt(e.target.value)})} />
+              </div>
+              <div className="space-y-2">
+                <Label>Total Pages</Label>
+                <Input type="number" value={logForm_reading.total_pages} onChange={e => setLogForm_reading({...logForm_reading, total_pages: parseInt(e.target.value)})} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Reflections / Notes</Label>
+              <Textarea 
+                placeholder="What did you learn today?"
+                value={logForm_reading.notes}
+                onChange={e => setLogForm_reading({...logForm_reading, notes: e.target.value})}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsUpdateProgressOpen(false)}>Cancel</Button>
+            <Button onClick={saveReadingLog}>Update Journal</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

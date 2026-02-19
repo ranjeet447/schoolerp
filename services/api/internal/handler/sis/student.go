@@ -41,6 +41,10 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 
 	// CSV Import
 	r.Post("/students/import", h.Import)
+
+	// Confidential Notes
+	confHandler := NewConfidentialNotesHandler(nil) // Note: actual service injection happens in registry
+	confHandler.RegisterRoutes(r)
 }
 
 func (h *Handler) Import(w http.ResponseWriter, r *http.Request) {
