@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { isIntegrationsManageTab } from "./_components/integrations-manage-view";
 
-export default function PlatformIntegrationsManageRedirectPage() {
+function PlatformIntegrationsManageRedirectInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get("tab") || "";
@@ -15,4 +15,12 @@ export default function PlatformIntegrationsManageRedirectPage() {
   }, [router, requestedTab]);
 
   return null;
+}
+
+export default function PlatformIntegrationsManageRedirectPage() {
+  return (
+    <Suspense fallback={null}>
+      <PlatformIntegrationsManageRedirectInner />
+    </Suspense>
+  );
 }

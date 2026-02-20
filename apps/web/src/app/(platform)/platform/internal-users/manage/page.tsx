@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { isInternalUsersManageTab } from "./_components/internal-users-manage-view";
 
@@ -10,7 +10,7 @@ function normalizeLegacyTab(tab: string): string {
   return tab;
 }
 
-export default function PlatformInternalUsersManageRedirectPage() {
+function PlatformInternalUsersManageRedirectInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedTab = normalizeLegacyTab(searchParams.get("tab") || "");
@@ -21,4 +21,12 @@ export default function PlatformInternalUsersManageRedirectPage() {
   }, [router, requestedTab]);
 
   return null;
+}
+
+export default function PlatformInternalUsersManageRedirectPage() {
+  return (
+    <Suspense fallback={null}>
+      <PlatformInternalUsersManageRedirectInner />
+    </Suspense>
+  );
 }

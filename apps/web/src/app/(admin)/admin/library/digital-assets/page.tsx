@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { 
   Card, 
@@ -58,7 +58,7 @@ interface DigitalAsset {
   created_at: string;
 }
 
-export default function DigitalAssetsPage() {
+function DigitalAssetsPageContent() {
   const searchParams = useSearchParams();
   const bookId = searchParams.get("book_id") || "";
   const bookTitle = searchParams.get("title") || "Library Assets";
@@ -301,5 +301,13 @@ export default function DigitalAssetsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function DigitalAssetsPage() {
+  return (
+    <Suspense fallback={null}>
+      <DigitalAssetsPageContent />
+    </Suspense>
   );
 }

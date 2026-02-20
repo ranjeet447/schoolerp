@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PaymentsManageView, isPaymentsManageTab, type PaymentsManageTab } from "./_components/payments-manage-view";
 
-export default function PlatformPaymentsManagePage() {
+function PlatformPaymentsManageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get("tab") || "";
@@ -17,4 +17,12 @@ export default function PlatformPaymentsManagePage() {
   }, [router, requestedTab]);
 
   return <PaymentsManageView activeTab={activeTab} />;
+}
+
+export default function PlatformPaymentsManagePage() {
+  return (
+    <Suspense fallback={null}>
+      <PlatformPaymentsManageInner />
+    </Suspense>
+  );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Lock,
@@ -39,7 +39,7 @@ interface ConfidentialNote {
   created_at: string;
 }
 
-export default function ConfidentialNotesPage() {
+function ConfidentialNotesPageContent() {
   const searchParams = useSearchParams();
   const studentId = searchParams.get("student_id") || "";
   const studentName = searchParams.get("name") || "Student";
@@ -231,5 +231,13 @@ export default function ConfidentialNotesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ConfidentialNotesPage() {
+  return (
+    <Suspense fallback={null}>
+      <ConfidentialNotesPageContent />
+    </Suspense>
   );
 }
