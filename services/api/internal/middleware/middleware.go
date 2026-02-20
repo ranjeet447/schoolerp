@@ -33,6 +33,7 @@ const (
 	RoleKey        contextKey = "role"
 	LocaleKey      contextKey = "locale"
 	PermissionsKey contextKey = "permissions"
+	tenantLookupTimeout       = 1200 * time.Millisecond
 )
 
 // GetReqID returns the request ID from the context
@@ -141,6 +142,11 @@ func Metrics(next http.Handler) http.Handler {
 // TenantResolver extracts the tenant ID from the X-Tenant-ID header
 func TenantResolver(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if shouldBypassTenantResolver(r.URL.Path) {
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), TenantIDKey, "")))
+			return
+		}
+
 		tenantID := strings.TrimSpace(r.Header.Get("X-Tenant-ID"))
 		if tenantID != "" {
 			if resolved := resolveTenantIDFromIdentifier(r.Context(), tenantID); resolved != "" {
@@ -157,6 +163,14 @@ func TenantResolver(next http.Handler) http.Handler {
 	})
 }
 
+func shouldBypassTenantResolver(path string) bool {
+	return path == "/healthz" ||
+		path == "/metrics" ||
+		path == "/docs/v1" ||
+		strings.HasPrefix(path, "/docs/v1/") ||
+		strings.HasPrefix(path, "/uploads/")
+}
+
 func resolveTenantIDFromIdentifier(ctx context.Context, identifier string) string {
 	id := strings.TrimSpace(identifier)
 	if id == "" {
@@ -171,7 +185,9 @@ func resolveTenantIDFromIdentifier(ctx context.Context, identifier string) strin
 		return ""
 	}
 
-	tenant, err := tenantResolverQueries.ResolveActiveTenantByIdentifier(ctx, id)
+	lookupCtx, cancel := context.WithTimeout(ctx, tenantLookupTimeout)
+	defer cancel()
+	tenant, err := tenantResolverQueries.ResolveActiveTenantByIdentifier(lookupCtx, id)
 	if err == nil {
 		return tenant.ID.String()
 	}
@@ -180,7 +196,9 @@ func resolveTenantIDFromIdentifier(ctx context.Context, identifier string) strin
 	if normalizedHost == "" {
 		return ""
 	}
-	tenant, err = tenantResolverQueries.ResolveActiveTenantByHost(ctx, normalizedHost)
+	fallbackCtx, fallbackCancel := context.WithTimeout(ctx, tenantLookupTimeout)
+	defer fallbackCancel()
+	tenant, err = tenantResolverQueries.ResolveActiveTenantByHost(fallbackCtx, normalizedHost)
 	if err != nil {
 		return ""
 	}
@@ -197,7 +215,9 @@ func resolveTenantIDFromHost(ctx context.Context, r *http.Request) string {
 		return ""
 	}
 
-	tenant, err := tenantResolverQueries.ResolveActiveTenantByHost(ctx, host)
+	lookupCtx, cancel := context.WithTimeout(ctx, tenantLookupTimeout)
+	defer cancel()
+	tenant, err := tenantResolverQueries.ResolveActiveTenantByHost(lookupCtx, host)
 	if err != nil {
 		return ""
 	}

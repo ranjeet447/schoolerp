@@ -1,4 +1,4 @@
-import { apiClient } from './api-client';
+import { apiClient, isAuthTokenExpired } from './api-client';
 
 interface LoginResult {
   token: string;
@@ -132,12 +132,16 @@ class AuthServiceClass {
   // Check if user is logged in
   isAuthenticated(): boolean {
     if (typeof window === 'undefined') return false;
-    return !!localStorage.getItem('auth_token');
+    const token = localStorage.getItem('auth_token');
+    if (!token) return false;
+    return !isAuthTokenExpired(token);
   }
 
   // Get current user info
   getCurrentUser() {
     if (typeof window === 'undefined') return null;
+    const token = localStorage.getItem('auth_token');
+    if (!token || isAuthTokenExpired(token)) return null;
     return {
       email: localStorage.getItem('user_email') || '',
       name: localStorage.getItem('user_name') || '',
