@@ -1771,9 +1771,9 @@ SELECT
   uuid_generate_v7(),
   'tenant',
   sc.tenant_id,
-  'active',
+  'released',
   'warning',
-  'Seeded temporary risk hold for simulation',
+  'Seeded risk hold for simulation (released)',
   '{"source":"seed","ticket":"SEC-001"}'::jsonb,
   sc.admin_user_id,
   NOW() + INTERVAL '2 days'
