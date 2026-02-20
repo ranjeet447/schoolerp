@@ -48,3 +48,4 @@ graph TD
 - [Feature Tracker](../FEATURE_TRACKER.md) — Implementation status
 - [UI Screen Checklist](./UI_SCREEN_CHECKLIST.md) — Pages & Storybook coverage
 - [Playwright Test Map](./PLAYWRIGHT_TEST_MAP.md) — E2E regression suite
+- [Session Store & Data Loading Standards](./26-session-store-and-data-loading-standards.md) — JWT/Redis session hot-path and frontend fetch rules

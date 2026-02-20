@@ -96,10 +96,26 @@ func (s *Service) RevokePlatformInternalUserSessions(ctx context.Context, userID
 		return 0, err
 	}
 
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
 	sessionID = strings.TrimSpace(sessionID)
 	if sessionID == "" {
-		tag, err := s.db.Exec(ctx, `DELETE FROM sessions WHERE user_id = $1`, uid)
+		refs, err := listSessionRefsForUser(ctx, tx, uid)
 		if err != nil {
+			return 0, err
+		}
+		tag, err := tx.Exec(ctx, `DELETE FROM sessions WHERE user_id = $1`, uid)
+		if err != nil {
+			return 0, err
+		}
+		if err := s.revokeSessionRefsInStore(ctx, refs); err != nil {
+			return 0, err
+		}
+		if err := tx.Commit(ctx); err != nil {
 			return 0, err
 		}
 		return tag.RowsAffected(), nil
@@ -110,8 +126,18 @@ func (s *Service) RevokePlatformInternalUserSessions(ctx context.Context, userID
 		return 0, ErrInvalidSessionID
 	}
 
-	tag, err := s.db.Exec(ctx, `DELETE FROM sessions WHERE user_id = $1 AND id = $2`, uid, sid)
+	refs, err := listSessionRefBySessionID(ctx, tx, uid, sid)
 	if err != nil {
+		return 0, err
+	}
+	tag, err := tx.Exec(ctx, `DELETE FROM sessions WHERE user_id = $1 AND id = $2`, uid, sid)
+	if err != nil {
+		return 0, err
+	}
+	if err := s.revokeSessionRefsInStore(ctx, refs); err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return 0, err
 	}
 	return tag.RowsAffected(), nil

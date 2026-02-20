@@ -1383,6 +1383,17 @@ func (s *Service) ForceLogoutTenantUsers(ctx context.Context, tenantID string) (
 		return 0, err
 	}
 
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	refs, err := listSessionRefsForTenant(ctx, tx, tid)
+	if err != nil {
+		return 0, err
+	}
+
 	const query = `
 		DELETE FROM sessions
 		WHERE user_id IN (
@@ -1391,8 +1402,14 @@ func (s *Service) ForceLogoutTenantUsers(ctx context.Context, tenantID string) (
 			WHERE tenant_id = $1
 		)
 	`
-	tag, err := s.db.Exec(ctx, query, tid)
+	tag, err := tx.Exec(ctx, query, tid)
 	if err != nil {
+		return 0, err
+	}
+	if err := s.revokeSessionRefsInStore(ctx, refs); err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return 0, err
 	}
 	return tag.RowsAffected(), nil
@@ -1467,12 +1484,16 @@ func (s *Service) CreateImpersonationToken(ctx context.Context, tenantID, reason
 	if err != nil {
 		return ImpersonationResult{}, err
 	}
+	tokenHash := auth.HashPasswordForSeed(tokenJTI)
 
 	var targetUserUUID pgtype.UUID
 	if err := targetUserUUID.Scan(strings.TrimSpace(result.TargetUserID)); err != nil || !targetUserUUID.Valid {
 		return ImpersonationResult{}, errors.New("invalid impersonation target user id")
 	}
-	if err := s.q.CreateSessionRecord(ctx, targetUserUUID, auth.HashPasswordForSeed(tokenJTI), expiresAt); err != nil {
+	if err := s.q.CreateSessionRecord(ctx, targetUserUUID, tokenHash, expiresAt); err != nil {
+		return ImpersonationResult{}, err
+	}
+	if err := s.cacheSessionInStore(ctx, result.TargetUserID, tokenHash, expiresAt); err != nil {
 		return ImpersonationResult{}, err
 	}
 

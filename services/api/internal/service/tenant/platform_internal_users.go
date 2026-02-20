@@ -288,7 +288,16 @@ func (s *Service) UpdatePlatformInternalUser(ctx context.Context, userID string,
 			return PlatformInternalUser{}, ErrPlatformUserNotFound
 		}
 		if hasActive && !*params.IsActive {
-			_, _ = tx.Exec(ctx, `DELETE FROM sessions WHERE user_id = $1`, uid)
+			refs, err := listSessionRefsForUser(ctx, tx, uid)
+			if err != nil {
+				return PlatformInternalUser{}, err
+			}
+			if _, err := tx.Exec(ctx, `DELETE FROM sessions WHERE user_id = $1`, uid); err != nil {
+				return PlatformInternalUser{}, err
+			}
+			if err := s.revokeSessionRefsInStore(ctx, refs); err != nil {
+				return PlatformInternalUser{}, err
+			}
 		}
 	}
 

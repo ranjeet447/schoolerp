@@ -227,18 +227,36 @@ func (s *Service) CreatePlatformSecurityBlock(ctx context.Context, params Create
 		return PlatformSecurityBlock{}, err
 	}
 
-	// Best-effort: revoke sessions so existing tokens stop working immediately.
+	// Revoke sessions so existing tokens stop working immediately.
 	if uid.Valid {
-		_, _ = tx.Exec(ctx, `DELETE FROM sessions WHERE user_id = $1`, uid)
+		refs, err := listSessionRefsForUser(ctx, tx, uid)
+		if err != nil {
+			return PlatformSecurityBlock{}, err
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM sessions WHERE user_id = $1`, uid); err != nil {
+			return PlatformSecurityBlock{}, err
+		}
+		if err := s.revokeSessionRefsInStore(ctx, refs); err != nil {
+			return PlatformSecurityBlock{}, err
+		}
 	} else if tid.Valid {
-		_, _ = tx.Exec(ctx, `
+		refs, err := listSessionRefsForTenant(ctx, tx, tid)
+		if err != nil {
+			return PlatformSecurityBlock{}, err
+		}
+		if _, err := tx.Exec(ctx, `
 			DELETE FROM sessions
 			WHERE user_id IN (
 				SELECT DISTINCT user_id
 				FROM role_assignments
 				WHERE tenant_id = $1
 			)
-		`, tid)
+		`, tid); err != nil {
+			return PlatformSecurityBlock{}, err
+		}
+		if err := s.revokeSessionRefsInStore(ctx, refs); err != nil {
+			return PlatformSecurityBlock{}, err
+		}
 	}
 
 	block, err := getPlatformSecurityBlockByID(ctx, tx, blockID)

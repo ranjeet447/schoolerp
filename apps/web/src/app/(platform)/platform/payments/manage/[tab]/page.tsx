@@ -2,19 +2,17 @@
 
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { PaymentsManageView, isPaymentsManageTab, type PaymentsManageTab } from "../_components/payments-manage-view";
+import { isPaymentsManageTab } from "../_components/payments-manage-view";
 
 export default function PlatformPaymentsManageTabPage() {
   const params = useParams<{ tab: string }>();
   const router = useRouter();
   const rawTab = Array.isArray(params.tab) ? params.tab[0] : params.tab;
-  const activeTab: PaymentsManageTab = isPaymentsManageTab(rawTab) ? rawTab : "overview";
 
   useEffect(() => {
-    if (!isPaymentsManageTab(rawTab)) {
-      router.replace("/platform/payments/manage/overview");
-    }
+    const targetTab = isPaymentsManageTab(rawTab) ? rawTab : "overview";
+    router.replace(`/platform/payments/manage?tab=${targetTab}`);
   }, [rawTab, router]);
 
-  return <PaymentsManageView activeTab={activeTab} />;
+  return null;
 }

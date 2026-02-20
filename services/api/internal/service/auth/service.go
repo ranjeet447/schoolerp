@@ -17,6 +17,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/schoolerp/api/internal/db"
 	"github.com/schoolerp/api/internal/foundation/security"
+	"github.com/schoolerp/api/internal/foundation/sessionstore"
 )
 
 var (
@@ -32,16 +33,18 @@ var (
 const authStoreTimeout = 5 * time.Second
 
 type Service struct {
-	queries *db.Queries
-	MFA     *MFAService
-	IPGuard *IPGuard
+	queries      *db.Queries
+	sessionStore *sessionstore.Store
+	MFA          *MFAService
+	IPGuard      *IPGuard
 }
 
-func NewService(queries *db.Queries) *Service {
+func NewService(queries *db.Queries, store *sessionstore.Store) *Service {
 	return &Service{
-		queries: queries,
-		MFA:     NewMFAService(queries),
-		IPGuard: NewIPGuard(queries),
+		queries:      queries,
+		sessionStore: store,
+		MFA:          NewMFAService(queries),
+		IPGuard:      NewIPGuard(queries),
 	}
 }
 
@@ -300,6 +303,7 @@ func (s *Service) mintLoginResult(ctx context.Context, user db.AuthUser, identit
 	// 4. Generate JWT token
 	expiresAt := time.Now().Add(24 * time.Hour) // 24 hour token validity
 	tokenJTI := uuid.Must(uuid.NewV7()).String()
+	tokenHash := hashPassword(tokenJTI)
 
 	jwtSecrets, ok := security.ResolveJWTSecrets()
 	if !ok || len(jwtSecrets) == 0 {
@@ -336,11 +340,16 @@ func (s *Service) mintLoginResult(ctx context.Context, user db.AuthUser, identit
 	}
 
 	sessionCreateCtx, cancelSessionCreate := context.WithTimeout(ctx, authStoreTimeout)
-	err = s.queries.CreateSessionRecord(sessionCreateCtx, user.ID, hashPassword(tokenJTI), expiresAt)
+	err = s.queries.CreateSessionRecord(sessionCreateCtx, user.ID, tokenHash, expiresAt)
 	cancelSessionCreate()
 	if err != nil {
 		logger.Error().Err(err).Str("user_id", user.ID.String()).Msg("auth login failed: unable to create session record")
 		return nil, ErrSessionStoreUnavailable
+	}
+	if s.sessionStore != nil && s.sessionStore.Enabled() {
+		if cacheErr := s.sessionStore.SetSession(ctx, user.ID.String(), tokenHash, expiresAt); cacheErr != nil {
+			logger.Warn().Err(cacheErr).Str("user_id", user.ID.String()).Msg("auth login warning: unable to cache session")
+		}
 	}
 
 	logger.Info().

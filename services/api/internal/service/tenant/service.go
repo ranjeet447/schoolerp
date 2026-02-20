@@ -15,15 +15,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/schoolerp/api/internal/db"
+	"github.com/schoolerp/api/internal/foundation/sessionstore"
 )
 
 type Service struct {
-	q  *db.Queries
-	db *pgxpool.Pool
+	q            *db.Queries
+	db           *pgxpool.Pool
+	sessionStore *sessionstore.Store
 }
 
-func NewService(q *db.Queries, pool *pgxpool.Pool) *Service {
-	return &Service{q: q, db: pool}
+func NewService(q *db.Queries, pool *pgxpool.Pool, store *sessionstore.Store) *Service {
+	return &Service{q: q, db: pool, sessionStore: store}
 }
 
 type TenantConfig struct {

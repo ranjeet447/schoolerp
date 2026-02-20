@@ -22,6 +22,7 @@ This document provides a step-by-step guide for deploying the SchoolERP SaaS pla
    - **Start Command**: `./api`
 4. **Environment Variables**:
    - `DATABASE_URL`: Your Supabase URI.
+   - `REDIS_URL`: Redis connection URL used for auth session hot-path checks.
    - `JWT_SECRET`: A secure random string.
    - `ENV`: `production`
    - `CORS_ALLOWED_ORIGINS`: Comma-separated frontend origins allowed to call API

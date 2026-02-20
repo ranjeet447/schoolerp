@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
-import { Tabs, TabsList, TabsTrigger, TabsContent, Button } from "@schoolerp/ui";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@schoolerp/ui";
 import { BarChart3, FileText, Settings, ArrowRight } from "lucide-react";
+import { TenantSelect } from "@/components/ui/tenant-select";
 
 export type PaymentsManageTab = "overview" | "invoices" | "config";
 
@@ -50,11 +51,6 @@ type BillingOverview = {
   generated_at: string;
 };
 
-type TenantOption = {
-  id: string;
-  name: string;
-};
-
 type PlatformInvoice = {
   id: string;
   invoice_number: string;
@@ -68,6 +64,8 @@ type PlatformInvoice = {
   issued_at?: string;
   paid_at?: string;
   external_ref?: string;
+  line_items?: Array<Record<string, unknown>>;
+  metadata?: Record<string, unknown>;
 };
 
 type PlatformInvoiceAdjustment = {
@@ -85,11 +83,139 @@ type PlatformInvoiceAdjustment = {
   created_at: string;
 };
 
+type PlatformBillingConfig = {
+  gateway_settings: Record<string, unknown>;
+  tax_rules: Record<string, unknown>;
+  invoice_template: Record<string, unknown>;
+};
+
+type BillingConfigForm = {
+  provider: string;
+  mode: string;
+  merchant_id: string;
+  public_key: string;
+  webhook_url: string;
+  webhook_secret: string;
+  auto_collection: boolean;
+  tax_enabled: boolean;
+  tax_label: string;
+  default_tax_rate_percent: string;
+  tax_inclusive: boolean;
+  invoice_prefix: string;
+  payment_terms_days: string;
+  late_fee_percent: string;
+  support_email: string;
+  support_phone: string;
+  footer_note: string;
+};
+
+const EMPTY_BILLING_CONFIG_FORM: BillingConfigForm = {
+  provider: "manual",
+  mode: "test",
+  merchant_id: "",
+  public_key: "",
+  webhook_url: "",
+  webhook_secret: "",
+  auto_collection: false,
+  tax_enabled: true,
+  tax_label: "GST",
+  default_tax_rate_percent: "18",
+  tax_inclusive: false,
+  invoice_prefix: "INV",
+  payment_terms_days: "15",
+  late_fee_percent: "0",
+  support_email: "",
+  support_phone: "",
+  footer_note: "Thank you for choosing SchoolERP.",
+};
+
+async function readAPIError(response: Response, fallback: string): Promise<string> {
+  try {
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const data = await response.json();
+      const message = String(data?.message || data?.error || "").trim();
+      if (message) return message;
+    } else {
+      const text = (await response.text()).trim();
+      if (text) return text;
+    }
+  } catch {
+    // ignore parse failures and return fallback below
+  }
+  return fallback;
+}
+
+function escapeHtml(raw: unknown): string {
+  return String(raw ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function asString(raw: unknown, fallback = ""): string {
+  if (typeof raw === "string") return raw;
+  if (typeof raw === "number" || typeof raw === "boolean") return String(raw);
+  return fallback;
+}
+
+function asBoolean(raw: unknown, fallback = false): boolean {
+  if (typeof raw === "boolean") return raw;
+  if (typeof raw === "string") {
+    const normalized = raw.trim().toLowerCase();
+    if (normalized === "true" || normalized === "1" || normalized === "yes") return true;
+    if (normalized === "false" || normalized === "0" || normalized === "no") return false;
+  }
+  return fallback;
+}
+
+function asNumberString(raw: unknown, fallback: string): string {
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return fallback;
+  return String(parsed);
+}
+
+function applyBillingConfig(configData: PlatformBillingConfig): {
+  source: PlatformBillingConfig;
+  form: BillingConfigForm;
+} {
+  const gateway = configData?.gateway_settings || {};
+  const taxRules = configData?.tax_rules || {};
+  const template = configData?.invoice_template || {};
+  return {
+    source: {
+      gateway_settings: gateway,
+      tax_rules: taxRules,
+      invoice_template: template,
+    },
+    form: {
+      provider: asString(gateway.provider, EMPTY_BILLING_CONFIG_FORM.provider),
+      mode: asString(gateway.mode, EMPTY_BILLING_CONFIG_FORM.mode),
+      merchant_id: asString(gateway.merchant_id, ""),
+      public_key: asString(gateway.public_key, ""),
+      webhook_url: asString(gateway.webhook_url, ""),
+      webhook_secret: asString(gateway.webhook_secret, ""),
+      auto_collection: asBoolean(gateway.auto_collection, EMPTY_BILLING_CONFIG_FORM.auto_collection),
+      tax_enabled: asBoolean(taxRules.enabled, EMPTY_BILLING_CONFIG_FORM.tax_enabled),
+      tax_label: asString(taxRules.label, EMPTY_BILLING_CONFIG_FORM.tax_label),
+      default_tax_rate_percent: asNumberString(taxRules.default_rate_percent, EMPTY_BILLING_CONFIG_FORM.default_tax_rate_percent),
+      tax_inclusive: asBoolean(taxRules.inclusive, EMPTY_BILLING_CONFIG_FORM.tax_inclusive),
+      invoice_prefix: asString(template.invoice_prefix, EMPTY_BILLING_CONFIG_FORM.invoice_prefix),
+      payment_terms_days: asNumberString(template.payment_terms_days, EMPTY_BILLING_CONFIG_FORM.payment_terms_days),
+      late_fee_percent: asNumberString(template.late_fee_percent, EMPTY_BILLING_CONFIG_FORM.late_fee_percent),
+      support_email: asString(template.support_email, ""),
+      support_phone: asString(template.support_phone, ""),
+      footer_note: asString(template.footer_note, EMPTY_BILLING_CONFIG_FORM.footer_note),
+    },
+  };
+}
+
 export function PaymentsManageView({ activeTab }: { activeTab: PaymentsManageTab }) {
   const router = useRouter();
   const [rows, setRows] = useState<PlatformPayment[]>([]);
   const [overview, setOverview] = useState<BillingOverview | null>(null);
-  const [tenants, setTenants] = useState<TenantOption[]>([]);
   const [invoices, setInvoices] = useState<PlatformInvoice[]>([]);
   const [adjustments, setAdjustments] = useState<PlatformInvoiceAdjustment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,124 +224,199 @@ export function PaymentsManageView({ activeTab }: { activeTab: PaymentsManageTab
   const [error, setError] = useState("");
   const [newInvoice, setNewInvoice] = useState({
     tenant_id: "",
-    amount_total: "",
-    tax_amount: "0",
-    due_date: "",
     currency: "INR",
+    item_code: "subscription",
+    item_description: "Platform subscription charge",
+    quantity: "1",
+    unit_price: "",
+    tax_rate_percent: "18",
+    due_date: "",
+    billing_period_start: "",
+    billing_period_end: "",
+    reference: "",
+    notes: "",
   });
-  const [billingConfigText, setBillingConfigText] = useState({
-    gateway_settings: "{}",
-    tax_rules: "{}",
-    invoice_template: "{}",
+  const [billingConfigSource, setBillingConfigSource] = useState<PlatformBillingConfig>({
+    gateway_settings: {},
+    tax_rules: {},
+    invoice_template: {},
   });
+  const [billingConfigForm, setBillingConfigForm] = useState<BillingConfigForm>(EMPTY_BILLING_CONFIG_FORM);
 
-  const parseJSONMap = (raw: string, label: string) => {
+  const invoiceCalc = useMemo(() => {
+    const quantity = Number(newInvoice.quantity || 0);
+    const unitPrice = Number(newInvoice.unit_price || 0);
+    const taxRate = Number(newInvoice.tax_rate_percent || 0);
+    const subtotal = Math.max(0, Math.round(quantity * unitPrice));
+    const taxAmount = Math.max(0, Math.round((subtotal * taxRate) / 100));
+    const total = subtotal + taxAmount;
+    return { quantity, unitPrice, taxRate, subtotal, taxAmount, total };
+  }, [newInvoice.quantity, newInvoice.unit_price, newInvoice.tax_rate_percent]);
+
+  const loadOverview = async () => {
+    setLoading(true);
+    setError("");
     try {
-      const value = JSON.parse(raw || "{}");
-      if (!value || Array.isArray(value) || typeof value !== "object") {
-        throw new Error(`${label} must be a JSON object.`);
+      const overviewRes = await apiClient("/admin/platform/billing/overview");
+      if (!overviewRes.ok) {
+        throw new Error(await readAPIError(overviewRes, "Failed to load billing overview."));
       }
-      return value;
-    } catch {
-      throw new Error(`${label} must be valid JSON object.`);
+      const summary = await overviewRes.json();
+      setOverview(summary);
+    } catch (e: any) {
+      setError(e?.message || "Failed to load billing overview.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const load = async () => {
+  const loadInvoicesData = async () => {
     setLoading(true);
+    setError("");
     try {
-      const [paymentsRes, overviewRes, tenantsRes, invoicesRes, configRes, adjustmentsRes] = await Promise.all([
+      const [paymentsRes, invoicesRes, adjustmentsRes] = await Promise.all([
         apiClient("/admin/platform/payments?limit=200"),
-        apiClient("/admin/platform/billing/overview"),
-        apiClient("/admin/platform/tenants?limit=200"),
         apiClient("/admin/platform/invoices?limit=200"),
-        apiClient("/admin/platform/billing/config"),
         apiClient("/admin/platform/invoice-adjustments?limit=200"),
       ]);
 
-      if (paymentsRes.ok) {
-        const payments = await paymentsRes.json();
-        setRows(Array.isArray(payments) ? payments : []);
+      if (!paymentsRes.ok) {
+        throw new Error(await readAPIError(paymentsRes, "Failed to load payments."));
       }
-      if (overviewRes.ok) {
-        const summary = await overviewRes.json();
-        setOverview(summary);
+      if (!invoicesRes.ok) {
+        throw new Error(await readAPIError(invoicesRes, "Failed to load invoices."));
       }
-      if (tenantsRes.ok) {
-        const tenantsData = await tenantsRes.json();
-        setTenants(
-          Array.isArray(tenantsData)
-            ? tenantsData.map((t) => ({ id: t.id, name: t.name }))
-            : []
-        );
+      if (!adjustmentsRes.ok) {
+        throw new Error(await readAPIError(adjustmentsRes, "Failed to load invoice adjustments."));
       }
-      if (invoicesRes.ok) {
-        const invoiceData = await invoicesRes.json();
-        setInvoices(Array.isArray(invoiceData) ? invoiceData : []);
+
+      const payments = await paymentsRes.json();
+      setRows(Array.isArray(payments) ? payments : []);
+
+      const invoiceData = await invoicesRes.json();
+      setInvoices(Array.isArray(invoiceData) ? invoiceData : []);
+
+      const adjustmentData = await adjustmentsRes.json();
+      setAdjustments(Array.isArray(adjustmentData) ? adjustmentData : []);
+
+      if (Object.keys(billingConfigSource.invoice_template || {}).length === 0) {
+        const configRes = await apiClient("/admin/platform/billing/config");
+        if (configRes.ok) {
+          const configData = (await configRes.json()) as PlatformBillingConfig;
+          const config = applyBillingConfig(configData);
+          setBillingConfigSource(config.source);
+          setBillingConfigForm(config.form);
+        }
       }
-      if (configRes.ok) {
-        const configData = await configRes.json();
-        setBillingConfigText({
-          gateway_settings: JSON.stringify(configData.gateway_settings || {}, null, 2),
-          tax_rules: JSON.stringify(configData.tax_rules || {}, null, 2),
-          invoice_template: JSON.stringify(configData.invoice_template || {}, null, 2),
-        });
+    } catch (e: any) {
+      setError(e?.message || "Failed to load invoice data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadBillingConfig = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const configRes = await apiClient("/admin/platform/billing/config");
+      if (!configRes.ok) {
+        throw new Error(await readAPIError(configRes, "Failed to load billing configuration."));
       }
-      if (adjustmentsRes.ok) {
-        const adjustmentData = await adjustmentsRes.json();
-        setAdjustments(Array.isArray(adjustmentData) ? adjustmentData : []);
-      }
+      const configData = (await configRes.json()) as PlatformBillingConfig;
+      const config = applyBillingConfig(configData);
+      setBillingConfigSource(config.source);
+      setBillingConfigForm(config.form);
+    } catch (e: any) {
+      setError(e?.message || "Failed to load billing configuration.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    void load();
-  }, []);
+    if (activeTab === "overview") {
+      void loadOverview();
+      return;
+    }
+    if (activeTab === "invoices") {
+      void loadInvoicesData();
+      return;
+    }
+    void loadBillingConfig();
+  }, [activeTab]);
 
   const createInvoice = async () => {
     setBusy(true);
     setMessage("");
     setError("");
     try {
-      const amount = Number(newInvoice.amount_total);
-      const tax = Number(newInvoice.tax_amount || 0);
-      if (!newInvoice.tenant_id || !Number.isFinite(amount) || amount <= 0 || !Number.isFinite(tax) || tax < 0) {
-        throw new Error("Valid tenant, amount, and tax are required.");
+      const { quantity, unitPrice, taxRate, subtotal, taxAmount, total } = invoiceCalc;
+      if (!newInvoice.tenant_id) {
+        throw new Error("Tenant is required.");
+      }
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        throw new Error("Quantity must be greater than 0.");
+      }
+      if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+        throw new Error("Unit price must be greater than 0.");
+      }
+      if (!Number.isFinite(taxRate) || taxRate < 0 || taxRate > 100) {
+        throw new Error("Tax rate must be between 0 and 100.");
+      }
+      if (subtotal <= 0 || total <= 0) {
+        throw new Error("Invoice total must be greater than 0.");
       }
 
       const dueDate = newInvoice.due_date ? new Date(newInvoice.due_date).toISOString() : "";
       const payload = {
         tenant_id: newInvoice.tenant_id,
         currency: newInvoice.currency || "INR",
-        amount_total: Math.floor(amount),
-        tax_amount: Math.floor(tax),
+        amount_total: subtotal,
+        tax_amount: taxAmount,
         due_date: dueDate,
         line_items: [
           {
-            code: "subscription",
-            description: "Platform subscription invoice",
-            amount: Math.floor(amount),
+            code: (newInvoice.item_code || "subscription").trim(),
+            description: (newInvoice.item_description || "Platform subscription charge").trim(),
+            quantity,
+            unit_price: Math.round(unitPrice),
+            tax_rate_percent: taxRate,
+            amount: subtotal,
           },
         ],
+        metadata: {
+          reference: newInvoice.reference.trim(),
+          notes: newInvoice.notes.trim(),
+          billing_period_start: newInvoice.billing_period_start || null,
+          billing_period_end: newInvoice.billing_period_end || null,
+          tax_rate_percent: taxRate,
+          calculated_total: total,
+        },
       };
 
       const res = await apiClient("/admin/platform/invoices", {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readAPIError(res, "Failed to create invoice."));
 
       setMessage("Invoice created.");
       setNewInvoice({
         tenant_id: "",
-        amount_total: "",
-        tax_amount: "0",
-        due_date: "",
         currency: "INR",
+        item_code: "subscription",
+        item_description: "Platform subscription charge",
+        quantity: "1",
+        unit_price: "",
+        tax_rate_percent: "18",
+        due_date: "",
+        billing_period_start: "",
+        billing_period_end: "",
+        reference: "",
+        notes: "",
       });
-      await load();
+      await loadInvoicesData();
     } catch (e: any) {
       setError(e?.message || "Failed to create invoice.");
     } finally {
@@ -231,9 +432,9 @@ export function PaymentsManageView({ activeTab }: { activeTab: PaymentsManageTab
       const res = await apiClient(`/admin/platform/invoices/${invoiceId}/resend`, {
         method: "POST",
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readAPIError(res, "Failed to resend invoice."));
       setMessage("Invoice resend recorded.");
-      await load();
+      await loadInvoicesData();
     } catch (e: any) {
       setError(e?.message || "Failed to resend invoice.");
     } finally {
@@ -253,9 +454,9 @@ export function PaymentsManageView({ activeTab }: { activeTab: PaymentsManageTab
           reference: `manual-${Date.now()}`,
         }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readAPIError(res, "Failed to mark invoice paid."));
       setMessage("Invoice marked paid (offline).");
-      await load();
+      await loadInvoicesData();
     } catch (e: any) {
       setError(e?.message || "Failed to mark invoice paid.");
     } finally {
@@ -269,13 +470,128 @@ export function PaymentsManageView({ activeTab }: { activeTab: PaymentsManageTab
     setError("");
     try {
       const res = await apiClient(`/admin/platform/invoices/${invoiceId}/export`);
-      if (!res.ok) throw new Error(await res.text());
-      setMessage("Invoice export generated (JSON response available from API).");
+      if (!res.ok) throw new Error(await readAPIError(res, "Failed to export invoice."));
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `invoice-${invoiceId}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setMessage("Invoice export downloaded.");
     } catch (e: any) {
       setError(e?.message || "Failed to export invoice.");
     } finally {
       setBusy(false);
     }
+  };
+
+  const viewInvoiceAsPDF = (invoice: PlatformInvoice) => {
+    const lines = Array.isArray(invoice.line_items) ? invoice.line_items : [];
+    const template = billingConfigSource.invoice_template || {};
+    const gateway = billingConfigSource.gateway_settings || {};
+    const taxRules = billingConfigSource.tax_rules || {};
+    const subtotal = Number(invoice.amount_total || 0);
+    const tax = Number(invoice.tax_amount || 0);
+    const total = subtotal + tax;
+    const issueDate = invoice.issued_at ? new Date(invoice.issued_at).toLocaleDateString() : "-";
+    const dueDate = invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : "-";
+
+    const lineRows = lines.length
+      ? lines
+          .map((line, idx) => {
+            const item = line as Record<string, unknown>;
+            const desc = escapeHtml(item.description ?? item.code ?? `Line ${idx + 1}`);
+            const quantity = escapeHtml(item.quantity ?? "1");
+            const unit = escapeHtml(item.unit_price ?? item.amount ?? "-");
+            const amount = escapeHtml(item.amount ?? "-");
+            return `<tr>
+              <td>${idx + 1}</td>
+              <td>${desc}</td>
+              <td style="text-align:right">${quantity}</td>
+              <td style="text-align:right">${unit}</td>
+              <td style="text-align:right">${amount}</td>
+            </tr>`;
+          })
+          .join("")
+      : `<tr><td>1</td><td>Subscription</td><td style="text-align:right">1</td><td style="text-align:right">${subtotal}</td><td style="text-align:right">${subtotal}</td></tr>`;
+
+    const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Invoice ${escapeHtml(invoice.invoice_number)}</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; color: #111; }
+    .topbar { display: flex; justify-content: space-between; margin-bottom: 18px; }
+    .muted { color: #555; font-size: 12px; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px; font-size: 12px; }
+    th { background: #f6f6f6; text-align: left; }
+    .right { text-align: right; }
+    .actions { margin: 12px 0; display: flex; gap: 8px; }
+    @media print { .actions { display: none; } body { margin: 8mm; } }
+  </style>
+</head>
+<body>
+  <div class="actions">
+    <button onclick="window.print()">Print / Save as PDF</button>
+    <button onclick="window.close()">Close</button>
+  </div>
+  <div class="topbar">
+    <div>
+      <h2 style="margin:0">${escapeHtml(asString(template.company_name, "SchoolERP Platform"))}</h2>
+      <div class="muted">${escapeHtml(asString(template.support_email, ""))} ${escapeHtml(asString(template.support_phone, ""))}</div>
+    </div>
+    <div class="right">
+      <div><strong>Invoice ${escapeHtml(invoice.invoice_number)}</strong></div>
+      <div class="muted">Issued: ${escapeHtml(issueDate)}</div>
+      <div class="muted">Due: ${escapeHtml(dueDate)}</div>
+      <div class="muted">Status: ${escapeHtml(invoice.status || "-")}</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div><strong>Bill To:</strong> ${escapeHtml(invoice.tenant_name)}</div>
+    <div class="muted">Tenant ID: ${escapeHtml(invoice.tenant_id)}</div>
+    <div class="muted">Reference: ${escapeHtml(invoice.external_ref || asString(invoice.metadata?.reference, "-"))}</div>
+    <div class="muted">Gateway: ${escapeHtml(asString(gateway.provider, "manual"))} (${escapeHtml(asString(gateway.mode, "test"))})</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Description</th>
+        <th style="text-align:right">Qty</th>
+        <th style="text-align:right">Unit</th>
+        <th style="text-align:right">Amount</th>
+      </tr>
+    </thead>
+    <tbody>${lineRows}</tbody>
+  </table>
+
+  <table style="margin-top:14px; width: 320px; margin-left:auto;">
+    <tr><td>Subtotal</td><td class="right">${escapeHtml(subtotal)} ${escapeHtml(invoice.currency)}</td></tr>
+    <tr><td>${escapeHtml(asString(taxRules.label, "Tax"))}</td><td class="right">${escapeHtml(tax)} ${escapeHtml(invoice.currency)}</td></tr>
+    <tr><td><strong>Total</strong></td><td class="right"><strong>${escapeHtml(total)} ${escapeHtml(invoice.currency)}</strong></td></tr>
+  </table>
+  <p class="muted" style="margin-top:14px;">${escapeHtml(asString(template.footer_note, "This is a system generated invoice."))}</p>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank", "noopener,noreferrer");
+    if (!win) {
+      setError("Popup blocked. Please allow popups and retry.");
+      return;
+    }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
   };
 
   const issueRefund = async (invoice: PlatformInvoice) => {
@@ -304,9 +620,9 @@ export function PaymentsManageView({ activeTab }: { activeTab: PaymentsManageTab
           external_ref: reference,
         }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readAPIError(res, "Failed to create refund."));
       setMessage("Refund recorded.");
-      await load();
+      await loadInvoicesData();
     } catch (e: any) {
       setError(e?.message || "Failed to create refund.");
     } finally {
@@ -342,9 +658,9 @@ export function PaymentsManageView({ activeTab }: { activeTab: PaymentsManageTab
           external_ref: reference,
         }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readAPIError(res, "Failed to create credit note."));
       setMessage("Credit note recorded.");
-      await load();
+      await loadInvoicesData();
     } catch (e: any) {
       setError(e?.message || "Failed to create credit note.");
     } finally {
@@ -357,19 +673,54 @@ export function PaymentsManageView({ activeTab }: { activeTab: PaymentsManageTab
     setMessage("");
     setError("");
     try {
+      const defaultRate = Number(billingConfigForm.default_tax_rate_percent || 0);
+      const paymentTermsDays = Number(billingConfigForm.payment_terms_days || 0);
+      const lateFeePercent = Number(billingConfigForm.late_fee_percent || 0);
+      if (!Number.isFinite(defaultRate) || defaultRate < 0 || defaultRate > 100) {
+        throw new Error("Default tax rate must be between 0 and 100.");
+      }
+      if (!Number.isFinite(paymentTermsDays) || paymentTermsDays < 0 || paymentTermsDays > 3650) {
+        throw new Error("Payment terms days must be between 0 and 3650.");
+      }
+      if (!Number.isFinite(lateFeePercent) || lateFeePercent < 0 || lateFeePercent > 100) {
+        throw new Error("Late fee percent must be between 0 and 100.");
+      }
       const payload = {
-        gateway_settings: parseJSONMap(billingConfigText.gateway_settings, "Gateway settings"),
-        tax_rules: parseJSONMap(billingConfigText.tax_rules, "Tax rules"),
-        invoice_template: parseJSONMap(billingConfigText.invoice_template, "Invoice template"),
+        gateway_settings: {
+          ...billingConfigSource.gateway_settings,
+          provider: billingConfigForm.provider.trim() || "manual",
+          mode: billingConfigForm.mode.trim() || "test",
+          merchant_id: billingConfigForm.merchant_id.trim(),
+          public_key: billingConfigForm.public_key.trim(),
+          webhook_url: billingConfigForm.webhook_url.trim(),
+          webhook_secret: billingConfigForm.webhook_secret.trim(),
+          auto_collection: billingConfigForm.auto_collection,
+        },
+        tax_rules: {
+          ...billingConfigSource.tax_rules,
+          enabled: billingConfigForm.tax_enabled,
+          label: billingConfigForm.tax_label.trim() || "Tax",
+          default_rate_percent: defaultRate,
+          inclusive: billingConfigForm.tax_inclusive,
+        },
+        invoice_template: {
+          ...billingConfigSource.invoice_template,
+          invoice_prefix: billingConfigForm.invoice_prefix.trim() || "INV",
+          payment_terms_days: paymentTermsDays,
+          late_fee_percent: lateFeePercent,
+          support_email: billingConfigForm.support_email.trim(),
+          support_phone: billingConfigForm.support_phone.trim(),
+          footer_note: billingConfigForm.footer_note.trim(),
+        },
       };
       const res = await apiClient("/admin/platform/billing/config", {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readAPIError(res, "Failed to save billing configuration."));
 
       setMessage("Billing configuration updated.");
-      await load();
+      await loadBillingConfig();
     } catch (e: any) {
       setError(e?.message || "Failed to save billing configuration.");
     } finally {
@@ -405,7 +756,7 @@ export function PaymentsManageView({ activeTab }: { activeTab: PaymentsManageTab
         value={activeTab}
         onValueChange={(value) => {
           if (isPaymentsManageTab(value)) {
-            router.push(`/platform/payments/manage/${value}`);
+            router.push(`/platform/payments/manage?tab=${value}`);
           }
         }}
         className="space-y-6"
@@ -505,34 +856,67 @@ export function PaymentsManageView({ activeTab }: { activeTab: PaymentsManageTab
       <TabsContent value="invoices" className="space-y-6">
       <div className="rounded-xl border border-border bg-card p-4">
         <h2 className="text-sm font-semibold text-foreground">Create Invoice</h2>
-        <div className="mt-3 grid gap-2 md:grid-cols-5">
-          <select
+        <p className="mt-1 text-sm text-muted-foreground">
+          Create an itemized invoice with billing period, tax, due date, and internal notes.
+        </p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tenant</p>
+            <TenantSelect
+              value={newInvoice.tenant_id}
+              onSelect={(value) => setNewInvoice((p) => ({ ...p, tenant_id: typeof value === "string" ? value : value[0] || "" }))}
+              placeholder="Search tenant..."
+            />
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Currency</p>
+            <select
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+              value={newInvoice.currency}
+              onChange={(e) => setNewInvoice((p) => ({ ...p, currency: e.target.value }))}
+            >
+              <option value="INR">INR</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+            </select>
+          </div>
+          <input
             className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
-            value={newInvoice.tenant_id}
-            onChange={(e) => setNewInvoice((p) => ({ ...p, tenant_id: e.target.value }))}
-          >
-            <option value="">Select tenant</option>
-            {tenants.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
+            placeholder="Line item code (e.g. subscription)"
+            value={newInvoice.item_code}
+            onChange={(e) => setNewInvoice((p) => ({ ...p, item_code: e.target.value }))}
+          />
+          <input
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            placeholder="Line item description"
+            value={newInvoice.item_description}
+            onChange={(e) => setNewInvoice((p) => ({ ...p, item_description: e.target.value }))}
+          />
           <input
             type="number"
             min={1}
             className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
-            placeholder="Amount total"
-            value={newInvoice.amount_total}
-            onChange={(e) => setNewInvoice((p) => ({ ...p, amount_total: e.target.value }))}
+            placeholder="Quantity"
+            value={newInvoice.quantity}
+            onChange={(e) => setNewInvoice((p) => ({ ...p, quantity: e.target.value }))}
+          />
+          <input
+            type="number"
+            min={1}
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            placeholder="Unit price"
+            value={newInvoice.unit_price}
+            onChange={(e) => setNewInvoice((p) => ({ ...p, unit_price: e.target.value }))}
           />
           <input
             type="number"
             min={0}
+            max={100}
             className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
-            placeholder="Tax amount"
-            value={newInvoice.tax_amount}
-            onChange={(e) => setNewInvoice((p) => ({ ...p, tax_amount: e.target.value }))}
+            placeholder="Tax rate (%)"
+            value={newInvoice.tax_rate_percent}
+            onChange={(e) => setNewInvoice((p) => ({ ...p, tax_rate_percent: e.target.value }))}
           />
           <input
             type="datetime-local"
@@ -540,11 +924,60 @@ export function PaymentsManageView({ activeTab }: { activeTab: PaymentsManageTab
             value={newInvoice.due_date}
             onChange={(e) => setNewInvoice((p) => ({ ...p, due_date: e.target.value }))}
           />
+          <input
+            type="date"
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            value={newInvoice.billing_period_start}
+            onChange={(e) => setNewInvoice((p) => ({ ...p, billing_period_start: e.target.value }))}
+            title="Billing period start"
+          />
+          <input
+            type="date"
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            value={newInvoice.billing_period_end}
+            onChange={(e) => setNewInvoice((p) => ({ ...p, billing_period_end: e.target.value }))}
+            title="Billing period end"
+          />
+          <input
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground md:col-span-2"
+            placeholder="Reference (optional)"
+            value={newInvoice.reference}
+            onChange={(e) => setNewInvoice((p) => ({ ...p, reference: e.target.value }))}
+          />
+          <textarea
+            rows={3}
+            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground md:col-span-2"
+            placeholder="Internal notes (optional)"
+            value={newInvoice.notes}
+            onChange={(e) => setNewInvoice((p) => ({ ...p, notes: e.target.value }))}
+          />
+        </div>
+
+        <div className="mt-4 grid gap-2 rounded-lg border border-border bg-muted/30 p-3 text-sm md:grid-cols-4">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Quantity</p>
+            <p className="font-semibold text-foreground">{invoiceCalc.quantity || 0}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Subtotal</p>
+            <p className="font-semibold text-foreground">{invoiceCalc.subtotal} {newInvoice.currency}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Tax</p>
+            <p className="font-semibold text-foreground">{invoiceCalc.taxAmount} {newInvoice.currency}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Total</p>
+            <p className="font-semibold text-foreground">{invoiceCalc.total} {newInvoice.currency}</p>
+          </div>
+        </div>
+
+        <div className="mt-3">
           <button
             type="button"
             onClick={createInvoice}
             disabled={busy}
-            className="rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
           >
             Create Invoice
           </button>
@@ -603,6 +1036,14 @@ export function PaymentsManageView({ activeTab }: { activeTab: PaymentsManageTab
                         className="rounded border border-emerald-600/40 px-2 py-1 text-xs text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-60 dark:border-emerald-700 dark:text-emerald-200 dark:hover:bg-emerald-900/20"
                       >
                         Mark Paid
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => viewInvoiceAsPDF(invoice)}
+                        disabled={busy}
+                        className="rounded border border-violet-600/40 px-2 py-1 text-xs text-violet-700 hover:bg-violet-500/10 disabled:opacity-60 dark:border-violet-700 dark:text-violet-200 dark:hover:bg-violet-900/20"
+                      >
+                        View PDF
                       </button>
                       <button
                         type="button"
@@ -731,37 +1172,142 @@ export function PaymentsManageView({ activeTab }: { activeTab: PaymentsManageTab
       <div className="rounded-xl border border-border bg-card p-4">
         <h2 className="text-sm font-semibold text-foreground">Billing Configuration</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Manage payment gateway, GST/VAT rules, and invoice template configuration.
+          Configure gateway, tax, and invoice defaults using guided inputs.
         </p>
-        <div className="mt-3 grid gap-3 md:grid-cols-3">
-          <div className="space-y-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Gateway Settings</p>
-            <textarea
-              rows={8}
-              className="w-full rounded border border-input bg-background px-3 py-2 font-mono text-xs text-foreground"
-              value={billingConfigText.gateway_settings}
-              onChange={(e) => setBillingConfigText((p) => ({ ...p, gateway_settings: e.target.value }))}
+        <div className="mt-4 grid gap-6 lg:grid-cols-3">
+          <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Gateway</p>
+            <input
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+              placeholder="Provider (manual, razorpay, stripe...)"
+              value={billingConfigForm.provider}
+              onChange={(e) => setBillingConfigForm((p) => ({ ...p, provider: e.target.value }))}
             />
-          </div>
-          <div className="space-y-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tax Rules</p>
-            <textarea
-              rows={8}
-              className="w-full rounded border border-input bg-background px-3 py-2 font-mono text-xs text-foreground"
-              value={billingConfigText.tax_rules}
-              onChange={(e) => setBillingConfigText((p) => ({ ...p, tax_rules: e.target.value }))}
+            <select
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+              value={billingConfigForm.mode}
+              onChange={(e) => setBillingConfigForm((p) => ({ ...p, mode: e.target.value }))}
+            >
+              <option value="test">Test</option>
+              <option value="live">Live</option>
+            </select>
+            <input
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+              placeholder="Merchant ID"
+              value={billingConfigForm.merchant_id}
+              onChange={(e) => setBillingConfigForm((p) => ({ ...p, merchant_id: e.target.value }))}
             />
+            <input
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+              placeholder="Public key"
+              value={billingConfigForm.public_key}
+              onChange={(e) => setBillingConfigForm((p) => ({ ...p, public_key: e.target.value }))}
+            />
+            <input
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+              placeholder="Webhook URL"
+              value={billingConfigForm.webhook_url}
+              onChange={(e) => setBillingConfigForm((p) => ({ ...p, webhook_url: e.target.value }))}
+            />
+            <input
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+              placeholder="Webhook secret"
+              value={billingConfigForm.webhook_secret}
+              onChange={(e) => setBillingConfigForm((p) => ({ ...p, webhook_secret: e.target.value }))}
+            />
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={billingConfigForm.auto_collection}
+                onChange={(e) => setBillingConfigForm((p) => ({ ...p, auto_collection: e.target.checked }))}
+              />
+              Enable auto-collection
+            </label>
           </div>
-          <div className="space-y-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Invoice Template</p>
+          <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tax Rules</p>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={billingConfigForm.tax_enabled}
+                onChange={(e) => setBillingConfigForm((p) => ({ ...p, tax_enabled: e.target.checked }))}
+              />
+              Enable tax on invoices
+            </label>
+            <input
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+              placeholder="Tax label (GST/VAT)"
+              value={billingConfigForm.tax_label}
+              onChange={(e) => setBillingConfigForm((p) => ({ ...p, tax_label: e.target.value }))}
+            />
+            <input
+              type="number"
+              min={0}
+              max={100}
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+              placeholder="Default tax rate %"
+              value={billingConfigForm.default_tax_rate_percent}
+              onChange={(e) => setBillingConfigForm((p) => ({ ...p, default_tax_rate_percent: e.target.value }))}
+            />
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={billingConfigForm.tax_inclusive}
+                onChange={(e) => setBillingConfigForm((p) => ({ ...p, tax_inclusive: e.target.checked }))}
+              />
+              Prices are tax-inclusive
+            </label>
+          </div>
+          <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Invoice Template</p>
+            <input
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+              placeholder="Invoice prefix (INV)"
+              value={billingConfigForm.invoice_prefix}
+              onChange={(e) => setBillingConfigForm((p) => ({ ...p, invoice_prefix: e.target.value }))}
+            />
+            <input
+              type="number"
+              min={0}
+              max={3650}
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+              placeholder="Payment terms (days)"
+              value={billingConfigForm.payment_terms_days}
+              onChange={(e) => setBillingConfigForm((p) => ({ ...p, payment_terms_days: e.target.value }))}
+            />
+            <input
+              type="number"
+              min={0}
+              max={100}
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+              placeholder="Late fee %"
+              value={billingConfigForm.late_fee_percent}
+              onChange={(e) => setBillingConfigForm((p) => ({ ...p, late_fee_percent: e.target.value }))}
+            />
+            <input
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+              placeholder="Support email"
+              value={billingConfigForm.support_email}
+              onChange={(e) => setBillingConfigForm((p) => ({ ...p, support_email: e.target.value }))}
+            />
+            <input
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+              placeholder="Support phone"
+              value={billingConfigForm.support_phone}
+              onChange={(e) => setBillingConfigForm((p) => ({ ...p, support_phone: e.target.value }))}
+            />
             <textarea
-              rows={8}
-              className="w-full rounded border border-input bg-background px-3 py-2 font-mono text-xs text-foreground"
-              value={billingConfigText.invoice_template}
-              onChange={(e) => setBillingConfigText((p) => ({ ...p, invoice_template: e.target.value }))}
+              rows={4}
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+              placeholder="Footer note shown on invoice PDF"
+              value={billingConfigForm.footer_note}
+              onChange={(e) => setBillingConfigForm((p) => ({ ...p, footer_note: e.target.value }))}
             />
           </div>
         </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          These inputs are stored under `billing.gateway_settings`, `billing.tax_rules`, and `billing.invoice_template` in platform settings.
+        </p>
         <button
           type="button"
           onClick={saveBillingConfig}

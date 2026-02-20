@@ -16,16 +16,16 @@ var (
 )
 
 type GlobalUser struct {
-	ID             string     `json:"id"`
-	Email          string     `json:"email"`
-	FullName       string     `json:"full_name"`
-	IsActive       bool       `json:"is_active"`
-	TenantID       *string    `json:"tenant_id,omitempty"`
-	TenantName     *string    `json:"tenant_name,omitempty"`
-	RoleCode       *string    `json:"role_code,omitempty"`
-	RoleName       *string    `json:"role_name,omitempty"`
-	LastLogin      *time.Time `json:"last_login,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
+	ID         string     `json:"id"`
+	Email      string     `json:"email"`
+	FullName   string     `json:"full_name"`
+	IsActive   bool       `json:"is_active"`
+	TenantID   *string    `json:"tenant_id,omitempty"`
+	TenantName *string    `json:"tenant_name,omitempty"`
+	RoleCode   *string    `json:"role_code,omitempty"`
+	RoleName   *string    `json:"role_name,omitempty"`
+	LastLogin  *time.Time `json:"last_login,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
 }
 
 type ListGlobalUsersFilters struct {
@@ -189,7 +189,16 @@ func (s *Service) ResetGlobalUserPassword(ctx context.Context, userID, newPasswo
 	}
 
 	// Revoke sessions
-	_, _ = tx.Exec(ctx, `DELETE FROM sessions WHERE user_id = $1`, uid)
+	refs, err := listSessionRefsForUser(ctx, tx, uid)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM sessions WHERE user_id = $1`, uid); err != nil {
+		return err
+	}
+	if err := s.revokeSessionRefsInStore(ctx, refs); err != nil {
+		return err
+	}
 
 	// Audit
 	s.RecordPlatformAudit(ctx, adminUserID, PlatformAuditEntry{
@@ -260,7 +269,7 @@ func (s *Service) ImpersonateGlobalUser(ctx context.Context, targetUserID, reaso
 			"sub": adminUserID,
 		},
 	}
-	
+
 	if tenantID.Valid {
 		claims["tid"] = tenantID.String() // Primary tenant context
 	}
@@ -269,7 +278,7 @@ func (s *Service) ImpersonateGlobalUser(ctx context.Context, targetUserID, reaso
 	if err != nil {
 		return ImpersonationResult{}, err
 	}
-	
+
 	return ImpersonationResult{
 		Token:            token,
 		TargetUserID:     targetUserID,
@@ -279,4 +288,3 @@ func (s *Service) ImpersonateGlobalUser(ctx context.Context, targetUserID, reaso
 		ExpiresAt:        expiresAt,
 	}, nil
 }
-

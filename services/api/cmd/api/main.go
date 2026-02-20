@@ -28,6 +28,7 @@ import (
 	"github.com/schoolerp/api/internal/foundation/outbox"
 	"github.com/schoolerp/api/internal/foundation/policy"
 	"github.com/schoolerp/api/internal/foundation/quota"
+	"github.com/schoolerp/api/internal/foundation/sessionstore"
 	aihandler "github.com/schoolerp/api/internal/handler"
 	academic "github.com/schoolerp/api/internal/handler/academics"
 	"github.com/schoolerp/api/internal/handler/admission"
@@ -170,6 +171,24 @@ func main() {
 	middleware.SetTenantLookup(querier)
 	middleware.SetSessionPool(pool)
 
+	sessionStore, err := sessionstore.NewFromURL(os.Getenv("REDIS_URL"))
+	if err != nil {
+		log.Fatal().Err(err).Msg("Unable to configure Redis session store")
+	}
+	if sessionStore != nil && sessionStore.Enabled() {
+		pingCtx, pingCancel := context.WithTimeout(context.Background(), 3*time.Second)
+		pingErr := sessionStore.Ping(pingCtx)
+		pingCancel()
+		if pingErr != nil {
+			log.Fatal().Err(pingErr).Msg("Unable to connect to Redis session store")
+		}
+		log.Info().Msg("Redis session store enabled")
+		defer sessionStore.Close()
+	} else {
+		log.Warn().Msg("Redis session store disabled (REDIS_URL not configured)")
+	}
+	middleware.SetSessionStore(sessionStore)
+
 	// Initialize Foundations
 	auditLogger := audit.NewLogger(querier)
 	policyEval := policy.NewEvaluator(querier)
@@ -216,11 +235,11 @@ func main() {
 	safetyService := safetyservice.NewService(querier, auditLogger)
 	portfolioService := portfolioservice.NewService(querier)
 	alumniService := alumniservice.NewService(querier)
-	authService := authservice.NewService(querier)
+	authService := authservice.NewService(querier, sessionStore)
 	rolesService := rolesservice.NewService(querier)
 	notificationService := notificationservice.NewService(querier)
 	academicService := academicservice.NewService(querier, auditLogger)
-	tenantService := tenantservice.NewService(querier, pool)
+	tenantService := tenantservice.NewService(querier, pool, sessionStore)
 	marketingService := marketingservice.NewService(pool)
 	automationService := automationservice.NewAutomationService(querier)
 	kbService := kbservice.NewService(querier, pool, auditLogger)

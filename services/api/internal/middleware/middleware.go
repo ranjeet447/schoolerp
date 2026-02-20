@@ -23,6 +23,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/schoolerp/api/internal/db"
 	"github.com/schoolerp/api/internal/foundation/security"
+	"github.com/schoolerp/api/internal/foundation/sessionstore"
 )
 
 type contextKey string
@@ -116,6 +117,7 @@ var (
 
 	tenantResolverQueries *db.Queries
 	sharedSessionPool     *pgxpool.Pool
+	sharedSessionStore    *sessionstore.Store
 )
 
 // SetTenantLookup configures tenant lookup for host/subdomain/custom-domain resolution.
@@ -126,6 +128,11 @@ func SetTenantLookup(q *db.Queries) {
 // SetSessionPool configures the shared DB pool for auth session validation middleware.
 func SetSessionPool(pool *pgxpool.Pool) {
 	sharedSessionPool = pool
+}
+
+// SetSessionStore configures the shared Redis-backed auth session store.
+func SetSessionStore(store *sessionstore.Store) {
+	sharedSessionStore = store
 }
 
 // Metrics tracking middleware
@@ -278,6 +285,7 @@ func normalizeTenantHost(raw string) string {
 // AuthResolver validates JWT tokens from the Authorization header
 func AuthResolver(next http.Handler) http.Handler {
 	secrets, secretConfigured := security.ResolveJWTSecrets()
+	sessionStore := sharedSessionStore
 
 	// Prefer the application-level shared pool to avoid duplicate pools and excess connections.
 	sessionPool := sharedSessionPool
@@ -369,36 +377,39 @@ func AuthResolver(next http.Handler) http.Handler {
 				ctx = context.WithValue(ctx, PermissionsKey, pStrings)
 			}
 
-			if sessionPool != nil {
-				subject, _ := claims["sub"].(string)
-				jti, _ := claims["jti"].(string)
-				subject = strings.TrimSpace(subject)
-				jti = strings.TrimSpace(jti)
-				if subject == "" || jti == "" {
-					log.Ctx(r.Context()).
-						Warn().
-						Str("auth_user_id", subject).
-						Bool("has_jti", jti != "").
-						Str("path", r.URL.Path).
-						Msg("auth session validation failed: missing subject or jti")
-					http.Error(w, "Unauthorized", http.StatusUnauthorized)
-					return
+			subject, _ := claims["sub"].(string)
+			jti, _ := claims["jti"].(string)
+			subject = strings.TrimSpace(subject)
+			jti = strings.TrimSpace(jti)
+			if subject == "" || jti == "" {
+				log.Ctx(r.Context()).
+					Warn().
+					Str("auth_user_id", subject).
+					Bool("has_jti", jti != "").
+					Str("path", r.URL.Path).
+					Msg("auth session validation failed: missing subject or jti")
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			var uid pgtype.UUID
+			if err := uid.Scan(subject); err != nil || !uid.Valid {
+				log.Ctx(r.Context()).
+					Warn().
+					Str("auth_user_id", subject).
+					Str("path", r.URL.Path).
+					Msg("auth session validation failed: invalid subject uuid")
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			hash := sha256.Sum256([]byte(jti))
+			tokenHash := hex.EncodeToString(hash[:])
+
+			querySessionInDB := func() (bool, error) {
+				if sessionPool == nil {
+					return false, nil
 				}
-
-				var uid pgtype.UUID
-				if err := uid.Scan(subject); err != nil || !uid.Valid {
-					log.Ctx(r.Context()).
-						Warn().
-						Str("auth_user_id", subject).
-						Str("path", r.URL.Path).
-						Msg("auth session validation failed: invalid subject uuid")
-					http.Error(w, "Unauthorized", http.StatusUnauthorized)
-					return
-				}
-
-				hash := sha256.Sum256([]byte(jti))
-				tokenHash := hex.EncodeToString(hash[:])
-
 				var exists bool
 				sessionCtx, cancelSession := context.WithTimeout(r.Context(), sessionLookupTimeout)
 				err := sessionPool.QueryRow(
@@ -408,8 +419,29 @@ func AuthResolver(next http.Handler) http.Handler {
 					tokenHash,
 				).Scan(&exists)
 				cancelSession()
+				return exists, err
+			}
+
+			sessionExists := false
+			sessionValidated := false
+			if sessionStore != nil && sessionStore.Enabled() {
+				exists, storeErr := sessionStore.SessionExists(r.Context(), subject, tokenHash)
+				if storeErr == nil {
+					sessionExists = exists
+					sessionValidated = true
+				} else {
+					log.Ctx(r.Context()).
+						Error().
+						Err(storeErr).
+						Str("auth_user_id", subject).
+						Str("path", r.URL.Path).
+						Msg("auth session cache lookup failed")
+				}
+			}
+
+			if !sessionValidated || !sessionExists {
+				exists, err := querySessionInDB()
 				if err != nil {
-					// This is not an auth failure: it indicates an infrastructure issue (DB connectivity, missing migrations, etc).
 					log.Ctx(r.Context()).
 						Error().
 						Err(err).
@@ -429,7 +461,16 @@ func AuthResolver(next http.Handler) http.Handler {
 					return
 				}
 
-				// Risk-based blocks (tenant/user). Requires control-plane migration.
+				if sessionStore != nil && sessionStore.Enabled() {
+					expUnix, ok := claims["exp"].(float64)
+					if ok {
+						_ = sessionStore.SetSession(r.Context(), subject, tokenHash, time.Unix(int64(expUnix), 0))
+					}
+				}
+			}
+
+			// Risk-based blocks (tenant/user). Requires control-plane migration.
+			if sessionPool != nil {
 				var tid pgtype.UUID
 				if tenantID, ok := claims["tenant_id"].(string); ok {
 					_ = tid.Scan(strings.TrimSpace(tenantID))
