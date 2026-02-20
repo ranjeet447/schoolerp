@@ -1,37 +1,73 @@
-# Automation API Paths — Trigger-action workflows, Scheduled tasks
+# Automation API Paths — Trigger-action rules
 
-/admin/automation/workflows:
+/admin/automation/rules:
   get:
-    operationId: listWorkflows
+    operationId: listAutomationRules
     tags: [Automation]
-    summary: List automation workflows
+    summary: List automation rules
     responses:
       '200':
-        description: Workflow list
+        description: Rule list
   post:
-    operationId: createWorkflow
+    operationId: createAutomationRule
     tags: [Automation]
-    summary: Create an automation workflow
+    summary: Create automation rule
     requestBody:
       required: true
       content:
         application/json:
           schema:
             type: object
-            required: [name, trigger, actions]
+            required: [name, trigger_type, trigger_event, action_json]
             properties:
               name: { type: string }
-              trigger: { type: object, description: "Trigger configuration (e.g. event, schedule)" }
-              actions: { type: array, items: { type: object }, description: "List of actions to execute" }
-    responses:
-      '201':
-        description: Workflow created
-
-/admin/automation/execution-logs:
-  get:
-    operationId: listWorkflowLogs
-    tags: [Automation]
-    summary: List workflow execution history
+              description: { type: string }
+              trigger_type: { type: string, enum: [event, time] }
+              trigger_event: { type: string }
+              schedule_cron: { type: string }
+              condition_json: { type: object }
+              action_json: { type: object }
+              is_active: { type: boolean }
     responses:
       '200':
-        description: Execution logs
+        description: Rule created
+      '400':
+        description: Invalid payload
+
+/admin/automation/rules/{id}:
+  put:
+    operationId: updateAutomationRule
+    tags: [Automation]
+    summary: Update automation rule
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+    responses:
+      '200':
+        description: Rule updated
+      '400':
+        description: Invalid payload
+      '404':
+        description: Rule not found
+  delete:
+    operationId: deleteAutomationRule
+    tags: [Automation]
+    summary: Delete automation rule
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '204':
+        description: Rule deleted
+      '404':
+        description: Rule not found

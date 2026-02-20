@@ -1,38 +1,128 @@
-# AI API Paths — Parent helpdesk, Multi-turn chat, Insights
+# AI API Paths — Code-backed routes
 
-/admin/ai/parent-helpdesk/chat:
+/admin/ai/generate-lesson-plan:
   post:
-    operationId: parentHelpdeskChat
+    operationId: aiGenerateLessonPlanAdmin
     tags: [AI]
-    summary: Multi-turn AI chat for parent helpdesk
+    summary: Generate AI lesson plan (admin scope)
     requestBody:
       required: true
       content:
         application/json:
           schema:
             type: object
-            required: [message]
+            required: [subject, topic]
             properties:
-              message: { type: string }
-              session_id: { type: string, description: "Optional session ID for multi-turn" }
-              language: { type: string, description: "Auto-detected if omitted" }
+              subject: { type: string }
+              topic: { type: string }
+              grade: { type: string }
     responses:
       '200':
-        description: AI response
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                response: { type: string }
-                session_id: { type: string }
-                detected_language: { type: string }
+        description: Lesson plan generated
+      '400':
+        description: Invalid request
+      '403':
+        description: AI feature disabled
+      '503':
+        description: AI service unavailable
 
-/admin/ai/usage-logs:
-  get:
-    operationId: listAIUsageLogs
+/admin/ai/parent-query:
+  post:
+    operationId: aiParentQueryAdmin
     tags: [AI]
-    summary: List AI usage and token consumption logs
+    summary: Ask AI parent-helpdesk question (admin scope)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [query]
+            properties:
+              query: { type: string }
+              context_info: { type: string }
     responses:
       '200':
-        description: Usage logs
+        description: AI answer returned
+      '400':
+        description: Invalid request
+      '403':
+        description: AI feature disabled
+      '503':
+        description: AI service unavailable
+
+/admin/ai/exams/rubrics/generate:
+  post:
+    operationId: aiGenerateExamRubricAdmin
+    tags: [AI]
+    summary: Generate rubric JSON for exams (admin scope)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [subject, title, max_marks]
+            properties:
+              subject: { type: string }
+              title: { type: string }
+              grade: { type: string }
+              max_marks: { type: integer, minimum: 1 }
+    responses:
+      '200':
+        description: Rubric JSON generated
+      '400':
+        description: Invalid request
+      '403':
+        description: AI feature disabled
+      '503':
+        description: AI service unavailable
+
+/ai/helpdesk:
+  post:
+    operationId: aiHelpdeskPublic
+    tags: [AI]
+    summary: Parent helpdesk AI query (public route)
+    description: Publicly reachable route; tenant context still required for meaningful responses.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [query]
+            properties:
+              query: { type: string }
+              context_info: { type: string }
+    responses:
+      '200':
+        description: AI answer returned
+      '400':
+        description: Invalid request or tenant context missing
+      '403':
+        description: AI feature disabled
+
+/ai/lesson-plan:
+  post:
+    operationId: aiLessonPlanProtected
+    tags: [AI]
+    summary: Generate lesson plan (teacher/admin protected route)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [subject, topic]
+            properties:
+              subject: { type: string }
+              topic: { type: string }
+              grade: { type: string }
+    responses:
+      '200':
+        description: Lesson plan generated
+      '401':
+        description: Unauthorized
+      '403':
+        description: Forbidden (role/feature disabled)

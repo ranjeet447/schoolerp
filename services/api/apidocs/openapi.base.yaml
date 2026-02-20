@@ -26,7 +26,7 @@ info:
 servers:
   - url: http://localhost:8080/v1
     description: Local development server
-  - url: https://api.school-erp.in/v1
+  - url: https://schoolerp-vmn1.onrender.com/v1
     description: Production API
 
 tags:
@@ -64,6 +64,10 @@ tags:
     description: WhatsApp Config, Broadcast Logs, CRM
   - name: AI
     description: Parent Helpdesk, Multi-turn Chat, LLM Insights
+  - name: Knowledge Base
+    description: Tenant KB documents, settings, and semantic search
+  - name: Automation
+    description: Rule-based automation workflows and schedules
   - name: Roles
     description: RBAC, Custom Roles, Permissions
   - name: Public

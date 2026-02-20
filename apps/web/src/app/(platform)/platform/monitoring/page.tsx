@@ -43,6 +43,24 @@ type QueueHealth = {
   is_healthy: boolean;
 };
 
+function unwrapData(payload: unknown): unknown {
+  if (payload && typeof payload === "object" && "data" in payload) {
+    return (payload as { data?: unknown }).data;
+  }
+  return payload;
+}
+
+function toArray<T>(payload: unknown): T[] {
+  const value = unwrapData(payload);
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function toHealthStatus(payload: unknown): HealthStatus | null {
+  const value = unwrapData(payload);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as HealthStatus;
+}
+
 export default function PlatformMonitoringPage() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [queues, setQueues] = useState<QueueHealth[]>([]);
@@ -57,13 +75,22 @@ export default function PlatformMonitoringPage() {
         apiClient("/admin/platform/monitoring/queue"),
       ]);
 
-      if (hRes.ok) setHealth(await hRes.json());
+      if (hRes.ok) {
+        const payload = await hRes.json();
+        setHealth(toHealthStatus(payload));
+      } else {
+        setHealth(null);
+      }
       if (qRes.ok) {
-        const data = await qRes.json();
-        setQueues(Array.isArray(data) ? data : data.data || []);
+        const payload = await qRes.json();
+        setQueues(toArray<QueueHealth>(payload));
+      } else {
+        setQueues([]);
       }
     } catch (e: any) {
       setError("Failed to load monitoring data.");
+      setHealth(null);
+      setQueues([]);
     } finally {
       setLoading(false);
     }

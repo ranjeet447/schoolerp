@@ -157,12 +157,15 @@ export default function GlobalUserDirectoryPage() {
           />
         </div>
         <div className="w-[180px]">
-          <Select value={roleCode} onValueChange={setRoleCode}>
+          <Select
+            value={roleCode || "__all__"}
+            onValueChange={(value) => setRoleCode(value === "__all__" ? "" : value)}
+          >
             <SelectTrigger>
               <SelectValue placeholder="All roles" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All roles</SelectItem>
+              <SelectItem value="__all__">All roles</SelectItem>
               {TENANT_ROLE_OPTIONS.map((r) => (
                 <SelectItem key={r.value} value={r.value}>
                   {r.label}

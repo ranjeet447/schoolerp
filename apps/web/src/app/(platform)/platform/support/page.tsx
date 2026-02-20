@@ -102,6 +102,24 @@ type SupportSLAOverview = {
   generated_at: string;
 };
 
+function unwrapData(payload: unknown): unknown {
+  if (payload && typeof payload === "object" && "data" in payload) {
+    return (payload as { data?: unknown }).data;
+  }
+  return payload;
+}
+
+function toArray<T>(payload: unknown): T[] {
+  const value = unwrapData(payload);
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function toObject<T>(payload: unknown): T | null {
+  const value = unwrapData(payload);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as T;
+}
+
 // --- Main Component ---
 
 export default function PlatformSupportDeskPage() {
@@ -153,8 +171,8 @@ export default function PlatformSupportDeskPage() {
     try {
       const res = await apiClient(`/admin/platform/support/tickets?${ticketQuery}`);
       if (res.ok) {
-        const data = await res.json();
-        setTickets(Array.isArray(data) ? data : []);
+        const payload = await res.json();
+        setTickets(toArray<SupportTicket>(payload));
       }
     } catch (e) {
       console.error("Failed to load tickets", e);
@@ -170,11 +188,25 @@ export default function PlatformSupportDeskPage() {
         apiClient("/admin/platform/support/sla/policy")
       ]);
       
-      if (overviewRes.ok) setSlaOverview(await overviewRes.json());
+      if (overviewRes.ok) {
+        const payload = await overviewRes.json();
+        setSlaOverview(toObject<SupportSLAOverview>(payload));
+      } else {
+        setSlaOverview(null);
+      }
       if (policyRes.ok) {
-        const policy = await policyRes.json();
+        const payload = await policyRes.json();
+        const policy = toObject<SupportSLAPolicy>(payload);
+        if (!policy) {
+          setSlaPolicy(null);
+          setSlaDraft(null);
+          return;
+        }
         setSlaPolicy(policy);
         setSlaDraft(policy);
+      } else {
+        setSlaPolicy(null);
+        setSlaDraft(null);
       }
     } catch (e) {
       console.error("Failed to load SLA data", e);
@@ -186,8 +218,8 @@ export default function PlatformSupportDeskPage() {
     try {
       const res = await apiClient(`/admin/platform/support/tickets/${ticketId}/notes`);
       if (res.ok) {
-        const data = await res.json();
-        setNotes(Array.isArray(data) ? data : []);
+        const payload = await res.json();
+        setNotes(toArray<SupportTicketNote>(payload));
       }
     } finally {
       setIsNotesLoading(false);

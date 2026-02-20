@@ -82,6 +82,32 @@ type IncidentDetail = {
   // affected_tenants_details would be nice here in future
 };
 
+function unwrapData(payload: unknown): unknown {
+  if (payload && typeof payload === "object" && "data" in payload) {
+    return (payload as { data?: unknown }).data;
+  }
+  return payload;
+}
+
+function normalizeIncidentDetail(payload: unknown): IncidentDetail | null {
+  const value = unwrapData(payload);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+
+  const candidate = value as {
+    incident?: unknown;
+    events?: unknown;
+  };
+
+  if (!candidate.incident || typeof candidate.incident !== "object" || Array.isArray(candidate.incident)) {
+    return null;
+  }
+
+  return {
+    incident: candidate.incident as PlatformIncident,
+    events: Array.isArray(candidate.events) ? (candidate.events as PlatformIncidentEvent[]) : [],
+  };
+}
+
 // --- Component ---
 
 export default function PlatformIncidentsPage() {
@@ -162,16 +188,15 @@ export default function PlatformIncidentsPage() {
       const res = await apiClient(`/admin/platform/incidents/${incidentId}`);
       if (res.ok) {
         const payload = await res.json();
-        const data = payload.incident ? payload : (payload.data || payload);
-        
-        if (!data.incident) return; // Prevent crash if invalid data
+        const data = normalizeIncidentDetail(payload);
+        if (!data) return;
 
         setDetail(data);
         setEditTitle(data.incident.title || "");
         setEditStatus(data.incident.status || "investigating");
         setEditSeverity(data.incident.severity || "minor");
         setEditScope(data.incident.scope || "platform");
-        setEditAffectedTenants(data.incident.affected_tenant_ids || []);
+        setEditAffectedTenants(Array.isArray(data.incident.affected_tenant_ids) ? data.incident.affected_tenant_ids : []);
         setDetailOpen(true);
         // Reset sub-forms
         setEditUpdateMessage("");
@@ -233,7 +258,11 @@ export default function PlatformIncidentsPage() {
       });
       
       if (res.ok) {
-        setDetail(await res.json());
+        const responsePayload = await res.json();
+        const updatedDetail = normalizeIncidentDetail(responsePayload);
+        if (updatedDetail) {
+          setDetail(updatedDetail);
+        }
         setEditUpdateMessage("");
         load();
       }
@@ -258,7 +287,13 @@ export default function PlatformIncidentsPage() {
       setNewEventMessage("");
       // Refresh detail
       const res = await apiClient(`/admin/platform/incidents/${detail.incident.id}`);
-      if (res.ok) setDetail(await res.json());
+      if (res.ok) {
+        const payload = await res.json();
+        const refreshedDetail = normalizeIncidentDetail(payload);
+        if (refreshedDetail) {
+          setDetail(refreshedDetail);
+        }
+      }
     } catch(e) { console.error(e); } finally { setBusyId(""); }
   };
 

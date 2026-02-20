@@ -1,0 +1,162 @@
+# Knowledge Base API Paths
+
+/admin/kb/documents:
+  get:
+    operationId: kbListDocumentsAdmin
+    tags: [Knowledge Base]
+    summary: List KB documents (admin)
+    parameters:
+      - in: query
+        name: status
+        schema: { type: string }
+      - in: query
+        name: visibility
+        schema: { type: string }
+      - in: query
+        name: category
+        schema: { type: string }
+      - in: query
+        name: q
+        schema: { type: string }
+      - in: query
+        name: limit
+        schema: { type: integer, minimum: 0 }
+      - in: query
+        name: offset
+        schema: { type: integer, minimum: 0 }
+    responses:
+      '200':
+        description: KB documents list
+  post:
+    operationId: kbCreateDocumentAdmin
+    tags: [Knowledge Base]
+    summary: Create KB document (admin)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+    responses:
+      '201':
+        description: KB document created
+      '400':
+        description: Invalid payload
+
+/admin/kb/documents/{id}:
+  get:
+    operationId: kbGetDocumentAdmin
+    tags: [Knowledge Base]
+    summary: Get KB document by ID (admin)
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: KB document details
+      '404':
+        description: Not found
+  patch:
+    operationId: kbUpdateDocumentAdmin
+    tags: [Knowledge Base]
+    summary: Patch KB document (admin)
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+    responses:
+      '200':
+        description: KB document updated
+      '400':
+        description: Invalid payload
+      '404':
+        description: Not found
+  delete:
+    operationId: kbDeleteDocumentAdmin
+    tags: [Knowledge Base]
+    summary: Delete KB document (admin)
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '204':
+        description: Deleted
+      '404':
+        description: Not found
+
+/admin/kb/settings:
+  get:
+    operationId: kbGetSettingsAdmin
+    tags: [Knowledge Base]
+    summary: Get KB settings (admin)
+    responses:
+      '200':
+        description: KB settings
+  patch:
+    operationId: kbUpdateSettingsAdmin
+    tags: [Knowledge Base]
+    summary: Update KB settings (admin)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+    responses:
+      '200':
+        description: KB settings updated
+      '400':
+        description: Invalid payload
+
+/kb/search:
+  post:
+    operationId: kbSearchProtected
+    tags: [Knowledge Base]
+    summary: Search tenant knowledge base (protected)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [query]
+            properties:
+              query: { type: string }
+              top_k: { type: integer, minimum: 1 }
+              filters:
+                type: object
+                properties:
+                  category: { type: string }
+                  tags:
+                    type: array
+                    items: { type: string }
+                  visibility: { type: string }
+    responses:
+      '200':
+        description: Search results
+      '400':
+        description: Invalid payload
+      '403':
+        description: Forbidden
+
+/kb/facets:
+  get:
+    operationId: kbFacetsProtected
+    tags: [Knowledge Base]
+    summary: List KB search facets (protected)
+    responses:
+      '200':
+        description: Facets response
+      '403':
+        description: Forbidden

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -30,7 +30,13 @@ import {
   User,
   Users,
 } from "lucide-react";
-import { Button } from "@schoolerp/ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@schoolerp/ui";
 import { useAuth } from "@/components/auth-provider";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { RBACService } from "@/lib/auth-service";
@@ -92,6 +98,7 @@ export default function PlatformLayoutClient({
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout, isLoading } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (isLoading) return;
@@ -105,6 +112,15 @@ export default function PlatformLayoutClient({
       router.replace("/");
     }
   }, [isLoading, router, user?.role]);
+
+  const visibleNavGroups = useMemo(() => {
+    return NAV_GROUPS.map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) => !item.permission || RBACService.hasPermission(item.permission)
+      ),
+    })).filter((group) => group.items.length > 0);
+  }, []);
 
   return (
     <div className="flex h-screen bg-background text-foreground">
@@ -121,38 +137,30 @@ export default function PlatformLayoutClient({
 
         <nav className="flex-1 overflow-y-auto py-6">
           <div className="space-y-6 px-4">
-            {NAV_GROUPS.map((group) => {
-              const visibleItems = group.items.filter(
-                (item) => !item.permission || RBACService.hasPermission(item.permission)
-              );
-
-              if (visibleItems.length === 0) return null;
-
-              return (
-                <div key={group.title} className="space-y-2">
-                  <h3 className="px-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
-                    {group.title}
-                  </h3>
-                  <ul className="space-y-1">
-                    {visibleItems.map((item) => (
-                      <li key={item.href}>
-                        <Link
-                          href={item.href}
-                          className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
-                            pathname === item.href
-                              ? "bg-primary/10 text-primary shadow-sm"
-                              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                          }`}
-                        >
-                          <item.icon className={`h-4 w-4 ${pathname === item.href ? "text-primary" : "text-muted-foreground/70"}`} />
-                          <span>{item.label}</span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
+            {visibleNavGroups.map((group) => (
+              <div key={group.title} className="space-y-2">
+                <h3 className="px-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                  {group.title}
+                </h3>
+                <ul className="space-y-1">
+                  {group.items.map((item) => (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
+                          pathname === item.href
+                            ? "bg-primary/10 text-primary shadow-sm"
+                            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                        }`}
+                      >
+                        <item.icon className={`h-4 w-4 ${pathname === item.href ? "text-primary" : "text-muted-foreground/70"}`} />
+                        <span>{item.label}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
         </nav>
 
@@ -180,7 +188,13 @@ export default function PlatformLayoutClient({
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
-          <Button variant="ghost" size="icon" className="text-foreground md:hidden">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-foreground md:hidden"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Open navigation menu"
+          >
             <Menu className="h-5 w-5" />
           </Button>
           <div className="ml-auto flex items-center gap-2">
@@ -191,6 +205,56 @@ export default function PlatformLayoutClient({
         <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-6 md:pb-6">{children}</main>
       </div>
       <MobileNav />
+
+      <Dialog open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <DialogContent className="w-[92vw] max-w-sm p-0">
+          <DialogHeader className="border-b border-border p-4">
+            <DialogTitle className="text-base">Platform Navigation</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[70vh] overflow-y-auto p-4">
+            <div className="space-y-5">
+              {visibleNavGroups.map((group) => (
+                <div key={`mobile-${group.title}`} className="space-y-2">
+                  <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                    {group.title}
+                  </p>
+                  <ul className="space-y-1">
+                    {group.items.map((item) => (
+                      <li key={`mobile-${item.href}`}>
+                        <Link
+                          href={item.href}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${
+                            pathname === item.href
+                              ? "bg-primary/10 text-primary"
+                              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                          }`}
+                        >
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 border-t border-border pt-4">
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  logout();
+                }}
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

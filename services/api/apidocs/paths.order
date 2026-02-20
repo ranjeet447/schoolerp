@@ -20,6 +20,7 @@ hrms.yaml
 safety.yaml
 portfolio.yaml
 ai.yaml
+kb.yaml
 roles.yaml
 marketing-admin.yaml
 automation.yaml

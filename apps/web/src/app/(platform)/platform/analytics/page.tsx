@@ -58,6 +58,34 @@ type AnalyticsSnapshot = {
   snapshot_date: string;
 };
 
+function unwrapData(payload: unknown): unknown {
+  if (payload && typeof payload === "object" && "data" in payload) {
+    return (payload as { data?: unknown }).data;
+  }
+  return payload;
+}
+
+function toSummary(payload: unknown): PlatformSummary | null {
+  const value = unwrapData(payload);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as PlatformSummary;
+}
+
+function toBillingOverview(payload: unknown): BillingOverview | null {
+  const value = unwrapData(payload);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as BillingOverview;
+  return {
+    ...row,
+    plan_mix: Array.isArray(row.plan_mix) ? row.plan_mix : [],
+  };
+}
+
+function toArray<T>(payload: unknown): T[] {
+  const value = unwrapData(payload);
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
 export default function PlatformAnalyticsPage() {
   const [summary, setSummary] = useState<PlatformSummary | null>(null);
   const [billing, setBilling] = useState<BillingOverview | null>(null);
@@ -81,15 +109,17 @@ export default function PlatformAnalyticsPage() {
         throw new Error("Failed to load analytics overview.");
       }
 
-      setSummary(await summaryRes.json());
-      setBilling(await billingRes.json());
+      const summaryPayload = await summaryRes.json();
+      const billingPayload = await billingRes.json();
+      setSummary(toSummary(summaryPayload));
+      setBilling(toBillingOverview(billingPayload));
 
       const tenantRows = await tenantsRes.json();
-      setTenants(Array.isArray(tenantRows) ? tenantRows : []);
+      setTenants(toArray<PlatformTenant>(tenantRows));
 
       if (snapshotsRes.ok) {
         const snapshotRows = await snapshotsRes.json();
-        setSnapshots(Array.isArray(snapshotRows) ? snapshotRows : []);
+        setSnapshots(toArray<AnalyticsSnapshot>(snapshotRows));
       } else {
         setSnapshots([]);
       }

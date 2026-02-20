@@ -30,12 +30,42 @@ type DocumentTemplate = {
   is_active: boolean;
 };
 
+const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
+  email_enabled: true,
+  sms_enabled: false,
+  whatsapp_enabled: false,
+  push_enabled: true,
+};
+
+function unwrapData(payload: unknown): unknown {
+  if (payload && typeof payload === "object" && "data" in payload) {
+    return (payload as { data?: unknown }).data;
+  }
+  return payload;
+}
+
+function toArray<T>(payload: unknown): T[] {
+  const value = unwrapData(payload);
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function toNotificationSettings(payload: unknown): NotificationSettings {
+  const value = unwrapData(payload);
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return DEFAULT_NOTIFICATION_SETTINGS;
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    email_enabled: Boolean(record.email_enabled),
+    sms_enabled: Boolean(record.sms_enabled),
+    whatsapp_enabled: Boolean(record.whatsapp_enabled),
+    push_enabled: Boolean(record.push_enabled),
+  };
+}
+
 export default function PlatformSettingsPage() {
   const [settings, setSettings] = useState<NotificationSettings>({
-    email_enabled: true,
-    sms_enabled: false,
-    whatsapp_enabled: false,
-    push_enabled: true,
+    ...DEFAULT_NOTIFICATION_SETTINGS,
   });
   const [notificationTemplates, setNotificationTemplates] = useState<NotificationTemplate[]>([]);
   const [documentTemplates, setDocumentTemplates] = useState<DocumentTemplate[]>([]);
@@ -53,17 +83,29 @@ export default function PlatformSettingsPage() {
         apiClient("/admin/platform/settings/document-templates"),
       ]);
 
-      if (sRes.ok) setSettings(await sRes.json());
+      if (sRes.ok) {
+        const payload = await sRes.json();
+        setSettings(toNotificationSettings(payload));
+      } else {
+        setSettings(DEFAULT_NOTIFICATION_SETTINGS);
+      }
       if (ntRes.ok) {
-        const data = await ntRes.json();
-        setNotificationTemplates(Array.isArray(data) ? data : data.data || []);
+        const payload = await ntRes.json();
+        setNotificationTemplates(toArray<NotificationTemplate>(payload));
+      } else {
+        setNotificationTemplates([]);
       }
       if (dtRes.ok) {
-        const data = await dtRes.json();
-        setDocumentTemplates(Array.isArray(data) ? data : data.data || []);
+        const payload = await dtRes.json();
+        setDocumentTemplates(toArray<DocumentTemplate>(payload));
+      } else {
+        setDocumentTemplates([]);
       }
     } catch (e: any) {
       setError("Failed to load settings.");
+      setSettings(DEFAULT_NOTIFICATION_SETTINGS);
+      setNotificationTemplates([]);
+      setDocumentTemplates([]);
     } finally {
       setLoading(false);
     }

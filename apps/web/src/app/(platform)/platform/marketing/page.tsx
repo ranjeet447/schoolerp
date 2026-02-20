@@ -46,6 +46,18 @@ type Changelog = {
   published_at: string;
 };
 
+function unwrapData(payload: unknown): unknown {
+  if (payload && typeof payload === "object" && "data" in payload) {
+    return (payload as { data?: unknown }).data;
+  }
+  return payload;
+}
+
+function toArray<T>(payload: unknown): T[] {
+  const value = unwrapData(payload);
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
 export default function PlatformMarketingPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [changelogs, setChangelogs] = useState<Changelog[]>([]);
@@ -70,15 +82,21 @@ export default function PlatformMarketingPage() {
       ]);
 
       if (aRes.ok) {
-        const data = await aRes.json();
-        setAnnouncements(Array.isArray(data) ? data : data.data || []);
+        const payload = await aRes.json();
+        setAnnouncements(toArray<Announcement>(payload));
+      } else {
+        setAnnouncements([]);
       }
       if (cRes.ok) {
-        const data = await cRes.json();
-        setChangelogs(Array.isArray(data) ? data : data.data || []);
+        const payload = await cRes.json();
+        setChangelogs(toArray<Changelog>(payload));
+      } else {
+        setChangelogs([]);
       }
     } catch (e: any) {
       setError("Failed to load marketing data.");
+      setAnnouncements([]);
+      setChangelogs([]);
     } finally {
       setLoading(false);
     }

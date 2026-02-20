@@ -26,7 +26,7 @@ info:
 servers:
   - url: http://localhost:8080/v1
     description: Local development server
-  - url: https://api.school-erp.in/v1
+  - url: https://schoolerp-vmn1.onrender.com/v1
     description: Production API
 
 tags:
@@ -64,6 +64,10 @@ tags:
     description: WhatsApp Config, Broadcast Logs, CRM
   - name: AI
     description: Parent Helpdesk, Multi-turn Chat, LLM Insights
+  - name: Knowledge Base
+    description: Tenant KB documents, settings, and semantic search
+  - name: Automation
+    description: Rule-based automation workflows and schedules
   - name: Roles
     description: RBAC, Custom Roles, Permissions
   - name: Public
@@ -6114,44 +6118,298 @@ paths:
           description: Achievement recorded
 
   # from paths/ai.yaml
-  # AI API Paths — Parent helpdesk, Multi-turn chat, Insights
+  # AI API Paths — Code-backed routes
   
-  /admin/ai/parent-helpdesk/chat:
+  /admin/ai/generate-lesson-plan:
     post:
-      operationId: parentHelpdeskChat
+      operationId: aiGenerateLessonPlanAdmin
       tags: [AI]
-      summary: Multi-turn AI chat for parent helpdesk
+      summary: Generate AI lesson plan (admin scope)
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [message]
+              required: [subject, topic]
               properties:
-                message: { type: string }
-                session_id: { type: string, description: "Optional session ID for multi-turn" }
-                language: { type: string, description: "Auto-detected if omitted" }
+                subject: { type: string }
+                topic: { type: string }
+                grade: { type: string }
       responses:
         '200':
-          description: AI response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  response: { type: string }
-                  session_id: { type: string }
-                  detected_language: { type: string }
+          description: Lesson plan generated
+        '400':
+          description: Invalid request
+        '403':
+          description: AI feature disabled
+        '503':
+          description: AI service unavailable
   
-  /admin/ai/usage-logs:
-    get:
-      operationId: listAIUsageLogs
+  /admin/ai/parent-query:
+    post:
+      operationId: aiParentQueryAdmin
       tags: [AI]
-      summary: List AI usage and token consumption logs
+      summary: Ask AI parent-helpdesk question (admin scope)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query: { type: string }
+                context_info: { type: string }
       responses:
         '200':
-          description: Usage logs
+          description: AI answer returned
+        '400':
+          description: Invalid request
+        '403':
+          description: AI feature disabled
+        '503':
+          description: AI service unavailable
+  
+  /admin/ai/exams/rubrics/generate:
+    post:
+      operationId: aiGenerateExamRubricAdmin
+      tags: [AI]
+      summary: Generate rubric JSON for exams (admin scope)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subject, title, max_marks]
+              properties:
+                subject: { type: string }
+                title: { type: string }
+                grade: { type: string }
+                max_marks: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: Rubric JSON generated
+        '400':
+          description: Invalid request
+        '403':
+          description: AI feature disabled
+        '503':
+          description: AI service unavailable
+  
+  /ai/helpdesk:
+    post:
+      operationId: aiHelpdeskPublic
+      tags: [AI]
+      summary: Parent helpdesk AI query (public route)
+      description: Publicly reachable route; tenant context still required for meaningful responses.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query: { type: string }
+                context_info: { type: string }
+      responses:
+        '200':
+          description: AI answer returned
+        '400':
+          description: Invalid request or tenant context missing
+        '403':
+          description: AI feature disabled
+  
+  /ai/lesson-plan:
+    post:
+      operationId: aiLessonPlanProtected
+      tags: [AI]
+      summary: Generate lesson plan (teacher/admin protected route)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subject, topic]
+              properties:
+                subject: { type: string }
+                topic: { type: string }
+                grade: { type: string }
+      responses:
+        '200':
+          description: Lesson plan generated
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (role/feature disabled)
+
+  # from paths/kb.yaml
+  # Knowledge Base API Paths
+  
+  /admin/kb/documents:
+    get:
+      operationId: kbListDocumentsAdmin
+      tags: [Knowledge Base]
+      summary: List KB documents (admin)
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: visibility
+          schema: { type: string }
+        - in: query
+          name: category
+          schema: { type: string }
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 0 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0 }
+      responses:
+        '200':
+          description: KB documents list
+    post:
+      operationId: kbCreateDocumentAdmin
+      tags: [Knowledge Base]
+      summary: Create KB document (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: KB document created
+        '400':
+          description: Invalid payload
+  
+  /admin/kb/documents/{id}:
+    get:
+      operationId: kbGetDocumentAdmin
+      tags: [Knowledge Base]
+      summary: Get KB document by ID (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: KB document details
+        '404':
+          description: Not found
+    patch:
+      operationId: kbUpdateDocumentAdmin
+      tags: [Knowledge Base]
+      summary: Patch KB document (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: KB document updated
+        '400':
+          description: Invalid payload
+        '404':
+          description: Not found
+    delete:
+      operationId: kbDeleteDocumentAdmin
+      tags: [Knowledge Base]
+      summary: Delete KB document (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Not found
+  
+  /admin/kb/settings:
+    get:
+      operationId: kbGetSettingsAdmin
+      tags: [Knowledge Base]
+      summary: Get KB settings (admin)
+      responses:
+        '200':
+          description: KB settings
+    patch:
+      operationId: kbUpdateSettingsAdmin
+      tags: [Knowledge Base]
+      summary: Update KB settings (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: KB settings updated
+        '400':
+          description: Invalid payload
+  
+  /kb/search:
+    post:
+      operationId: kbSearchProtected
+      tags: [Knowledge Base]
+      summary: Search tenant knowledge base (protected)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query: { type: string }
+                top_k: { type: integer, minimum: 1 }
+                filters:
+                  type: object
+                  properties:
+                    category: { type: string }
+                    tags:
+                      type: array
+                      items: { type: string }
+                    visibility: { type: string }
+      responses:
+        '200':
+          description: Search results
+        '400':
+          description: Invalid payload
+        '403':
+          description: Forbidden
+  
+  /kb/facets:
+    get:
+      operationId: kbFacetsProtected
+      tags: [Knowledge Base]
+      summary: List KB search facets (protected)
+      responses:
+        '200':
+          description: Facets response
+        '403':
+          description: Forbidden
 
   # from paths/roles.yaml
   # RBAC API Paths — Roles, Permissions, Assignments
@@ -6296,43 +6554,79 @@ paths:
           description: Lead list
 
   # from paths/automation.yaml
-  # Automation API Paths — Trigger-action workflows, Scheduled tasks
+  # Automation API Paths — Trigger-action rules
   
-  /admin/automation/workflows:
+  /admin/automation/rules:
     get:
-      operationId: listWorkflows
+      operationId: listAutomationRules
       tags: [Automation]
-      summary: List automation workflows
+      summary: List automation rules
       responses:
         '200':
-          description: Workflow list
+          description: Rule list
     post:
-      operationId: createWorkflow
+      operationId: createAutomationRule
       tags: [Automation]
-      summary: Create an automation workflow
+      summary: Create automation rule
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [name, trigger, actions]
+              required: [name, trigger_type, trigger_event, action_json]
               properties:
                 name: { type: string }
-                trigger: { type: object, description: "Trigger configuration (e.g. event, schedule)" }
-                actions: { type: array, items: { type: object }, description: "List of actions to execute" }
-      responses:
-        '201':
-          description: Workflow created
-  
-  /admin/automation/execution-logs:
-    get:
-      operationId: listWorkflowLogs
-      tags: [Automation]
-      summary: List workflow execution history
+                description: { type: string }
+                trigger_type: { type: string, enum: [event, time] }
+                trigger_event: { type: string }
+                schedule_cron: { type: string }
+                condition_json: { type: object }
+                action_json: { type: object }
+                is_active: { type: boolean }
       responses:
         '200':
-          description: Execution logs
+          description: Rule created
+        '400':
+          description: Invalid payload
+  
+  /admin/automation/rules/{id}:
+    put:
+      operationId: updateAutomationRule
+      tags: [Automation]
+      summary: Update automation rule
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Rule updated
+        '400':
+          description: Invalid payload
+        '404':
+          description: Rule not found
+    delete:
+      operationId: deleteAutomationRule
+      tags: [Automation]
+      summary: Delete automation rule
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Rule deleted
+        '404':
+          description: Rule not found
 
   # from paths/alumni.yaml
   # Alumni API Paths — Former student records, Events, Directory
