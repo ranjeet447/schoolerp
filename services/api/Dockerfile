@@ -12,6 +12,7 @@ COPY services/api/ .
 # Also need the internal db generated code if not included
 # COPY services/shared/ ... (if any)
 
+RUN go run ./cmd/openapi-bundle
 RUN CGO_ENABLED=0 GOOS=linux go build -o api ./cmd/api/main.go
 
 # Final stage

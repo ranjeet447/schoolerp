@@ -1,0 +1,28 @@
+# Ordered list of modular path files for bundle generation.
+# Files omitted here are appended alphabetically.
+
+auth.yaml
+public.yaml
+students.yaml
+dashboard.yaml
+attendance.yaml
+finance.yaml
+exams.yaml
+notices.yaml
+communication.yaml
+academics.yaml
+schedule.yaml
+transport.yaml
+library.yaml
+inventory.yaml
+admissions.yaml
+hrms.yaml
+safety.yaml
+portfolio.yaml
+ai.yaml
+roles.yaml
+marketing-admin.yaml
+automation.yaml
+alumni.yaml
+tenant.yaml
+parent-accountant.yaml

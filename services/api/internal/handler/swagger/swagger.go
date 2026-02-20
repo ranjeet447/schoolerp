@@ -3,6 +3,9 @@ package swagger
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -74,5 +77,46 @@ func FS(dir string) http.Handler {
 			return
 		}
 		http.StripPrefix("/docs/v1/openapi/", http.FileServer(http.Dir(dir))).ServeHTTP(w, r)
+	})
+}
+
+// StorybookFS serves a built Storybook static directory.
+// It falls back to index.html for non-file paths so client-side navigation works.
+func StorybookFS(dir string) http.Handler {
+	fileServer := http.FileServer(http.Dir(dir))
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestPath := path.Clean("/" + strings.TrimSpace(r.URL.Path))
+		if requestPath == "/" || requestPath == "." {
+			r2 := r.Clone(r.Context())
+			r2.URL.Path = "/index.html"
+			fileServer.ServeHTTP(w, r2)
+			return
+		}
+
+		relative := strings.TrimPrefix(requestPath, "/")
+		fullPath := filepath.Join(dir, relative)
+
+		if info, err := os.Stat(fullPath); err == nil {
+			// Serve existing files and directories normally.
+			if info.IsDir() {
+				r2 := r.Clone(r.Context())
+				r2.URL.Path = path.Join(requestPath, "index.html")
+				fileServer.ServeHTTP(w, r2)
+				return
+			}
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+
+		// If path looks like an app route (no extension), serve Storybook index.
+		if !strings.Contains(path.Base(requestPath), ".") {
+			r2 := r.Clone(r.Context())
+			r2.URL.Path = "/index.html"
+			fileServer.ServeHTTP(w, r2)
+			return
+		}
+
+		http.NotFound(w, r)
 	})
 }

@@ -50,7 +50,7 @@
                   properties:
                     token:
                       type: string
-                      description: Signed JWT (HS256) — include as `Authorization: Bearer <token>`
+                      description: "Signed JWT (HS256) — include as `Authorization: Bearer <token>`"
                     user_id: { type: string, format: uuid }
                     email: { type: string, format: email }
                     full_name: { type: string, example: "Ranjeet Singh" }

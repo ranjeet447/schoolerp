@@ -12,12 +12,17 @@ import (
 	"github.com/schoolerp/api/internal/db"
 )
 
+type engineStore interface {
+	ListActiveAutomationRulesByEvent(ctx context.Context, arg db.ListActiveAutomationRulesByEventParams) ([]db.AutomationRule, error)
+	CreateOutboxEvent(ctx context.Context, arg db.CreateOutboxEventParams) (db.Outbox, error)
+}
+
 type Engine struct {
-	q        db.Querier
+	q        engineStore
 	webhooks *WebhookService
 }
 
-func NewEngine(q db.Querier, webhooks *WebhookService) *Engine {
+func NewEngine(q engineStore, webhooks *WebhookService) *Engine {
 	return &Engine{q: q, webhooks: webhooks}
 }
 
@@ -72,6 +77,10 @@ func (e *Engine) executeActions(ctx context.Context, tenantID string, actionJson
 			if err := e.queueNotificationAction(ctx, tenantID, action.Config, payload); err != nil {
 				log.Error().Err(err).Msg("Failed to queue send_notification action")
 			}
+		case "emit_event", "enqueue_event", "outbox_event":
+			if err := e.queueOutboxEventAction(ctx, tenantID, action.Config, payload); err != nil {
+				log.Error().Err(err).Msg("Failed to queue outbox event action")
+			}
 		case "webhook":
 			log.Info().Msg("Executing action: webhook")
 			var cfg struct {
@@ -105,6 +114,13 @@ type notificationActionConfig struct {
 	Subject      string                 `json:"subject"`
 	Body         string                 `json:"body"`
 	Data         map[string]interface{} `json:"data"`
+}
+
+type outboxEventActionConfig struct {
+	EventType           string                 `json:"event_type"`
+	Payload             map[string]interface{} `json:"payload"`
+	MergeTriggerPayload bool                   `json:"merge_trigger_payload"`
+	ProcessAfterSeconds int                    `json:"process_after_seconds"`
 }
 
 func (e *Engine) queueNotificationAction(ctx context.Context, tenantID string, configJSON json.RawMessage, payload json.RawMessage) error {
@@ -158,5 +174,59 @@ func (e *Engine) queueNotificationAction(ctx context.Context, tenantID string, c
 	}
 
 	log.Info().Str("event_type", eventType).Msg("Queued automation notification event")
+	return nil
+}
+
+func (e *Engine) queueOutboxEventAction(ctx context.Context, tenantID string, configJSON json.RawMessage, triggerPayload json.RawMessage) error {
+	var cfg outboxEventActionConfig
+	if len(strings.TrimSpace(string(configJSON))) > 0 {
+		if err := json.Unmarshal(configJSON, &cfg); err != nil {
+			return fmt.Errorf("invalid outbox event config: %w", err)
+		}
+	}
+
+	eventType := strings.TrimSpace(cfg.EventType)
+	if eventType == "" {
+		return fmt.Errorf("event_type is required for outbox event action")
+	}
+
+	mergedPayload := map[string]interface{}{}
+	if cfg.MergeTriggerPayload {
+		var triggerMap map[string]interface{}
+		if len(strings.TrimSpace(string(triggerPayload))) > 0 {
+			if err := json.Unmarshal(triggerPayload, &triggerMap); err == nil {
+				for k, v := range triggerMap {
+					mergedPayload[k] = v
+				}
+			}
+		}
+	}
+	for k, v := range cfg.Payload {
+		mergedPayload[k] = v
+	}
+	if len(mergedPayload) == 0 {
+		mergedPayload["source"] = "automation"
+		mergedPayload["triggered_at"] = time.Now().UTC().Format(time.RFC3339)
+	}
+
+	body, err := json.Marshal(mergedPayload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal outbox event payload: %w", err)
+	}
+
+	runAt := time.Now().UTC()
+	if cfg.ProcessAfterSeconds > 0 {
+		runAt = runAt.Add(time.Duration(cfg.ProcessAfterSeconds) * time.Second)
+	}
+
+	_, err = e.q.CreateOutboxEvent(ctx, db.CreateOutboxEventParams{
+		TenantID:     toPgUUID(tenantID),
+		EventType:    eventType,
+		Payload:      body,
+		ProcessAfter: pgtype.Timestamptz{Time: runAt, Valid: true},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to queue outbox event action: %w", err)
+	}
 	return nil
 }

@@ -3542,6 +3542,17 @@ CREATE INDEX idx_reading_progress_student ON library_reading_progress(student_id
 ALTER TABLE automation_rules ADD COLUMN trigger_type TEXT NOT NULL DEFAULT 'event' CHECK (trigger_type IN ('event', 'time'));
 ALTER TABLE automation_rules ADD COLUMN schedule_cron TEXT; -- optional cron expression
 
+CREATE TABLE automation_rule_runs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    rule_id UUID NOT NULL REFERENCES automation_rules(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    run_minute TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(rule_id, run_minute)
+);
+
+CREATE INDEX idx_automation_rule_runs_tenant_minute ON automation_rule_runs(tenant_id, run_minute DESC);
+
 -- AI Chat Sessions for multi-turn conversations
 CREATE TABLE ai_chat_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -1,4 +1,4 @@
-.PHONY: dev build migrate seed seed-bootstrap seed-reset seed-marketing test help
+.PHONY: dev build openapi-bundle migrate seed seed-bootstrap seed-reset seed-marketing test help
 
 # Standard local development
 dev:
@@ -7,8 +7,13 @@ dev:
 # Build all services
 build:
 	pnpm build
+	$(MAKE) openapi-bundle
 	cd services/api && go build ./...
 	cd services/worker && go build ./...
+
+# Generate bundled OpenAPI spec consumed by /docs/v1
+openapi-bundle:
+	cd services/api && go run ./cmd/openapi-bundle
 
 # Run all tests
 test:
@@ -42,6 +47,7 @@ help:
 	@echo "SchoolERP Makefile"
 	@echo "  make dev      - Start all services (web, api, worker)"
 	@echo "  make build    - Build all services"
+	@echo "  make openapi-bundle - Generate bundled OpenAPI file"
 	@echo "  make migrate  - Run DB migrations"
 	@echo "  make seed     - Safe bootstrap seed (default)"
 	@echo "  make seed-bootstrap - Safe idempotent seed"

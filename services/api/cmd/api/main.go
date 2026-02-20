@@ -306,6 +306,19 @@ func main() {
 	r.Handle("/docs/v1", swaggerHandler)
 	r.Handle("/docs/v1/", swaggerHandler)
 	r.Handle("/docs/v1/openapi/*", swagger.FS("apidocs"))
+	if !strings.EqualFold(os.Getenv("ENV"), "production") {
+		if storybookDir := resolveStorybookStaticDir(); storybookDir != "" {
+			storybookHandler := http.StripPrefix("/docs/v1/storybook", swagger.StorybookFS(storybookDir))
+			r.Get("/docs/v1/storybook", func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, "/docs/v1/storybook/", http.StatusTemporaryRedirect)
+			})
+			r.Handle("/docs/v1/storybook/", storybookHandler)
+			r.Handle("/docs/v1/storybook/*", storybookHandler)
+			log.Info().Str("dir", storybookDir).Msg("Storybook route enabled at /docs/v1/storybook")
+		} else {
+			log.Warn().Msg("Storybook route disabled: built static bundle not found")
+		}
+	}
 
 	// 4. API V1 Routes
 	r.Route("/v1", func(r chi.Router) {
@@ -440,4 +453,33 @@ func main() {
 	}
 
 	log.Info().Msg("Server exiting")
+}
+
+func resolveStorybookStaticDir() string {
+	if explicit := strings.TrimSpace(os.Getenv("STORYBOOK_STATIC_DIR")); explicit != "" {
+		if isDir(explicit) {
+			return explicit
+		}
+		log.Warn().Str("path", explicit).Msg("STORYBOOK_STATIC_DIR is not a valid directory")
+	}
+
+	candidates := []string{
+		"packages/storybook/storybook-static",
+		"../packages/storybook/storybook-static",
+		"../../packages/storybook/storybook-static",
+		"../storybook/storybook-static",
+	}
+
+	for _, candidate := range candidates {
+		if isDir(candidate) {
+			return candidate
+		}
+	}
+
+	return ""
+}
+
+func isDir(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
 }

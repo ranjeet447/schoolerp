@@ -18,7 +18,7 @@ This document provides a step-by-step guide for deploying the SchoolERP SaaS pla
 3. Configuration:
    - **Root Directory**: `services/api`
    - **Runtime**: `Go`
-   - **Build Command**: `go build -o api ./cmd/api`
+   - **Build Command**: `go run ./cmd/openapi-bundle && go build -o api ./cmd/api`
    - **Start Command**: `./api`
 4. **Environment Variables**:
    - `DATABASE_URL`: Your Supabase URI.

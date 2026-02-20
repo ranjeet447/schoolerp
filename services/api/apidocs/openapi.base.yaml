@@ -1,0 +1,87 @@
+# OpenAPI Specification — SchoolERP v1
+# Base file used by cmd/openapi-bundle to generate openapi.yaml.
+
+openapi: 3.1.0
+info:
+  title: SchoolERP API
+  version: 1.0.0
+  description: |
+    Comprehensive API documentation for the SchoolERP platform.
+    This API handles everything from student management, finance, and exams
+    to AI-powered parent helpdesks and cross-campus analytics.
+
+    ### Authentication
+    Most endpoints require a signed JWT token in the `Authorization` header:
+    `Authorization: Bearer <your_token_here>`
+
+    ### Multi-tenancy
+    The API supports multi-tenancy. You must specify the tenant ID in the
+    `X-Tenant-ID` header or ensure the request is routed via the tenant's subdomain.
+
+    ### Response Formats
+    All responses are in JSON format and follow a consistent structure:
+    - Success: `{ "success": true, "data": { ... } }`
+    - Error: `{ "success": false, "message": "error description", "code": "ERR_CODE" }`
+
+servers:
+  - url: http://localhost:8080/v1
+    description: Local development server
+  - url: https://api.school-erp.in/v1
+    description: Production API
+
+tags:
+  - name: Auth
+    description: Login, MFA, Password Reset, Legal Docs
+  - name: Students
+    description: SIS, Academic Structure, Student 360, Custom Fields
+  - name: Finance
+    description: Fees, Payments, Receipts, Scholarships, Concessions
+  - name: Exams
+    description: Exam Management, Marks, Grading, Hall Tickets
+  - name: Attendance
+    description: Student and Staff Attendance
+  - name: Dashboard
+    description: Operational and Strategic Analytics
+  - name: Notices
+    description: Circulars, Notices, and Broadcast Notifications
+  - name: Academics
+    description: Homework, Lesson Plans, Timetable, Certificates
+  - name: Schedule
+    description: Timetable Slots, Substitutions, Teacher Lessons
+  - name: Transport
+    description: Vehicles, Routes, Stops, Allocations
+  - name: Library
+    description: Books, Issues, Digital Assets, Reading Progress
+  - name: Inventory
+    description: Stock, Suppliers, POs, Requisitions
+  - name: Admissions
+    description: Enquiries, Applications, Enrollment Workflow
+  - name: HRMS
+    description: Employees, Salary, Payroll, Staff Tasks
+  - name: Safety
+    description: Incidents, Visitors, Gate Passes, Alerts
+  - name: Communication
+    description: WhatsApp Config, Broadcast Logs, CRM
+  - name: AI
+    description: Parent Helpdesk, Multi-turn Chat, LLM Insights
+  - name: Roles
+    description: RBAC, Custom Roles, Permissions
+  - name: Public
+    description: Marketing Site Forms, Demo Bookings, Reviews
+  - name: Platform
+    description: Global Tenant Management (Super Admin only)
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    TenantId:
+      type: apiKey
+      in: header
+      name: X-Tenant-ID
+
+security:
+  - BearerAuth: []
+    TenantId: []
