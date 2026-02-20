@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { 
   LayoutDashboard, 
@@ -26,14 +26,23 @@ import {
   BookOpen,
   Home,
   CreditCard,
+  Layers3,
 } from 'lucide-react';
-import { Button } from '@schoolerp/ui';
+import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@schoolerp/ui';
 import { RBACService } from '@/lib/auth-service';
 import { usePathname, useRouter } from 'next/navigation';
 import { TenantConfig } from '@/lib/tenant-utils';
 import { useAuth } from '@/components/auth-provider';
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { apiClient } from "@/lib/api-client";
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  permission?: string;
+  activePrefixes?: string[];
+};
 
 const NAV_ITEMS = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
@@ -56,11 +65,64 @@ const NAV_ITEMS = [
   { href: '/admin/id-cards', label: 'Digital ID Cards', icon: CreditCard, permission: 'sis:read' },
   { href: '/admin/learning-resources', label: 'Learning Resources', icon: BookOpen, permission: 'notices:read' },
   { href: '/admin/school-profile', label: 'School Profile', icon: Building, permission: 'tenant:settings:view' },
-  { href: '/admin/settings/users', label: 'User Management', icon: Users, permission: 'tenant:users:manage' },
-  { href: '/admin/settings/roles', label: 'Roles & Permissions', icon: Shield, permission: 'tenant:roles:manage' },
+  { href: '/admin/plan', label: 'Platform Plan', icon: Layers3, permission: 'tenant:settings:view' },
+  { href: '/admin/billing', label: 'Platform Billing', icon: CreditCard, permission: 'tenant:settings:view' },
+  {
+    href: '/admin/settings/users',
+    label: 'User & Access',
+    icon: Shield,
+    permission: 'tenant:users:manage',
+    activePrefixes: ['/admin/settings/users', '/admin/settings/roles', '/admin/settings/permissions', '/admin/settings/access'],
+  },
   { href: '/admin/settings/onboarding', label: 'School Onboarding', icon: School, permission: 'platform:manage' },
   { href: '/admin/settings/master-data', label: 'Settings', icon: Settings, permission: 'tenant:settings:view' },
 ];
+
+const NAV_GROUP_ORDER = [
+  'Overview',
+  'Academics & Students',
+  'Operations',
+  'Administration',
+] as const;
+
+function isNavItemActive(pathname: string, item: NavItem): boolean {
+  if (pathname === item.href || pathname.startsWith(`${item.href}/`)) {
+    return true;
+  }
+  if (!item.activePrefixes?.length) return false;
+  return item.activePrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+function getNavGroup(href: string): (typeof NAV_GROUP_ORDER)[number] {
+  if (href.startsWith('/admin/settings') || href.startsWith('/admin/plan') || href.startsWith('/admin/billing')) return 'Administration';
+  if (
+    href.startsWith('/admin/students') ||
+    href.startsWith('/admin/admissions') ||
+    href.startsWith('/admin/attendance') ||
+    href.startsWith('/admin/staff-attendance') ||
+    href.startsWith('/admin/timetable') ||
+    href.startsWith('/admin/exams') ||
+    href.startsWith('/admin/certificates') ||
+    href.startsWith('/admin/notices') ||
+    href.startsWith('/admin/communication') ||
+    href.startsWith('/admin/kb') ||
+    href.startsWith('/admin/houses') ||
+    href.startsWith('/admin/learning-resources')
+  ) {
+    return 'Academics & Students';
+  }
+  if (
+    href.startsWith('/admin/finance') ||
+    href.startsWith('/admin/calendar') ||
+    href.startsWith('/admin/hostel') ||
+    href.startsWith('/admin/id-cards') ||
+    href.startsWith('/admin/school-profile') ||
+    href.startsWith('/admin/bulk-import')
+  ) {
+    return 'Operations';
+  }
+  return 'Overview';
+}
 
 export default function AdminLayoutClient({
   children,
@@ -72,6 +134,7 @@ export default function AdminLayoutClient({
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [exitingImpersonation, setExitingImpersonation] = useState(false);
 
@@ -84,6 +147,10 @@ export default function AdminLayoutClient({
   useEffect(() => {
     if (typeof window === "undefined") return;
     setIsImpersonating(!!localStorage.getItem("impersonator_auth_token"));
+  }, [pathname]);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
   }, [pathname]);
 
   const exitImpersonation = async () => {
@@ -147,20 +214,39 @@ export default function AdminLayoutClient({
     window.location.href = "/platform/dashboard";
   };
 
-  const filteredNavItems = NAV_ITEMS.filter(item => 
-    !item.permission || RBACService.hasPermission(item.permission)
+  const filteredNavItems = useMemo(
+    () => NAV_ITEMS.filter((item) => !item.permission || RBACService.hasPermission(item.permission)),
+    []
   );
+
+  const groupedNavItems = useMemo(() => {
+    const groups = new Map<string, NavItem[]>();
+    for (const item of filteredNavItems) {
+      const group = getNavGroup(item.href);
+      const existing = groups.get(group) ?? [];
+      existing.push(item);
+      groups.set(group, existing);
+    }
+    return NAV_GROUP_ORDER
+      .map((title) => ({ title, items: groups.get(title) ?? [] }))
+      .filter((group) => group.items.length > 0);
+  }, [filteredNavItems]);
+
+  const activeNavLabel = useMemo(() => {
+    const match = filteredNavItems.find((item) => isNavItemActive(pathname, item));
+    return match?.label ?? "Admin";
+  }, [filteredNavItems, pathname]);
 
   const schoolName = config?.branding?.name_override || config?.name || 'SchoolERP';
   const logoUrl = config?.branding?.logo_url;
 
   return (
-    <div className="flex h-screen bg-background text-foreground" style={{ 
+    <div className="flex h-dvh bg-background text-foreground" style={{ 
       //@ts-ignore
       '--primary-color': config?.branding?.primary_color || '#4f46e5' 
     }}>
       {/* Sidebar */}
-      <aside className="w-64 border-r border-border bg-card hidden md:flex md:flex-col">
+      <aside className="w-72 border-r border-border bg-card hidden md:flex md:flex-col">
         <div className="flex h-16 items-center border-b border-border px-6">
           <Link href="/admin/dashboard" className="flex items-center gap-2 font-bold text-xl text-indigo-400" style={{ color: config?.branding?.primary_color || undefined }}>
             {logoUrl ? (
@@ -177,24 +263,36 @@ export default function AdminLayoutClient({
           </Link>
         </div>
         <nav className="flex-1 overflow-y-auto py-4">
-          <ul className="space-y-1 px-3">
-            {filteredNavItems.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    pathname === item.href 
-                      ? 'bg-accent text-foreground font-semibold' 
-                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                  }`}
-                  style={pathname === item.href ? { color: config?.branding?.primary_color || undefined, backgroundColor: `${config?.branding?.primary_color}10` || undefined } : {}}
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              </li>
+          <div className="space-y-5 px-3">
+            {groupedNavItems.map((group) => (
+              <div key={group.title} className="space-y-1.5">
+                <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                  {group.title}
+                </h3>
+                <ul className="space-y-1">
+                  {group.items.map((item) => {
+                    const isActive = isNavItemActive(pathname, item);
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                            isActive
+                              ? 'bg-accent text-foreground font-semibold'
+                              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                          }`}
+                          style={isActive ? { color: config?.branding?.primary_color || undefined, backgroundColor: `${config?.branding?.primary_color}10` || undefined } : {}}
+                        >
+                          <item.icon className="h-4 w-4 shrink-0" />
+                          <span className="truncate">{item.label}</span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         </nav>
         
         <div className="border-t border-border p-4">
@@ -222,11 +320,20 @@ export default function AdminLayoutClient({
 
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
-          <Button variant="ghost" size="icon" className="md:hidden text-foreground">
+        <header className="flex h-16 items-center justify-between border-b border-border bg-card px-3 sm:px-4 md:px-6">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden text-foreground"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Open admin navigation"
+          >
             <Menu className="h-5 w-5" />
           </Button>
-          <div className="ml-auto flex items-center gap-4">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-foreground">{activeNavLabel}</p>
+          </div>
+          <div className="ml-auto flex items-center gap-2 sm:gap-4">
             {isImpersonating && (
               <Button
                 type="button"
@@ -240,13 +347,67 @@ export default function AdminLayoutClient({
               </Button>
             )}
             <ThemeToggle className="text-muted-foreground hover:text-foreground" />
-            <span className="text-sm text-muted-foreground font-medium">{schoolName}</span>
+            <span className="hidden text-sm font-medium text-muted-foreground sm:inline-block">{schoolName}</span>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-6 bg-background text-foreground">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-background p-3 pb-24 text-foreground sm:p-4 sm:pb-24 md:p-6 md:pb-6">
           {children}
         </main>
       </div>
+
+      <Dialog open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <DialogContent className="w-[92vw] max-w-sm p-0">
+          <DialogHeader className="border-b border-border p-4">
+            <DialogTitle className="text-base">Admin Navigation</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[72vh] overflow-y-auto p-4">
+            <div className="space-y-5">
+              {groupedNavItems.map((group) => (
+                <div key={`mobile-${group.title}`} className="space-y-1.5">
+                  <p className="px-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                    {group.title}
+                  </p>
+                  <ul className="space-y-1">
+                    {group.items.map((item) => {
+                      const isActive = isNavItemActive(pathname, item);
+                      return (
+                        <li key={`mobile-${item.href}`}>
+                          <Link
+                            href={item.href}
+                            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${
+                              isActive
+                                ? 'bg-accent text-foreground'
+                                : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+                            }`}
+                            onClick={() => setMobileMenuOpen(false)}
+                            style={isActive ? { color: config?.branding?.primary_color || undefined, backgroundColor: `${config?.branding?.primary_color}10` || undefined } : {}}
+                          >
+                            <item.icon className="h-4 w-4 shrink-0" />
+                            <span className="truncate">{item.label}</span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 border-t border-border pt-4">
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  logout();
+                }}
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
