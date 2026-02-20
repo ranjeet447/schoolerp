@@ -145,8 +145,23 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 		r.Get("/monitoring/health", h.GetPlatformHealth)
 		r.Get("/monitoring/queue", h.GetQueueHealth)
 		r.Get("/integrations/webhooks", h.ListPlatformWebhooks)
+		r.Post("/integrations/webhooks", h.CreatePlatformWebhook)
+		r.Patch("/integrations/webhooks/{webhook_id}", h.UpdatePlatformWebhook)
 		r.Get("/integrations/logs", h.ListIntegrationLogs)
 		r.Get("/integrations/health", h.GetIntegrationHealth)
+	})
+
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.PermissionGuard("platform:addons.read"))
+		r.Get("/tenants/{tenant_id}/addons", h.ListTenantAddons)
+		r.Get("/addon-requests", h.ListPlatformAddonActivationRequests)
+	})
+
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.PermissionGuard("platform:addons.write"))
+		r.Post("/tenants/{tenant_id}/addons/{addon_id}", h.UpdateTenantAddon)
+		r.Post("/addon-requests/{request_id}/review", h.ReviewPlatformAddonActivationRequest)
+		r.Post("/addon-requests/{request_id}/activate", h.ActivatePlatformAddonActivationRequest)
 	})
 
 	r.Group(func(r chi.Router) {
@@ -261,6 +276,104 @@ func (h *Handler) ListPlugins(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"plugins": plugins,
 	})
+}
+
+func (h *Handler) GetAdminTenantPlan(w http.ResponseWriter, r *http.Request) {
+	tenantID := strings.TrimSpace(middleware.GetTenantID(r.Context()))
+	if tenantID == "" {
+		http.Error(w, "tenant context missing", http.StatusBadRequest)
+		return
+	}
+
+	tenantRow, err := h.service.GetPlatformTenant(r.Context(), tenantID)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrTenantNotFound):
+			http.Error(w, "Tenant not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Failed to load tenant plan data", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	plans, err := h.service.ListPlatformPlans(r.Context(), tenant.PlatformPlanFilters{
+		IncludeInactive: false,
+		Search:          strings.TrimSpace(r.URL.Query().Get("search")),
+	})
+	if err != nil {
+		http.Error(w, "Failed to load plan catalog", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"tenant": tenantRow,
+		"plans":  plans,
+	})
+}
+
+func (h *Handler) GetAdminTenantBilling(w http.ResponseWriter, r *http.Request) {
+	tenantID := strings.TrimSpace(middleware.GetTenantID(r.Context()))
+	if tenantID == "" {
+		http.Error(w, "tenant context missing", http.StatusBadRequest)
+		return
+	}
+
+	controls, err := h.service.GetTenantBillingControls(r.Context(), tenantID)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to load tenant billing data", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(controls)
+}
+
+func (h *Handler) ListAdminTenantInvoices(w http.ResponseWriter, r *http.Request) {
+	tenantID := strings.TrimSpace(middleware.GetTenantID(r.Context()))
+	if tenantID == "" {
+		http.Error(w, "tenant context missing", http.StatusBadRequest)
+		return
+	}
+
+	limit := int32(50)
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = int32(parsed)
+		}
+	}
+	offset := int32(0)
+	if raw := r.URL.Query().Get("offset"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			offset = int32(parsed)
+		}
+	}
+
+	rows, err := h.service.ListPlatformInvoices(r.Context(), tenant.ListPlatformInvoicesFilters{
+		TenantID: tenantID,
+		Status:   strings.TrimSpace(r.URL.Query().Get("status")),
+		Limit:    limit,
+		Offset:   offset,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+		default:
+			http.Error(w, "Failed to load tenant invoices", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(rows)
 }
 
 func (h *Handler) UpdatePluginConfig(w http.ResponseWriter, r *http.Request) {
@@ -3980,6 +4093,244 @@ func (h *Handler) GetQueueHealth(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(health)
 }
 
+func (h *Handler) ListTenantAddons(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	rows, err := h.service.ListTenantAddons(r.Context(), tenantID)
+	if err != nil {
+		http.Error(w, "Failed to load tenant add-ons", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"addons": rows})
+}
+
+func (h *Handler) UpdateTenantAddon(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	addonID := chi.URLParam(r, "addon_id")
+
+	var req struct {
+		Enabled  bool                   `json:"enabled"`
+		Settings map[string]interface{} `json:"settings"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.service.UpdateTenantAddon(r.Context(), tenantID, addonID, req.Enabled, req.Settings); err != nil {
+		http.Error(w, "Failed to update tenant add-on", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+func (h *Handler) ListTenantAddonActivationRequests(w http.ResponseWriter, r *http.Request) {
+	tenantID := strings.TrimSpace(middleware.GetTenantID(r.Context()))
+	if tenantID == "" {
+		tenantID = strings.TrimSpace(r.Header.Get("X-Tenant-ID"))
+	}
+	if tenantID == "" {
+		http.Error(w, "tenant context missing", http.StatusBadRequest)
+		return
+	}
+
+	limit := int32(50)
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = int32(parsed)
+		}
+	}
+	offset := int32(0)
+	if raw := strings.TrimSpace(r.URL.Query().Get("offset")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			offset = int32(parsed)
+		}
+	}
+
+	rows, err := h.service.ListTenantAddonActivationRequests(r.Context(), tenantID, limit, offset)
+	if err != nil {
+		http.Error(w, "Failed to load add-on activation requests", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"requests": rows})
+}
+
+func (h *Handler) CreateTenantAddonActivationRequest(w http.ResponseWriter, r *http.Request) {
+	tenantID := strings.TrimSpace(middleware.GetTenantID(r.Context()))
+	if tenantID == "" {
+		tenantID = strings.TrimSpace(r.Header.Get("X-Tenant-ID"))
+	}
+	if tenantID == "" {
+		http.Error(w, "tenant context missing", http.StatusBadRequest)
+		return
+	}
+
+	actorID := strings.TrimSpace(middleware.GetUserID(r.Context()))
+
+	var req struct {
+		AddonID          string                 `json:"addon_id"`
+		Reason           string                 `json:"reason"`
+		BillingReference string                 `json:"billing_reference"`
+		Settings         map[string]interface{} `json:"settings"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	row, err := h.service.CreateTenantAddonActivationRequest(r.Context(), tenantID, tenant.CreateTenantAddonActivationRequestParams{
+		AddonID:          req.AddonID,
+		Reason:           req.Reason,
+		BillingReference: req.BillingReference,
+		Settings:         req.Settings,
+		RequestedBy:      actorID,
+	})
+	if err != nil {
+		status := http.StatusInternalServerError
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID),
+			errors.Is(err, tenant.ErrAddonRequestAddonRequired),
+			errors.Is(err, tenant.ErrAddonRequestAddonUnknown):
+			status = http.StatusBadRequest
+		case errors.Is(err, tenant.ErrAddonRequestAlreadyExists),
+			errors.Is(err, tenant.ErrAddonRequestAlreadyActive):
+			status = http.StatusConflict
+		}
+		http.Error(w, err.Error(), status)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(row)
+}
+
+func (h *Handler) ListPlatformAddonActivationRequests(w http.ResponseWriter, r *http.Request) {
+	qp := r.URL.Query()
+	limit := int32(50)
+	if raw := strings.TrimSpace(qp.Get("limit")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = int32(parsed)
+		}
+	}
+	offset := int32(0)
+	if raw := strings.TrimSpace(qp.Get("offset")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			offset = int32(parsed)
+		}
+	}
+
+	rows, err := h.service.ListPlatformAddonActivationRequests(r.Context(), tenant.ListAddonActivationRequestsFilters{
+		TenantID: strings.TrimSpace(qp.Get("tenant_id")),
+		AddonID:  strings.TrimSpace(qp.Get("addon_id")),
+		Status:   strings.TrimSpace(qp.Get("status")),
+		Limit:    limit,
+		Offset:   offset,
+	})
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, tenant.ErrInvalidTenantID) {
+			status = http.StatusBadRequest
+		}
+		http.Error(w, err.Error(), status)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"requests": rows})
+}
+
+func (h *Handler) ReviewPlatformAddonActivationRequest(w http.ResponseWriter, r *http.Request) {
+	requestID := strings.TrimSpace(chi.URLParam(r, "request_id"))
+	if requestID == "" {
+		http.Error(w, "Request id is required", http.StatusBadRequest)
+		return
+	}
+	actorID := strings.TrimSpace(middleware.GetUserID(r.Context()))
+
+	var req struct {
+		Decision         string `json:"decision"`
+		Notes            string `json:"notes"`
+		BillingReference string `json:"billing_reference"`
+		ActivateNow      bool   `json:"activate_now"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	row, err := h.service.ReviewPlatformAddonActivationRequest(r.Context(), requestID, tenant.ReviewPlatformAddonActivationRequestParams{
+		Decision:         req.Decision,
+		Notes:            req.Notes,
+		BillingReference: req.BillingReference,
+		ActivateNow:      req.ActivateNow,
+		ReviewedBy:       actorID,
+	})
+	if err != nil {
+		status := http.StatusInternalServerError
+		switch {
+		case errors.Is(err, tenant.ErrInvalidAddonRequestID),
+			errors.Is(err, tenant.ErrAddonRequestInvalidDecision):
+			status = http.StatusBadRequest
+		case errors.Is(err, tenant.ErrAddonRequestNotFound):
+			status = http.StatusNotFound
+		case errors.Is(err, tenant.ErrAddonRequestNotPending),
+			errors.Is(err, tenant.ErrAddonRequestSelfApproval):
+			status = http.StatusConflict
+		}
+		http.Error(w, err.Error(), status)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(row)
+}
+
+func (h *Handler) ActivatePlatformAddonActivationRequest(w http.ResponseWriter, r *http.Request) {
+	requestID := strings.TrimSpace(chi.URLParam(r, "request_id"))
+	if requestID == "" {
+		http.Error(w, "Request id is required", http.StatusBadRequest)
+		return
+	}
+	actorID := strings.TrimSpace(middleware.GetUserID(r.Context()))
+
+	var req struct {
+		BillingReference string `json:"billing_reference"`
+		Notes            string `json:"notes"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	row, err := h.service.ActivatePlatformAddonActivationRequest(r.Context(), requestID, tenant.ActivatePlatformAddonActivationRequestParams{
+		BillingReference: req.BillingReference,
+		Notes:            req.Notes,
+		ActivatedBy:      actorID,
+	})
+	if err != nil {
+		status := http.StatusInternalServerError
+		switch {
+		case errors.Is(err, tenant.ErrInvalidAddonRequestID):
+			status = http.StatusBadRequest
+		case errors.Is(err, tenant.ErrAddonRequestNotFound):
+			status = http.StatusNotFound
+		case errors.Is(err, tenant.ErrAddonRequestNotApproved),
+			errors.Is(err, tenant.ErrAddonRequestAlreadyActive):
+			status = http.StatusConflict
+		}
+		http.Error(w, err.Error(), status)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(row)
+}
+
 func (h *Handler) ListPlatformWebhooks(w http.ResponseWriter, r *http.Request) {
 	tenantID := r.URL.Query().Get("tenant_id")
 	var tidPtr *string
@@ -3993,6 +4344,98 @@ func (h *Handler) ListPlatformWebhooks(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(webhooks)
+}
+
+func (h *Handler) CreatePlatformWebhook(w http.ResponseWriter, r *http.Request) {
+	actorID := middleware.GetUserID(r.Context())
+
+	var req struct {
+		TenantID  string   `json:"tenant_id"`
+		Name      string   `json:"name"`
+		TargetURL string   `json:"target_url"`
+		Secret    string   `json:"secret"`
+		Events    []string `json:"events"`
+		IsActive  *bool    `json:"is_active"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	var tenantIDPtr *string
+	if strings.TrimSpace(req.TenantID) != "" {
+		tenantID := strings.TrimSpace(req.TenantID)
+		tenantIDPtr = &tenantID
+	}
+
+	isActive := true
+	if req.IsActive != nil {
+		isActive = *req.IsActive
+	}
+
+	created, err := h.service.CreatePlatformWebhook(r.Context(), tenant.CreatePlatformWebhookParams{
+		TenantID:  tenantIDPtr,
+		Name:      req.Name,
+		TargetURL: req.TargetURL,
+		Secret:    req.Secret,
+		Events:    req.Events,
+		IsActive:  isActive,
+		CreatedBy: actorID,
+	})
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, tenant.ErrInvalidWebhook) || errors.Is(err, tenant.ErrInvalidTenantID) {
+			status = http.StatusBadRequest
+		}
+		http.Error(w, err.Error(), status)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(created)
+}
+
+func (h *Handler) UpdatePlatformWebhook(w http.ResponseWriter, r *http.Request) {
+	webhookID := chi.URLParam(r, "webhook_id")
+	if strings.TrimSpace(webhookID) == "" {
+		http.Error(w, "Webhook id is required", http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		Name      *string  `json:"name"`
+		TargetURL *string  `json:"target_url"`
+		Secret    *string  `json:"secret"`
+		Events    []string `json:"events"`
+		IsActive  *bool    `json:"is_active"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	updated, err := h.service.UpdatePlatformWebhook(r.Context(), webhookID, tenant.UpdatePlatformWebhookParams{
+		Name:      req.Name,
+		TargetURL: req.TargetURL,
+		Secret:    req.Secret,
+		Events:    req.Events,
+		IsActive:  req.IsActive,
+	})
+	if err != nil {
+		status := http.StatusInternalServerError
+		switch {
+		case errors.Is(err, tenant.ErrInvalidWebhookID), errors.Is(err, tenant.ErrInvalidWebhook):
+			status = http.StatusBadRequest
+		case errors.Is(err, tenant.ErrWebhookNotFound):
+			status = http.StatusNotFound
+		}
+		http.Error(w, err.Error(), status)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
 }
 
 func (h *Handler) ListIntegrationLogs(w http.ResponseWriter, r *http.Request) {

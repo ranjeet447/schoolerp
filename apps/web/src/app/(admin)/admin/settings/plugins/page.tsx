@@ -6,18 +6,63 @@ import { Puzzle, RefreshCcw } from 'lucide-react';
 import { Button } from '@schoolerp/ui';
 import PluginCard from './plugin-card';
 
+type PluginItem = {
+  metadata: {
+    id: string;
+    name: string;
+    description?: string;
+    category?: string;
+    config_schema?: Record<string, string>;
+  };
+  enabled: boolean;
+  settings?: Record<string, unknown>;
+};
+
+type AddonActivationRequest = {
+  id: string;
+  status: string;
+  payload: {
+    addon_id: string;
+    reason?: string;
+    billing_reference?: string;
+    requested_at?: string;
+    approved_at?: string;
+    activated_at?: string;
+    review_notes?: string;
+  };
+  created_at: string;
+};
+
 export default function PluginManagementPage() {
-  const [plugins, setPlugins] = useState<any[]>([]);
+  const [plugins, setPlugins] = useState<PluginItem[]>([]);
+  const [requests, setRequests] = useState<AddonActivationRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchPlugins = async () => {
     setLoading(true);
     try {
-      const res = await apiClient('/admin/tenants/plugins');
-      const data = await res.json();
-      setPlugins(data.plugins || []);
+      const [pluginsRes, requestsRes] = await Promise.all([
+        apiClient('/admin/tenants/plugins'),
+        apiClient('/admin/tenants/addon-requests?limit=100'),
+      ]);
+
+      if (pluginsRes.ok) {
+        const data = await pluginsRes.json();
+        setPlugins(Array.isArray(data?.plugins) ? data.plugins : []);
+      } else {
+        setPlugins([]);
+      }
+
+      if (requestsRes.ok) {
+        const requestData = await requestsRes.json();
+        setRequests(Array.isArray(requestData?.requests) ? requestData.requests : []);
+      } else {
+        setRequests([]);
+      }
     } catch (error) {
       console.error('Failed to fetch plugins:', error);
+      setPlugins([]);
+      setRequests([]);
     } finally {
       setLoading(false);
     }
@@ -26,6 +71,16 @@ export default function PluginManagementPage() {
   useEffect(() => {
     fetchPlugins();
   }, []);
+
+  const latestRequestByAddon = requests.reduce<Record<string, AddonActivationRequest>>((acc, req) => {
+    const addonID = req?.payload?.addon_id;
+    if (!addonID) return acc;
+    const existing = acc[addonID];
+    if (!existing || new Date(req.created_at).getTime() > new Date(existing.created_at).getTime()) {
+      acc[addonID] = req;
+    }
+    return acc;
+  }, {});
 
   return (
     <div className="space-y-8">
@@ -62,6 +117,7 @@ export default function PluginManagementPage() {
             <PluginCard 
               key={plugin.metadata.id} 
               plugin={plugin} 
+              latestRequest={latestRequestByAddon[plugin.metadata.id]}
               onRefresh={fetchPlugins} 
             />
           ))}

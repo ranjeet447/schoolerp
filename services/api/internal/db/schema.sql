@@ -1974,6 +1974,8 @@ INSERT INTO permissions (code, module, description) VALUES
   ('platform:settings.write', 'platform', 'Manage platform-wide settings and templates'),
   ('platform:marketing.write', 'platform', 'Manage platform announcements and changelogs'),
   ('platform:analytics.read', 'platform', 'View business and platform analytics dashboard'),
+  ('platform:addons.read', 'platform', 'View tenant add-ons and activation requests'),
+  ('platform:addons.write', 'platform', 'Configure tenant add-ons and process activation requests'),
   ('platform:data.export', 'platform', 'Run tenant/platform exports'),
   ('platform:data.restore', 'platform', 'Run restore and destructive data workflows')
 ON CONFLICT (code) DO NOTHING;
@@ -2293,7 +2295,10 @@ INSERT INTO permissions (code, module, description) VALUES
   ('attendance:write', 'attendance', 'Mark/Edit attendance'),
   ('finance:read', 'finance', 'View financial reports'),
   ('finance:write', 'finance', 'Manage expenses and accounting'),
-  ('tenant:manage', 'tenant', 'Manage tenant settings and users')
+  ('tenant:manage', 'tenant', 'Manage tenant settings and users'),
+  ('tenant:addons.read', 'tenant', 'View tenant add-ons and activation status'),
+  ('tenant:addons.request', 'tenant', 'Create tenant add-on activation requests'),
+  ('tenant:addons.configure', 'tenant', 'Configure active tenant add-ons')
 ON CONFLICT (code) DO NOTHING;
 
 -- Global role templates (tenant_id IS NULL). These should exist even in "no-seed" environments.
@@ -2323,7 +2328,7 @@ INSERT INTO role_permissions (role_id, permission_id)
 SELECT rr.id, p.id
 FROM role_ref rr
 JOIN permissions p ON (
-  (rr.code = 'tenant_admin' AND p.code IN ('sis:read','sis:write','sis:delete','fees:read','fees:collect','fees:manage','attendance:read','attendance:write','finance:read','finance:write','tenant:manage'))
+  (rr.code = 'tenant_admin' AND p.code IN ('sis:read','sis:write','sis:delete','fees:read','fees:collect','fees:manage','attendance:read','attendance:write','finance:read','finance:write','tenant:manage','tenant:addons.read','tenant:addons.request','tenant:addons.configure'))
   OR (rr.code = 'teacher' AND p.code IN ('sis:read','sis:write','attendance:read','attendance:write','fees:read'))
   OR (rr.code = 'accountant' AND p.code IN ('fees:read','fees:collect','fees:manage','finance:read','finance:write','sis:read'))
   OR (rr.code = 'parent' AND p.code IN ('attendance:read','fees:read','sis:read'))

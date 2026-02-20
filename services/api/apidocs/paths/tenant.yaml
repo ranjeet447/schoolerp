@@ -1,54 +1,212 @@
-# Tenant & Platform API Paths — Tenant settings, Branding, Modules
+# Tenant Add-ons & Platform Add-on Activation Workflow
 
-/admin/tenant/settings:
+/admin/tenants/plugins:
   get:
-    operationId: getTenantSettings
-    tags: [Tenant]
-    summary: Get tenant administrative settings
+    operationId: listTenantAddons
+    tags: [Tenant Add-ons]
+    summary: List tenant add-ons with metadata and current enablement
     responses:
       '200':
-        description: Full tenant configuration
-  put:
-    operationId: updateTenantSettings
-    tags: [Tenant]
-    summary: Update tenant settings
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              school_name: { type: string }
-              branding: { type: object }
-              enabled_modules: { type: array, items: { type: string } }
-    responses:
-      '200':
-        description: Settings updated
+        description: Tenant add-ons list
 
-/platform/tenants:
-  get:
-    operationId: listAllTenants
-    tags: [Platform]
-    summary: List all tenants (Super Admin only)
-    responses:
-      '200':
-        description: Global tenant list
+/admin/tenants/plugins/{id}:
   post:
-    operationId: createTenant
-    tags: [Platform]
-    summary: Provision a new tenant
+    operationId: updateTenantAddonConfig
+    tags: [Tenant Add-ons]
+    summary: Update active tenant add-on configuration
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
     requestBody:
       required: true
       content:
         application/json:
           schema:
             type: object
-            required: [name, subdomain]
             properties:
-              name: { type: string }
-              subdomain: { type: string }
-              admin_email: { type: string, format: email }
+              enabled:
+                type: boolean
+              settings:
+                type: object
+    responses:
+      '200':
+        description: Add-on updated
+
+/admin/tenants/addon-requests:
+  get:
+    operationId: listTenantAddonActivationRequests
+    tags: [Tenant Add-ons]
+    summary: List activation requests created by current tenant
+    parameters:
+      - in: query
+        name: limit
+        schema:
+          type: integer
+      - in: query
+        name: offset
+        schema:
+          type: integer
+    responses:
+      '200':
+        description: Tenant add-on activation request list
+  post:
+    operationId: createTenantAddonActivationRequest
+    tags: [Tenant Add-ons]
+    summary: Create a tenant add-on activation request for platform approval
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [addon_id]
+            properties:
+              addon_id:
+                type: string
+              reason:
+                type: string
+              billing_reference:
+                type: string
+              settings:
+                type: object
     responses:
       '201':
-        description: Tenant provisioned
+        description: Activation request created
+
+/admin/platform/tenants/{tenant_id}/addons:
+  get:
+    operationId: listPlatformTenantAddons
+    tags: [Platform Add-ons]
+    summary: List add-ons and add-on configuration for a specific tenant
+    parameters:
+      - in: path
+        name: tenant_id
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        description: Tenant add-on list
+
+/admin/platform/tenants/{tenant_id}/addons/{addon_id}:
+  post:
+    operationId: updatePlatformTenantAddon
+    tags: [Platform Add-ons]
+    summary: Configure/activate an add-on for a specific tenant
+    parameters:
+      - in: path
+        name: tenant_id
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: addon_id
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              enabled:
+                type: boolean
+              settings:
+                type: object
+    responses:
+      '200':
+        description: Tenant add-on updated
+
+/admin/platform/addon-requests:
+  get:
+    operationId: listPlatformAddonActivationRequests
+    tags: [Platform Add-ons]
+    summary: List tenant add-on activation requests across platform
+    parameters:
+      - in: query
+        name: tenant_id
+        schema:
+          type: string
+      - in: query
+        name: addon_id
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+      - in: query
+        name: limit
+        schema:
+          type: integer
+      - in: query
+        name: offset
+        schema:
+          type: integer
+    responses:
+      '200':
+        description: Platform add-on request list
+
+/admin/platform/addon-requests/{request_id}/review:
+  post:
+    operationId: reviewPlatformAddonActivationRequest
+    tags: [Platform Add-ons]
+    summary: Approve or reject a tenant add-on activation request
+    parameters:
+      - in: path
+        name: request_id
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [decision]
+            properties:
+              decision:
+                type: string
+                enum: [approve, reject]
+              notes:
+                type: string
+              billing_reference:
+                type: string
+              activate_now:
+                type: boolean
+    responses:
+      '200':
+        description: Request reviewed
+
+/admin/platform/addon-requests/{request_id}/activate:
+  post:
+    operationId: activatePlatformAddonActivationRequest
+    tags: [Platform Add-ons]
+    summary: Manually activate an approved add-on request after billing confirmation
+    parameters:
+      - in: path
+        name: request_id
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              billing_reference:
+                type: string
+              notes:
+                type: string
+    responses:
+      '200':
+        description: Request activated and add-on enabled for tenant
+

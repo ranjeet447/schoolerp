@@ -85,6 +85,36 @@ INSERT INTO support_tickets (id, tenant_id, subject, priority, status, created_b
 )
 ON CONFLICT DO NOTHING;
 
+-- 4.1 SEED TENANT ADD-ON ACTIVATION REQUESTS
+INSERT INTO platform_action_approvals (
+    id, action_type, target_tenant_id, payload, requested_by, approved_by, status, reason, approved_at, created_at
+) VALUES
+(
+    uuid_generate_v4(),
+    'tenant_addon_activation',
+    '019c4d42-49ca-7efe-b28e-6feeebc4cd13',
+    '{"addon_id":"ai_suite_v1","addon_name":"AI Suite (Practical AI)","reason":"Need AI teacher assistant for new term","settings":{"enable_teacher_copilot":true,"enable_parent_helpdesk":false},"requested_at":"2026-02-18T10:00:00Z"}'::jsonb,
+    '019c4d42-49ca-767c-b3bd-b1a7faf5ad04',
+    NULL,
+    'pending',
+    'Awaiting billing confirmation',
+    NULL,
+    NOW() - INTERVAL '2 days'
+),
+(
+    uuid_generate_v4(),
+    'tenant_addon_activation',
+    '019c4d42-49ca-7efe-b28e-6feeebc4cd13',
+    '{"addon_id":"payments_razorpay","addon_name":"Razorpay Payments","reason":"Online fee collection","billing_reference":"INV-ADDON-2026-001","settings":{"key_id":"rzp_live_demo","key_secret":"configured-via-vault"},"requested_at":"2026-02-15T08:00:00Z","approved_at":"2026-02-16T08:30:00Z","activated_at":"2026-02-16T09:00:00Z"}'::jsonb,
+    '019c4d42-49ca-767c-b3bd-b1a7faf5ad04',
+    '019c4d42-49ca-767c-b3bd-b1a7faf5ad04',
+    'executed',
+    'Activated after payment receipt',
+    NOW() - INTERVAL '4 days',
+    NOW() - INTERVAL '5 days'
+)
+ON CONFLICT DO NOTHING;
+
 -- 5. SEED PLATFORM SETTINGS
 INSERT INTO platform_settings (key, value) VALUES
 ('security.internal_mfa_policy', '{"enforce_for_internal_users": true}'),

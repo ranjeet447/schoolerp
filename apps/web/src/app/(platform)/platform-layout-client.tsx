@@ -92,6 +92,10 @@ const NAV_GROUPS = [
   },
 ];
 
+function isNavItemActive(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 type FeatureNavItem = {
   href: string;
   label: string;
@@ -235,17 +239,22 @@ export default function PlatformLayoutClient({
                 <ul className="space-y-1">
                   {group.items.map((item) => (
                     <li key={item.href}>
+                      {(() => {
+                        const isActive = isNavItemActive(pathname, item.href);
+                        return (
                       <Link
                         href={item.href}
                         className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
-                          pathname === item.href
+                          isActive
                             ? "bg-primary/10 text-primary shadow-sm"
                             : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                         }`}
                       >
-                        <item.icon className={`h-4 w-4 ${pathname === item.href ? "text-primary" : "text-muted-foreground/70"}`} />
+                        <item.icon className={`h-4 w-4 ${isActive ? "text-primary" : "text-muted-foreground/70"}`} />
                         <span>{item.label}</span>
                       </Link>
+                        );
+                      })()}
                     </li>
                   ))}
                 </ul>
@@ -331,11 +340,14 @@ export default function PlatformLayoutClient({
                   <ul className="space-y-1">
                     {group.items.map((item) => (
                       <li key={`mobile-${item.href}`}>
+                        {(() => {
+                          const isActive = isNavItemActive(pathname, item.href);
+                          return (
                         <Link
                           href={item.href}
                           onClick={() => setMobileMenuOpen(false)}
                           className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${
-                            pathname === item.href
+                            isActive
                               ? "bg-primary/10 text-primary"
                               : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                           }`}
@@ -343,6 +355,8 @@ export default function PlatformLayoutClient({
                           <item.icon className="h-4 w-4" />
                           <span>{item.label}</span>
                         </Link>
+                          );
+                        })()}
                       </li>
                     ))}
                   </ul>

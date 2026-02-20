@@ -439,8 +439,22 @@ func main() {
 			aiHandler.RegisterRoutes(r)
 
 			r.Post("/tenants/config", tenantHandler.UpdateConfig)
-			r.Get("/tenants/plugins", tenantHandler.ListPlugins)
-			r.Post("/tenants/plugins/{id}", tenantHandler.UpdatePluginConfig)
+			r.Get("/tenant/plan", tenantHandler.GetAdminTenantPlan)
+			r.Get("/tenant/billing", tenantHandler.GetAdminTenantBilling)
+			r.Get("/tenant/invoices", tenantHandler.ListAdminTenantInvoices)
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.PermissionGuard("tenant:addons.read"))
+				r.Get("/tenants/plugins", tenantHandler.ListPlugins)
+				r.Get("/tenants/addon-requests", tenantHandler.ListTenantAddonActivationRequests)
+			})
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.PermissionGuard("tenant:addons.configure"))
+				r.Post("/tenants/plugins/{id}", tenantHandler.UpdatePluginConfig)
+			})
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.PermissionGuard("tenant:addons.request"))
+				r.Post("/tenants/addon-requests", tenantHandler.CreateTenantAddonActivationRequest)
+			})
 			r.Post("/tenants/onboard", tenantHandler.OnboardSchool)
 
 			// Platform routes for SaaS admin

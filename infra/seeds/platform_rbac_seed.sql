@@ -50,6 +50,8 @@ INSERT INTO permissions (code, module, description) VALUES
   -- Integrations & Infrastructure
   ('platform:integrations.read',   'integrations',  'View integration health and logs'),
   ('platform:integrations.write',  'integrations',  'Manage webhooks, API keys, and configs'),
+  ('platform:addons.read',         'addons',        'View tenant add-ons and activation requests'),
+  ('platform:addons.write',        'addons',        'Configure tenant add-ons and process activation requests'),
 
   -- Global Config & Settings
   ('platform:settings.read',       'settings',      'View platform settings and templates'),
@@ -109,6 +111,7 @@ JOIN permissions p ON p.code IN (
   'platform:security.read',
   'platform:audit.read',
   'platform:integrations.read',
+  'platform:addons.read',
   'platform:settings.read',
   'platform:legal.read',
   'platform:signup.read'
@@ -145,6 +148,7 @@ JOIN permissions p ON p.code IN (
   'platform:audit.read',
   'platform:audit.export',
   'platform:integrations.read',
+  'platform:addons.read',
   'platform:settings.read',
   'platform:legal.read',
   'platform:signup.read',
@@ -226,6 +230,8 @@ JOIN permissions p ON p.code IN (
   'platform:monitoring.write',
   'platform:integrations.read',
   'platform:integrations.write',
+  'platform:addons.read',
+  'platform:addons.write',
   'platform:settings.read',
   'platform:secrets.read',
   'platform:secrets.write',

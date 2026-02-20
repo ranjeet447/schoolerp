@@ -21,7 +21,7 @@ import {
   SelectValue 
 } from "@schoolerp/ui";
 import { PlanSelect } from "@/components/ui/plan-select";
-import { Settings, CreditCard, GitBranch, Database } from "lucide-react";
+import { Settings, CreditCard, GitBranch, Database, Puzzle } from "lucide-react";
 
 type Tenant = {
   id: string;
@@ -123,6 +123,41 @@ type TenantDeletionRequest = {
   execute_after?: string;
 };
 
+type TenantAddon = {
+  metadata: {
+    id: string;
+    name: string;
+    description?: string;
+    category?: string;
+    config_schema?: Record<string, string>;
+  };
+  enabled: boolean;
+  settings?: Record<string, unknown>;
+};
+
+type TenantAddonActivationRequest = {
+  id: string;
+  status: string;
+  tenant_id: string;
+  requested_by_name?: string;
+  requested_by_email?: string;
+  approved_by_name?: string;
+  approved_by_email?: string;
+  created_at: string;
+  approved_at?: string;
+  payload: {
+    addon_id: string;
+    addon_name?: string;
+    reason?: string;
+    billing_reference?: string;
+    requested_at?: string;
+    approved_at?: string;
+    activated_at?: string;
+    review_notes?: string;
+    settings?: Record<string, unknown>;
+  };
+};
+
 export default function PlatformTenantDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -132,6 +167,11 @@ export default function PlatformTenantDetailPage() {
   const [billingControls, setBillingControls] = useState<BillingControls | null>(null);
   const [exports, setExports] = useState<TenantExportRequest[]>([]);
   const [deletionRequests, setDeletionRequests] = useState<TenantDeletionRequest[]>([]);
+  const [addons, setAddons] = useState<TenantAddon[]>([]);
+  const [addonDrafts, setAddonDrafts] = useState<Record<string, { enabled: boolean; settings: Record<string, unknown> }>>({});
+  const [addonRequests, setAddonRequests] = useState<TenantAddonActivationRequest[]>([]);
+  const [addonRequestNotes, setAddonRequestNotes] = useState<Record<string, string>>({});
+  const [addonBillingRefs, setAddonBillingRefs] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -197,6 +237,8 @@ export default function PlatformTenantDetailPage() {
   const [busyBranchId, setBusyBranchId] = useState("");
   const [busyExportId, setBusyExportId] = useState("");
   const [busyDeletionRequestId, setBusyDeletionRequestId] = useState("");
+  const [busyAddonId, setBusyAddonId] = useState("");
+  const [busyAddonRequestId, setBusyAddonRequestId] = useState("");
 
   const parseJSONObject = (raw: string, label: string) => {
     try {
@@ -210,16 +252,44 @@ export default function PlatformTenantDetailPage() {
     }
   };
 
+  const hydrateAddonDrafts = (rows: TenantAddon[]) => {
+    const next: Record<string, { enabled: boolean; settings: Record<string, unknown> }> = {};
+    for (const addon of rows) {
+      const addonID = addon.metadata?.id || "";
+      if (!addonID) continue;
+      next[addonID] = {
+        enabled: Boolean(addon.enabled),
+        settings: addon.settings && typeof addon.settings === "object" ? { ...addon.settings } : {},
+      };
+    }
+    setAddonDrafts(next);
+  };
+
+  const updateAddonDraft = (addonID: string, patch: Partial<{ enabled: boolean; settings: Record<string, unknown> }>) => {
+    setAddonDrafts((prev) => {
+      const current = prev[addonID] || { enabled: false, settings: {} };
+      return {
+        ...prev,
+        [addonID]: {
+          enabled: patch.enabled ?? current.enabled,
+          settings: patch.settings ?? current.settings,
+        },
+      };
+    });
+  };
+
   const loadData = async () => {
     setLoading(true);
     setError("");
     try {
-      const [tenantRes, branchesRes, billingRes, exportsRes, deletionsRes] = await Promise.all([
+      const [tenantRes, branchesRes, billingRes, exportsRes, deletionsRes, addonsRes, addonRequestsRes] = await Promise.all([
         apiClient(`/admin/platform/tenants/${id}`),
         apiClient(`/admin/platform/tenants/${id}/branches`),
         apiClient(`/admin/platform/tenants/${id}/billing-controls`),
         apiClient(`/admin/platform/tenants/${id}/exports?limit=20`),
         apiClient(`/admin/platform/tenants/${id}/deletion-requests?limit=20`),
+        apiClient(`/admin/platform/tenants/${id}/addons`),
+        apiClient(`/admin/platform/addon-requests?tenant_id=${id}&limit=50`),
       ]);
 
       if (!tenantRes.ok) {
@@ -287,6 +357,24 @@ export default function PlatformTenantDetailPage() {
       } else {
         setDeletionRequests([]);
       }
+
+      if (addonsRes.ok) {
+        const addonPayload = await addonsRes.json();
+        const addonRows = Array.isArray(addonPayload?.addons) ? (addonPayload.addons as TenantAddon[]) : [];
+        setAddons(addonRows);
+        hydrateAddonDrafts(addonRows);
+      } else {
+        setAddons([]);
+        setAddonDrafts({});
+      }
+
+      if (addonRequestsRes.ok) {
+        const requestPayload = await addonRequestsRes.json();
+        const rows = Array.isArray(requestPayload?.requests) ? (requestPayload.requests as TenantAddonActivationRequest[]) : [];
+        setAddonRequests(rows);
+      } else {
+        setAddonRequests([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -310,6 +398,77 @@ export default function PlatformTenantDetailPage() {
       setError(e?.message || `${label} failed.`);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const saveAddonConfig = async (addonID: string) => {
+    const draft = addonDrafts[addonID];
+    if (!draft) return;
+
+    setBusyAddonId(addonID);
+    setError("");
+    setMessage("");
+    try {
+      const res = await apiClient(`/admin/platform/tenants/${id}/addons/${addonID}`, {
+        method: "POST",
+        body: JSON.stringify({
+          enabled: draft.enabled,
+          settings: draft.settings || {},
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setMessage("Add-on configuration saved.");
+      await loadData();
+    } catch (e: any) {
+      setError(e?.message || "Failed to update add-on.");
+    } finally {
+      setBusyAddonId("");
+    }
+  };
+
+  const reviewAddonRequest = async (requestID: string, decision: "approve" | "reject", activateNow = false) => {
+    setBusyAddonRequestId(requestID);
+    setError("");
+    setMessage("");
+    try {
+      const res = await apiClient(`/admin/platform/addon-requests/${requestID}/review`, {
+        method: "POST",
+        body: JSON.stringify({
+          decision,
+          notes: addonRequestNotes[requestID] || "",
+          billing_reference: addonBillingRefs[requestID] || "",
+          activate_now: activateNow,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setMessage(`Add-on request ${decision === "approve" ? "approved" : "rejected"}.`);
+      await loadData();
+    } catch (e: any) {
+      setError(e?.message || "Failed to review add-on request.");
+    } finally {
+      setBusyAddonRequestId("");
+    }
+  };
+
+  const activateAddonRequest = async (requestID: string) => {
+    setBusyAddonRequestId(requestID);
+    setError("");
+    setMessage("");
+    try {
+      const res = await apiClient(`/admin/platform/addon-requests/${requestID}/activate`, {
+        method: "POST",
+        body: JSON.stringify({
+          billing_reference: addonBillingRefs[requestID] || "",
+          notes: addonRequestNotes[requestID] || "",
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setMessage("Add-on request activated and tenant add-on enabled.");
+      await loadData();
+    } catch (e: any) {
+      setError(e?.message || "Failed to activate add-on request.");
+    } finally {
+      setBusyAddonRequestId("");
     }
   };
 
@@ -833,8 +992,9 @@ export default function PlatformTenantDetailPage() {
       )}
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
+        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
           <TabsTrigger value="overview" className="gap-2"><Settings className="h-4 w-4" /><span className="hidden sm:inline">Overview</span></TabsTrigger>
+          <TabsTrigger value="addons" className="gap-2"><Puzzle className="h-4 w-4" /><span className="hidden sm:inline">Add-ons</span></TabsTrigger>
           <TabsTrigger value="billing" className="gap-2"><CreditCard className="h-4 w-4" /><span className="hidden sm:inline">Plan & Billing</span></TabsTrigger>
           <TabsTrigger value="branches" className="gap-2"><GitBranch className="h-4 w-4" /><span className="hidden sm:inline">Branches</span></TabsTrigger>
           <TabsTrigger value="dataops" className="gap-2"><Database className="h-4 w-4" /><span className="hidden sm:inline">Data Ops</span></TabsTrigger>
@@ -1123,6 +1283,231 @@ export default function PlatformTenantDetailPage() {
           )}
         </div>
       </div>
+      </TabsContent>
+
+      <TabsContent value="addons" className="space-y-6">
+        <div className="rounded-xl border border-border bg-card p-5">
+          <h2 className="text-lg font-bold text-foreground">Tenant Add-ons</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Platform admins can configure add-ons for this tenant directly.
+          </p>
+
+          <div className="mt-4 space-y-4">
+            {addons.length === 0 ? (
+              <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                No add-ons available for this tenant yet.
+              </div>
+            ) : (
+              addons.map((addon) => {
+                const addonID = addon.metadata?.id || "";
+                const draft = addonDrafts[addonID] || {
+                  enabled: Boolean(addon.enabled),
+                  settings: addon.settings && typeof addon.settings === "object" ? { ...addon.settings } : {},
+                };
+                const schema = addon.metadata?.config_schema || {};
+                const schemaEntries = Object.entries(schema);
+
+                return (
+                  <div key={addonID} className="rounded-lg border border-border p-4">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <h3 className="font-semibold text-foreground">{addon.metadata?.name || addonID}</h3>
+                        <p className="text-xs text-muted-foreground mt-1">{addon.metadata?.description || "No description available."}</p>
+                        <p className="text-[11px] text-muted-foreground mt-1">Category: {addon.metadata?.category || "General"}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor={`addon-enabled-${addonID}`} className="text-xs text-muted-foreground">Enabled</Label>
+                        <input
+                          id={`addon-enabled-${addonID}`}
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-input"
+                          checked={Boolean(draft.enabled)}
+                          onChange={(e) => updateAddonDraft(addonID, { enabled: e.target.checked })}
+                        />
+                      </div>
+                    </div>
+
+                    {schemaEntries.length > 0 ? (
+                      <div className="mt-4 grid gap-3 md:grid-cols-2">
+                        {schemaEntries.map(([key, type]) => {
+                          const inputType = String(type || "text").toLowerCase();
+                          const rawValue = draft.settings?.[key];
+
+                          if (inputType === "boolean") {
+                            return (
+                              <div key={key} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                                <Label htmlFor={`${addonID}-${key}`} className="text-xs font-semibold text-muted-foreground">{key}</Label>
+                                <input
+                                  id={`${addonID}-${key}`}
+                                  type="checkbox"
+                                  className="h-4 w-4 rounded border-input"
+                                  checked={Boolean(rawValue)}
+                                  onChange={(e) =>
+                                    updateAddonDraft(addonID, {
+                                      settings: { ...draft.settings, [key]: e.target.checked },
+                                    })
+                                  }
+                                />
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div key={key} className="space-y-1.5">
+                              <Label className="text-xs font-semibold text-muted-foreground">{key}</Label>
+                              <Input
+                                type={inputType === "number" ? "number" : inputType === "password" ? "password" : "text"}
+                                value={rawValue == null ? "" : String(rawValue)}
+                                onChange={(e) =>
+                                  updateAddonDraft(addonID, {
+                                    settings: {
+                                      ...draft.settings,
+                                      [key]:
+                                        inputType === "number"
+                                          ? e.target.value === ""
+                                            ? ""
+                                            : Number(e.target.value)
+                                          : e.target.value,
+                                    },
+                                  })
+                                }
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+
+                    <div className="mt-4 flex justify-end">
+                      <Button
+                        size="sm"
+                        disabled={busyAddonId === addonID || busy}
+                        onClick={() => void saveAddonConfig(addonID)}
+                      >
+                        {busyAddonId === addonID ? "Saving..." : "Save Add-on"}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-5">
+          <h2 className="text-lg font-bold text-foreground">Activation Requests</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Tenant-raised add-on requests. Approve/reject, then activate after billing confirmation.
+          </p>
+
+          <div className="mt-4 space-y-3">
+            {addonRequests.length === 0 ? (
+              <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                No add-on activation requests for this tenant.
+              </div>
+            ) : (
+              addonRequests.map((req) => {
+                const status = (req.status || "").toLowerCase();
+                const isPending = status === "pending";
+                const isApproved = status === "approved";
+                const isExecuted = status === "executed";
+
+                return (
+                  <div key={req.id} className="rounded-lg border border-border p-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div className="space-y-1">
+                        <p className="font-semibold text-foreground">
+                          {req.payload?.addon_name || req.payload?.addon_id || "Unknown add-on"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Requested by {req.requested_by_name || req.requested_by_email || "Unknown"} on{" "}
+                          {req.created_at ? new Date(req.created_at).toLocaleString() : "N/A"}
+                        </p>
+                        {req.payload?.reason ? (
+                          <p className="text-xs text-muted-foreground">Reason: {req.payload.reason}</p>
+                        ) : null}
+                        {req.payload?.review_notes ? (
+                          <p className="text-xs text-muted-foreground">Notes: {req.payload.review_notes}</p>
+                        ) : null}
+                        {req.payload?.billing_reference ? (
+                          <p className="text-xs text-muted-foreground">Billing Ref: {req.payload.billing_reference}</p>
+                        ) : null}
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={
+                          isExecuted
+                            ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                            : isApproved
+                              ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                              : status === "rejected"
+                                ? "bg-red-500/10 text-red-600 border-red-500/30"
+                                : "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                        }
+                      >
+                        {status || "pending"}
+                      </Badge>
+                    </div>
+
+                    {(isPending || isApproved) ? (
+                      <div className="mt-3 grid gap-2 md:grid-cols-2">
+                        <Input
+                          placeholder="Review note"
+                          value={addonRequestNotes[req.id] || ""}
+                          onChange={(e) => setAddonRequestNotes((prev) => ({ ...prev, [req.id]: e.target.value }))}
+                        />
+                        <Input
+                          placeholder="Billing reference"
+                          value={addonBillingRefs[req.id] || ""}
+                          onChange={(e) => setAddonBillingRefs((prev) => ({ ...prev, [req.id]: e.target.value }))}
+                        />
+                      </div>
+                    ) : null}
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {isPending ? (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={busyAddonRequestId === req.id}
+                            onClick={() => void reviewAddonRequest(req.id, "reject")}
+                          >
+                            Reject
+                          </Button>
+                          <Button
+                            size="sm"
+                            disabled={busyAddonRequestId === req.id}
+                            onClick={() => void reviewAddonRequest(req.id, "approve", false)}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={busyAddonRequestId === req.id}
+                            onClick={() => void reviewAddonRequest(req.id, "approve", true)}
+                          >
+                            Approve + Activate
+                          </Button>
+                        </>
+                      ) : null}
+                      {isApproved ? (
+                        <Button
+                          size="sm"
+                          disabled={busyAddonRequestId === req.id}
+                          onClick={() => void activateAddonRequest(req.id)}
+                        >
+                          Activate After Billing
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
       </TabsContent>
 
       <TabsContent value="billing" className="space-y-6">

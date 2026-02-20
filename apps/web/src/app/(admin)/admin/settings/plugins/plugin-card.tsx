@@ -1,14 +1,37 @@
 "use client"
 
 import React, { useState } from 'react';
-import { Card, Switch, Button, Badge } from '@schoolerp/ui';
+import { Card, Button, Badge } from '@schoolerp/ui';
 import { Settings, Puzzle, CreditCard, MessageSquare, BarChart3 } from 'lucide-react';
-import { apiClient } from '@/lib/api-client';
-import { toast } from 'sonner';
 import PluginConfigDialog from './plugin-config-dialog';
 
+type PluginItem = {
+  metadata: {
+    id: string;
+    name: string;
+    description?: string;
+    category?: string;
+    config_schema?: Record<string, string>;
+  };
+  enabled: boolean;
+  settings?: Record<string, unknown>;
+};
+
+type AddonActivationRequest = {
+  id: string;
+  status: string;
+  payload: {
+    addon_id: string;
+    activated_at?: string;
+    approved_at?: string;
+    review_notes?: string;
+  };
+  created_at: string;
+};
+
 interface PluginCardProps {
-  plugin: any;
+  plugin: PluginItem;
+  latestRequest?: AddonActivationRequest;
   onRefresh: () => void;
 }
 
@@ -18,36 +41,13 @@ const CATEGORY_ICONS: Record<string, any> = {
   'Marketing': BarChart3,
 };
 
-export default function PluginCard({ plugin, onRefresh }: PluginCardProps) {
+export default function PluginCard({ plugin, latestRequest, onRefresh }: PluginCardProps) {
   const [isConfigOpen, setIsConfigOpen] = useState(false);
-  const [toggleLoading, setToggleLoading] = useState(false);
 
   const Icon = CATEGORY_ICONS[plugin.metadata.category] || Puzzle;
-
-  const handleToggle = async (enabled: boolean) => {
-    setToggleLoading(true);
-    try {
-      const res = await apiClient(`/admin/tenants/plugins/${plugin.metadata.id}`, {
-        method: 'POST',
-        body: JSON.stringify({
-          enabled,
-          settings: plugin.settings,
-        }),
-      });
-
-      if (res.ok) {
-        toast.success(`${plugin.metadata.name} ${enabled ? 'enabled' : 'disabled'}.`);
-        onRefresh();
-      } else {
-        toast.error('Failed to update plugin status.');
-      }
-    } catch (error) {
-      console.error('Plugin toggle error:', error);
-      toast.error('An error occurred.');
-    } finally {
-      setToggleLoading(false);
-    }
-  };
+  const requestStatus = (latestRequest?.status || '').toLowerCase();
+  const pendingOrApproved = requestStatus === 'pending' || requestStatus === 'approved';
+  const activatedByRequest = Boolean(latestRequest?.payload?.activated_at);
 
   return (
     <>
@@ -56,25 +56,41 @@ export default function PluginCard({ plugin, onRefresh }: PluginCardProps) {
           <div className="p-3 rounded-xl bg-indigo-500/10 text-indigo-400 group-hover:scale-110 transition-transform">
             <Icon className="h-6 w-6" />
           </div>
-          <Switch 
-            checked={plugin.enabled}
-            onCheckedChange={handleToggle}
-            disabled={toggleLoading}
-          />
+          {plugin.enabled ? (
+            <Badge className="bg-emerald-500/10 text-emerald-400 border-none text-[10px] uppercase font-bold">
+              Active
+            </Badge>
+          ) : requestStatus === 'pending' ? (
+            <Badge className="bg-amber-500/10 text-amber-400 border-none text-[10px] uppercase font-bold">
+              Requested
+            </Badge>
+          ) : requestStatus === 'approved' && !activatedByRequest ? (
+            <Badge className="bg-blue-500/10 text-blue-400 border-none text-[10px] uppercase font-bold">
+              Awaiting Activation
+            </Badge>
+          ) : requestStatus === 'rejected' ? (
+            <Badge className="bg-red-500/10 text-red-400 border-none text-[10px] uppercase font-bold">
+              Rejected
+            </Badge>
+          ) : (
+            <Badge className="bg-slate-700/60 text-slate-200 border-none text-[10px] uppercase font-bold">
+              Available
+            </Badge>
+          )}
         </div>
 
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <h3 className="text-lg font-bold text-white tracking-tight">{plugin.metadata.name}</h3>
-            {plugin.enabled && (
-              <Badge className="bg-emerald-500/10 text-emerald-400 border-none text-[10px] uppercase font-bold">
-                Active
-              </Badge>
-            )}
           </div>
           <p className="text-sm text-slate-400 leading-relaxed">
             {plugin.metadata.description}
           </p>
+          {!plugin.enabled && latestRequest?.payload?.review_notes ? (
+            <p className="text-xs text-slate-300 rounded-md bg-white/5 px-2 py-1">
+              Last review: {latestRequest.payload.review_notes}
+            </p>
+          ) : null}
         </div>
 
         <div className="mt-6 pt-4 border-t border-white/5 flex items-center justify-between">
@@ -86,15 +102,17 @@ export default function PluginCard({ plugin, onRefresh }: PluginCardProps) {
             size="sm" 
             onClick={() => setIsConfigOpen(true)}
             className="text-slate-400 hover:text-white hover:bg-white/5 gap-2"
+            disabled={!plugin.enabled && pendingOrApproved}
           >
             <Settings className="h-4 w-4" />
-            Configure
+            {plugin.enabled ? 'Configure' : pendingOrApproved ? 'Requested' : 'Request Activation'}
           </Button>
         </div>
       </Card>
 
       <PluginConfigDialog 
         plugin={plugin}
+        latestRequest={latestRequest}
         open={isConfigOpen}
         onOpenChange={setIsConfigOpen}
         onSuccess={onRefresh}

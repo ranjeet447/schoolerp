@@ -131,6 +131,8 @@ INSERT INTO permissions (id, code, module, description) VALUES
 ('019c4d42-49ca-70a7-994c-fc86e052d584', 'platform:billing.write', 'platform', 'Manage platform billing, invoice states, and adjustments'),
 ('019c4d42-49ca-70b0-a772-e58913e13446', 'platform:marketing.write', 'platform', 'Manage platform announcements and marketing assets'),
 ('019c4d42-49ca-70c3-ba09-5e3eb6628bf9', 'platform:analytics.read', 'platform', 'View platform analytics and KPI dashboards'),
+('019c4d42-49ca-70c4-bf13-9b0b0f95aa10', 'platform:addons.read', 'platform', 'View tenant add-ons and activation requests'),
+('019c4d42-49ca-70c4-bf13-9b0b0f95aa11', 'platform:addons.write', 'platform', 'Configure tenant add-ons and process activation requests'),
 ('019c4d42-49ca-7319-9ad6-e9491c672bd3', 'platform:support.write', 'platform', 'Manage platform support tickets and assignments'),
 ('019c4d42-49ca-7351-a604-7d7bc4b46f54', 'platform:incidents.write', 'platform', 'Create and update platform incidents'),
 ('019c4d42-49ca-737c-afbc-d2876c90dbe0', 'platform:integrations.manage', 'platform', 'Manage platform integrations and webhook settings'),
@@ -161,6 +163,9 @@ INSERT INTO permissions (id, code, module, description) VALUES
 ('019c4d42-49ca-7279-8a35-f9cc8b166be8', 'sis:read', 'sis', 'Legacy read access for SIS module'),
 ('019c4d42-49ca-7286-960f-28249030388a', 'sis:write', 'sis', 'Legacy write access for SIS module'),
 ('019c4d42-49ca-72b7-a1d6-779b799bb55b', 'tenant:settings:view', 'tenant', 'View tenant-level settings'),
+('019c4d42-49ca-72b7-a1d6-779b799bb55c', 'tenant:addons.read', 'tenant', 'View tenant add-ons and activation status'),
+('019c4d42-49ca-72b7-a1d6-779b799bb55d', 'tenant:addons.request', 'tenant', 'Create tenant add-on activation requests'),
+('019c4d42-49ca-72b7-a1d6-779b799bb55e', 'tenant:addons.configure', 'tenant', 'Configure active tenant add-ons'),
 
 -- PLATFORM
 ('019c4d42-7db1-7999-9293-000000000001', 'platform:manage', 'platform', 'Full platform administrative control')
@@ -259,6 +264,7 @@ WHERE code IN (
   'platform:audit.read',
   'platform:security.read',
   'platform:integrations.read',
+  'platform:addons.read',
   'platform:monitoring.read',
   'platform:ops.manage'
 )
@@ -275,6 +281,7 @@ WHERE code IN (
   'platform:tenant.read',
   'platform:tenants.read',
   'platform:analytics.read',
+  'platform:addons.read',
   'platform:audit.read',
   'platform:data.export'
 )
@@ -293,6 +300,8 @@ WHERE code IN (
   'platform:monitoring.read',
   'platform:integrations.read',
   'platform:integrations.manage',
+  'platform:addons.read',
+  'platform:addons.write',
   'platform:security.read',
   'platform:security.write',
   'platform:settings.read',
@@ -311,6 +320,8 @@ FROM permissions
 WHERE code IN (
   'platform:integrations.read',
   'platform:integrations.manage',
+  'platform:addons.read',
+  'platform:addons.write',
   'platform:monitoring.read',
   'platform:security.read',
   'platform:analytics.read',
