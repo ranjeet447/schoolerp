@@ -28,12 +28,13 @@ import (
 type contextKey string
 
 const (
-	TenantIDKey    contextKey = "tenant_id"
-	UserIDKey      contextKey = "user_id"
-	RoleKey        contextKey = "role"
-	LocaleKey      contextKey = "locale"
-	PermissionsKey contextKey = "permissions"
-	tenantLookupTimeout       = 1200 * time.Millisecond
+	TenantIDKey          contextKey = "tenant_id"
+	UserIDKey            contextKey = "user_id"
+	RoleKey              contextKey = "role"
+	LocaleKey            contextKey = "locale"
+	PermissionsKey       contextKey = "permissions"
+	tenantLookupTimeout             = 1200 * time.Millisecond
+	sessionLookupTimeout            = 3 * time.Second
 )
 
 // GetReqID returns the request ID from the context
@@ -114,11 +115,17 @@ var (
 	}, []string{"method", "path"})
 
 	tenantResolverQueries *db.Queries
+	sharedSessionPool     *pgxpool.Pool
 )
 
 // SetTenantLookup configures tenant lookup for host/subdomain/custom-domain resolution.
 func SetTenantLookup(q *db.Queries) {
 	tenantResolverQueries = q
+}
+
+// SetSessionPool configures the shared DB pool for auth session validation middleware.
+func SetSessionPool(pool *pgxpool.Pool) {
+	sharedSessionPool = pool
 }
 
 // Metrics tracking middleware
@@ -272,11 +279,15 @@ func normalizeTenantHost(raw string) string {
 func AuthResolver(next http.Handler) http.Handler {
 	secrets, secretConfigured := security.ResolveJWTSecrets()
 
-	var sessionPool *pgxpool.Pool
-	if dbURL := strings.TrimSpace(os.Getenv("DATABASE_URL")); dbURL != "" {
-		if cfg, err := pgxpool.ParseConfig(dbURL); err == nil {
-			if pool, err := pgxpool.NewWithConfig(context.Background(), cfg); err == nil {
-				sessionPool = pool
+	// Prefer the application-level shared pool to avoid duplicate pools and excess connections.
+	sessionPool := sharedSessionPool
+	if sessionPool == nil {
+		// Fallback for environments that only configure middleware directly.
+		if dbURL := strings.TrimSpace(os.Getenv("DATABASE_URL")); dbURL != "" {
+			if cfg, err := pgxpool.ParseConfig(dbURL); err == nil {
+				if pool, err := pgxpool.NewWithConfig(context.Background(), cfg); err == nil {
+					sessionPool = pool
+				}
 			}
 		}
 	}
@@ -389,12 +400,14 @@ func AuthResolver(next http.Handler) http.Handler {
 				tokenHash := hex.EncodeToString(hash[:])
 
 				var exists bool
+				sessionCtx, cancelSession := context.WithTimeout(r.Context(), sessionLookupTimeout)
 				err := sessionPool.QueryRow(
-					r.Context(),
+					sessionCtx,
 					`SELECT EXISTS(SELECT 1 FROM sessions WHERE user_id = $1 AND token_hash = $2 AND expires_at > NOW())`,
 					uid,
 					tokenHash,
 				).Scan(&exists)
+				cancelSession()
 				if err != nil {
 					// This is not an auth failure: it indicates an infrastructure issue (DB connectivity, missing migrations, etc).
 					log.Ctx(r.Context()).
@@ -423,8 +436,9 @@ func AuthResolver(next http.Handler) http.Handler {
 				}
 
 				var blocked bool
+				blockCtx, cancelBlock := context.WithTimeout(r.Context(), sessionLookupTimeout)
 				err = sessionPool.QueryRow(
-					r.Context(),
+					blockCtx,
 					`SELECT EXISTS(
 							SELECT 1
 							FROM platform_security_blocks b
@@ -438,6 +452,7 @@ func AuthResolver(next http.Handler) http.Handler {
 					uid,
 					tid,
 				).Scan(&blocked)
+				cancelBlock()
 				if err != nil {
 					var pgErr *pgconn.PgError
 					if errors.As(err, &pgErr) && pgErr.Code == "42P01" {

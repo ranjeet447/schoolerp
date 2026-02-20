@@ -29,6 +29,8 @@ var (
 	ErrPasswordExpired         = errors.New("password expired; contact administrator")
 )
 
+const authStoreTimeout = 5 * time.Second
+
 type Service struct {
 	queries *db.Queries
 	MFA     *MFAService
@@ -80,10 +82,19 @@ type LoginResult struct {
 func (s *Service) Login(ctx context.Context, email, password string) (*LoginResult, error) {
 	normalizedEmail := strings.ToLower(strings.TrimSpace(email))
 	logger := log.Ctx(ctx).With().Str("auth_email", maskEmail(normalizedEmail)).Logger()
+	isStoreUnavailableErr := func(err error) bool {
+		return errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled)
+	}
 
 	// 1. Find user by email
-	user, err := s.queries.GetUserByEmail(ctx, normalizedEmail)
+	userLookupCtx, cancelUserLookup := context.WithTimeout(ctx, authStoreTimeout)
+	user, err := s.queries.GetUserByEmail(userLookupCtx, normalizedEmail)
+	cancelUserLookup()
 	if err != nil {
+		if isStoreUnavailableErr(err) {
+			logger.Error().Err(err).Msg("auth login failed: user lookup store unavailable")
+			return nil, ErrSessionStoreUnavailable
+		}
 		logger.Warn().Err(err).Msg("auth login failed: user lookup")
 		return nil, ErrInvalidCredentials
 	}
@@ -94,11 +105,17 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 	}
 
 	// 2. Verify password from user_identities table
-	identity, err := s.queries.GetUserIdentity(ctx, db.GetUserIdentityParams{
+	identityLookupCtx, cancelIdentityLookup := context.WithTimeout(ctx, authStoreTimeout)
+	identity, err := s.queries.GetUserIdentity(identityLookupCtx, db.GetUserIdentityParams{
 		UserID:   user.ID,
 		Provider: "password",
 	})
+	cancelIdentityLookup()
 	if err != nil {
+		if isStoreUnavailableErr(err) {
+			logger.Error().Err(err).Str("user_id", user.ID.String()).Msg("auth login failed: identity lookup store unavailable")
+			return nil, ErrSessionStoreUnavailable
+		}
 		logger.Warn().Err(err).Str("user_id", user.ID.String()).Msg("auth login failed: password identity lookup")
 		return nil, ErrInvalidCredentials
 	}
@@ -117,6 +134,10 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 	// 3. Get role and permissions for this user
 	roleAssignment, err := s.queries.GetUserRoleAssignmentWithPermissions(ctx, user.ID)
 	if err != nil {
+		if isStoreUnavailableErr(err) {
+			logger.Error().Err(err).Str("user_id", user.ID.String()).Msg("auth login failed: role lookup store unavailable")
+			return nil, ErrSessionStoreUnavailable
+		}
 		logger.Warn().Err(err).Str("user_id", user.ID.String()).Msg("auth login fallback: role assignment missing")
 		// User has no role assigned - still allow login but with no role
 		roleAssignment = db.GetUserRoleAssignmentWithPermissionsRow{
@@ -127,6 +148,10 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 
 	blocked, err := s.queries.IsPlatformSecurityBlocked(ctx, user.ID, roleAssignment.TenantID)
 	if err != nil {
+		if isStoreUnavailableErr(err) {
+			logger.Error().Err(err).Str("user_id", user.ID.String()).Msg("auth login failed: security block lookup store unavailable")
+			return nil, ErrSessionStoreUnavailable
+		}
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "42P01" {
 			logger.Warn().Str("user_id", user.ID.String()).Msg("auth login warning: security blocks table missing")
@@ -252,11 +277,11 @@ func (s *Service) InitiatePasswordReset(ctx context.Context, email, ipAddress, u
 	}
 
 	payload, _ := json.Marshal(map[string]interface{}{
-		"user_id":    user.ID,
-		"tenant_id":  roleAssignment.TenantID,
-		"email":      normalizedEmail,
-		"ip_address": ipAddress,
-		"user_agent": userAgent,
+		"user_id":      user.ID,
+		"tenant_id":    roleAssignment.TenantID,
+		"email":        normalizedEmail,
+		"ip_address":   ipAddress,
+		"user_agent":   userAgent,
 		"requested_at": time.Now().UTC().Format(time.RFC3339),
 	})
 
@@ -310,7 +335,10 @@ func (s *Service) mintLoginResult(ctx context.Context, user db.AuthUser, identit
 		logger.Warn().Err(err).Str("user_id", user.ID.String()).Msg("auth login warning: unable to update last_login")
 	}
 
-	if err := s.queries.CreateSessionRecord(ctx, user.ID, hashPassword(tokenJTI), expiresAt); err != nil {
+	sessionCreateCtx, cancelSessionCreate := context.WithTimeout(ctx, authStoreTimeout)
+	err = s.queries.CreateSessionRecord(sessionCreateCtx, user.ID, hashPassword(tokenJTI), expiresAt)
+	cancelSessionCreate()
+	if err != nil {
 		logger.Error().Err(err).Str("user_id", user.ID.String()).Msg("auth login failed: unable to create session record")
 		return nil, ErrSessionStoreUnavailable
 	}

@@ -136,6 +136,7 @@ func main() {
 	// Initialize Querier
 	querier := db.New(pool)
 	middleware.SetTenantLookup(querier)
+	middleware.SetSessionPool(pool)
 
 	// Initialize Foundations
 	auditLogger := audit.NewLogger(querier)
