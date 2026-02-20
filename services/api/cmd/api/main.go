@@ -42,6 +42,7 @@ import (
 	"github.com/schoolerp/api/internal/handler/finance"
 	"github.com/schoolerp/api/internal/handler/hrms"
 	"github.com/schoolerp/api/internal/handler/inventory"
+	kbhandler "github.com/schoolerp/api/internal/handler/kb"
 	"github.com/schoolerp/api/internal/handler/library"
 	"github.com/schoolerp/api/internal/handler/marketing"
 	"github.com/schoolerp/api/internal/handler/notices"
@@ -69,6 +70,7 @@ import (
 	financeservice "github.com/schoolerp/api/internal/service/finance"
 	hrmsservice "github.com/schoolerp/api/internal/service/hrms"
 	inventoryservice "github.com/schoolerp/api/internal/service/inventory"
+	kbservice "github.com/schoolerp/api/internal/service/kb"
 	libraryservice "github.com/schoolerp/api/internal/service/library"
 	marketingservice "github.com/schoolerp/api/internal/service/marketing"
 	noticeservice "github.com/schoolerp/api/internal/service/notices"
@@ -188,6 +190,7 @@ func main() {
 	tenantService := tenantservice.NewService(querier, pool)
 	marketingService := marketingservice.NewService(pool)
 	automationService := automationservice.NewAutomationService(querier)
+	kbService := kbservice.NewService(querier, pool, auditLogger)
 
 	calendarService := academicservice.NewCalendarService(pool, auditLogger)
 	resourceService := academicservice.NewResourceService(pool, auditLogger)
@@ -240,6 +243,7 @@ func main() {
 	aiHandler := aihandler.NewAIHandler(aiService, querier)
 	marketingHandler := marketing.NewHandler(marketingService)
 	automationHandler := automation.NewAutomationHandler(automationService)
+	kbHandler := kbhandler.NewHandler(kbService)
 
 	calendarHandler := academic.NewCalendarHandler(calendarService)
 	resourceHandler := academic.NewResourceHandler(resourceService)
@@ -367,6 +371,7 @@ func main() {
 			rolesHandler.RegisterRoutes(r) // Role management endpoints
 			marketingHandler.RegisterAdminRoutes(r)
 			automationHandler.RegisterRoutes(r)
+			kbHandler.RegisterAdminRoutes(r)
 			aiHandler.RegisterRoutes(r)
 
 			r.Post("/tenants/config", tenantHandler.UpdateConfig)
@@ -419,6 +424,19 @@ func main() {
 				r.Use(middleware.RoleGuard("teacher", "tenant_admin", "super_admin"))
 				r.Post("/lesson-plan", aiHandler.GenerateLessonPlan)
 			})
+		})
+
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.RoleGuard("teacher", "tenant_admin", "super_admin", "parent", "student"))
+			r.With(middleware.RateLimitByKey("kb_search", 40, time.Minute, func(r *http.Request) string {
+				tenantID := middleware.GetTenantID(r.Context())
+				userID := middleware.GetUserID(r.Context())
+				if tenantID == "" && userID == "" {
+					return ""
+				}
+				return tenantID + ":" + userID
+			})).Post("/kb/search", kbHandler.Search)
+			r.Get("/kb/facets", kbHandler.ListFacets)
 		})
 	})
 

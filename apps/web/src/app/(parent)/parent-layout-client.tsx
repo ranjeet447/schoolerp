@@ -19,11 +19,13 @@ import { RBACService } from '@/lib/auth-service';
 import { usePathname } from 'next/navigation';
 import { TenantConfig } from '@/lib/tenant-utils';
 import { useAuth } from '@/components/auth-provider';
+import { apiClient } from '@/lib/api-client';
 
 const NAV_ITEMS = [
   { href: '/parent/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
   { href: '/parent/children', label: 'My Children', icon: Users, permission: 'sis:read' },
   { href: '/parent/homework', label: 'Homework', icon: BookOpen, permission: 'sis:read' },
+  { href: '/parent/kb', label: 'Knowledgebase', icon: BookOpen, permission: 'sis:read' },
   { href: '/parent/fees', label: 'Fees & Payments', icon: Banknote, permission: 'fees:read' },
   { href: '/parent/results', label: 'Exam Results', icon: GraduationCap, permission: 'exams:read' },
   { href: '/parent/notices', label: 'Notices', icon: FileText, permission: 'notices:read' },
@@ -39,10 +41,34 @@ export default function ParentLayoutClient({
 }) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const [kbVisible, setKbVisible] = useState(false);
 
-  const filteredNavItems = NAV_ITEMS.filter(item => 
-    !item.permission || RBACService.hasPermission(item.permission)
-  );
+  useEffect(() => {
+    let active = true;
+    const probeKnowledgebase = async () => {
+      try {
+        const res = await apiClient("/kb/facets");
+        if (active) {
+          setKbVisible(res.ok);
+        }
+      } catch {
+        if (active) {
+          setKbVisible(false);
+        }
+      }
+    };
+    probeKnowledgebase();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const filteredNavItems = NAV_ITEMS.filter(item => {
+    if (item.href === "/parent/kb" && !kbVisible) {
+      return false;
+    }
+    return !item.permission || RBACService.hasPermission(item.permission);
+  });
 
   const schoolName = config?.branding?.name_override || config?.name || 'Demo International School';
   const logoUrl = config?.branding?.logo_url;

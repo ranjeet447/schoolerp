@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -174,6 +175,37 @@ var authLimiter = &limiter{
 	counts: make(map[string]int),
 }
 
+var (
+	namedLimiterMu sync.Mutex
+	namedLimiters  = make(map[string]*limiter)
+)
+
+func getNamedLimiter(name string, window time.Duration) *limiter {
+	key := fmt.Sprintf("%s:%s", strings.TrimSpace(name), window.String())
+
+	namedLimiterMu.Lock()
+	defer namedLimiterMu.Unlock()
+
+	if existing, ok := namedLimiters[key]; ok {
+		return existing
+	}
+
+	created := &limiter{counts: make(map[string]int)}
+	namedLimiters[key] = created
+
+	go func(l *limiter, d time.Duration) {
+		ticker := time.NewTicker(d)
+		defer ticker.Stop()
+		for range ticker.C {
+			l.mu.Lock()
+			l.counts = make(map[string]int)
+			l.mu.Unlock()
+		}
+	}(created, window)
+
+	return created
+}
+
 func init() {
 	go func() {
 		for {
@@ -217,6 +249,64 @@ func RateLimit(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// RateLimitByKey applies a fixed-window in-memory rate limit for a derived key.
+// Use for lightweight endpoint protection where Redis-based limiting is not configured.
+func RateLimitByKey(name string, limit int, window time.Duration, keyFn func(*http.Request) string) func(http.Handler) http.Handler {
+	if limit <= 0 {
+		limit = 60
+	}
+	if window <= 0 {
+		window = time.Minute
+	}
+
+	l := getNamedLimiter(name, window)
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			key := ""
+			if keyFn != nil {
+				key = strings.TrimSpace(keyFn(r))
+			}
+			if key == "" {
+				key = clientIPForSecurity(r)
+			}
+
+			l.mu.Lock()
+			l.counts[key]++
+			count := l.counts[key]
+			l.mu.Unlock()
+
+			if count > limit {
+				if count == limit+1 {
+					RecordSecurityEvent(r.Context(), SecurityEvent{
+						TenantID:   GetTenantID(r.Context()),
+						UserID:     GetUserID(r.Context()),
+						Role:       GetRole(r.Context()),
+						EventType:  "request.rate_limited",
+						Severity:   "warning",
+						Method:     r.Method,
+						Path:       r.URL.Path,
+						StatusCode: http.StatusTooManyRequests,
+						IPAddress:  clientIPForSecurity(r),
+						UserAgent:  r.UserAgent(),
+						Origin:     r.Header.Get("Origin"),
+						Metadata: map[string]any{
+							"limiter":     name,
+							"window":      window.String(),
+							"limit_count": limit,
+							"key":         key,
+						},
+					})
+				}
+				http.Error(w, "Too many requests", http.StatusTooManyRequests)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func clientIPForSecurity(r *http.Request) string {

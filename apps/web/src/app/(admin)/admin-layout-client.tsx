@@ -45,6 +45,7 @@ const NAV_ITEMS = [
   { href: '/admin/finance', label: 'Fees & Finance', icon: Banknote, permission: 'fees:read' },
   { href: '/admin/exams', label: 'Exams & Results', icon: GraduationCap, permission: 'exams:read' },
   { href: '/admin/communication', label: 'Communication', icon: MessageSquare, permission: 'notices:read' },
+  { href: '/admin/kb', label: 'Knowledgebase', icon: BookOpen, permission: 'notices:read' },
   { href: '/admin/certificates', label: 'TC & Certificates', icon: FileCheck2, permission: 'sis:read' },
   { href: '/admin/notices', label: 'Notices', icon: FileText, permission: 'notices:read' },
   { href: '/admin/houses', label: 'Houses', icon: Shield, permission: 'sis:read' },

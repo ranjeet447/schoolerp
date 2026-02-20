@@ -17,11 +17,13 @@ import { RBACService } from '@/lib/auth-service';
 import { usePathname } from 'next/navigation';
 import { TenantConfig } from '@/lib/tenant-utils';
 import { useAuth } from '@/components/auth-provider';
+import { apiClient } from '@/lib/api-client';
 
 const NAV_ITEMS = [
   { href: '/teacher/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
   { href: '/teacher/attendance', label: 'Mark Attendance', icon: CalendarCheck, permission: 'attendance:write' },
   { href: '/teacher/homework', label: 'Homework', icon: BookOpen, permission: 'sis:read' },
+  { href: '/teacher/kb', label: 'Knowledgebase', icon: BookOpen, permission: 'sis:read' },
   { href: '/teacher/exams/marks', label: 'Enter Marks', icon: GraduationCap, permission: 'exams:write' },
   { href: '/teacher/notices', label: 'Notices', icon: FileText, permission: 'notices:read' },
 ];
@@ -35,10 +37,34 @@ export default function TeacherLayoutClient({
 }) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const [kbVisible, setKbVisible] = useState(false);
 
-  const filteredNavItems = NAV_ITEMS.filter(item => 
-    !item.permission || RBACService.hasPermission(item.permission)
-  );
+  useEffect(() => {
+    let active = true;
+    const probeKnowledgebase = async () => {
+      try {
+        const res = await apiClient("/kb/facets");
+        if (active) {
+          setKbVisible(res.ok);
+        }
+      } catch {
+        if (active) {
+          setKbVisible(false);
+        }
+      }
+    };
+    probeKnowledgebase();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const filteredNavItems = NAV_ITEMS.filter(item => {
+    if (item.href === "/teacher/kb" && !kbVisible) {
+      return false;
+    }
+    return !item.permission || RBACService.hasPermission(item.permission);
+  });
 
   const schoolName = config?.branding?.name_override || config?.name || 'TeacherOS';
   const logoUrl = config?.branding?.logo_url;

@@ -185,6 +185,14 @@ type AutomationRule struct {
 	ScheduleCron  pgtype.Text        `json:"schedule_cron"`
 }
 
+type AutomationRuleRun struct {
+	ID        pgtype.UUID        `json:"id"`
+	RuleID    pgtype.UUID        `json:"rule_id"`
+	TenantID  pgtype.UUID        `json:"tenant_id"`
+	RunMinute pgtype.Timestamptz `json:"run_minute"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type AvailabilityException struct {
 	ID              pgtype.UUID `json:"id"`
 	OwnerUserID     pgtype.UUID `json:"owner_user_id"`
@@ -870,6 +878,32 @@ type IpAllowlist struct {
 	Description pgtype.Text        `json:"description"`
 	CreatedBy   pgtype.UUID        `json:"created_by"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type KbChunk struct {
+	ID         pgtype.UUID        `json:"id"`
+	TenantID   pgtype.UUID        `json:"tenant_id"`
+	DocumentID pgtype.UUID        `json:"document_id"`
+	ChunkIndex int32              `json:"chunk_index"`
+	Content    string             `json:"content"`
+	Tsv        interface{}        `json:"tsv"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type KbDocument struct {
+	ID          pgtype.UUID        `json:"id"`
+	TenantID    pgtype.UUID        `json:"tenant_id"`
+	Title       string             `json:"title"`
+	Category    pgtype.Text        `json:"category"`
+	Tags        []string           `json:"tags"`
+	Visibility  string             `json:"visibility"`
+	Status      string             `json:"status"`
+	ContentText string             `json:"content_text"`
+	CreatedBy   pgtype.UUID        `json:"created_by"`
+	UpdatedBy   pgtype.UUID        `json:"updated_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type Lead struct {
@@ -2208,6 +2242,16 @@ type Tenant struct {
 	IsActive  pgtype.Bool        `json:"is_active"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TenantKbSetting struct {
+	TenantID      pgtype.UUID        `json:"tenant_id"`
+	Enabled       bool               `json:"enabled"`
+	AllowedRoles  []string           `json:"allowed_roles"`
+	AllowParents  bool               `json:"allow_parents"`
+	AllowStudents bool               `json:"allow_students"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type TenantSignupRequest struct {

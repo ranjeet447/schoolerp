@@ -44,6 +44,7 @@ type Querier interface {
 	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) (AuditLog, error)
 	CreateAuthor(ctx context.Context, arg CreateAuthorParams) (LibraryAuthor, error)
 	CreateAutoDebitMandate(ctx context.Context, arg CreateAutoDebitMandateParams) (AutoDebitMandate, error)
+	CreateAutomationRule(ctx context.Context, arg CreateAutomationRuleParams) (AutomationRule, error)
 	CreateBook(ctx context.Context, arg CreateBookParams) (LibraryBook, error)
 	CreateBookAuthor(ctx context.Context, arg CreateBookAuthorParams) error
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (LibraryCategory, error)
@@ -74,6 +75,8 @@ type Querier interface {
 	CreateInventoryCategory(ctx context.Context, arg CreateInventoryCategoryParams) (InventoryCategory, error)
 	CreateInventoryItem(ctx context.Context, arg CreateInventoryItemParams) (InventoryItem, error)
 	CreateInventoryTransaction(ctx context.Context, arg CreateInventoryTransactionParams) (InventoryTransaction, error)
+	CreateKBChunk(ctx context.Context, arg CreateKBChunkParams) (KbChunk, error)
+	CreateKBDocument(ctx context.Context, arg CreateKBDocumentParams) (KbDocument, error)
 	CreateLeaveRequest(ctx context.Context, arg CreateLeaveRequestParams) (LeaveRequest, error)
 	// Leaves
 	CreateLeaveType(ctx context.Context, arg CreateLeaveTypeParams) (StaffLeaveType, error)
@@ -135,6 +138,7 @@ type Querier interface {
 	DeleteExpiredAIChatSessions(ctx context.Context) error
 	DeleteHoliday(ctx context.Context, arg DeleteHolidayParams) error
 	DeleteIPAllowlist(ctx context.Context, arg DeleteIPAllowlistParams) error
+	DeleteKBChunksByDocument(ctx context.Context, arg DeleteKBChunksByDocumentParams) error
 	DeleteLock(ctx context.Context, arg DeleteLockParams) error
 	DeleteNotice(ctx context.Context, arg DeleteNoticeParams) error
 	DeleteNotificationTemplate(ctx context.Context, arg DeleteNotificationTemplateParams) error
@@ -186,6 +190,7 @@ type Querier interface {
 	GetHomeworkForStudent(ctx context.Context, arg GetHomeworkForStudentParams) ([]GetHomeworkForStudentRow, error)
 	GetInventoryItem(ctx context.Context, arg GetInventoryItemParams) (InventoryItem, error)
 	GetIssue(ctx context.Context, arg GetIssueParams) (LibraryIssue, error)
+	GetKBDocument(ctx context.Context, arg GetKBDocumentParams) (KbDocument, error)
 	GetMFASecret(ctx context.Context, userID pgtype.UUID) (MfaSecret, error)
 	GetMarksForAggregation(ctx context.Context, arg GetMarksForAggregationParams) ([]GetMarksForAggregationRow, error)
 	GetMaxStopSequence(ctx context.Context, routeID pgtype.UUID) (int32, error)
@@ -227,6 +232,7 @@ type Querier interface {
 	GetTenantActiveGateway(ctx context.Context, tenantID pgtype.UUID) (PaymentGatewayConfig, error)
 	GetTenantByID(ctx context.Context, id pgtype.UUID) (Tenant, error)
 	GetTenantBySubdomain(ctx context.Context, subdomain string) (Tenant, error)
+	GetTenantKBSettings(ctx context.Context, tenantID pgtype.UUID) (TenantKbSetting, error)
 	GetTenantStorageUsage(ctx context.Context, tenantID pgtype.UUID) (int64, error)
 	GetVehicle(ctx context.Context, arg GetVehicleParams) (TransportVehicle, error)
 	GetVisitorByPhone(ctx context.Context, arg GetVisitorByPhoneParams) (Visitor, error)
@@ -274,6 +280,10 @@ type Querier interface {
 	ListInventoryItems(ctx context.Context, arg ListInventoryItemsParams) ([]ListInventoryItemsRow, error)
 	ListInventoryTransactions(ctx context.Context, arg ListInventoryTransactionsParams) ([]ListInventoryTransactionsRow, error)
 	ListIssues(ctx context.Context, arg ListIssuesParams) ([]ListIssuesRow, error)
+	ListKBCategories(ctx context.Context, arg ListKBCategoriesParams) ([]pgtype.Text, error)
+	ListKBChunksByDocument(ctx context.Context, arg ListKBChunksByDocumentParams) ([]KbChunk, error)
+	ListKBDocuments(ctx context.Context, arg ListKBDocumentsParams) ([]KbDocument, error)
+	ListKBTags(ctx context.Context, arg ListKBTagsParams) ([]string, error)
 	ListLeaveRequests(ctx context.Context, arg ListLeaveRequestsParams) ([]ListLeaveRequestsRow, error)
 	ListLeaveTypes(ctx context.Context, arg ListLeaveTypesParams) ([]StaffLeaveType, error)
 	ListLeaves(ctx context.Context, arg ListLeavesParams) ([]LeaveRequest, error)
@@ -330,7 +340,10 @@ type Querier interface {
 	RemoveGroupMember(ctx context.Context, arg RemoveGroupMemberParams) error
 	ResolveNotificationTemplate(ctx context.Context, arg ResolveNotificationTemplateParams) (NotificationTemplate, error)
 	ReturnBook(ctx context.Context, arg ReturnBookParams) (LibraryIssue, error)
+	SearchKBChunksFTSOnly(ctx context.Context, arg SearchKBChunksFTSOnlyParams) ([]SearchKBChunksFTSOnlyRow, error)
+	SearchKBChunksWithTrgm(ctx context.Context, arg SearchKBChunksWithTrgmParams) ([]SearchKBChunksWithTrgmRow, error)
 	SetMFAEnabled(ctx context.Context, arg SetMFAEnabledParams) error
+	SoftDeleteKBDocument(ctx context.Context, arg SoftDeleteKBDocumentParams) error
 	SubmitHomework(ctx context.Context, arg SubmitHomeworkParams) (HomeworkSubmission, error)
 	UpdateAdjustmentStatus(ctx context.Context, arg UpdateAdjustmentStatusParams) error
 	UpdateAlumni(ctx context.Context, arg UpdateAlumniParams) (Alumni, error)
@@ -345,6 +358,7 @@ type Querier interface {
 	UpdateEmployee(ctx context.Context, arg UpdateEmployeeParams) (Employee, error)
 	UpdateEnquiryStatus(ctx context.Context, arg UpdateEnquiryStatusParams) error
 	UpdateExamSubjectMetadata(ctx context.Context, arg UpdateExamSubjectMetadataParams) error
+	UpdateKBDocument(ctx context.Context, arg UpdateKBDocumentParams) (KbDocument, error)
 	UpdateLeaveRequestStatus(ctx context.Context, arg UpdateLeaveRequestStatusParams) (StaffLeaveRequest, error)
 	UpdateLeaveStatus(ctx context.Context, arg UpdateLeaveStatusParams) (LeaveRequest, error)
 	UpdateLessonPlanStatus(ctx context.Context, arg UpdateLessonPlanStatusParams) (LessonPlan, error)
@@ -382,6 +396,7 @@ type Querier interface {
 	UpsertScholarship(ctx context.Context, arg UpsertScholarshipParams) (FeeDiscountsScholarship, error)
 	UpsertStock(ctx context.Context, arg UpsertStockParams) error
 	UpsertStudentOptionalFee(ctx context.Context, arg UpsertStudentOptionalFeeParams) (StudentOptionalFee, error)
+	UpsertTenantKBSettings(ctx context.Context, arg UpsertTenantKBSettingsParams) (TenantKbSetting, error)
 	UpsertWeightageConfig(ctx context.Context, arg UpsertWeightageConfigParams) (ExamWeightageConfig, error)
 	UseGatePass(ctx context.Context, arg UseGatePassParams) (GatePass, error)
 	UsePickupCode(ctx context.Context, arg UsePickupCodeParams) error
