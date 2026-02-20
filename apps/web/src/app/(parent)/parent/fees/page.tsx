@@ -47,9 +47,6 @@ type ReceiptRecord = {
     created_at: string
 }
 
-// Mock student context
-const MOCK_CHILD_ID = "student_123" 
-
 declare global {
     interface Window {
         Razorpay: any;
@@ -124,14 +121,17 @@ export default function ParentFeesPage() {
           if (!orderRes.ok) throw new Error("Failed to create order")
           const order = await orderRes.json()
 
-          // 2. Load Gateway Config
-          // Assuming Razorpay for now
-          // Real impl: fetch provider from /admin/fees/gateways?provider=razorpay (public endpoint needed?)
-          // Usually the order response contains key_id or we have a public config endpoint.
-          
           const keyRes = await apiClient("/admin/fees/gateways?provider=razorpay")
-          // For now, hardcoding or assuming env var
-          const key = process.env.NEXT_PUBLIC_RAZORPAY_KEY || "rzp_test_123" 
+          if (!keyRes.ok) {
+              throw new Error("Payment gateway is not available for this account")
+          }
+          const gateway = await keyRes.json()
+          const key = gateway?.api_key
+          if (!key) {
+              throw new Error("Gateway key is missing")
+          }
+
+          const selectedChildInfo = children.find((c) => c.id === selectedChild)
 
           const options = {
               key: key, 
@@ -145,8 +145,7 @@ export default function ParentFeesPage() {
                   setTimeout(() => fetchData(selectedChild), 2000)
               },
               prefill: {
-                  name: "Parent Name", 
-                  contact: "9999999999"
+                  name: selectedChildInfo?.full_name || ""
               }
           }
 

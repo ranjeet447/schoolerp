@@ -3,24 +3,22 @@
 import { useState, useEffect } from "react"
 import { 
   Button, Card, CardContent, CardDescription, CardHeader, CardTitle, 
-  Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   Badge, Checkbox, Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@schoolerp/ui"
-import { Users, Loader2, GraduationCap, ArrowRight, Filter, Search, ShieldAlert } from "lucide-react"
+import { Loader2, GraduationCap, ArrowRight, Filter, Search, ShieldAlert } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 
 type StudentRow = {
   id: string
   full_name: string
-  admission_no: string
+  admission_number: string
   class_id: string
   class_name: string
   section_id: string
   section_name: string
   status: string
-  aggregate?: number
-  is_eligible?: boolean
 }
 
 type ClassRow = { id: string; name: string }
@@ -30,7 +28,8 @@ type YearRow = { id: string; name: string }
 export default function PromotionManagerPage() {
   const [students, setStudents] = useState<StudentRow[]>([])
   const [classes, setClasses] = useState<ClassRow[]>([])
-  const [sections, setSections] = useState<SectionRow[]>([])
+  const [sourceSections, setSourceSections] = useState<SectionRow[]>([])
+  const [targetSections, setTargetSections] = useState<SectionRow[]>([])
   const [years, setYears] = useState<YearRow[]>([])
   
   const [loading, setLoading] = useState(true)
@@ -39,7 +38,7 @@ export default function PromotionManagerPage() {
   const [sourceAY, setSourceAY] = useState("")
   const [targetAY, setTargetAY] = useState("")
   const [sourceClass, setSourceClass] = useState("")
-  const [sourceSection, setSourceSection] = useState("")
+  const [sourceSection, setSourceSection] = useState("all")
   const [targetClass, setTargetClass] = useState("")
   const [targetSection, setTargetSection] = useState("")
   
@@ -51,23 +50,46 @@ export default function PromotionManagerPage() {
   }, [])
 
   useEffect(() => {
-    if (sourceAY && sourceClass) {
+    if (sourceClass) {
       fetchStudents()
     }
-  }, [sourceAY, sourceClass, sourceSection])
+  }, [sourceClass, sourceSection])
+
+  useEffect(() => {
+    if (sourceClass) {
+      void fetchSectionsByClass(sourceClass, "source")
+    } else {
+      setSourceSections([])
+    }
+  }, [sourceClass])
+
+  useEffect(() => {
+    if (targetClass) {
+      void fetchSectionsByClass(targetClass, "target")
+    } else {
+      setTargetSections([])
+    }
+  }, [targetClass])
 
   const fetchMetadata = async () => {
     setLoading(true)
     try {
-      const [yearsRes, classesRes, sectionsRes] = await Promise.all([
+      const [yearsRes, classesRes] = await Promise.all([
         apiClient("/admin/academic-structure/academic-years"),
         apiClient("/admin/academic-structure/classes"),
-        apiClient("/admin/academic-structure/sections"),
       ])
       
-      if (yearsRes.ok) setYears(await yearsRes.json())
+      if (yearsRes.ok) {
+        const yearRows = await yearsRes.json()
+        const list = Array.isArray(yearRows) ? yearRows : []
+        setYears(list)
+        if (list.length > 0) {
+          const firstYear = list[0]
+          setSourceAY(firstYear.id)
+          setTargetAY(firstYear.id)
+        }
+      }
       if (classesRes.ok) setClasses(await classesRes.json())
-      if (sectionsRes.ok) setSections(await sectionsRes.json())
     } catch (err) {
       toast.error("Failed to load school structure")
     } finally {
@@ -75,20 +97,42 @@ export default function PromotionManagerPage() {
     }
   }
 
+  const fetchSectionsByClass = async (classId: string, mode: "source" | "target") => {
+    try {
+      const res = await apiClient(`/admin/academic-structure/classes/${classId}/sections`)
+      const rows = res.ok ? await res.json() : []
+      const list = Array.isArray(rows) ? rows : []
+      if (mode === "source") setSourceSections(list)
+      else setTargetSections(list)
+    } catch {
+      if (mode === "source") setSourceSections([])
+      else setTargetSections([])
+    }
+  }
+
   const fetchStudents = async () => {
     setLoading(true)
     try {
-      // Mocking the aggregate and eligibility for now 
-      // In a real scenario, we'd fetch from a service that calculates this
-      const res = await apiClient(`/admin/students?class_id=${sourceClass}${sourceSection ? `&section_id=${sourceSection}` : ""}`)
+      const res = await apiClient("/admin/students?limit=500")
       if (res.ok) {
         const data = await res.json()
         const list = Array.isArray(data) ? data : data.data || []
-        setStudents(list.map((s: any) => ({
-          ...s,
-          aggregate: Math.floor(Math.random() * 40) + 60, // Mock
-          is_eligible: true // Mock
-        })))
+        const normalized = list.map((s: any) => ({
+          id: s.id,
+          full_name: s.full_name || "",
+          admission_number: s.admission_number || s.admission_no || "",
+          class_id: s.class_id || "",
+          class_name: s.class_name || "",
+          section_id: s.section_id || "",
+          section_name: s.section_name || "",
+          status: s.status?.String || s.status || "unknown",
+        })) as StudentRow[]
+        const filtered = normalized.filter((s) => {
+          if (sourceClass && s.class_id !== sourceClass) return false
+          if (sourceSection && sourceSection !== "all" && s.section_id !== sourceSection) return false
+          return true
+        })
+        setStudents(filtered)
       }
     } catch (err) {
       toast.error("Failed to load students")
@@ -117,7 +161,7 @@ export default function PromotionManagerPage() {
             student_id: id,
             from_academic_year_id: sourceAY,
             to_academic_year_id: targetAY,
-            from_section_id: sourceSection || undefined,
+            from_section_id: sourceSection === "all" ? undefined : sourceSection,
             to_section_id: targetSection,
             status: "promoted",
             remarks: "Batch promotion via Promotion Manager"
@@ -146,7 +190,7 @@ export default function PromotionManagerPage() {
 
   const filteredStudents = students.filter(s => 
     s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    s.admission_no.toLowerCase().includes(searchQuery.toLowerCase())
+    s.admission_number.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   return (
@@ -185,7 +229,7 @@ export default function PromotionManagerPage() {
                             {years.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}
                         </SelectContent>
                     </Select>
-                    <Select value={sourceClass} onValueChange={setSourceClass}>
+                    <Select value={sourceClass} onValueChange={(v) => { setSourceClass(v); setSourceSection("all") }}>
                         <SelectTrigger className="bg-slate-800 border-none h-11 rounded-xl text-xs font-bold">
                             <SelectValue placeholder="Current Class" />
                         </SelectTrigger>
@@ -198,8 +242,8 @@ export default function PromotionManagerPage() {
                             <SelectValue placeholder="Section (Opt)" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="none">All Sections</SelectItem>
-                            {sections.filter(s => s.class_id === sourceClass).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                            <SelectItem value="all">All Sections</SelectItem>
+                            {sourceSections.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                         </SelectContent>
                     </Select>
                   </div>
@@ -223,7 +267,7 @@ export default function PromotionManagerPage() {
                             {years.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}
                         </SelectContent>
                     </Select>
-                    <Select value={targetClass} onValueChange={setTargetClass}>
+                    <Select value={targetClass} onValueChange={(v) => { setTargetClass(v); setTargetSection("") }}>
                         <SelectTrigger className="bg-indigo-700 border-none h-11 rounded-xl text-xs font-bold">
                             <SelectValue placeholder="Target Class" />
                         </SelectTrigger>
@@ -236,7 +280,7 @@ export default function PromotionManagerPage() {
                             <SelectValue placeholder="Target Section" />
                         </SelectTrigger>
                         <SelectContent>
-                            {sections.filter(s => s.class_id === targetClass).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                            {targetSections.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                         </SelectContent>
                     </Select>
                   </div>
@@ -278,18 +322,17 @@ export default function PromotionManagerPage() {
                         <TableHead className="text-[10px] font-black uppercase tracking-widest">Student</TableHead>
                         <TableHead className="text-[10px] font-black uppercase tracking-widest">Admission No</TableHead>
                         <TableHead className="text-[10px] font-black uppercase tracking-widest">Current Class/Sec</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase tracking-widest">Eligibility</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase tracking-widest text-right">Aggregate</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest text-right">Status</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {loading ? (
                         <TableRow>
-                            <TableCell colSpan={6} className="h-32 text-center text-slate-400 italic">Loading student roster...</TableCell>
+                            <TableCell colSpan={5} className="h-32 text-center text-slate-400 italic">Loading student roster...</TableCell>
                         </TableRow>
                     ) : filteredStudents.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={6} className="h-32 text-center text-slate-400 italic">No students match current filters.</TableCell>
+                            <TableCell colSpan={5} className="h-32 text-center text-slate-400 italic">No students match current filters.</TableCell>
                         </TableRow>
                     ) : filteredStudents.map(s => (
                         <TableRow key={s.id} className="hover:bg-slate-50/50 transition-colors">
@@ -305,23 +348,15 @@ export default function PromotionManagerPage() {
                             <TableCell>
                                 <div className="font-bold text-slate-900">{s.full_name}</div>
                             </TableCell>
-                            <TableCell className="font-mono text-xs font-bold text-slate-500">{s.admission_no}</TableCell>
+                            <TableCell className="font-mono text-xs font-bold text-slate-500">{s.admission_number}</TableCell>
                             <TableCell>
                                 <div className="text-xs font-medium text-slate-600">
                                     {s.class_name} — {s.section_name}
                                 </div>
                             </TableCell>
-                            <TableCell>
-                                <div className="flex items-center gap-2">
-                                    <div className={`h-2 w-2 rounded-full ${s.is_eligible ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                                    <span className={`text-[10px] font-black uppercase tracking-widest ${s.is_eligible ? 'text-emerald-600' : 'text-red-600'}`}>
-                                        {s.is_eligible ? 'Qualified' : 'Requires Review'}
-                                    </span>
-                                </div>
-                            </TableCell>
                             <TableCell className="text-right">
-                                <Badge className={`${s.aggregate && s.aggregate >= 75 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'} border-none font-black font-mono`}>
-                                    {s.aggregate}%
+                                <Badge className={`${s.status === "active" ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'} border-none font-black`}>
+                                    {s.status}
                                 </Badge>
                             </TableCell>
                         </TableRow>

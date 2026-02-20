@@ -60,9 +60,6 @@ type GatewayConfig = {
   settings?: any
 }
 
-// Mock or Fetch active AY
-const CURRENT_AY = "2024-2025" // In real app, fetch from context/API
-
 export default function FeeSetupPage() {
   const [activeTab, setActiveTab] = useState("heads")
   
@@ -72,7 +69,9 @@ export default function FeeSetupPage() {
   
   // -- Structure State --
   const [configs, setConfigs] = useState<FeeConfig[]>([])
-  const [classes, setClasses] = useState<{id: string, name: string}[]>([]) // Need to fetch classes
+  const [classes, setClasses] = useState<{id: string, name: string}[]>([])
+  const [academicYears, setAcademicYears] = useState<{id: string, name: string, is_active?: boolean | { Bool?: boolean }}[]>([])
+  const [activeYearId, setActiveYearId] = useState<string>("")
   const [selectedClass, setSelectedClass] = useState<string>("")
 
   // -- Gateway State --
@@ -87,8 +86,14 @@ export default function FeeSetupPage() {
   // Initial Data Fetch
   useEffect(() => {
     fetchHeads()
-    fetchClasses() // Need an endpoint for this or reuse standard one
+    fetchMetadata()
   }, [])
+
+  useEffect(() => {
+    if (selectedClass && activeYearId) {
+      fetchStructure(selectedClass)
+    }
+  }, [selectedClass, activeYearId])
 
   // Fetch Logic
   const fetchHeads = async () => {
@@ -96,27 +101,38 @@ export default function FeeSetupPage() {
     if (res.ok) setHeads(await res.json())
   }
   
-  const fetchClasses = async () => {
-      // Assuming exist. If not, we might need to mock or find the endpoint.
-      // Usually /admin/academics/classes
-      const res = await apiClient("/admin/academics/classes")
-      if (res.ok) setClasses(await res.json())
+  const fetchMetadata = async () => {
+      try {
+        const [classesRes, yearsRes] = await Promise.all([
+          apiClient("/admin/academic-structure/classes"),
+          apiClient("/admin/academic-structure/academic-years"),
+        ])
+
+        if (classesRes.ok) {
+          const classRows = await classesRes.json()
+          setClasses(Array.isArray(classRows) ? classRows : [])
+        }
+
+        if (yearsRes.ok) {
+          const yearRows = await yearsRes.json()
+          const list = Array.isArray(yearRows) ? yearRows : []
+          setAcademicYears(list)
+          if (list.length > 0) {
+            const active = list.find((y: any) => y.is_active === true || y.is_active?.Bool === true) || list[0]
+            setActiveYearId(active.id)
+          }
+        }
+      } catch {
+        toast.error("Failed to load class/year metadata")
+      }
   }
 
   const fetchStructure = async (clsId: string) => {
-    // CURRENT_AY should be dynamic. fetching current active year. 
-    // For now hardcoding or using the first one found in contexts if available.
-    // Let's assume we have an endpoint to get current academic year context.
-    const ayRes = await apiClient("/admin/academics/years/current") 
-    let ayId = ""
-    if (ayRes.ok) {
-        const ay = await ayRes.json()
-        ayId = ay.id
+    if (!activeYearId) {
+      toast.error("Select an academic year first")
+      return
     }
-    
-    if (!ayId) return 
-
-    const res = await apiClient(`/admin/fees/structure?academic_year_id=${ayId}&class_id=${clsId}`)
+    const res = await apiClient(`/admin/fees/structure?academic_year_id=${activeYearId}&class_id=${clsId}`)
     if (res.ok) setConfigs(await res.json())
   }
 
@@ -166,7 +182,7 @@ export default function FeeSetupPage() {
               return prev.map(c => c.fee_head_id === headId ? { ...c, ...updates } : c)
           } else {
               return [...prev, {
-                  academic_year_id: "", // Filled on save or init
+                  academic_year_id: activeYearId,
                   class_id: selectedClass,
                   fee_head_id: headId,
                   amount: 0,
@@ -178,34 +194,10 @@ export default function FeeSetupPage() {
   }
 
   const saveConfig = async (headId: string, cfg: FeeConfig) => {
-    // Determine AY
-    // For now assuming we have a way to get current AY ID. 
-    // If configs already has it, use it. Else fetch or use default.
-    // Making a call to fetch structure sets configs, so it should have AYID if existing.
-    // If new, we need current AYID.
-    
-    // Quick fix: Fetch current AY or use hardcoded/context if avail. 
-    // real implementation: `const { ayId } = useAcademicYear()`
-    
-    // For this implementation, I will rely on fetching structure to give me AYID context or 
-    // logic to get it.
-    
-    // Let's rely on the one fetched in fetchStructure if possible, 
-    // or fetch it again if needed.
-    
-    let kAY = cfg.academic_year_id
+    let kAY = cfg.academic_year_id || activeYearId
     if (!kAY) {
-         // Try to find from other configs
-         const sibling = configs.find(c => c.academic_year_id)
-         if (sibling) kAY = sibling.academic_year_id
-         else {
-             // Fallback fetch
-             const ayRes = await apiClient("/admin/academics/years/current")
-             if (ayRes.ok) {
-                 const ay = await ayRes.json()
-                 kAY = ay.id
-             }
-         }
+      const sibling = configs.find(c => c.academic_year_id)
+      if (sibling) kAY = sibling.academic_year_id
     }
 
     if (!kAY) return toast.error("Academic Year not found")
@@ -313,12 +305,20 @@ export default function FeeSetupPage() {
              <Card className="bg-slate-900/50 border-white/5 rounded-3xl">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Class Fee Configuration</CardTitle>
-                <Select value={selectedClass} onValueChange={(v) => { setSelectedClass(v); fetchStructure(v); }}>
-                    <SelectTrigger className="w-[200px]"><SelectValue placeholder="Select Class" /></SelectTrigger>
-                    <SelectContent>
-                        {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Select value={activeYearId} onValueChange={setActiveYearId}>
+                      <SelectTrigger className="w-[220px]"><SelectValue placeholder="Select Academic Year" /></SelectTrigger>
+                      <SelectContent>
+                          {academicYears.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}
+                      </SelectContent>
+                  </Select>
+                  <Select value={selectedClass} onValueChange={(v) => { setSelectedClass(v); fetchStructure(v); }}>
+                      <SelectTrigger className="w-[200px]"><SelectValue placeholder="Select Class" /></SelectTrigger>
+                      <SelectContent>
+                          {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                  </Select>
+                </div>
               </CardHeader>
               <CardContent>
                 {!selectedClass ? (

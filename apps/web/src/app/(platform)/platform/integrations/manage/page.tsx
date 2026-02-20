@@ -1,33 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiClient } from "@/lib/api-client";
-import { 
- 
-  Globe, 
-  Shield, 
-  Activity, 
-  List, 
-  PlusCircle, 
-  ShieldCheck, 
-  Zap,
+import {
+  Globe,
+  Shield,
+  Activity,
+  List,
+  PlusCircle,
+  ShieldCheck,
   Lock,
   RefreshCcw,
-  ArrowRight
+  ArrowRight,
 } from "lucide-react";
-import { 
-  Button, 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle, 
-  Tabs, 
-  TabsContent, 
-  TabsList, 
-  TabsTrigger, 
-  Badge 
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Badge,
 } from "@schoolerp/ui";
 
 type PlatformWebhook = {
@@ -42,32 +40,71 @@ type PlatformWebhook = {
 
 type IntegrationLog = {
   id: string;
-  integration_name: string;
-  direction: string;
-  status_code: number;
-  success: boolean;
-  duration_ms: number;
+  event_type: string;
+  status: string;
+  http_status: number;
   created_at: string;
 };
+
+type IntegrationHealth = {
+  total_last_24h: number;
+  success_last_24h: number;
+  failure_last_24h: number;
+  is_healthy: boolean;
+};
+
+function unwrapData(payload: unknown): unknown {
+  if (payload && typeof payload === "object" && "data" in payload) {
+    return (payload as { data?: unknown }).data;
+  }
+  return payload;
+}
+
+function toArray<T>(payload: unknown): T[] {
+  const value = unwrapData(payload);
+  return Array.isArray(value) ? (value as T[]) : [];
+}
 
 export default function PlatformIntegrationsPage() {
   const [webhooks, setWebhooks] = useState<PlatformWebhook[]>([]);
   const [logs, setLogs] = useState<IntegrationLog[]>([]);
+  const [health, setHealth] = useState<IntegrationHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const fetchData = async () => {
     setLoading(true);
+    setError("");
     try {
-      const [wRes, lRes] = await Promise.all([
+      const [wRes, lRes, hRes] = await Promise.all([
         apiClient("/admin/platform/integrations/webhooks"),
         apiClient("/admin/platform/integrations/logs?limit=20"),
+        apiClient("/admin/platform/integrations/health"),
       ]);
 
-      if (wRes.ok) setWebhooks(await wRes.json());
-      if (lRes.ok) setLogs(await lRes.json());
-    } catch (e: any) {
+      if (wRes.ok) {
+        setWebhooks(toArray<PlatformWebhook>(await wRes.json()));
+      } else {
+        setWebhooks([]);
+      }
+
+      if (lRes.ok) {
+        setLogs(toArray<IntegrationLog>(await lRes.json()));
+      } else {
+        setLogs([]);
+      }
+
+      if (hRes.ok) {
+        const payload = await hRes.json();
+        setHealth(payload as IntegrationHealth);
+      } else {
+        setHealth(null);
+      }
+    } catch {
       setError("Failed to load integrations data.");
+      setWebhooks([]);
+      setLogs([]);
+      setHealth(null);
     } finally {
       setLoading(false);
     }
@@ -76,6 +113,16 @@ export default function PlatformIntegrationsPage() {
   useEffect(() => {
     void fetchData();
   }, []);
+
+  const successRate = useMemo(() => {
+    if (!health || !health.total_last_24h) return 0;
+    return Math.round((health.success_last_24h / health.total_last_24h) * 100);
+  }, [health]);
+
+  const recentStatusRows = useMemo(
+    () => logs.slice(0, 6).map((l) => ({ ...l, failed: (l.status || "").toLowerCase() !== "delivered" })),
+    [logs],
+  );
 
   if (loading && webhooks.length === 0) return <div className="p-6">Loading integrations...</div>;
 
@@ -97,6 +144,12 @@ export default function PlatformIntegrationsPage() {
           </Button>
         </div>
       </div>
+
+      {error ? (
+        <Card className="border-red-200 bg-red-50/40">
+          <CardContent className="p-4 text-sm text-red-700">{error}</CardContent>
+        </Card>
+      ) : null}
 
       <Tabs defaultValue="webhooks" className="w-full">
         <TabsList className="mb-4">
@@ -146,10 +199,14 @@ export default function PlatformIntegrationsPage() {
                           <td className="px-6 py-4 font-mono text-xs truncate max-w-[250px]">{w.target_url}</td>
                           <td className="px-6 py-4">
                             <div className="flex flex-wrap gap-1">
-                              {w.events.slice(0, 3).map(ev => (
+                              {(Array.isArray(w.events) ? w.events : []).slice(0, 3).map((ev) => (
                                 <Badge key={ev} variant="outline" className="text-[10px] break-all">{ev}</Badge>
                               ))}
-                              {w.events.length > 3 && <span className="text-[10px] text-muted-foreground">+{w.events.length - 3}</span>}
+                              {(Array.isArray(w.events) ? w.events.length : 0) > 3 && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  +{(Array.isArray(w.events) ? w.events.length : 0) - 3}
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td className="px-6 py-4">
@@ -187,9 +244,9 @@ export default function PlatformIntegrationsPage() {
                 <table className="min-w-full text-left text-sm">
                   <thead className="bg-muted text-muted-foreground">
                     <tr>
-                      <th className="px-6 py-3 font-semibold uppercase tracking-wider text-[10px]">Integration</th>
+                      <th className="px-6 py-3 font-semibold uppercase tracking-wider text-[10px]">Event</th>
                       <th className="px-6 py-3 font-semibold uppercase tracking-wider text-[10px]">Status</th>
-                      <th className="px-6 py-3 font-semibold uppercase tracking-wider text-[10px]">Latency</th>
+                      <th className="px-6 py-3 font-semibold uppercase tracking-wider text-[10px]">HTTP</th>
                       <th className="px-6 py-3 font-semibold uppercase tracking-wider text-[10px]">Timestamp</th>
                     </tr>
                   </thead>
@@ -199,20 +256,23 @@ export default function PlatformIntegrationsPage() {
                         <td className="px-6 py-8 text-center text-muted-foreground" colSpan={4}>No integration logs found.</td>
                       </tr>
                     ) : (
-                      logs.map((l) => (
-                        <tr key={l.id} className="hover:bg-accent/30 transition-colors">
-                          <td className="px-6 py-4 font-medium">{l.integration_name}</td>
-                          <td className="px-6 py-4">
-                            <Badge variant="outline" className={l.success ? "text-emerald-600 border-emerald-200" : "text-red-600 border-red-200"}>
-                              {l.status_code} {l.success ? "OK" : "Error"}
-                            </Badge>
-                          </td>
-                          <td className="px-6 py-4 text-muted-foreground font-mono text-xs">{l.duration_ms}ms</td>
-                          <td className="px-6 py-4 text-xs text-muted-foreground">
-                            {new Date(l.created_at).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))
+                      logs.map((l) => {
+                        const delivered = (l.status || "").toLowerCase() === "delivered";
+                        return (
+                          <tr key={l.id} className="hover:bg-accent/30 transition-colors">
+                            <td className="px-6 py-4 font-medium">{l.event_type}</td>
+                            <td className="px-6 py-4">
+                              <Badge variant="outline" className={delivered ? "text-emerald-600 border-emerald-200" : "text-red-600 border-red-200"}>
+                                {(l.status || "unknown").toUpperCase()}
+                              </Badge>
+                            </td>
+                            <td className="px-6 py-4 text-muted-foreground font-mono text-xs">{l.http_status || 0}</td>
+                            <td className="px-6 py-4 text-xs text-muted-foreground">
+                              {l.created_at ? new Date(l.created_at).toLocaleString() : "N/A"}
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -227,32 +287,39 @@ export default function PlatformIntegrationsPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Shield className="h-5 w-5 text-amber-500" />
-                  API Security Controls
+                  Integration Health
                 </CardTitle>
-                <CardDescription>Global security policies and rate limits.</CardDescription>
+                <CardDescription>Computed from integration event delivery in the last 24 hours.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="divide-y divide-border rounded-lg border">
                   <div className="flex items-center justify-between p-4">
                     <div className="space-y-0.5">
-                      <p className="text-sm font-medium">Global API Rate Limit</p>
-                      <p className="text-xs text-muted-foreground">Requests per minute per tenant</p>
+                      <p className="text-sm font-medium">Total Events (24h)</p>
+                      <p className="text-xs text-muted-foreground">All outgoing integration events</p>
                     </div>
-                    <Badge>2000 req/min</Badge>
+                    <Badge>{health?.total_last_24h ?? 0}</Badge>
                   </div>
                   <div className="flex items-center justify-between p-4">
                     <div className="space-y-0.5">
-                      <p className="text-sm font-medium">IP Blocklist Enforcement</p>
-                      <p className="text-xs text-muted-foreground">Filtering malicious traffic</p>
+                      <p className="text-sm font-medium">Delivered (24h)</p>
+                      <p className="text-xs text-muted-foreground">Successful delivery attempts</p>
                     </div>
-                    <Badge className="bg-emerald-500/10 text-emerald-700">Active</Badge>
+                    <Badge className="bg-emerald-500/10 text-emerald-700">{health?.success_last_24h ?? 0}</Badge>
                   </div>
                   <div className="flex items-center justify-between p-4">
                     <div className="space-y-0.5">
-                      <p className="text-sm font-medium">TLS Enforcement</p>
-                      <p className="text-xs text-muted-foreground">Force HTTPS only for all API calls</p>
+                      <p className="text-sm font-medium">Failed (24h)</p>
+                      <p className="text-xs text-muted-foreground">Events requiring retry or investigation</p>
                     </div>
-                    <Badge className="bg-emerald-500/10 text-emerald-700">Enabled</Badge>
+                    <Badge className="bg-red-500/10 text-red-700">{health?.failure_last_24h ?? 0}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-4">
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-medium">Success Rate</p>
+                      <p className="text-xs text-muted-foreground">Delivery ratio over the same window</p>
+                    </div>
+                    <Badge className="bg-blue-500/10 text-blue-700">{successRate}%</Badge>
                   </div>
                 </div>
                 <Button variant="outline" className="w-full gap-2 text-red-600 border-red-200 hover:bg-red-50">
@@ -266,48 +333,26 @@ export default function PlatformIntegrationsPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Activity className="h-5 w-5 text-emerald-500" />
-                  External Service Health
+                  Recent Delivery Health
                 </CardTitle>
-                <CardDescription>Connectivity status of platform dependencies.</CardDescription>
+                <CardDescription>Latest webhook event statuses from integration logs.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                    <span className="text-sm font-medium">Payment Gateway (Razorpay)</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-emerald-600 font-bold">OPERATIONAL</span>
-                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <CardContent className="space-y-3">
+                {recentStatusRows.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">No recent delivery activity found.</div>
+                ) : (
+                  recentStatusRows.map((row) => (
+                    <div key={row.id} className="flex items-center justify-between rounded-md border px-3 py-2">
+                      <span className="text-sm font-medium truncate pr-2">{row.event_type}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={row.failed ? "text-[10px] text-red-600 font-bold" : "text-[10px] text-emerald-600 font-bold"}>
+                          {(row.status || "unknown").toUpperCase()}
+                        </span>
+                        <span className={row.failed ? "h-2 w-2 rounded-full bg-red-500" : "h-2 w-2 rounded-full bg-emerald-500"}></span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                    <span className="text-sm font-medium">Email Service (AWS SES)</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-emerald-600 font-bold">OPERATIONAL</span>
-                      <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                    <span className="text-sm font-medium">WhatsApp (Meta API)</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-emerald-600 font-bold">OPERATIONAL</span>
-                      <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                    <span className="text-sm font-medium">Secondary Gateway (Stripe)</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-emerald-600 font-bold">OPERATIONAL</span>
-                      <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                    <span className="text-sm font-medium">Push Notification (FCM)</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-emerald-600 font-bold">OPERATIONAL</span>
-                      <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-                    </div>
-                  </div>
-                </div>
+                  ))
+                )}
               </CardContent>
             </Card>
           </div>
