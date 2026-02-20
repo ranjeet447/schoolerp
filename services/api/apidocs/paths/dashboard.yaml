@@ -1,0 +1,249 @@
+# Dashboard & Biometric API Paths
+# Based on dashboard handler: GetDailyCommandStatus, GetStrategicAnalytics
+# Based on biometric handler: device management, attendance logs, sync
+
+/admin/dashboard/command-status:
+  get:
+    operationId: getDailyCommandStatus
+    tags: [Dashboard]
+    summary: Get real-time daily command status
+    description: |
+      Returns a comprehensive real-time overview of today's operational metrics
+      for the tenant. Includes attendance counts (students and staff), finance
+      collections for today, active substitutions, and security status.
+
+      This powers the admin dashboard's "Command Status" panel.
+    responses:
+      '200':
+        description: Real-time operational status
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                attendance:
+                  type: object
+                  properties:
+                    students:
+                      type: object
+                      properties:
+                        present: { type: integer, description: Students marked present today }
+                        absent: { type: integer, description: Students marked absent today }
+                        late: { type: integer, description: Students marked late today }
+                        total: { type: integer, description: Total attendance entries today }
+                    staff:
+                      type: object
+                      properties:
+                        present: { type: integer }
+                        absent: { type: integer }
+                        total: { type: integer }
+                finance:
+                  type: object
+                  properties:
+                    collected_today: { type: integer, format: int64, description: Amount collected today in paise }
+                    target_month: { type: integer, format: int64, description: Monthly collection target }
+                    pending_dues: { type: integer, format: int64, description: Total pending dues }
+                academics:
+                  type: object
+                  properties:
+                    active_substitutions: { type: integer, description: Number of active teacher substitutions }
+                    pending_absences: { type: integer, description: Teacher absences without substitution }
+                security:
+                  type: object
+                  properties:
+                    active_visitors: { type: integer, description: Current visitors on campus }
+                    recent_alerts: { type: integer, description: Alerts in last 24 hours }
+
+/admin/dashboard/strategic-analytics:
+  get:
+    operationId: getStrategicAnalytics
+    tags: [Dashboard]
+    summary: Get strategic analytics for the dashboard
+    description: |
+      Returns aggregated analytics data for the principal/admin dashboard.
+      Includes:
+      - **Academic heatmap**: Average scores by class and subject
+      - **Financial collection**: Monthly collection amounts (last 6 months)
+      - **Admission funnel**: Application counts by status
+    responses:
+      '200':
+        description: Strategic analytics data
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                academic_heatmap:
+                  type: array
+                  description: Average scores per class per subject
+                  items:
+                    type: object
+                    properties:
+                      class_name: { type: string, example: "Class 10" }
+                      subject_name: { type: string, example: "Mathematics" }
+                      average_score: { type: number, format: double, example: 78.5 }
+                financial_collection:
+                  type: array
+                  description: Monthly fee collection totals (last 6 months)
+                  items:
+                    type: object
+                    properties:
+                      month: { type: string, example: "Jan 2026" }
+                      amount: { type: integer, format: int64, example: 1250000 }
+                admission_funnel:
+                  type: array
+                  description: Count of admission applications by stage
+                  items:
+                    type: object
+                    properties:
+                      status: { type: string, enum: [enquiry, applied, under_review, accepted, enrolled, rejected] }
+                      count: { type: integer, example: 45 }
+
+/admin/biometric/devices:
+  get:
+    operationId: listBiometricDevices
+    tags: [Biometric]
+    summary: List registered biometric devices
+    description: |
+      Returns all biometric devices registered for the tenant. Each device has
+      a serial number, name, location, and active status.
+    responses:
+      '200':
+        description: Device list
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  name: { type: string, example: "Main Gate Scanner" }
+                  serial_number: { type: string }
+                  location: { type: string, example: "Main Entrance" }
+                  is_active: { type: boolean }
+                  last_sync_at: { type: string, format: date-time }
+  post:
+    operationId: registerBiometricDevice
+    tags: [Biometric]
+    summary: Register a new biometric device
+    description: |
+      Registers a new fingerprint/face recognition device for attendance tracking.
+      The device must have a unique serial number within the tenant.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, serial_number]
+            properties:
+              name: { type: string, description: Human-readable device name }
+              serial_number: { type: string, description: Manufacturer serial number }
+              location: { type: string, description: Physical location of the device }
+    responses:
+      '201':
+        description: Device registered
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string, format: uuid }
+                name: { type: string }
+
+/admin/biometric/devices/{id}:
+  put:
+    operationId: updateBiometricDevice
+    tags: [Biometric]
+    summary: Update biometric device configuration
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: Device ID
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name: { type: string }
+              location: { type: string }
+              is_active: { type: boolean, description: Set false to disable syncing }
+    responses:
+      '200':
+        description: Device updated
+
+/admin/biometric/attendance-logs:
+  get:
+    operationId: listBiometricAttendanceLogs
+    tags: [Biometric]
+    summary: List raw biometric attendance logs
+    description: |
+      Returns raw punch-in/punch-out logs from biometric devices.
+      Can be filtered by date and device ID.
+    parameters:
+      - name: date
+        in: query
+        schema: { type: string, format: date }
+        description: Filter by date (defaults to today)
+      - name: device_id
+        in: query
+        schema: { type: string, format: uuid }
+        description: Filter by specific device
+      - name: limit
+        in: query
+        schema: { type: integer, default: 100, maximum: 500 }
+      - name: offset
+        in: query
+        schema: { type: integer, default: 0 }
+    responses:
+      '200':
+        description: Attendance log entries
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  device_id: { type: string, format: uuid }
+                  user_identifier: { type: string, description: Fingerprint/face ID from device }
+                  punch_type: { type: string, enum: [in, out] }
+                  timestamp: { type: string, format: date-time }
+
+/admin/biometric/sync:
+  post:
+    operationId: syncBiometricData
+    tags: [Biometric]
+    summary: Trigger biometric data sync
+    description: |
+      Manually triggers a sync with the specified biometric device.
+      Pulls pending attendance records from the device and processes them
+      into the attendance system.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [device_id]
+            properties:
+              device_id:
+                type: string
+                format: uuid
+                description: ID of the device to sync
+    responses:
+      '200':
+        description: Sync initiated
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                synced_records: { type: integer, description: Number of records imported }
+                status: { type: string, example: completed }

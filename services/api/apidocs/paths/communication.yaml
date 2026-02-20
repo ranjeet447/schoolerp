@@ -1,0 +1,88 @@
+# Communication & CRM API Paths — WhatsApp, Email, SMS configurations and logs
+
+/admin/communication/whatsapp/config:
+  get:
+    operationId: getWhatsAppConfig
+    tags: [Communication]
+    summary: Get WhatsApp API configuration
+    responses:
+      '200':
+        description: WhatsApp settings
+  post:
+    operationId: updateWhatsAppConfig
+    tags: [Communication]
+    summary: Update WhatsApp API settings
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [provider, api_key]
+            properties:
+              provider: { type: string, enum: [meta, twilio, gupshup] }
+              api_key: { type: string }
+              phone_number_id: { type: string }
+    responses:
+      '200':
+        description: Config updated
+
+/admin/communication/broadcast:
+  post:
+    operationId: sendBroadcast
+    tags: [Communication]
+    summary: Send multi-channel broadcast
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [channels, message, targets]
+            properties:
+              channels: { type: array, items: { type: string, enum: [sms, email, whatsapp, push] } }
+              message: { type: string }
+              targets: { type: object, description: "Filter criteria for recipients" }
+    responses:
+      '200':
+        description: Broadcast initiated
+
+/admin/communication/logs:
+  get:
+    operationId: listCommunicationLogs
+    tags: [Communication]
+    summary: List communication logs
+    parameters:
+      - name: channel
+        in: query
+        schema: { type: string }
+    responses:
+      '200':
+        description: Log list
+
+/admin/communication/templates:
+  get:
+    operationId: listCommTemplates
+    tags: [Communication]
+    summary: List message templates
+    responses:
+      '200':
+        description: Template list
+  post:
+    operationId: createCommTemplate
+    tags: [Communication]
+    summary: Create message template
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, body]
+            properties:
+              name: { type: string }
+              body: { type: string }
+              variables: { type: array, items: { type: string } }
+    responses:
+      '201':
+        description: Template created

@@ -1,0 +1,623 @@
+# Finance API Paths — Fee heads, plans, payments, receipts, reports
+
+/admin/finance/fees/heads:
+  get:
+    operationId: listFeeHeads
+    tags: [Finance]
+    summary: List fee heads
+    description: |
+      Returns all fee heads configured for the tenant. Fee heads are categories
+      like Tuition Fee, Transport Fee, Lab Fee, etc.
+    responses:
+      '200':
+        description: Fee heads list
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  name: { type: string, example: "Tuition Fee" }
+                  type: { type: string, example: "tuition" }
+                  is_optional: { type: boolean }
+  post:
+    operationId: createFeeHead
+    tags: [Finance]
+    summary: Create a fee head
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, type]
+            properties:
+              name: { type: string, example: "Lab Fee" }
+              type: { type: string, description: "Fee category type" }
+              is_optional: { type: boolean, default: false }
+    responses:
+      '200':
+        description: Fee head created
+
+/admin/finance/fees/plans:
+  post:
+    operationId: createFeePlan
+    tags: [Finance]
+    summary: Create a fee plan
+    description: |
+      Creates a fee plan with installment breakdowns for an academic year.
+      A fee plan groups multiple fee heads with amounts and due dates.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, academic_year_id, total_amount]
+            properties:
+              name: { type: string, example: "Class 5 Annual Plan 2025-26" }
+              academic_year_id: { type: string, format: uuid }
+              total_amount: { type: integer, format: int64, example: 75000, description: "Amount in paise" }
+              installments:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    due_date: { type: string, format: date }
+                    amount: { type: integer, format: int64 }
+    responses:
+      '200':
+        description: Fee plan created
+
+/admin/finance/fees/assign:
+  post:
+    operationId: assignFeePlan
+    tags: [Finance]
+    summary: Assign a fee plan to a student
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [student_id, plan_id]
+            properties:
+              student_id: { type: string, format: uuid }
+              plan_id: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Fee plan assigned to student
+
+/admin/finance/fees/structure:
+  get:
+    operationId: listFeeStructure
+    tags: [Finance]
+    summary: List fee class configurations
+    description: Returns fee structure breakdown by class and academic year.
+    responses:
+      '200':
+        description: Fee structure list
+  post:
+    operationId: upsertFeeStructure
+    tags: [Finance]
+    summary: Create or update fee class configuration
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [class_id, academic_year_id, components]
+            properties:
+              class_id: { type: string, format: uuid }
+              academic_year_id: { type: string, format: uuid }
+              components:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    fee_head_id: { type: string, format: uuid }
+                    amount: { type: integer, format: int64 }
+    responses:
+      '200':
+        description: Fee structure saved
+
+/admin/finance/fees/gateways:
+  get:
+    operationId: getPaymentGatewayConfig
+    tags: [Finance]
+    summary: Get active payment gateway configuration
+    responses:
+      '200':
+        description: Gateway config (keys are masked)
+  post:
+    operationId: upsertPaymentGatewayConfig
+    tags: [Finance]
+    summary: Configure payment gateway (Razorpay/PayU/Cashfree)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [gateway, key_id, key_secret]
+            properties:
+              gateway: { type: string, enum: [razorpay, payu, cashfree] }
+              key_id: { type: string }
+              key_secret: { type: string }
+              webhook_secret: { type: string }
+    responses:
+      '200':
+        description: Config saved
+
+/admin/finance/fees/scholarships:
+  get:
+    operationId: listScholarships
+    tags: [Finance]
+    summary: List scholarships
+    parameters:
+      - name: active_only
+        in: query
+        schema: { type: boolean }
+    responses:
+      '200':
+        description: Scholarship list
+  post:
+    operationId: upsertScholarship
+    tags: [Finance]
+    summary: Create or update a scholarship
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, type, value]
+            properties:
+              name: { type: string, example: "Merit Scholarship" }
+              type: { type: string, enum: [percentage, fixed] }
+              value: { type: number, example: 25, description: "25% or ₹25000 depending on type" }
+              criteria: { type: object, description: "Eligibility criteria" }
+    responses:
+      '200':
+        description: Scholarship saved
+
+/admin/finance/fees/optional:
+  get:
+    operationId: listOptionalFeeItems
+    tags: [Finance]
+    summary: List optional fee items
+    description: Fee items that students can opt into (e.g., swimming, music class).
+    responses:
+      '200':
+        description: Optional fee items
+
+/admin/finance/fees/select:
+  post:
+    operationId: selectOptionalFee
+    tags: [Finance]
+    summary: Opt a student into an optional fee
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [student_id, fee_item_id]
+            properties:
+              student_id: { type: string, format: uuid }
+              fee_item_id: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Optional fee selected
+
+/admin/finance/fees/students/{id}/summary:
+  get:
+    operationId: getStudentFeeSummary
+    tags: [Finance]
+    summary: Get fee summary for a student
+    description: |
+      Returns total fees, amount paid, pending dues, and overdue amounts
+      for a specific student.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: Student ID
+    responses:
+      '200':
+        description: Fee summary
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                total: { type: integer, format: int64, description: "Total fees in paise" }
+                paid: { type: integer, format: int64 }
+                pending: { type: integer, format: int64 }
+                overdue: { type: integer, format: int64 }
+                next_due_date: { type: string, format: date }
+
+/admin/finance/fees/late-fees:
+  get:
+    operationId: listLateFeeRules
+    tags: [Finance]
+    summary: List late fee rules
+    responses:
+      '200':
+        description: Late fee rules
+  post:
+    operationId: createLateFeeRule
+    tags: [Finance]
+    summary: Create a late fee rule
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name: { type: string }
+              type: { type: string, enum: [fixed, percentage, per_day] }
+              value: { type: number }
+              grace_days: { type: integer, description: "Days after due date before late fee applies" }
+    responses:
+      '200':
+        description: Rule created
+
+/admin/finance/fees/concessions:
+  get:
+    operationId: listConcessionRules
+    tags: [Finance]
+    summary: List fee concession rules
+    responses:
+      '200':
+        description: Concession rules
+  post:
+    operationId: createConcessionRule
+    tags: [Finance]
+    summary: Create a fee concession rule
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, type, value]
+            properties:
+              name: { type: string, example: "Sibling Discount" }
+              type: { type: string, enum: [percentage, fixed] }
+              value: { type: number }
+    responses:
+      '200':
+        description: Rule created
+
+/admin/finance/fees/fee-reminders:
+  get:
+    operationId: listFeeReminderConfigs
+    tags: [Finance]
+    summary: List fee reminder configurations
+    responses:
+      '200':
+        description: Reminder configs
+  post:
+    operationId: upsertFeeReminderConfig
+    tags: [Finance]
+    summary: Create or update fee reminder configuration
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              days_before: { type: integer, description: "Days before due date to send reminder" }
+              channel: { type: string, enum: [sms, email, push, whatsapp] }
+              template: { type: string, description: "Message template with variables" }
+    responses:
+      '200':
+        description: Config saved
+
+/admin/finance/student-concessions:
+  post:
+    operationId: applyStudentConcession
+    tags: [Finance]
+    summary: Apply a concession to a student
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [student_id, concession_id]
+            properties:
+              student_id: { type: string, format: uuid }
+              concession_id: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Concession applied
+
+/admin/finance/payments/offline:
+  post:
+    operationId: issueOfflineReceipt
+    tags: [Finance]
+    summary: Issue an offline payment receipt
+    description: |
+      Records a payment received via cash, cheque, DD, or bank transfer.
+      Generates a receipt number from the active receipt series and marks
+      the corresponding fee components as paid.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [student_id, amount, mode]
+            properties:
+              student_id: { type: string, format: uuid }
+              amount: { type: integer, format: int64, description: "Amount in paise" }
+              mode: { type: string, enum: [cash, cheque, dd, bank_transfer] }
+              reference: { type: string, description: "Cheque/DD number or bank reference" }
+              components:
+                type: array
+                description: Fee head-wise breakup of the payment
+                items:
+                  type: object
+                  properties:
+                    fee_head_id: { type: string, format: uuid }
+                    amount: { type: integer, format: int64 }
+    responses:
+      '200':
+        description: Receipt issued
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                receipt_id: { type: string, format: uuid }
+                receipt_number: { type: string }
+
+/admin/finance/payments/receipts:
+  get:
+    operationId: listReceipts
+    tags: [Finance]
+    summary: List payment receipts
+    parameters:
+      - name: student_id
+        in: query
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Receipt list
+
+/admin/finance/payments/reports/billing:
+  get:
+    operationId: getBillingReport
+    tags: [Finance]
+    summary: Get billing report
+    description: Generates a class-wise billing report for a date range.
+    parameters:
+      - name: from
+        in: query
+        required: true
+        schema: { type: string, format: date }
+      - name: to
+        in: query
+        required: true
+        schema: { type: string, format: date }
+      - name: class_id
+        in: query
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Billing report
+
+/admin/finance/payments/reports/collections:
+  get:
+    operationId: getCollectionsReport
+    tags: [Finance]
+    summary: Get collections report
+    parameters:
+      - name: from
+        in: query
+        required: true
+        schema: { type: string, format: date }
+      - name: to
+        in: query
+        required: true
+        schema: { type: string, format: date }
+    responses:
+      '200':
+        description: Collection report
+
+/admin/finance/payments/online:
+  post:
+    operationId: createOnlinePaymentOrder
+    tags: [Finance]
+    summary: Create an online payment order (Razorpay)
+    description: |
+      Creates a Razorpay order for online fee payment. Returns the order details
+      required by the client-side Razorpay checkout widget.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [student_id, amount]
+            properties:
+              student_id: { type: string, format: uuid }
+              amount: { type: integer, format: int64, description: "Amount in paise", example: 2500000 }
+    responses:
+      '200':
+        description: Razorpay order created
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                order_id: { type: string, format: uuid }
+                razorpay_order_id: { type: string, description: "Razorpay order ID for checkout" }
+                amount: { type: integer, format: int64 }
+                currency: { type: string, example: "INR" }
+
+/admin/finance/payments/razorpay-webhook:
+  post:
+    operationId: handleRazorpayWebhook
+    tags: [Finance]
+    summary: Razorpay payment webhook
+    description: |
+      Handles asynchronous payment status updates from Razorpay.
+      Verifies the webhook signature using the configured webhook secret
+      and updates the payment status accordingly.
+    security: []
+    responses:
+      '200':
+        description: Webhook processed
+
+/admin/finance/payments/tally-export:
+  get:
+    operationId: exportTallyData
+    tags: [Finance]
+    summary: Export receipts for Tally accounting software
+    description: Downloads a CSV file formatted for Tally import.
+    parameters:
+      - name: from
+        in: query
+        required: true
+        schema: { type: string, format: date }
+      - name: to
+        in: query
+        required: true
+        schema: { type: string, format: date }
+    responses:
+      '200':
+        description: CSV file download
+        content:
+          text/csv:
+            schema:
+              type: string
+              format: binary
+
+/admin/finance/payments/ledger-mappings:
+  get:
+    operationId: listLedgerMappings
+    tags: [Finance]
+    summary: List Tally ledger mappings
+    description: Maps fee heads to Tally ledger codes for accounting export.
+    responses:
+      '200':
+        description: Ledger mappings
+  post:
+    operationId: upsertLedgerMapping
+    tags: [Finance]
+    summary: Create or update a ledger mapping
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [fee_head_id, ledger_code]
+            properties:
+              fee_head_id: { type: string, format: uuid }
+              ledger_code: { type: string }
+    responses:
+      '200':
+        description: Mapping saved
+
+/admin/finance/receipts/series:
+  get:
+    operationId: listReceiptSeries
+    tags: [Finance]
+    summary: List receipt number series
+    responses:
+      '200':
+        description: Receipt series configurations
+  post:
+    operationId: createReceiptSeries
+    tags: [Finance]
+    summary: Create a receipt number series
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [prefix, start_number]
+            properties:
+              prefix: { type: string, example: "REC-2025-" }
+              start_number: { type: integer, example: 1001 }
+    responses:
+      '200':
+        description: Series created
+
+/admin/finance/receipts/{id}/cancel:
+  post:
+    operationId: cancelReceipt
+    tags: [Finance]
+    summary: Cancel a receipt
+    description: Cancels an issued receipt with a mandatory reason. Reverses the payment allocation.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [reason]
+            properties:
+              reason: { type: string, description: "Cancellation reason" }
+    responses:
+      '200':
+        description: Receipt cancelled
+
+/admin/finance/receipts/{id}/refund:
+  post:
+    operationId: createRefund
+    tags: [Finance]
+    summary: Create a refund against a receipt
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [amount, reason]
+            properties:
+              amount: { type: integer, format: int64, description: "Refund amount in paise" }
+              reason: { type: string }
+    responses:
+      '200':
+        description: Refund created
+
+/admin/finance/receipts/{id}/pdf:
+  get:
+    operationId: downloadReceiptPdf
+    tags: [Finance]
+    summary: Download receipt as PDF
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: PDF file download
+        content:
+          application/pdf:
+            schema:
+              type: string
+              format: binary

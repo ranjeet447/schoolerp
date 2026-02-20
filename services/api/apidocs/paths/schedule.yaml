@@ -1,0 +1,282 @@
+# Schedule API Paths — Timetable, Periods, Substitutions, Teacher Specializations
+
+/admin/schedule/variants:
+  get:
+    operationId: listScheduleVariants
+    tags: [Schedule]
+    summary: List timetable variants
+    description: |
+      Returns timetable variants (e.g., Regular, Exam Day, Half Day).
+      Each variant has a different period structure.
+    responses:
+      '200':
+        description: Variant list
+  post:
+    operationId: createScheduleVariant
+    tags: [Schedule]
+    summary: Create a timetable variant
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name]
+            properties:
+              name: { type: string, example: "Regular" }
+              is_default: { type: boolean }
+    responses:
+      '201':
+        description: Variant created
+
+/admin/schedule/teacher-daily:
+  get:
+    operationId: getTeacherDailySchedule
+    tags: [Schedule]
+    summary: Get a teacher's daily schedule
+    parameters:
+      - name: teacher_id
+        in: query
+        required: true
+        schema: { type: string, format: uuid }
+      - name: date
+        in: query
+        schema: { type: string, format: date }
+    responses:
+      '200':
+        description: Teacher's schedule for the day
+
+/admin/schedule/periods/{variantID}:
+  get:
+    operationId: listPeriodsByVariant
+    tags: [Schedule]
+    summary: List periods for a timetable variant
+    parameters:
+      - name: variantID
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Period list with start/end times
+
+/admin/schedule/periods:
+  post:
+    operationId: createPeriod
+    tags: [Schedule]
+    summary: Create a period slot
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [variant_id, name, start_time, end_time]
+            properties:
+              variant_id: { type: string, format: uuid }
+              name: { type: string, example: "Period 1" }
+              start_time: { type: string, example: "08:30" }
+              end_time: { type: string, example: "09:15" }
+              is_break: { type: boolean, default: false }
+    responses:
+      '201':
+        description: Period created
+
+/admin/schedule/timetable:
+  get:
+    operationId: getTimetableEntries
+    tags: [Schedule]
+    summary: Get timetable entries for a section
+    parameters:
+      - name: section_id
+        in: query
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Timetable grid
+  post:
+    operationId: upsertTimetableEntry
+    tags: [Schedule]
+    summary: Create or update a timetable entry
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [section_id, period_id, day, subject_id, teacher_id]
+            properties:
+              section_id: { type: string, format: uuid }
+              period_id: { type: string, format: uuid }
+              day: { type: integer, minimum: 0, maximum: 6, description: "0=Monday" }
+              subject_id: { type: string, format: uuid }
+              teacher_id: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Entry saved
+
+/admin/schedule/substitutions:
+  get:
+    operationId: listSubstitutions
+    tags: [Schedule]
+    summary: List teacher substitutions
+    parameters:
+      - name: date
+        in: query
+        schema: { type: string, format: date }
+    responses:
+      '200':
+        description: Substitution list
+  post:
+    operationId: createSubstitution
+    tags: [Schedule]
+    summary: Create a teacher substitution
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [timetable_entry_id, substitute_teacher_id, date]
+            properties:
+              timetable_entry_id: { type: string, format: uuid }
+              substitute_teacher_id: { type: string, format: uuid }
+              date: { type: string, format: date }
+              reason: { type: string }
+    responses:
+      '201':
+        description: Substitution created
+
+/admin/schedule/substitutions/free-teachers:
+  get:
+    operationId: listFreeTeachers
+    tags: [Schedule]
+    summary: List available teachers for substitution
+    description: Teachers who have free periods at a specific time.
+    parameters:
+      - name: date
+        in: query
+        required: true
+        schema: { type: string, format: date }
+      - name: period_id
+        in: query
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Free teacher list
+
+/admin/schedule/substitutions/absences:
+  get:
+    operationId: listTeacherAbsences
+    tags: [Schedule]
+    summary: List recorded teacher absences
+    parameters:
+      - name: date
+        in: query
+        schema: { type: string, format: date }
+    responses:
+      '200':
+        description: Absence list
+  post:
+    operationId: recordTeacherAbsence
+    tags: [Schedule]
+    summary: Record a teacher absence
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [teacher_id, absence_date]
+            properties:
+              teacher_id: { type: string, format: uuid }
+              absence_date: { type: string, format: date }
+              reason: { type: string }
+    responses:
+      '201':
+        description: Absence recorded
+
+/admin/schedule/substitutions/teacher-lessons/{teacherID}:
+  get:
+    operationId: getTeacherLessons
+    tags: [Schedule]
+    summary: Get a teacher's lessons for a date
+    parameters:
+      - name: teacherID
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: date
+        in: query
+        schema: { type: string, format: date }
+    responses:
+      '200':
+        description: Lesson list for the teacher
+
+/admin/schedule/teachers/specializations:
+  get:
+    operationId: listTeacherSpecializations
+    tags: [Schedule]
+    summary: List all teacher-subject specializations
+    responses:
+      '200':
+        description: Teacher specialization list
+  post:
+    operationId: addTeacherSpecialization
+    tags: [Schedule]
+    summary: Add a subject specialization for a teacher
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [teacher_id, subject_id]
+            properties:
+              teacher_id: { type: string, format: uuid }
+              subject_id: { type: string, format: uuid }
+    responses:
+      '201':
+        description: Specialization added
+
+/admin/schedule/teachers/specializations/{teacherID}:
+  get:
+    operationId: getTeacherSpecializations
+    tags: [Schedule]
+    summary: Get specializations for a specific teacher
+    parameters:
+      - name: teacherID
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Subject specializations for the teacher
+
+/admin/schedule/teachers/class-teacher:
+  get:
+    operationId: listClassTeacherAssignments
+    tags: [Schedule]
+    summary: List class teacher assignments
+    responses:
+      '200':
+        description: Class teacher mapping
+  post:
+    operationId: assignClassTeacher
+    tags: [Schedule]
+    summary: Assign a class teacher to a section
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [teacher_id, section_id]
+            properties:
+              teacher_id: { type: string, format: uuid }
+              section_id: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Class teacher assigned

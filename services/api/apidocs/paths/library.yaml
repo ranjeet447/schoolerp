@@ -1,0 +1,346 @@
+# Library API Paths
+
+/admin/library/books:
+  get:
+    operationId: listBooks
+    tags: [Library]
+    summary: List library books
+    parameters:
+      - name: search
+        in: query
+        schema: { type: string }
+        description: Search by title, author, or ISBN
+      - name: category_id
+        in: query
+        schema: { type: string, format: uuid }
+      - name: available
+        in: query
+        schema: { type: boolean }
+        description: Filter only available copies
+      - name: limit
+        in: query
+        schema: { type: integer, default: 50 }
+      - name: offset
+        in: query
+        schema: { type: integer, default: 0 }
+    responses:
+      '200':
+        description: Book list
+  post:
+    operationId: createBook
+    tags: [Library]
+    summary: Add a book to the library
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, isbn]
+            properties:
+              title: { type: string }
+              isbn: { type: string }
+              author: { type: string }
+              publisher: { type: string }
+              category_id: { type: string, format: uuid }
+              total_copies: { type: integer }
+              shelf_location: { type: string }
+    responses:
+      '201':
+        description: Book added
+
+/admin/library/books/{id}:
+  get:
+    operationId: getBook
+    tags: [Library]
+    summary: Get book details
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Book detail
+  put:
+    operationId: updateBook
+    tags: [Library]
+    summary: Update book details
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              title: { type: string }
+              total_copies: { type: integer }
+              shelf_location: { type: string }
+    responses:
+      '200':
+        description: Book updated
+
+/admin/library/categories:
+  get:
+    operationId: listBookCategories
+    tags: [Library]
+    summary: List book categories
+    responses:
+      '200':
+        description: Category list
+  post:
+    operationId: createBookCategory
+    tags: [Library]
+    summary: Create a book category
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name]
+            properties:
+              name: { type: string, example: "Science Fiction" }
+    responses:
+      '201':
+        description: Category created
+
+/admin/library/authors:
+  get:
+    operationId: listAuthors
+    tags: [Library]
+    summary: List book authors
+    responses:
+      '200':
+        description: Author list
+
+/admin/library/issues:
+  get:
+    operationId: listBookIssues
+    tags: [Library]
+    summary: List book issues
+    parameters:
+      - name: student_id
+        in: query
+        schema: { type: string, format: uuid }
+      - name: status
+        in: query
+        schema: { type: string, enum: [issued, returned, overdue] }
+    responses:
+      '200':
+        description: Issue list
+  post:
+    operationId: issueBook
+    tags: [Library]
+    summary: Issue a book to a student
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [book_id, student_id]
+            properties:
+              book_id: { type: string, format: uuid }
+              student_id: { type: string, format: uuid }
+              due_date: { type: string, format: date }
+    responses:
+      '201':
+        description: Book issued
+
+/admin/library/issues/scan-issue:
+  post:
+    operationId: scanIssueBook
+    tags: [Library]
+    summary: Issue book via barcode scan
+    description: Quick issue by scanning book and student barcodes.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [book_barcode, student_barcode]
+            properties:
+              book_barcode: { type: string }
+              student_barcode: { type: string }
+    responses:
+      '200':
+        description: Book issued
+
+/admin/library/issues/scan-return:
+  post:
+    operationId: scanReturnBook
+    tags: [Library]
+    summary: Return book via barcode scan
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [book_barcode]
+            properties:
+              book_barcode: { type: string }
+    responses:
+      '200':
+        description: Book returned
+
+/admin/library/issues/{id}/return:
+  post:
+    operationId: returnBook
+    tags: [Library]
+    summary: Return a book by issue ID
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Book returned
+
+/admin/library/books/{book_id}/assets:
+  get:
+    operationId: listBookAssets
+    tags: [Library]
+    summary: List digital assets for a book
+    parameters:
+      - name: book_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Asset list (PDFs, ePubs, etc.)
+  post:
+    operationId: addBookAsset
+    tags: [Library]
+    summary: Add a digital asset to a book
+    parameters:
+      - name: book_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [url, type]
+            properties:
+              url: { type: string, format: uri }
+              type: { type: string, enum: [pdf, epub, audio, video] }
+              name: { type: string }
+    responses:
+      '201':
+        description: Asset added
+
+/admin/library/assets/{id}:
+  delete:
+    operationId: deleteBookAsset
+    tags: [Library]
+    summary: Delete a digital asset
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Asset deleted
+
+/admin/library/reading-progress/recent:
+  get:
+    operationId: getRecentReadingProgress
+    tags: [Library]
+    summary: Get recent reading progress across students
+    responses:
+      '200':
+        description: Recent reading progress entries
+
+/admin/library/reading-progress/{studentId}:
+  get:
+    operationId: getStudentReadingProgress
+    tags: [Library]
+    summary: Get reading progress for a student
+    parameters:
+      - name: studentId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Reading progress for all books
+
+/admin/library/reading-progress:
+  post:
+    operationId: createReadingProgress
+    tags: [Library]
+    summary: Start tracking reading progress
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [student_id, book_id]
+            properties:
+              student_id: { type: string, format: uuid }
+              book_id: { type: string, format: uuid }
+              pages_read: { type: integer }
+              total_pages: { type: integer }
+    responses:
+      '201':
+        description: Progress tracking started
+
+/admin/library/reading-progress/update:
+  post:
+    operationId: updateReadingProgress
+    tags: [Library]
+    summary: Update reading progress
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [student_id, book_id, pages_read]
+            properties:
+              student_id: { type: string, format: uuid }
+              book_id: { type: string, format: uuid }
+              pages_read: { type: integer }
+    responses:
+      '200':
+        description: Progress updated
+
+/admin/library/reading-progress/velocity/{studentId}/{bookId}:
+  get:
+    operationId: getReadingVelocity
+    tags: [Library]
+    summary: Get reading velocity (pages/day) for a student+book
+    parameters:
+      - name: studentId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: bookId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Reading velocity data
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pages_per_day: { type: number, format: double }
+                estimated_completion: { type: string, format: date }

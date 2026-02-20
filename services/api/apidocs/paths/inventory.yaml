@@ -1,0 +1,292 @@
+# Inventory API Paths
+
+/admin/inventory/categories:
+  get:
+    operationId: listInventoryCategories
+    tags: [Inventory]
+    summary: List inventory categories
+    responses:
+      '200':
+        description: Category list
+  post:
+    operationId: createInventoryCategory
+    tags: [Inventory]
+    summary: Create an inventory category
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name]
+            properties:
+              name: { type: string, example: "Stationery" }
+    responses:
+      '201':
+        description: Category created
+
+/admin/inventory/suppliers:
+  get:
+    operationId: listSuppliers
+    tags: [Inventory]
+    summary: List suppliers
+    responses:
+      '200':
+        description: Supplier list
+  post:
+    operationId: createSupplier
+    tags: [Inventory]
+    summary: Register a supplier
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, phone]
+            properties:
+              name: { type: string }
+              phone: { type: string }
+              email: { type: string, format: email }
+              address: { type: string }
+              gstin: { type: string }
+    responses:
+      '201':
+        description: Supplier registered
+
+/admin/inventory/suppliers/{id}:
+  put:
+    operationId: updateSupplier
+    tags: [Inventory]
+    summary: Update a supplier
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name: { type: string }
+              phone: { type: string }
+              email: { type: string, format: email }
+    responses:
+      '200':
+        description: Supplier updated
+
+/admin/inventory/items:
+  get:
+    operationId: listInventoryItems
+    tags: [Inventory]
+    summary: List inventory items
+    parameters:
+      - name: category_id
+        in: query
+        schema: { type: string, format: uuid }
+      - name: low_stock
+        in: query
+        schema: { type: boolean }
+        description: Filter items below reorder level
+    responses:
+      '200':
+        description: Item list with stock levels
+  post:
+    operationId: createInventoryItem
+    tags: [Inventory]
+    summary: Add an inventory item
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, category_id, unit]
+            properties:
+              name: { type: string }
+              category_id: { type: string, format: uuid }
+              unit: { type: string, example: "pcs" }
+              reorder_level: { type: integer }
+              current_stock: { type: integer }
+    responses:
+      '201':
+        description: Item created
+
+/admin/inventory/items/{id}:
+  put:
+    operationId: updateInventoryItem
+    tags: [Inventory]
+    summary: Update an inventory item
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name: { type: string }
+              reorder_level: { type: integer }
+    responses:
+      '200':
+        description: Item updated
+
+/admin/inventory/transactions:
+  get:
+    operationId: listInventoryTransactions
+    tags: [Inventory]
+    summary: List stock transactions (in/out)
+    parameters:
+      - name: item_id
+        in: query
+        schema: { type: string, format: uuid }
+      - name: type
+        in: query
+        schema: { type: string, enum: [in, out, adjustment] }
+    responses:
+      '200':
+        description: Transaction list
+  post:
+    operationId: createInventoryTransaction
+    tags: [Inventory]
+    summary: Record a stock transaction
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [item_id, type, quantity]
+            properties:
+              item_id: { type: string, format: uuid }
+              type: { type: string, enum: [in, out, adjustment] }
+              quantity: { type: integer }
+              remark: { type: string }
+    responses:
+      '201':
+        description: Transaction recorded
+
+/admin/inventory/purchase-orders:
+  get:
+    operationId: listPurchaseOrders
+    tags: [Inventory]
+    summary: List purchase orders
+    responses:
+      '200':
+        description: PO list
+  post:
+    operationId: createPurchaseOrder
+    tags: [Inventory]
+    summary: Create a purchase order
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [supplier_id, items]
+            properties:
+              supplier_id: { type: string, format: uuid }
+              items:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    item_id: { type: string, format: uuid }
+                    quantity: { type: integer }
+                    unit_price: { type: integer, format: int64 }
+    responses:
+      '201':
+        description: PO created
+
+/admin/inventory/purchase-orders/{id}/approve:
+  post:
+    operationId: approvePurchaseOrder
+    tags: [Inventory]
+    summary: Approve a purchase order
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: PO approved
+
+/admin/inventory/purchase-orders/{id}/receive:
+  post:
+    operationId: receivePurchaseOrder
+    tags: [Inventory]
+    summary: Mark a purchase order as received
+    description: Updates stock levels for all items in the PO.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: PO received and stock updated
+
+/admin/inventory/requisitions:
+  get:
+    operationId: listRequisitions
+    tags: [Inventory]
+    summary: List inventory requisitions
+    responses:
+      '200':
+        description: Requisition list
+  post:
+    operationId: createRequisition
+    tags: [Inventory]
+    summary: Submit an inventory requisition
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [items]
+            properties:
+              department: { type: string }
+              items:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    item_id: { type: string, format: uuid }
+                    quantity: { type: integer }
+                    reason: { type: string }
+    responses:
+      '201':
+        description: Requisition submitted
+
+/admin/inventory/requisitions/{id}/status:
+  put:
+    operationId: updateRequisitionStatus
+    tags: [Inventory]
+    summary: Approve, reject, or fulfill a requisition
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status]
+            properties:
+              status: { type: string, enum: [approved, rejected, fulfilled] }
+    responses:
+      '200':
+        description: Status updated

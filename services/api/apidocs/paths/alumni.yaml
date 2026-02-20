@@ -1,0 +1,56 @@
+# Alumni API Paths — Former student records, Events, Directory
+
+/admin/alumni:
+  get:
+    operationId: listAlumni
+    tags: [Alumni]
+    summary: List alumni
+    responses:
+      '200':
+        description: Alumni list
+  post:
+    operationId: addAlumnus
+    tags: [Alumni]
+    summary: Add an alumnus record manually
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, passing_year]
+            properties:
+              name: { type: string }
+              passing_year: { type: integer }
+              current_organization: { type: string }
+              email: { type: string, format: email }
+    responses:
+      '201':
+        description: Alumnus added
+
+/admin/alumni/events:
+  get:
+    operationId: listAlumniEvents
+    tags: [Alumni]
+    summary: List alumni events/reunions
+    responses:
+      '200':
+        description: Event list
+  post:
+    operationId: createAlumniEvent
+    tags: [Alumni]
+    summary: Create an alumni event
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, date]
+            properties:
+              title: { type: string }
+              date: { type: string, format: date-time }
+              location: { type: string }
+    responses:
+      '201':
+        description: Event created

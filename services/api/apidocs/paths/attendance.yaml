@@ -1,0 +1,235 @@
+# Attendance API Paths
+
+/admin/attendance/mark:
+  post:
+    operationId: markStudentAttendance
+    tags: [Attendance]
+    summary: Mark student attendance for a section
+    description: |
+      Records attendance for multiple students in a section for a given date.
+      Each record specifies the student ID and their status. If attendance
+      for the same section/date already exists, it is overwritten.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [section_id, date, records]
+            properties:
+              section_id:
+                type: string
+                format: uuid
+                description: ID of the class section
+              date:
+                type: string
+                format: date
+                description: Attendance date (YYYY-MM-DD)
+                example: "2026-02-20"
+              records:
+                type: array
+                description: Attendance entries for each student
+                items:
+                  type: object
+                  required: [student_id, status]
+                  properties:
+                    student_id: { type: string, format: uuid }
+                    status:
+                      type: string
+                      enum: [present, absent, late, half_day]
+                      description: Attendance status
+                    remark:
+                      type: string
+                      description: Optional remark (e.g., reason for absence)
+    responses:
+      '200':
+        description: Attendance marked successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                marked: { type: integer, description: Number of records saved }
+
+/admin/attendance/list:
+  get:
+    operationId: listStudentAttendance
+    tags: [Attendance]
+    summary: List student attendance records
+    description: |
+      Retrieves attendance records filtered by section, date, or individual
+      student. Returns one row per student per session.
+    parameters:
+      - name: section_id
+        in: query
+        required: true
+        schema: { type: string, format: uuid }
+        description: Class section ID
+      - name: date
+        in: query
+        schema: { type: string, format: date }
+        description: Specific date to query (defaults to today)
+      - name: student_id
+        in: query
+        schema: { type: string, format: uuid }
+        description: Filter by a specific student
+    responses:
+      '200':
+        description: Attendance records
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  student_id: { type: string, format: uuid }
+                  student_name: { type: string }
+                  admission_number: { type: string }
+                  status: { type: string, enum: [present, absent, late, half_day] }
+                  remark: { type: string }
+                  marked_at: { type: string, format: date-time }
+
+/admin/attendance/report:
+  get:
+    operationId: getStudentAttendanceReport
+    tags: [Attendance]
+    summary: Generate attendance report
+    description: |
+      Returns an aggregated attendance report for a section over a date range.
+      Includes total days, present count, absent count, and percentage per student.
+    parameters:
+      - name: section_id
+        in: query
+        required: true
+        schema: { type: string, format: uuid }
+      - name: from
+        in: query
+        required: true
+        schema: { type: string, format: date }
+        description: Start date (inclusive)
+      - name: to
+        in: query
+        required: true
+        schema: { type: string, format: date }
+        description: End date (inclusive)
+    responses:
+      '200':
+        description: Attendance report
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                section_id: { type: string, format: uuid }
+                from: { type: string, format: date }
+                to: { type: string, format: date }
+                total_days: { type: integer }
+                students:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      student_id: { type: string, format: uuid }
+                      name: { type: string }
+                      present: { type: integer }
+                      absent: { type: integer }
+                      late: { type: integer }
+                      percentage: { type: number, format: double, example: 92.5 }
+
+/admin/attendance/staff/mark:
+  post:
+    operationId: markStaffAttendance
+    tags: [Attendance]
+    summary: Mark staff attendance
+    description: |
+      Records daily attendance for staff members. Typically done by HR or
+      synced from biometric devices.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [date, records]
+            properties:
+              date: { type: string, format: date }
+              records:
+                type: array
+                items:
+                  type: object
+                  required: [staff_id, status]
+                  properties:
+                    staff_id: { type: string, format: uuid }
+                    status: { type: string, enum: [present, absent, half_day, leave] }
+                    remark: { type: string }
+    responses:
+      '200':
+        description: Staff attendance marked
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                marked: { type: integer }
+
+/admin/attendance/staff/list:
+  get:
+    operationId: listStaffAttendance
+    tags: [Attendance]
+    summary: List staff attendance records
+    parameters:
+      - name: date
+        in: query
+        schema: { type: string, format: date }
+        description: Filter by date (defaults to today)
+    responses:
+      '200':
+        description: Staff attendance records
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  staff_id: { type: string, format: uuid }
+                  name: { type: string }
+                  status: { type: string }
+                  remark: { type: string }
+
+/admin/attendance/staff/report:
+  get:
+    operationId: getStaffAttendanceReport
+    tags: [Attendance]
+    summary: Generate staff attendance report
+    parameters:
+      - name: from
+        in: query
+        required: true
+        schema: { type: string, format: date }
+      - name: to
+        in: query
+        required: true
+        schema: { type: string, format: date }
+    responses:
+      '200':
+        description: Staff attendance report with aggregates per staff member
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                from: { type: string, format: date }
+                to: { type: string, format: date }
+                total_days: { type: integer }
+                staff:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      staff_id: { type: string, format: uuid }
+                      name: { type: string }
+                      present: { type: integer }
+                      absent: { type: integer }
+                      percentage: { type: number, format: double }

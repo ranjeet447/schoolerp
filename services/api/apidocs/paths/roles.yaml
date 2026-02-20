@@ -1,0 +1,74 @@
+# RBAC API Paths — Roles, Permissions, Assignments
+
+/admin/roles:
+  get:
+    operationId: listRoles
+    tags: [Roles]
+    summary: List all roles
+    responses:
+      '200':
+        description: Role list
+  post:
+    operationId: createRole
+    tags: [Roles]
+    summary: Create a custom role
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, code]
+            properties:
+              name: { type: string, example: "Library Assistant" }
+              code: { type: string, example: "lib_assistant" }
+              permissions: { type: array, items: { type: string }, description: "List of permission codes" }
+    responses:
+      '201':
+        description: Role created
+
+/admin/roles/{code}/permissions:
+  get:
+    operationId: getRolePermissions
+    tags: [Roles]
+    summary: Get permissions for a role
+    parameters:
+      - name: code
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Permission list
+
+/admin/permissions:
+  get:
+    operationId: listAllPermissions
+    tags: [Roles]
+    summary: List all available permissions in the system
+    responses:
+      '200':
+        description: Full permission dictionary
+
+/admin/users/{userId}/roles:
+  post:
+    operationId: assignUserRole
+    tags: [Roles]
+    summary: Assign a role to a user
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [role_code]
+            properties:
+              role_code: { type: string }
+    responses:
+      '200':
+        description: Role assigned

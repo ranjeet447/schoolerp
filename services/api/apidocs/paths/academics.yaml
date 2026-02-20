@@ -1,0 +1,425 @@
+# Academics API Paths — Homework, Lesson Plans, Timetable, Certificates, Calendar, Resources
+
+/admin/academics/homework:
+  get:
+    operationId: listHomework
+    tags: [Academics]
+    summary: List homework assignments
+    parameters:
+      - name: class_id
+        in: query
+        schema: { type: string, format: uuid }
+      - name: subject_id
+        in: query
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Homework list
+  post:
+    operationId: createHomework
+    tags: [Academics]
+    summary: Create a homework assignment
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, section_id, subject_id, due_date]
+            properties:
+              title: { type: string }
+              description: { type: string }
+              section_id: { type: string, format: uuid }
+              subject_id: { type: string, format: uuid }
+              due_date: { type: string, format: date }
+              attachments: { type: array, items: { type: string, format: uri } }
+    responses:
+      '201':
+        description: Homework created
+
+/admin/academics/homework/options:
+  get:
+    operationId: getHomeworkOptions
+    tags: [Academics]
+    summary: Get homework creation options (classes, sections, subjects)
+    responses:
+      '200':
+        description: Options for dropdown menus
+
+/admin/academics/homework/section/{sectionId}:
+  get:
+    operationId: listHomeworkBySection
+    tags: [Academics]
+    summary: List homework for a specific section
+    parameters:
+      - name: sectionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Homework list for section
+
+/admin/academics/homework/{id}/submissions:
+  get:
+    operationId: listHomeworkSubmissions
+    tags: [Academics]
+    summary: List student submissions for a homework
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Submission list with student names and status
+
+/admin/academics/homework/submissions/{id}/grade:
+  post:
+    operationId: gradeHomeworkSubmission
+    tags: [Academics]
+    summary: Grade a homework submission
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: Submission ID
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              grade: { type: string }
+              feedback: { type: string }
+              score: { type: number }
+    responses:
+      '200':
+        description: Submission graded
+
+/admin/academics/lesson-plans:
+  get:
+    operationId: listLessonPlans
+    tags: [Academics]
+    summary: List lesson plans
+    parameters:
+      - name: subject_id
+        in: query
+        schema: { type: string, format: uuid }
+      - name: teacher_id
+        in: query
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Lesson plan list
+  post:
+    operationId: createLessonPlan
+    tags: [Academics]
+    summary: Create a lesson plan
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, subject_id]
+            properties:
+              title: { type: string }
+              subject_id: { type: string, format: uuid }
+              class_id: { type: string, format: uuid }
+              section_id: { type: string, format: uuid }
+              content: { type: string, description: "Plan content (Markdown)" }
+              scheduled_date: { type: string, format: date }
+    responses:
+      '201':
+        description: Lesson plan created
+
+/admin/academics/lesson-plans/lag:
+  get:
+    operationId: getLessonPlanLag
+    tags: [Academics]
+    summary: Get lesson plan lag report
+    description: Shows which lesson plans are behind schedule or incomplete.
+    responses:
+      '200':
+        description: Lag report
+
+/admin/academics/lesson-plans/{id}/status:
+  put:
+    operationId: updateLessonPlanStatus
+    tags: [Academics]
+    summary: Update lesson plan status
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status]
+            properties:
+              status: { type: string, enum: [draft, approved, completed, overdue] }
+    responses:
+      '200':
+        description: Status updated
+
+/admin/academics/subjects:
+  get:
+    operationId: listAcademicSubjects
+    tags: [Academics]
+    summary: List subjects with section assignments
+    responses:
+      '200':
+        description: Subject list
+
+/admin/academics/timetable:
+  get:
+    operationId: getAcademicTimetable
+    tags: [Academics]
+    summary: Get timetable for a class/section
+    parameters:
+      - name: section_id
+        in: query
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Timetable grid
+
+/admin/academics/certificates/requests:
+  get:
+    operationId: listCertificateRequests
+    tags: [Academics]
+    summary: List certificate requests
+    description: Returns pending TC, character certificate, and bonafide requests.
+    responses:
+      '200':
+        description: Certificate request list
+  post:
+    operationId: createCertificateRequest
+    tags: [Academics]
+    summary: Create a certificate request
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [student_id, type]
+            properties:
+              student_id: { type: string, format: uuid }
+              type: { type: string, enum: [transfer, character, bonafide, study] }
+              reason: { type: string }
+    responses:
+      '201':
+        description: Request created
+
+/admin/academics/certificates/requests/{id}/status:
+  put:
+    operationId: updateCertificateRequestStatus
+    tags: [Academics]
+    summary: Approve or reject a certificate request
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status]
+            properties:
+              status: { type: string, enum: [approved, rejected, issued] }
+    responses:
+      '200':
+        description: Status updated
+
+/admin/academics/calendar:
+  get:
+    operationId: getAcademicCalendar
+    tags: [Academics]
+    summary: Get academic calendar (combined events and holidays)
+    parameters:
+      - name: month
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 12 }
+      - name: year
+        in: query
+        schema: { type: integer }
+    responses:
+      '200':
+        description: Calendar with events and holidays
+
+/admin/calendar/events:
+  get:
+    operationId: listCalendarEvents
+    tags: [Calendar]
+    summary: List calendar events
+    parameters:
+      - name: from
+        in: query
+        schema: { type: string, format: date }
+      - name: to
+        in: query
+        schema: { type: string, format: date }
+    responses:
+      '200':
+        description: Event list
+  post:
+    operationId: createCalendarEvent
+    tags: [Calendar]
+    summary: Create a calendar event
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, start_date]
+            properties:
+              title: { type: string }
+              description: { type: string }
+              start_date: { type: string, format: date-time }
+              end_date: { type: string, format: date-time }
+              event_type: { type: string, enum: [academic, sports, cultural, meeting, other] }
+              audience: { type: string }
+    responses:
+      '201':
+        description: Event created
+
+/admin/calendar/events/{id}:
+  put:
+    operationId: updateCalendarEvent
+    tags: [Calendar]
+    summary: Update a calendar event
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              title: { type: string }
+              description: { type: string }
+              start_date: { type: string, format: date-time }
+              end_date: { type: string, format: date-time }
+    responses:
+      '200':
+        description: Event updated
+  delete:
+    operationId: deleteCalendarEvent
+    tags: [Calendar]
+    summary: Delete a calendar event
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Event deleted
+
+/admin/calendar/holidays:
+  get:
+    operationId: listHolidays
+    tags: [Calendar]
+    summary: List holidays
+    responses:
+      '200':
+        description: Holiday list
+  post:
+    operationId: createHoliday
+    tags: [Calendar]
+    summary: Create a holiday
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, date]
+            properties:
+              name: { type: string, example: "Republic Day" }
+              date: { type: string, format: date }
+              is_optional: { type: boolean, default: false }
+    responses:
+      '201':
+        description: Holiday created
+
+/admin/calendar/holidays/{id}:
+  delete:
+    operationId: deleteHoliday
+    tags: [Calendar]
+    summary: Delete a holiday
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Holiday deleted
+
+/admin/resources:
+  get:
+    operationId: listResources
+    tags: [Resources]
+    summary: List teaching resources
+    parameters:
+      - name: subject_id
+        in: query
+        schema: { type: string, format: uuid }
+      - name: type
+        in: query
+        schema: { type: string, enum: [document, video, link, file] }
+    responses:
+      '200':
+        description: Resource list
+  post:
+    operationId: createResource
+    tags: [Resources]
+    summary: Upload a teaching resource
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, type]
+            properties:
+              title: { type: string }
+              description: { type: string }
+              type: { type: string, enum: [document, video, link, file] }
+              url: { type: string, format: uri }
+              subject_id: { type: string, format: uuid }
+    responses:
+      '201':
+        description: Resource created
+
+/admin/resources/{id}:
+  delete:
+    operationId: deleteResource
+    tags: [Resources]
+    summary: Delete a teaching resource
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Resource deleted

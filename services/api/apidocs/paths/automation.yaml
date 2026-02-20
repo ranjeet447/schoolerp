@@ -1,0 +1,37 @@
+# Automation API Paths — Trigger-action workflows, Scheduled tasks
+
+/admin/automation/workflows:
+  get:
+    operationId: listWorkflows
+    tags: [Automation]
+    summary: List automation workflows
+    responses:
+      '200':
+        description: Workflow list
+  post:
+    operationId: createWorkflow
+    tags: [Automation]
+    summary: Create an automation workflow
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, trigger, actions]
+            properties:
+              name: { type: string }
+              trigger: { type: object, description: "Trigger configuration (e.g. event, schedule)" }
+              actions: { type: array, items: { type: object }, description: "List of actions to execute" }
+    responses:
+      '201':
+        description: Workflow created
+
+/admin/automation/execution-logs:
+  get:
+    operationId: listWorkflowLogs
+    tags: [Automation]
+    summary: List workflow execution history
+    responses:
+      '200':
+        description: Execution logs

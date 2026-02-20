@@ -50,6 +50,7 @@ import (
 	roleshandler "github.com/schoolerp/api/internal/handler/roles"
 	"github.com/schoolerp/api/internal/handler/safety"
 	"github.com/schoolerp/api/internal/handler/sis"
+	"github.com/schoolerp/api/internal/handler/swagger"
 	"github.com/schoolerp/api/internal/handler/tenant"
 	"github.com/schoolerp/api/internal/handler/transport"
 	"github.com/schoolerp/api/internal/middleware"
@@ -249,6 +250,7 @@ func main() {
 	hostelHandler := sis.NewHostelHandler(hostelService)
 	scheduleHandler := academic.NewScheduleHandler(scheduleService)
 	promotionHandler := sis.NewPromotionHandler(promotionService)
+	swaggerHandler := swagger.NewHandler("/docs/v1/openapi/openapi.yaml")
 
 	r := chi.NewRouter()
 
@@ -299,6 +301,11 @@ func main() {
 
 	fs := http.FileServer(http.Dir(uploadDir))
 	r.Handle("/uploads/*", http.StripPrefix("/uploads/", fs))
+
+	// Swagger UI & OpenAPI Docs
+	r.Handle("/docs/v1", swaggerHandler)
+	r.Handle("/docs/v1/", swaggerHandler)
+	r.Handle("/docs/v1/openapi/*", swagger.FS("apidocs"))
 
 	// 4. API V1 Routes
 	r.Route("/v1", func(r chi.Router) {

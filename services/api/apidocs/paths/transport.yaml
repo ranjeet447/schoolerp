@@ -1,0 +1,298 @@
+# Transport API Paths
+
+/admin/transport/vehicles:
+  get:
+    operationId: listVehicles
+    tags: [Transport]
+    summary: List transport vehicles
+    responses:
+      '200':
+        description: Vehicle list
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  registration_number: { type: string, example: "RJ14 AB 1234" }
+                  type: { type: string, enum: [bus, van, auto] }
+                  capacity: { type: integer }
+                  is_active: { type: boolean }
+  post:
+    operationId: createVehicle
+    tags: [Transport]
+    summary: Register a vehicle
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [registration_number, type, capacity]
+            properties:
+              registration_number: { type: string }
+              type: { type: string, enum: [bus, van, auto] }
+              capacity: { type: integer }
+              make: { type: string }
+              model: { type: string }
+    responses:
+      '201':
+        description: Vehicle registered
+
+/admin/transport/vehicles/{id}:
+  put:
+    operationId: updateVehicle
+    tags: [Transport]
+    summary: Update a vehicle
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              registration_number: { type: string }
+              capacity: { type: integer }
+              is_active: { type: boolean }
+    responses:
+      '200':
+        description: Vehicle updated
+  delete:
+    operationId: deleteVehicle
+    tags: [Transport]
+    summary: Delete a vehicle
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Vehicle deleted
+
+/admin/transport/drivers:
+  get:
+    operationId: listDrivers
+    tags: [Transport]
+    summary: List drivers
+    responses:
+      '200':
+        description: Driver list
+  post:
+    operationId: createDriver
+    tags: [Transport]
+    summary: Register a driver
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, phone, license_number]
+            properties:
+              name: { type: string }
+              phone: { type: string }
+              license_number: { type: string }
+              vehicle_id: { type: string, format: uuid }
+    responses:
+      '201':
+        description: Driver registered
+
+/admin/transport/drivers/{id}:
+  put:
+    operationId: updateDriver
+    tags: [Transport]
+    summary: Update a driver
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name: { type: string }
+              phone: { type: string }
+              vehicle_id: { type: string, format: uuid }
+              is_active: { type: boolean }
+    responses:
+      '200':
+        description: Driver updated
+
+/admin/transport/routes:
+  get:
+    operationId: listRoutes
+    tags: [Transport]
+    summary: List transport routes
+    responses:
+      '200':
+        description: Route list
+  post:
+    operationId: createRoute
+    tags: [Transport]
+    summary: Create a transport route
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name]
+            properties:
+              name: { type: string, example: "Route 1 - North Area" }
+              vehicle_id: { type: string, format: uuid }
+              driver_id: { type: string, format: uuid }
+    responses:
+      '201':
+        description: Route created
+
+/admin/transport/routes/{id}:
+  put:
+    operationId: updateRoute
+    tags: [Transport]
+    summary: Update a route
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name: { type: string }
+              vehicle_id: { type: string, format: uuid }
+              driver_id: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Route updated
+
+/admin/transport/routes/{id}/stops:
+  get:
+    operationId: listRouteStops
+    tags: [Transport]
+    summary: List stops on a route
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Ordered stop list with times
+  post:
+    operationId: addRouteStop
+    tags: [Transport]
+    summary: Add a stop to a route
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, pickup_time]
+            properties:
+              name: { type: string, example: "Vaishali Nagar Gate" }
+              pickup_time: { type: string, example: "07:15" }
+              drop_time: { type: string, example: "14:45" }
+              order: { type: integer }
+    responses:
+      '201':
+        description: Stop added
+
+/admin/transport/allocations:
+  get:
+    operationId: listTransportAllocations
+    tags: [Transport]
+    summary: List student-route allocations
+    responses:
+      '200':
+        description: Allocation list
+  post:
+    operationId: allocateStudentToRoute
+    tags: [Transport]
+    summary: Allocate a student to a transport route/stop
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [student_id, route_id, stop_id]
+            properties:
+              student_id: { type: string, format: uuid }
+              route_id: { type: string, format: uuid }
+              stop_id: { type: string, format: uuid }
+    responses:
+      '201':
+        description: Student allocated
+
+/admin/transport/fuel-logs:
+  get:
+    operationId: listFuelLogs
+    tags: [Transport]
+    summary: List fuel consumption logs
+    parameters:
+      - name: vehicle_id
+        in: query
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Fuel log entries
+  post:
+    operationId: createFuelLog
+    tags: [Transport]
+    summary: Record a fuel entry
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [vehicle_id, liters, amount]
+            properties:
+              vehicle_id: { type: string, format: uuid }
+              liters: { type: number, example: 45.5 }
+              amount: { type: integer, format: int64, description: "Cost in paise" }
+              odometer_reading: { type: number }
+              date: { type: string, format: date }
+    responses:
+      '201':
+        description: Fuel log recorded
+
+/admin/transport/generate-fees:
+  post:
+    operationId: generateTransportFees
+    tags: [Transport]
+    summary: Generate transport fees for allocated students
+    description: Creates fee entries based on route allocations.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              academic_year_id: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Fees generated

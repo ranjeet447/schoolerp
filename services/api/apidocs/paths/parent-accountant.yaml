@@ -1,0 +1,33 @@
+# Parent & Accountant Specific API Paths
+
+/parent/children:
+  get:
+    operationId: listParentChildren
+    tags: [Parent]
+    summary: List children linked to the parent
+    responses:
+      '200':
+        description: Student list
+
+/parent/child/{id}/report-card:
+  get:
+    operationId: getChildReportCard
+    tags: [Parent]
+    summary: Get latest report card for a child
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Report card data
+
+/accountant/day-book:
+  get:
+    operationId: getAccountantDayBook
+    tags: [Accountant]
+    summary: Get today's accounting day book
+    responses:
+      '200':
+        description: Transaction summary for the day

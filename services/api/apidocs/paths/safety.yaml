@@ -1,0 +1,113 @@
+# Safety & Security API Paths — Incident logs, Visitor logs, Security alerts, Gate passes
+
+/admin/safety/incidents:
+  get:
+    operationId: listIncidentLogs
+    tags: [Safety]
+    summary: List safety incidents
+    responses:
+      '200':
+        description: Incident list
+  post:
+    operationId: recordIncident
+    tags: [Safety]
+    summary: Record a safety incident
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, type, description, date]
+            properties:
+              title: { type: string }
+              type: { type: string, enum: [injury, fight, damage, theft, other] }
+              description: { type: string }
+              date: { type: string, format: date-time }
+              severity: { type: string, enum: [low, medium, high] }
+              involved_students: { type: array, items: { type: string, format: uuid } }
+    responses:
+      '201':
+        description: Incident recorded
+
+/admin/safety/visitors:
+  get:
+    operationId: listVisitorLogs
+    tags: [Safety]
+    summary: List visitor logs
+    parameters:
+      - name: status
+        in: query
+        schema: { type: string, enum: [active, checkout] }
+    responses:
+      '200':
+        description: Visitor list
+  post:
+    operationId: recordVisitorEntry
+    tags: [Safety]
+    summary: Record visitor entry at gate
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, phone, purpose]
+            properties:
+              name: { type: string }
+              phone: { type: string }
+              purpose: { type: string }
+              target_user_id: { type: string, format: uuid, description: "Person to meet" }
+    responses:
+      '201':
+        description: Entry recorded
+
+/admin/safety/visitors/{id}/checkout:
+  post:
+    operationId: visitorCheckout
+    tags: [Safety]
+    summary: Record visitor checkout
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Checkout recorded
+
+/admin/safety/alerts:
+  get:
+    operationId: listSecurityAlerts
+    tags: [Safety]
+    summary: List real-time security alerts
+    responses:
+      '200':
+        description: Alert list
+
+/admin/safety/gate-passes:
+  get:
+    operationId: listGatePasses
+    tags: [Safety]
+    summary: List student/staff gate passes
+    responses:
+      '200':
+        description: Gate pass list
+  post:
+    operationId: createGatePass
+    tags: [Safety]
+    summary: Issue a gate pass
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [user_id, type]
+            properties:
+              user_id: { type: string, format: uuid }
+              type: { type: string, enum: [early_exit, permission] }
+              reason: { type: string }
+    responses:
+      '201':
+        description: Gate pass issued

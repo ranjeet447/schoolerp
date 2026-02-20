@@ -1,0 +1,64 @@
+# Marketing Admin API Paths — Case studies, Reviews, Blog, Leads
+
+/admin/marketing/case-studies:
+  get:
+    operationId: listCaseStudies
+    tags: [Marketing Admin]
+    summary: List case studies for management
+    responses:
+      '200':
+        description: Case study list
+  post:
+    operationId: createCaseStudy
+    tags: [Marketing Admin]
+    summary: Create a case study
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, content]
+            properties:
+              title: { type: string }
+              slug: { type: string }
+              content: { type: string }
+              school_id: { type: string, format: uuid }
+    responses:
+      '201':
+        description: Case study created
+
+/admin/marketing/reviews:
+  get:
+    operationId: listPublicReviews
+    tags: [Marketing Admin]
+    summary: List all public reviews
+    responses:
+      '200':
+        description: Review list
+  post:
+    operationId: approveReview
+    tags: [Marketing Admin]
+    summary: Approve a review for public display
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [review_id]
+            properties:
+              review_id: { type: string, format: uuid }
+              is_approved: { type: boolean }
+    responses:
+      '200':
+        description: Review status updated
+
+/admin/marketing/leads:
+  get:
+    operationId: listLeads
+    tags: [Marketing Admin]
+    summary: List marketing leads (demo bookings, contact forms)
+    responses:
+      '200':
+        description: Lead list

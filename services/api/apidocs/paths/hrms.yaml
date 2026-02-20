@@ -1,0 +1,188 @@
+# HRMS API Paths
+
+/admin/hrms/employees:
+  get:
+    operationId: listEmployees
+    tags: [HRMS]
+    summary: List employees
+    parameters:
+      - name: department
+        in: query
+        schema: { type: string }
+      - name: designation
+        in: query
+        schema: { type: string }
+      - name: search
+        in: query
+        schema: { type: string }
+    responses:
+      '200':
+        description: Employee list
+  post:
+    operationId: createEmployee
+    tags: [HRMS]
+    summary: Create an employee record
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, email, department, designation]
+            properties:
+              name: { type: string }
+              email: { type: string, format: email }
+              phone: { type: string }
+              department: { type: string }
+              designation: { type: string }
+              date_of_joining: { type: string, format: date }
+    responses:
+      '201':
+        description: Employee created
+
+/admin/hrms/salary-structures:
+  get:
+    operationId: listSalaryStructures
+    tags: [HRMS]
+    summary: List salary structures
+    responses:
+      '200':
+        description: Salary structure list
+  post:
+    operationId: createSalaryStructure
+    tags: [HRMS]
+    summary: Create a salary structure
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, components]
+            properties:
+              name: { type: string, example: "Teacher Grade A" }
+              components:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name: { type: string, example: "Basic" }
+                    type: { type: string, enum: [earning, deduction] }
+                    amount: { type: integer, format: int64 }
+                    is_percentage: { type: boolean }
+    responses:
+      '201':
+        description: Structure created
+
+/admin/hrms/payroll-runs:
+  get:
+    operationId: listPayrollRuns
+    tags: [HRMS]
+    summary: List payroll runs
+    responses:
+      '200':
+        description: Payroll run list
+  post:
+    operationId: createPayrollRun
+    tags: [HRMS]
+    summary: Create a payroll run
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [month, year]
+            properties:
+              month: { type: integer, minimum: 1, maximum: 12 }
+              year: { type: integer }
+    responses:
+      '201':
+        description: Payroll run created (draft)
+
+/admin/hrms/payroll-runs/{id}/execute:
+  post:
+    operationId: executePayrollRun
+    tags: [HRMS]
+    summary: Execute a payroll run
+    description: Calculates salaries for all employees and generates payslips.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Payroll executed
+
+/admin/hrms/adjustments:
+  post:
+    operationId: createPayrollAdjustment
+    tags: [HRMS]
+    summary: Create a one-time salary adjustment
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [employee_id, type, amount]
+            properties:
+              employee_id: { type: string, format: uuid }
+              type: { type: string, enum: [bonus, deduction, reimbursement] }
+              amount: { type: integer, format: int64 }
+              reason: { type: string }
+    responses:
+      '200':
+        description: Adjustment created
+
+/admin/hrms/staff/specializations:
+  get:
+    operationId: listStaffSpecializations
+    tags: [HRMS]
+    summary: List staff specializations
+    responses:
+      '200':
+        description: Specialization list
+
+/admin/hrms/staff/class-teachers:
+  get:
+    operationId: listClassTeachers
+    tags: [HRMS]
+    summary: List class teacher assignments
+    responses:
+      '200':
+        description: Class teacher mapping
+
+/admin/hrms/staff/tasks:
+  get:
+    operationId: listStaffTasks
+    tags: [HRMS]
+    summary: List staff tasks
+    parameters:
+      - name: status
+        in: query
+        schema: { type: string, enum: [pending, in_progress, completed] }
+    responses:
+      '200':
+        description: Task list
+  post:
+    operationId: createStaffTask
+    tags: [HRMS]
+    summary: Assign a task to staff
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, assignee_id]
+            properties:
+              title: { type: string }
+              description: { type: string }
+              assignee_id: { type: string, format: uuid }
+              due_date: { type: string, format: date }
+              priority: { type: string, enum: [low, medium, high] }
+    responses:
+      '201':
+        description: Task created

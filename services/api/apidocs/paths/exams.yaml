@@ -1,0 +1,480 @@
+# Exam API Paths
+
+/admin/exams:
+  get:
+    operationId: listExams
+    tags: [Exams]
+    summary: List exams
+    description: Returns all exams for the tenant, optionally filtered by academic year.
+    parameters:
+      - name: academic_year_id
+        in: query
+        schema: { type: string, format: uuid }
+      - name: class_id
+        in: query
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Exam list
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  name: { type: string, example: "Mid-Term 2025" }
+                  exam_type: { type: string, enum: [mid_term, final, unit_test] }
+                  start_date: { type: string, format: date }
+                  end_date: { type: string, format: date }
+                  is_published: { type: boolean }
+  post:
+    operationId: createExam
+    tags: [Exams]
+    summary: Create an exam
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, academic_year_id]
+            properties:
+              name: { type: string, example: "Mid-Term 2025" }
+              academic_year_id: { type: string, format: uuid }
+              class_id: { type: string, format: uuid }
+              start_date: { type: string, format: date }
+              end_date: { type: string, format: date }
+              exam_type: { type: string, enum: [mid_term, final, unit_test] }
+    responses:
+      '201':
+        description: Exam created
+
+/admin/exams/{id}:
+  get:
+    operationId: getExam
+    tags: [Exams]
+    summary: Get exam details
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Exam detail with subjects and schedule
+
+/admin/exams/{id}/subjects:
+  get:
+    operationId: listExamSubjects
+    tags: [Exams]
+    summary: List subjects in an exam
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Subject list with max marks and dates
+  post:
+    operationId: addExamSubject
+    tags: [Exams]
+    summary: Add a subject to an exam
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [subject_id, max_marks]
+            properties:
+              subject_id: { type: string, format: uuid }
+              max_marks: { type: number, example: 100 }
+              passing_marks: { type: number, example: 33 }
+              date: { type: string, format: date }
+    responses:
+      '201':
+        description: Subject added
+
+/admin/exams/{id}/subjects/{subjectId}/metadata:
+  post:
+    operationId: updateExamSubjectMetadata
+    tags: [Exams]
+    summary: Update exam subject metadata
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: subjectId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              max_marks: { type: number }
+              passing_marks: { type: number }
+    responses:
+      '200':
+        description: Metadata updated
+
+/admin/exams/{id}/subjects/{subjectId}/marks:
+  get:
+    operationId: getExamMarks
+    tags: [Exams]
+    summary: Get marks for an exam subject
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: subjectId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Student marks list
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  student_id: { type: string, format: uuid }
+                  student_name: { type: string }
+                  marks: { type: number }
+                  grade: { type: string }
+  post:
+    operationId: upsertExamMarks
+    tags: [Exams]
+    summary: Enter or update marks for a student
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: subjectId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [student_id, marks]
+            properties:
+              student_id: { type: string, format: uuid }
+              marks: { type: number }
+    responses:
+      '200':
+        description: Marks saved
+
+/admin/exams/{id}/subjects/{subjectId}/marks/bulk:
+  post:
+    operationId: bulkUpsertExamMarks
+    tags: [Exams]
+    summary: Bulk enter marks for multiple students
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: subjectId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              type: object
+              required: [student_id, marks]
+              properties:
+                student_id: { type: string, format: uuid }
+                marks: { type: number }
+    responses:
+      '200':
+        description: Marks saved for all students
+
+/admin/exams/{id}/publish:
+  post:
+    operationId: publishExamResults
+    tags: [Exams]
+    summary: Publish exam results
+    description: Makes exam results visible to parents and students.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Results published
+
+/admin/exams/{id}/hall-tickets:
+  get:
+    operationId: listHallTickets
+    tags: [Exams]
+    summary: List hall tickets for an exam
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Hall ticket list
+  post:
+    operationId: generateHallTickets
+    tags: [Exams]
+    summary: Generate hall tickets for an exam
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Hall tickets generated
+
+/admin/exams/{id}/hall-tickets/{studentId}/pdf:
+  get:
+    operationId: downloadHallTicketPdf
+    tags: [Exams]
+    summary: Download hall ticket PDF for a student
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: studentId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: PDF download
+        content:
+          application/pdf:
+            schema:
+              type: string
+              format: binary
+
+/admin/exams/grading/scales:
+  post:
+    operationId: upsertGradingScale
+    tags: [Exams]
+    summary: Create or update a grading scale
+    description: Defines grade-to-marks mapping (e.g., A+ = 90-100, A = 80-89).
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, grades]
+            properties:
+              name: { type: string, example: "CBSE Standard" }
+              grades:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    grade: { type: string, example: "A+" }
+                    min_marks: { type: number }
+                    max_marks: { type: number }
+    responses:
+      '200':
+        description: Grading scale saved
+
+/admin/exams/grading/weights:
+  post:
+    operationId: upsertExamWeight
+    tags: [Exams]
+    summary: Set exam type weighting
+    description: Assigns weights to exam types for aggregate calculation (e.g., Mid-Term 30%, Final 70%).
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [exam_type, weight]
+            properties:
+              exam_type: { type: string }
+              weight: { type: number, example: 0.3 }
+    responses:
+      '200':
+        description: Weight saved
+
+/admin/exams/grading/initialize:
+  post:
+    operationId: initializeGradingTemplate
+    tags: [Exams]
+    summary: Apply a predefined grading template
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              template: { type: string, enum: [cbse, icse, state_board] }
+    responses:
+      '200':
+        description: Template applied
+
+/admin/exams/aggregates/calculate:
+  post:
+    operationId: calculateAggregates
+    tags: [Exams]
+    summary: Calculate weighted aggregate scores
+    description: Computes weighted aggregates across all exams for a class in an academic year.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [academic_year_id, class_id]
+            properties:
+              academic_year_id: { type: string, format: uuid }
+              class_id: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Aggregates calculated
+
+/admin/exams/questions:
+  get:
+    operationId: listQuestions
+    tags: [Exams]
+    summary: List question bank questions
+    parameters:
+      - name: subject_id
+        in: query
+        schema: { type: string, format: uuid }
+      - name: difficulty
+        in: query
+        schema: { type: string, enum: [easy, medium, hard] }
+      - name: type
+        in: query
+        schema: { type: string, enum: [mcq, short_answer, long_answer, fill_blank] }
+    responses:
+      '200':
+        description: Question list
+  post:
+    operationId: createQuestion
+    tags: [Exams]
+    summary: Add a question to the bank
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [subject_id, question_text, question_type, marks]
+            properties:
+              subject_id: { type: string, format: uuid }
+              question_text: { type: string }
+              question_type: { type: string, enum: [mcq, short_answer, long_answer, fill_blank] }
+              marks: { type: number }
+              difficulty: { type: string, enum: [easy, medium, hard] }
+              options:
+                type: array
+                description: For MCQ questions
+                items:
+                  type: object
+                  properties:
+                    text: { type: string }
+                    is_correct: { type: boolean }
+    responses:
+      '201':
+        description: Question created
+
+/admin/exams/papers:
+  get:
+    operationId: listQuestionPapers
+    tags: [Exams]
+    summary: List question papers
+    responses:
+      '200':
+        description: Paper list
+  post:
+    operationId: createQuestionPaper
+    tags: [Exams]
+    summary: Create a question paper
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, subject_id, question_ids]
+            properties:
+              name: { type: string }
+              subject_id: { type: string, format: uuid }
+              question_ids: { type: array, items: { type: string, format: uuid } }
+    responses:
+      '201':
+        description: Paper created
+
+/admin/exams/papers/{id}:
+  get:
+    operationId: getQuestionPaper
+    tags: [Exams]
+    summary: Get question paper with full questions
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Paper detail with questions
+
+/admin/exams/papers/generate:
+  post:
+    operationId: autoGenerateQuestionPaper
+    tags: [Exams]
+    summary: Auto-generate a question paper
+    description: |
+      Automatically selects questions from the bank based on difficulty mix,
+      total marks, and subject constraints.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [subject_id, total_marks]
+            properties:
+              subject_id: { type: string, format: uuid }
+              total_marks: { type: number, example: 100 }
+              difficulty_mix:
+                type: object
+                properties:
+                  easy: { type: number, description: "Percentage", example: 30 }
+                  medium: { type: number, example: 50 }
+                  hard: { type: number, example: 20 }
+    responses:
+      '200':
+        description: Paper generated with selected questions

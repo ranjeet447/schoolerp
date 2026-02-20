@@ -1,0 +1,439 @@
+# Auth, Health, Files, Tenant Config — Detailed API Paths
+# All responses use application/json unless otherwise noted.
+
+/auth/login:
+  post:
+    operationId: authLogin
+    tags: [Auth]
+    summary: Authenticate with email and password
+    description: |
+      Authenticates a user by verifying email/password against the database.
+      On success, returns a signed JWT token containing the user's role,
+      tenant_id, and permissions array.
+
+      **Flow variants:**
+      - `403 legal_acceptance_required` — User must accept updated legal docs before login completes.
+        The response includes `meta.preauth_token` and `meta.requirements[]`.
+      - `403 mfa_required` — User has MFA enabled; call `/auth/mfa/validate` next.
+      - `403 access_blocked` — Account has been blocked by an admin.
+      - `403 password_expired` — Password must be reset.
+      - `503` — Session store (Redis) is unavailable.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [email, password]
+            properties:
+              email:
+                type: string
+                format: email
+                description: User's email address (case-insensitive)
+                example: admin@school.in
+              password:
+                type: string
+                description: Plain-text password
+                example: secret123
+    responses:
+      '200':
+        description: Login successful — JWT token and user info returned
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data:
+                  type: object
+                  properties:
+                    token:
+                      type: string
+                      description: Signed JWT (HS256) — include as `Authorization: Bearer <token>`
+                    user_id: { type: string, format: uuid }
+                    email: { type: string, format: email }
+                    full_name: { type: string, example: "Ranjeet Singh" }
+                    role:
+                      type: string
+                      enum: [super_admin, tenant_admin, teacher, parent, student, accountant]
+                    tenant_id: { type: string, format: uuid }
+                    permissions:
+                      type: array
+                      items: { type: string }
+                      description: Flat list of permission codes, e.g. `["finance:read", "students:write"]`
+                    expires_at: { type: string, format: date-time }
+      '400':
+        description: Missing or malformed request body
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: false }
+                message: { type: string, example: "Email and password are required" }
+      '401':
+        description: Invalid credentials (wrong email or password)
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: false }
+                message: { type: string, example: "invalid credentials" }
+      '403':
+        description: |
+          Login blocked — one of: MFA required, legal acceptance required,
+          access blocked, or password expired. Check `code` field.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: false }
+                code:
+                  type: string
+                  enum: [legal_acceptance_required, mfa_required, access_blocked, password_expired]
+                message: { type: string }
+                meta:
+                  type: object
+                  description: Additional context (e.g. legal requirements, preauth_token)
+      '503':
+        description: Session store unavailable (Redis down)
+
+/auth/forgot-password:
+  post:
+    operationId: authForgotPassword
+    tags: [Auth]
+    summary: Request password reset email
+    description: |
+      Sends a password reset email to the given address if an account exists.
+      **Always returns 200** regardless of whether the email exists (security best practice).
+      Logs the IP address and user agent for audit purposes.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [email]
+            properties:
+              email:
+                type: string
+                format: email
+                description: Email address to send the reset link to
+                example: teacher@school.in
+    responses:
+      '200':
+        description: Reset email sent (or silently ignored if account doesn't exist)
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                message: { type: string, example: "If an account exists, a reset link has been sent" }
+      '400':
+        description: Missing email field
+
+/auth/mfa/setup:
+  post:
+    operationId: authMfaSetup
+    tags: [Auth]
+    summary: Generate MFA secret and QR code
+    description: |
+      Generates a new TOTP secret for the authenticated user.
+      Returns the raw secret and a QR code URL/data that can be scanned
+      by an authenticator app (Google Authenticator, Authy, etc.).
+      MFA is not yet enabled — call `/auth/mfa/enable` with a valid code to activate.
+    responses:
+      '200':
+        description: MFA setup data
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                secret:
+                  type: string
+                  description: Base32-encoded TOTP secret for manual entry
+                  example: JBSWY3DPEHPK3PXP
+                qr_code:
+                  type: string
+                  description: QR code image data (base64 PNG or otpauth:// URI)
+      '401':
+        description: Not authenticated
+
+/auth/mfa/enable:
+  post:
+    operationId: authMfaEnable
+    tags: [Auth]
+    summary: Enable MFA by verifying a TOTP code
+    description: |
+      Verifies the provided 6-digit TOTP code against the previously generated
+      secret. On success, MFA is permanently enabled for the user's account.
+      All subsequent logins will require MFA validation.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code]
+            properties:
+              code:
+                type: string
+                minLength: 6
+                maxLength: 6
+                description: 6-digit TOTP code from the authenticator app
+                example: "482910"
+    responses:
+      '200':
+        description: MFA enabled successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+      '400':
+        description: Invalid or expired TOTP code
+      '401':
+        description: Not authenticated
+
+/auth/mfa/validate:
+  post:
+    operationId: authMfaValidate
+    tags: [Auth]
+    summary: Validate MFA code during login flow
+    description: |
+      Called after a `403 mfa_required` response from `/auth/login`.
+      Validates the provided TOTP code and, on success, returns `{ valid: true }`.
+      The client should then re-issue the login request or use the pre-auth token
+      to obtain a full JWT.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code]
+            properties:
+              code:
+                type: string
+                minLength: 6
+                maxLength: 6
+                description: 6-digit TOTP code
+                example: "384721"
+    responses:
+      '200':
+        description: MFA code is valid
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                valid: { type: boolean, example: true }
+      '401':
+        description: Invalid TOTP code
+
+/auth/legal/docs:
+  get:
+    operationId: authListLegalDocs
+    tags: [Auth]
+    summary: List current legal documents
+    description: |
+      Returns all currently published legal documents (Terms of Service,
+      Privacy Policy, etc.) that users may need to accept. Each document
+      includes a `doc_key`, `title`, `version`, `content_url`, and `published_at`.
+    security: []
+    responses:
+      '200':
+        description: Legal documents list
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      doc_key: { type: string, example: terms_of_service }
+                      title: { type: string, example: "Terms of Service" }
+                      version: { type: string, example: "2.1" }
+                      content_url: { type: string, format: uri }
+                      published_at: { type: string, format: date-time }
+
+/auth/legal/accept:
+  post:
+    operationId: authAcceptLegalDocs
+    tags: [Auth]
+    summary: Accept legal documents and receive login token
+    description: |
+      Called after a `403 legal_acceptance_required` response from `/auth/login`.
+      Requires the `preauth_token` from the login response as the Bearer token.
+      Accepts one or more legal documents by `doc_key` + `version`, then issues
+      a full JWT on success.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [accept]
+            properties:
+              accept:
+                type: array
+                description: List of legal documents being accepted
+                items:
+                  type: object
+                  required: [doc_key, version]
+                  properties:
+                    doc_key:
+                      type: string
+                      description: Unique key of the legal document
+                      example: terms_of_service
+                    version:
+                      type: string
+                      description: Version being accepted
+                      example: "2.1"
+    responses:
+      '200':
+        description: Documents accepted, full login token issued
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data:
+                  type: object
+                  properties:
+                    token: { type: string }
+                    user_id: { type: string, format: uuid }
+                    email: { type: string, format: email }
+                    full_name: { type: string }
+                    role: { type: string }
+                    tenant_id: { type: string, format: uuid }
+                    permissions: { type: array, items: { type: string } }
+                    expires_at: { type: string, format: date-time }
+      '400':
+        description: Invalid request or acceptance data
+      '401':
+        description: Invalid or expired preauth token
+
+/auth/request-otp:
+  post:
+    operationId: authRequestOtp
+    tags: [Auth]
+    summary: Request a one-time password for login
+    description: |
+      Sends an OTP to the user's registered mobile/email for passwordless login.
+    security: []
+    responses:
+      '200':
+        description: OTP sent successfully
+
+/healthz:
+  get:
+    operationId: healthCheck
+    tags: [Auth]
+    summary: API health check
+    description: |
+      Returns the API server status and current timestamp. Used by load balancers,
+      monitoring systems, and uptime checkers. No authentication required.
+    security: []
+    responses:
+      '200':
+        description: Server is healthy
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  example: ok
+                  description: Always "ok" if the server is running
+                timestamp:
+                  type: string
+                  format: date-time
+                  description: Current server time
+
+/files/upload:
+  post:
+    operationId: uploadFile
+    tags: [Files]
+    summary: Upload a file to S3
+    description: |
+      Uploads a file to the tenant's S3 bucket and returns the public URL.
+      Supports images, PDFs, and documents. Max file size is governed by
+      the server's request body limit (typically 50MB).
+      The file is stored under the tenant's namespace with a unique key.
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [file]
+            properties:
+              file:
+                type: string
+                format: binary
+                description: The file to upload
+    responses:
+      '200':
+        description: File uploaded successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url:
+                  type: string
+                  format: uri
+                  description: Public URL of the uploaded file
+                filename:
+                  type: string
+                  description: Original filename
+                size:
+                  type: integer
+                  description: File size in bytes
+                mime_type:
+                  type: string
+                  description: Detected MIME type
+                  example: image/png
+
+/tenants/config:
+  get:
+    operationId: getTenantConfig
+    tags: [Tenant]
+    summary: Get tenant configuration (public)
+    description: |
+      Returns the public-facing configuration for a tenant including
+      school name, branding, enabled modules, and feature flags.
+      Resolved from the `X-Tenant-ID` header or domain mapping.
+    security: []
+    parameters:
+      - name: X-Tenant-ID
+        in: header
+        schema: { type: string, format: uuid }
+        description: Optional tenant ID header (also resolved from domain)
+    responses:
+      '200':
+        description: Tenant configuration
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tenant_id: { type: string, format: uuid }
+                school_name: { type: string }
+                logo_url: { type: string, format: uri }
+                modules: { type: array, items: { type: string } }
+                feature_flags: { type: object, additionalProperties: { type: boolean } }

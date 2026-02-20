@@ -1,0 +1,297 @@
+# Public / Marketing API Paths
+
+/public/demo-bookings:
+  post:
+    operationId: publicCreateDemoBooking
+    tags: [Public]
+    summary: Book a product demo
+    description: |
+      Allows prospective schools to book a product demo. Creates a booking record
+      and triggers an email notification to the sales team. Idempotent when
+      `Idempotency-Key` header is provided.
+    security: []
+    parameters:
+      - name: Idempotency-Key
+        in: header
+        schema: { type: string }
+        description: Optional idempotency key to prevent duplicate bookings
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [school_name, contact_name, email, phone]
+            properties:
+              school_name:
+                type: string
+                description: Name of the school requesting the demo
+                example: "Greenfield Public School"
+              contact_name:
+                type: string
+                description: Contact person's full name
+                example: "Rakesh Kumar"
+              email:
+                type: string
+                format: email
+                description: Contact email
+                example: principal@greenfield.edu.in
+              phone:
+                type: string
+                description: Phone number with country code
+                example: "+919876543210"
+              city:
+                type: string
+                description: City where the school is located
+                example: "Jaipur"
+              student_count:
+                type: integer
+                description: Approximate number of students
+                example: 1200
+    responses:
+      '201':
+        description: Demo booking created successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string, format: uuid }
+                status: { type: string, example: pending }
+
+/public/contact:
+  post:
+    operationId: publicSubmitContact
+    tags: [Public]
+    summary: Submit contact form
+    description: |
+      Submits a general contact/enquiry form from the marketing website.
+      Stores the submission and sends a notification to the support team.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, email, message]
+            properties:
+              name: { type: string, example: "Priya Sharma" }
+              email: { type: string, format: email }
+              message: { type: string, description: "Free-form enquiry message" }
+    responses:
+      '201':
+        description: Contact form submitted
+
+/public/partner-applications:
+  post:
+    operationId: publicSubmitPartnerApplication
+    tags: [Public]
+    summary: Submit a partner/reseller application
+    description: |
+      Allows potential partners or channel resellers to apply for a partnership.
+      The application is queued for review by the platform team.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, organization, email]
+            properties:
+              name: { type: string }
+              organization: { type: string }
+              email: { type: string, format: email }
+              phone: { type: string }
+              region: { type: string }
+    responses:
+      '201':
+        description: Partner application submitted
+
+/public/review-requests/{token}:
+  get:
+    operationId: publicGetReviewRequest
+    tags: [Public]
+    summary: Get review request details by token
+    description: |
+      Retrieves a review request using a unique token sent via email.
+      Used to pre-populate the review submission form with school details.
+    security: []
+    parameters:
+      - name: token
+        in: path
+        required: true
+        schema: { type: string }
+        description: Unique review request token (from email link)
+    responses:
+      '200':
+        description: Review request details
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                school_name: { type: string }
+                reviewer_name: { type: string }
+                reviewer_email: { type: string, format: email }
+      '404':
+        description: Token not found or expired
+
+/public/reviews:
+  post:
+    operationId: publicSubmitReview
+    tags: [Public]
+    summary: Submit a product review
+    description: |
+      Submits a public review/testimonial. Must include a valid review request
+      token (obtained from `/public/review-requests/{token}`).
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [token, rating]
+            properties:
+              token: { type: string, description: Review request token }
+              rating: { type: integer, minimum: 1, maximum: 5 }
+              comment: { type: string }
+    responses:
+      '201':
+        description: Review submitted successfully
+
+/public/case-studies/{slug}/pdf:
+  post:
+    operationId: publicCreateCaseStudyPdf
+    tags: [Public]
+    summary: Request case study PDF generation
+    description: |
+      Queues an asynchronous PDF generation job for the specified case study.
+      Returns a job ID that can be polled via `/public/pdf-jobs/{id}`.
+    security: []
+    parameters:
+      - name: slug
+        in: path
+        required: true
+        schema: { type: string }
+        description: URL slug of the case study
+        example: greenfield-school-success
+    responses:
+      '202':
+        description: PDF generation job queued
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                job_id: { type: string, format: uuid }
+                status: { type: string, example: queued }
+
+/public/pdf-jobs/{id}:
+  get:
+    operationId: publicGetPdfJobStatus
+    tags: [Public]
+    summary: Check PDF generation job status
+    description: |
+      Returns the current status of an asynchronous PDF generation job.
+      Poll this endpoint until `status` becomes `completed` or `failed`.
+    security: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: Job ID returned from the PDF creation endpoint
+    responses:
+      '200':
+        description: Job status
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string, format: uuid }
+                status: { type: string, enum: [queued, processing, completed, failed] }
+                created_at: { type: string, format: date-time }
+
+/public/pdf-jobs/{id}/download:
+  get:
+    operationId: publicDownloadPdfJob
+    tags: [Public]
+    summary: Download completed PDF
+    description: |
+      Downloads the generated PDF file. Only available when the job `status`
+      is `completed`. Returns 404 if job doesn't exist or isn't ready.
+    security: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: PDF file download
+        content:
+          application/pdf:
+            schema:
+              type: string
+              format: binary
+      '404':
+        description: Job not found or not yet completed
+
+/public/admissions/enquiry:
+  post:
+    operationId: publicSubmitAdmissionEnquiry
+    tags: [Public]
+    summary: Submit an admission enquiry
+    description: |
+      Allows parents/guardians to submit an admission enquiry from the school's
+      public website. Optionally requires a CAPTCHA token (skipped when
+      `X-Env: test` header is present). The enquiry is visible to admissions
+      staff via the admin panel.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [student_name, class_applied, parent_name, phone]
+            properties:
+              student_name:
+                type: string
+                description: Full name of the student
+                example: "Aarav Sharma"
+              class_applied:
+                type: string
+                description: Class/grade being applied for
+                example: "Class 5"
+              parent_name:
+                type: string
+                description: Parent/guardian's full name
+                example: "Sanjay Sharma"
+              phone:
+                type: string
+                description: Contact phone number
+                example: "+919876543210"
+              email:
+                type: string
+                format: email
+                description: Parent's email address
+              captcha:
+                type: string
+                description: CAPTCHA verification token (if required)
+    responses:
+      '201':
+        description: Admission enquiry created
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string, format: uuid }
+                status: { type: string, example: new }
+      '400':
+        description: Missing required fields or CAPTCHA validation failed

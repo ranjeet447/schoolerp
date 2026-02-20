@@ -1,0 +1,52 @@
+# Portfolio & Analytics API Paths — Cross-campus analytics, Student portfolios
+
+/admin/portfolio/analytics:
+  get:
+    operationId: getCampusAnalytics
+    tags: [Portfolio]
+    summary: Get cross-campus performance analytics
+    responses:
+      '200':
+        description: Analytical data
+
+/admin/portfolio/students/{id}/growth:
+  get:
+    operationId: getStudentGrowthChart
+    tags: [Portfolio]
+    summary: Get student academic growth trends
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Growth trend data
+
+/admin/portfolio/achievements:
+  get:
+    operationId: listSignificantAchievements
+    tags: [Portfolio]
+    summary: List significant achievements across school
+    responses:
+      '200':
+        description: Achievement list
+  post:
+    operationId: recordAchievement
+    tags: [Portfolio]
+    summary: Record a student/staff achievement
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [user_id, title, date]
+            properties:
+              user_id: { type: string, format: uuid }
+              title: { type: string }
+              description: { type: string }
+              date: { type: string, format: date }
+    responses:
+      '201':
+        description: Achievement recorded

@@ -1,0 +1,54 @@
+# Tenant & Platform API Paths — Tenant settings, Branding, Modules
+
+/admin/tenant/settings:
+  get:
+    operationId: getTenantSettings
+    tags: [Tenant]
+    summary: Get tenant administrative settings
+    responses:
+      '200':
+        description: Full tenant configuration
+  put:
+    operationId: updateTenantSettings
+    tags: [Tenant]
+    summary: Update tenant settings
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              school_name: { type: string }
+              branding: { type: object }
+              enabled_modules: { type: array, items: { type: string } }
+    responses:
+      '200':
+        description: Settings updated
+
+/platform/tenants:
+  get:
+    operationId: listAllTenants
+    tags: [Platform]
+    summary: List all tenants (Super Admin only)
+    responses:
+      '200':
+        description: Global tenant list
+  post:
+    operationId: createTenant
+    tags: [Platform]
+    summary: Provision a new tenant
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, subdomain]
+            properties:
+              name: { type: string }
+              subdomain: { type: string }
+              admin_email: { type: string, format: email }
+    responses:
+      '201':
+        description: Tenant provisioned

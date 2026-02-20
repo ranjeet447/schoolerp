@@ -1,0 +1,285 @@
+# Admissions API Paths
+
+/admin/admissions/settings/document-types:
+  get:
+    operationId: listAdmissionDocumentTypes
+    tags: [Admissions]
+    summary: List required document types for admissions
+    responses:
+      '200':
+        description: Document type list
+  post:
+    operationId: upsertAdmissionDocumentType
+    tags: [Admissions]
+    summary: Create or update a required document type
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name]
+            properties:
+              name: { type: string, example: "Birth Certificate" }
+              is_required: { type: boolean, default: true }
+    responses:
+      '200':
+        description: Saved
+
+/admin/admissions/settings/workflow:
+  get:
+    operationId: getAdmissionWorkflow
+    tags: [Admissions]
+    summary: Get admission workflow configuration
+    responses:
+      '200':
+        description: Workflow stages and settings
+  put:
+    operationId: updateAdmissionWorkflow
+    tags: [Admissions]
+    summary: Update admission workflow configuration
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              stages: { type: array, items: { type: object } }
+              auto_assign: { type: boolean }
+    responses:
+      '200':
+        description: Workflow updated
+
+/admin/admissions/enquiries:
+  get:
+    operationId: listAdmissionEnquiries
+    tags: [Admissions]
+    summary: List admission enquiries
+    parameters:
+      - name: status
+        in: query
+        schema: { type: string, enum: [new, contacted, converted, lost] }
+    responses:
+      '200':
+        description: Enquiry list
+  post:
+    operationId: createAdmissionEnquiry
+    tags: [Admissions]
+    summary: Create an admission enquiry (admin)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [student_name, class_applied, parent_name, phone]
+            properties:
+              student_name: { type: string }
+              class_applied: { type: string }
+              parent_name: { type: string }
+              phone: { type: string }
+              email: { type: string, format: email }
+              source: { type: string, enum: [walk_in, website, referral, event] }
+    responses:
+      '201':
+        description: Enquiry created
+
+/admin/admissions/enquiries/{id}/status:
+  put:
+    operationId: updateEnquiryStatus
+    tags: [Admissions]
+    summary: Update enquiry status
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status]
+            properties:
+              status: { type: string, enum: [new, contacted, converted, lost] }
+    responses:
+      '200':
+        description: Status updated
+
+/admin/admissions/applications:
+  get:
+    operationId: listApplications
+    tags: [Admissions]
+    summary: List admission applications
+    parameters:
+      - name: status
+        in: query
+        schema: { type: string, enum: [submitted, under_review, accepted, rejected, enrolled] }
+      - name: class
+        in: query
+        schema: { type: string }
+    responses:
+      '200':
+        description: Application list
+  post:
+    operationId: createApplication
+    tags: [Admissions]
+    summary: Create an admission application
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [student_name, class_applied, parent_name, phone]
+            properties:
+              student_name: { type: string }
+              class_applied: { type: string }
+              parent_name: { type: string }
+              phone: { type: string }
+              email: { type: string, format: email }
+    responses:
+      '201':
+        description: Application created
+
+/admin/admissions/applications/{id}:
+  get:
+    operationId: getApplication
+    tags: [Admissions]
+    summary: Get application detail
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Application detail with documents and status history
+
+/admin/admissions/applications/{id}/status:
+  put:
+    operationId: updateApplicationStatus
+    tags: [Admissions]
+    summary: Update application status
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status]
+            properties:
+              status: { type: string, enum: [under_review, accepted, rejected] }
+              remark: { type: string }
+    responses:
+      '200':
+        description: Status updated
+
+/admin/admissions/applications/{id}/accept:
+  post:
+    operationId: acceptApplication
+    tags: [Admissions]
+    summary: Accept an application and create student record
+    description: Converts the applicant into a student record in the SIS.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [section_id]
+            properties:
+              section_id: { type: string, format: uuid, description: "Section to enroll in" }
+    responses:
+      '200':
+        description: Student created
+
+/admin/admissions/applications/{id}/pay-fee:
+  post:
+    operationId: payAdmissionFee
+    tags: [Admissions]
+    summary: Record admission fee payment
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [amount, mode]
+            properties:
+              amount: { type: integer, format: int64 }
+              mode: { type: string, enum: [cash, online, cheque] }
+    responses:
+      '200':
+        description: Fee recorded
+
+/admin/admissions/applications/{id}/documents:
+  get:
+    operationId: listApplicationDocuments
+    tags: [Admissions]
+    summary: List documents for an application
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Document list
+  post:
+    operationId: uploadApplicationDocument
+    tags: [Admissions]
+    summary: Upload a document for an application
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              file: { type: string, format: binary }
+              type: { type: string }
+    responses:
+      '201':
+        description: Document uploaded
+
+/admin/admissions/applications/{id}/documents/{index}:
+  delete:
+    operationId: deleteApplicationDocument
+    tags: [Admissions]
+    summary: Delete an application document
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: index
+        in: path
+        required: true
+        schema: { type: integer }
+        description: Document index (0-based)
+    responses:
+      '200':
+        description: Document deleted

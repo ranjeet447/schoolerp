@@ -1,0 +1,38 @@
+# AI API Paths — Parent helpdesk, Multi-turn chat, Insights
+
+/admin/ai/parent-helpdesk/chat:
+  post:
+    operationId: parentHelpdeskChat
+    tags: [AI]
+    summary: Multi-turn AI chat for parent helpdesk
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [message]
+            properties:
+              message: { type: string }
+              session_id: { type: string, description: "Optional session ID for multi-turn" }
+              language: { type: string, description: "Auto-detected if omitted" }
+    responses:
+      '200':
+        description: AI response
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                response: { type: string }
+                session_id: { type: string }
+                detected_language: { type: string }
+
+/admin/ai/usage-logs:
+  get:
+    operationId: listAIUsageLogs
+    tags: [AI]
+    summary: List AI usage and token consumption logs
+    responses:
+      '200':
+        description: Usage logs
