@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useMutation } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api-client"
 import {
   Button,
@@ -34,7 +34,7 @@ import {
   Textarea,
 } from "@schoolerp/ui"
 import { toast } from "sonner"
-import { Loader2, MoreHorizontal, UserCog, Search, Key, ShieldCheck, RefreshCw } from "lucide-react"
+import { Loader2, MoreHorizontal, UserCog, Search, Key, RefreshCw } from "lucide-react"
 import { TenantSelect } from "@/components/ui/tenant-select"
 import { ResetPasswordDialog } from "./_components/reset-password-dialog"
 
@@ -55,8 +55,6 @@ export default function GlobalUserDirectoryPage() {
   const [page, setPage] = useState(0)
   const limit = 20
 
-  const queryClient = useQueryClient()
-
   // Dialog state
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
   const [selectedUserForReset, setSelectedUserForReset] = useState<any>(null)
@@ -64,10 +62,6 @@ export default function GlobalUserDirectoryPage() {
   const [impersonateDialogOpen, setImpersonateDialogOpen] = useState(false)
   const [selectedUserForImpersonate, setSelectedUserForImpersonate] = useState<any>(null)
   const [impersonateReason, setImpersonateReason] = useState("")
-
-  const [roleDialogOpen, setRoleDialogOpen] = useState(false)
-  const [selectedUserForRole, setSelectedUserForRole] = useState<any>(null)
-  const [newRoleCode, setNewRoleCode] = useState("")
 
   const { data: users, isLoading, refetch } = useQuery({
     queryKey: ["global-users", search, tenantId, roleCode, page],
@@ -79,7 +73,10 @@ export default function GlobalUserDirectoryPage() {
         limit: limit.toString(),
         offset: (page * limit).toString(),
       })
-      const res = await apiClient(`/platform/users?${params.toString()}`)
+      const res = await apiClient(`/admin/platform/users?${params.toString()}`)
+      if (!res.ok) {
+        throw new Error(await res.text())
+      }
       return (await res.json()) || []
     },
   })
@@ -87,7 +84,7 @@ export default function GlobalUserDirectoryPage() {
   // Impersonation mutation
   const impersonateMutation = useMutation({
     mutationFn: async ({ userId, reason }: { userId: string; reason: string }) => {
-      const res = await apiClient(`/platform/users/${userId}/impersonate`, {
+      const res = await apiClient(`/admin/platform/users/${userId}/impersonate`, {
         method: "POST",
         body: JSON.stringify({ reason }),
       })
@@ -118,42 +115,11 @@ export default function GlobalUserDirectoryPage() {
     },
   })
 
-  // Role change mutation
-  const changeRoleMutation = useMutation({
-    mutationFn: async ({ userId, roleCode }: { userId: string; roleCode: string }) => {
-      const res = await apiClient(`/platform/users/${userId}/role`, {
-        method: "PATCH",
-        body: JSON.stringify({ role_code: roleCode }),
-      })
-      if (!res.ok) throw new Error(await res.text())
-      return await res.json()
-    },
-    onSuccess: () => {
-      toast.success("Role updated successfully")
-      setRoleDialogOpen(false)
-      setSelectedUserForRole(null)
-      refetch()
-    },
-    onError: (err: any) => {
-      toast.error("Failed to update role", {
-        description: err.message || "An error occurred",
-      })
-    },
-  })
-
   const handleImpersonate = () => {
     if (!selectedUserForImpersonate || !impersonateReason.trim()) return
     impersonateMutation.mutate({
       userId: selectedUserForImpersonate.id,
       reason: impersonateReason.trim(),
-    })
-  }
-
-  const handleRoleChange = () => {
-    if (!selectedUserForRole || !newRoleCode) return
-    changeRoleMutation.mutate({
-      userId: selectedUserForRole.id,
-      roleCode: newRoleCode,
     })
   }
 
@@ -291,12 +257,9 @@ export default function GlobalUserDirectoryPage() {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
-                            setSelectedUserForRole(user)
-                            setNewRoleCode(user.role_code || "")
-                            setRoleDialogOpen(true)
+                            toast.info("Role updates are managed in each tenant context.")
                           }}
                         >
-                          <ShieldCheck className="mr-2 h-4 w-4" />
                           Change Role
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
@@ -374,48 +337,6 @@ export default function GlobalUserDirectoryPage() {
             >
               {impersonateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Start Impersonation
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Role Change Dialog */}
-      <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Change Role</DialogTitle>
-            <DialogDescription>
-              Update the role for{" "}
-              <span className="font-semibold">{selectedUserForRole?.full_name}</span>.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label>New Role</Label>
-              <Select value={newRoleCode} onValueChange={setNewRoleCode}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {TENANT_ROLE_OPTIONS.map((r) => (
-                    <SelectItem key={r.value} value={r.value}>
-                      {r.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRoleDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleRoleChange}
-              disabled={!newRoleCode || changeRoleMutation.isPending}
-            >
-              {changeRoleMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Update Role
             </Button>
           </DialogFooter>
         </DialogContent>

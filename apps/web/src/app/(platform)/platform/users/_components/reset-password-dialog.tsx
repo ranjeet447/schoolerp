@@ -21,12 +21,11 @@ export function ResetPasswordDialog({
 }: ResetPasswordDialogProps) {
   const [newPassword, setNewPassword] = useState("")
   const [reason, setReason] = useState("")
-  // const { toast } = useToast() // This line is commented out in the original, but the instruction implies its removal.
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const res = await apiClient(`/platform/users/${userId}/reset-password`, {
-        method: "POST", // Using POST for action-like idempotent or non-idempotent updates often safer/clearer than PATCH for specific actions
+      const res = await apiClient(`/admin/platform/users/${userId}/reset-password`, {
+        method: "POST",
         body: JSON.stringify({
           new_password: newPassword,
           reason: reason || "Admin manual reset",
@@ -34,6 +33,10 @@ export function ResetPasswordDialog({
       })
       if (!res.ok) {
         throw new Error(await res.text())
+      }
+      const contentType = res.headers.get("content-type") || ""
+      if (!contentType.includes("application/json")) {
+        return null
       }
       return await res.json()
     },
@@ -43,20 +46,15 @@ export function ResetPasswordDialog({
       })
       onOpenChange(false)
       setNewPassword("")
-      // The instruction included setConfirmPassword(""), but confirmPassword state is not defined.
-      // Assuming this was a placeholder or intended for a future change not fully provided.
-      // For now, it's omitted to avoid a runtime error.
-      // setConfirmPassword("");
+      setReason("")
     },
     onError: (err: any) => {
       toast.error("Failed to reset password", {
-        description: err.message || "An unknown error occurred.", // Adjusted to use `err.message` as `e.response?.data` is not guaranteed from `await res.text()`
+        description: err.message || "An unknown error occurred.",
       })
     },
   })
 
-  // Basic validation
-  // In a real app, you might want stronger password policies enforced on client side too.
   const isValid = newPassword.length >= 8
 
   return (

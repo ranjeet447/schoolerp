@@ -1,75 +1,173 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { 
-  Building2, 
-  Users, 
-  TrendingUp, 
-  Plus, 
-  ArrowRight, 
+import { apiClient } from "@/lib/api-client";
+import { formatDistanceToNow } from "date-fns";
+import {
+  Building2,
+  Users,
+  TrendingUp,
+  Plus,
+  ArrowRight,
   Calendar,
   ShieldCheck,
   CheckCircle2,
-  Clock
+  Clock,
+  RefreshCcw,
 } from "lucide-react";
-import { 
-  Button, 
-  Card, 
-  CardContent, 
-  Badge 
+import {
+  Button,
+  Card,
+  CardContent,
+  Badge,
 } from "@schoolerp/ui";
 
-const STAT_CARDS = [
-  { 
-    label: "Total Schools", 
-    value: "254", 
-    subValue: "+12 this month", 
-    icon: Building2, 
-    color: "text-blue-500",
-    bg: "bg-blue-500/10"
-  },
-  { 
-    label: "Active Students", 
-    value: "12,450", 
-    subValue: "Across all tenants", 
-    icon: Users, 
-    color: "text-indigo-500",
-    bg: "bg-indigo-500/10"
-  },
-  { 
-    label: "Revenue (MTD)", 
-    value: "₹45.2L", 
-    subValue: "↑ 18.5% from last month", 
-    icon: TrendingUp, 
-    color: "text-emerald-500",
-    bg: "bg-emerald-500/10"
-  },
-];
+type PlatformSummary = {
+  total_tenants: number;
+  active_tenants: number;
+  total_students: number;
+  total_collections: number;
+};
+
+type PlatformTenant = {
+  id: string;
+  name: string;
+  lifecycle_status?: string;
+  created_at: string;
+};
 
 const QUICK_ACTIONS = [
-  { 
-    title: "Register New School", 
-    description: "Onboard a new educational institution", 
-    href: "/platform/tenants/new", 
+  {
+    title: "Register New School",
+    description: "Onboard a new educational institution",
+    href: "/platform/tenants/new",
     icon: Plus,
-    variant: "default"
+    variant: "default",
   },
-  { 
-    title: "Manage All Schools", 
-    description: "View and filter the complete institutional list", 
-    href: "/platform/tenants/list", 
+  {
+    title: "Manage All Schools",
+    description: "View and filter the complete institutional list",
+    href: "/platform/tenants/list",
     icon: Building2,
-    variant: "outline"
+    variant: "outline",
   },
-];
-
-const RECENT_MILLESTONES = [
-  { title: "DPS International Active", date: "2 hours ago", status: "completed" },
-  { title: "St. Xavier's Onboarding", date: "5 hours ago", status: "in-progress" },
-  { title: "Green Valley Audit", date: "Yesterday", status: "pending" },
 ];
 
 export default function TenantsDashboard() {
+  const [summary, setSummary] = useState<PlatformSummary | null>(null);
+  const [tenants, setTenants] = useState<PlatformTenant[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [summaryRes, tenantsRes] = await Promise.all([
+        apiClient("/admin/platform/summary"),
+        apiClient("/admin/platform/tenants?limit=8"),
+      ]);
+
+      if (!summaryRes.ok) {
+        throw new Error("Failed to fetch tenant summary.");
+      }
+      const summaryData = await summaryRes.json();
+      setSummary(summaryData);
+
+      if (tenantsRes.ok) {
+        const tenantRows = await tenantsRes.json();
+        setTenants(Array.isArray(tenantRows) ? tenantRows : []);
+      } else {
+        setTenants([]);
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to load tenant overview.");
+      setSummary(null);
+      setTenants([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(value || 0);
+
+  const milestones = useMemo(() => {
+    return tenants.slice(0, 5).map((tenant) => {
+      const lifecycle = (tenant.lifecycle_status || "").toLowerCase();
+      const status =
+        lifecycle.includes("active") || lifecycle.includes("live")
+          ? "completed"
+          : lifecycle.includes("onboard") || lifecycle.includes("trial")
+            ? "in-progress"
+            : "pending";
+
+      return {
+        id: tenant.id,
+        title: tenant.name || "Unnamed school",
+        status,
+        dateLabel: tenant.created_at
+          ? formatDistanceToNow(new Date(tenant.created_at), { addSuffix: true })
+          : "Unknown date",
+      };
+    });
+  }, [tenants]);
+
+  const newThisMonth = useMemo(() => {
+    const now = new Date();
+    return tenants.filter((tenant) => {
+      const created = new Date(tenant.created_at);
+      return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
+    }).length;
+  }, [tenants]);
+
+  const statCards = [
+    {
+      label: "Total Schools",
+      value: (summary?.total_tenants || 0).toLocaleString(),
+      subValue: summary ? `+${newThisMonth} this month` : "Waiting for data",
+      icon: Building2,
+      color: "text-blue-500",
+      bg: "bg-blue-500/10",
+    },
+    {
+      label: "Active Students",
+      value: (summary?.total_students || 0).toLocaleString(),
+      subValue: "Across all tenants",
+      icon: Users,
+      color: "text-indigo-500",
+      bg: "bg-indigo-500/10",
+    },
+    {
+      label: "Global Revenue",
+      value: formatCurrency(summary?.total_collections || 0),
+      subValue: "Lifetime collections",
+      icon: TrendingUp,
+      color: "text-emerald-500",
+      bg: "bg-emerald-500/10",
+    },
+  ];
+
+  if (loading && !summary) {
+    return (
+      <div className="flex h-[45vh] items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+          <p className="mt-3 text-sm font-semibold text-muted-foreground">Loading tenant dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 pb-10">
       {/* Header Section */}
@@ -81,8 +179,20 @@ export default function TenantsDashboard() {
       </div>
 
       {/* Stats Grid */}
+      {error ? (
+        <Card className="border-destructive/20 bg-destructive/5">
+          <CardContent className="flex flex-col gap-3 p-5 md:flex-row md:items-center md:justify-between">
+            <p className="text-sm font-semibold text-destructive">{error}</p>
+            <Button size="sm" variant="outline" onClick={() => void load()} className="gap-2">
+              <RefreshCcw className="h-4 w-4" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-3">
-        {STAT_CARDS.map((stat) => (
+        {statCards.map((stat) => (
           <Card key={stat.label} className="border-none shadow-sm shadow-black/5 bg-card/50 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -132,23 +242,32 @@ export default function TenantsDashboard() {
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="space-y-6">
-              {RECENT_MILLESTONES.map((milestone) => (
-                <div key={milestone.title} className="flex items-start gap-3">
-                  <div className="mt-1">
-                    {milestone.status === "completed" ? (
-                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                    ) : milestone.status === "in-progress" ? (
-                      <Clock className="h-4 w-4 text-blue-500" />
-                    ) : (
-                      <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-foreground">{milestone.title}</p>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tight">{milestone.date}</p>
-                  </div>
+              {milestones.length === 0 ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">No tenant activity yet.</p>
+                  <Button size="sm" asChild>
+                    <Link href="/platform/tenants/new">Onboard your first school</Link>
+                  </Button>
                 </div>
-              ))}
+              ) : (
+                milestones.map((milestone) => (
+                  <div key={milestone.id} className="flex items-start gap-3">
+                    <div className="mt-1">
+                      {milestone.status === "completed" ? (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      ) : milestone.status === "in-progress" ? (
+                        <Clock className="h-4 w-4 text-blue-500" />
+                      ) : (
+                        <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-foreground">{milestone.title}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tight">{milestone.dateLabel}</p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
             <Button variant="ghost" className="w-full mt-6 text-xs font-bold text-primary" asChild>
               <Link href="/platform/tenants/list">VIEW ALL ACTIVITY</Link>

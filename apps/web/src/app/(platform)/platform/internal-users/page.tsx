@@ -1,52 +1,159 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { 
-  ShieldCheck, 
-  Users, 
-  Key, 
-  Lock, 
+import { apiClient } from "@/lib/api-client";
+import {
+  ShieldCheck,
+  Users,
+  Lock,
   ArrowRight,
   ShieldAlert,
   UserPlus,
   Fingerprint,
-  History
+  History,
+  RefreshCcw,
 } from "lucide-react";
-import { 
-  Button, 
-  Card, 
-  CardContent, 
-  Badge 
+import {
+  Button,
+  Card,
+  CardContent,
+  Badge,
 } from "@schoolerp/ui";
 
-const SECURITY_STATS = [
-  { label: "Active Admins", value: "12", subValue: "High-level access", icon: ShieldCheck, color: "text-blue-500", bg: "bg-blue-500/10" },
-  { label: "Total Staff", value: "48", subValue: "Combined internal roles", icon: Users, color: "text-indigo-500", bg: "bg-indigo-500/10" },
-  { label: "Pending Invites", value: "3", subValue: "Awaiting registration", icon: UserPlus, color: "text-amber-500", bg: "bg-amber-500/10" },
-];
+type PlatformInternalUser = {
+  id: string;
+  role_code: string;
+  is_active: boolean;
+};
+
+type PlatformAuditLog = {
+  id: number;
+  action: string;
+  user_name?: string;
+  user_email?: string;
+  created_at: string;
+};
 
 const ACCESS_ACTIONS = [
-  { 
-    title: "User Management", 
-    description: "Provision and manage administrative users", 
-    href: "/platform/internal-users/manage?tab=users", 
+  {
+    title: "User Management",
+    description: "Provision and manage administrative users",
+    href: "/platform/internal-users/manage?tab=users",
     icon: Users,
   },
-  { 
-    title: "RBAC & Permissions", 
-    description: "Define roles and platform access levels", 
-    href: "/platform/internal-users/manage?tab=roles", 
+  {
+    title: "RBAC & Permissions",
+    description: "Define roles and platform access levels",
+    href: "/platform/internal-users/manage?tab=roles",
     icon: Lock,
   },
-  { 
-    title: "Audit Trail", 
-    description: "Monitor administrative changes and login events", 
-    href: "/platform/audit-logs", 
+  {
+    title: "Audit Trail",
+    description: "Monitor administrative changes and login events",
+    href: "/platform/audit-logs",
     icon: History,
   },
 ];
 
 export default function AccessControlDashboard() {
+  const [users, setUsers] = useState<PlatformInternalUser[]>([]);
+  const [logs, setLogs] = useState<PlatformAuditLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [usersRes, logsRes] = await Promise.all([
+        apiClient("/admin/platform/internal-users?limit=200"),
+        apiClient("/admin/platform/security/audit-logs?limit=10"),
+      ]);
+
+      if (!usersRes.ok) {
+        throw new Error("Failed to load internal users.");
+      }
+      const userRows = await usersRes.json();
+      setUsers(Array.isArray(userRows) ? userRows : []);
+
+      if (logsRes.ok) {
+        const logRows = await logsRes.json();
+        setLogs(Array.isArray(logRows) ? logRows : []);
+      } else {
+        setLogs([]);
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to load access dashboard.");
+      setUsers([]);
+      setLogs([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const securityStats = useMemo(() => {
+    const activeAdmins = users.filter((user) => user.is_active && user.role_code === "super_admin").length;
+    const inactiveAccounts = users.filter((user) => !user.is_active).length;
+    return [
+      {
+        label: "Active Admins",
+        value: activeAdmins.toString(),
+        subValue: "High-level access",
+        icon: ShieldCheck,
+        color: "text-blue-500",
+        bg: "bg-blue-500/10",
+      },
+      {
+        label: "Total Staff",
+        value: users.length.toString(),
+        subValue: "Combined internal roles",
+        icon: Users,
+        color: "text-indigo-500",
+        bg: "bg-indigo-500/10",
+      },
+      {
+        label: "Inactive Accounts",
+        value: inactiveAccounts.toString(),
+        subValue: "Needs access review",
+        icon: UserPlus,
+        color: "text-amber-500",
+        bg: "bg-amber-500/10",
+      },
+    ];
+  }, [users]);
+
+  const auditPulse = useMemo(() => logs.slice(0, 6), [logs]);
+
+  const getActionVisual = (action: string) => {
+    const normalized = (action || "").toLowerCase();
+    if (normalized.includes("impersonate") || normalized.includes("revoke")) {
+      return { icon: ShieldAlert, color: "text-red-500" };
+    }
+    if (normalized.includes("role") || normalized.includes("permission")) {
+      return { icon: Lock, color: "text-amber-500" };
+    }
+    if (normalized.includes("login") || normalized.includes("auth")) {
+      return { icon: ShieldCheck, color: "text-emerald-500" };
+    }
+    return { icon: Fingerprint, color: "text-blue-500" };
+  };
+
+  if (loading && users.length === 0) {
+    return (
+      <div className="flex h-[45vh] items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+          <p className="mt-3 text-sm font-semibold text-muted-foreground">Loading access governance...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 pb-10">
       {/* Header */}
@@ -63,9 +170,21 @@ export default function AccessControlDashboard() {
         </Button>
       </div>
 
+      {error ? (
+        <Card className="border-destructive/20 bg-destructive/5">
+          <CardContent className="flex flex-col gap-3 p-5 md:flex-row md:items-center md:justify-between">
+            <p className="text-sm font-semibold text-destructive">{error}</p>
+            <Button size="sm" variant="outline" onClick={() => void load()} className="gap-2">
+              <RefreshCcw className="h-4 w-4" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {/* Security Stats */}
       <div className="grid gap-4 md:grid-cols-3">
-        {SECURITY_STATS.map((stat) => (
+        {securityStats.map((stat) => (
           <Card key={stat.label} className="border-none shadow-sm bg-card/50 backdrop-blur-sm">
             <CardContent className="p-6 text-center lg:text-left lg:flex lg:items-center lg:justify-between">
               <div>
@@ -113,24 +232,36 @@ export default function AccessControlDashboard() {
             <Fingerprint className="h-4 w-4 text-muted-foreground" />
           </div>
           <CardContent className="p-0">
-            <div className="divide-y divide-border">
-              {[
-                { event: "New Super Admin Added", user: "ranjeet@dev.com", time: "2h ago", icon: ShieldAlert, color: "text-red-500" },
-                { event: "Role 'Support Lead' Modified", user: "admin@erp.com", time: "5h ago", icon: Lock, color: "text-amber-500" },
-                { event: "Successful Root Login", user: "system@internal", time: "12h ago", icon: ShieldCheck, color: "text-emerald-500" },
-              ].map((log, i) => (
-                <div key={i} className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <log.icon className={`h-4 w-4 ${log.color}`} />
-                    <div>
-                      <p className="text-sm font-bold text-foreground">{log.event}</p>
-                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tight">by {log.user}</p>
+            {auditPulse.length === 0 ? (
+              <div className="space-y-3 p-6">
+                <p className="text-sm text-muted-foreground">No security events logged yet.</p>
+                <Button size="sm" asChild>
+                  <Link href="/platform/internal-users/manage?tab=invite">Invite first admin</Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {auditPulse.map((log) => {
+                  const visual = getActionVisual(log.action);
+                  return (
+                    <div key={log.id} className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <visual.icon className={`h-4 w-4 ${visual.color}`} />
+                        <div>
+                          <p className="text-sm font-bold text-foreground">{(log.action || "unknown.action").replaceAll(".", " ")}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tight">
+                            by {log.user_name || log.user_email || "System"}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-muted-foreground">
+                        {log.created_at ? new Date(log.created_at).toLocaleString() : "Unknown date"}
+                      </span>
                     </div>
-                  </div>
-                  <span className="text-[10px] font-bold text-muted-foreground">{log.time}</span>
-                </div>
-              ))}
-            </div>
+                  );
+                })}
+              </div>
+            )}
             <Button variant="ghost" className="w-full h-12 rounded-none border-t border-border text-xs font-bold text-primary" asChild>
               <Link href="/platform/audit-logs">VIEW FULL SECURITY LOG</Link>
             </Button>

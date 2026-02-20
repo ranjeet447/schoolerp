@@ -1,53 +1,150 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { 
-  CreditCard, 
-  TrendingUp, 
-  FileText, 
-  Settings, 
+import { apiClient } from "@/lib/api-client";
+import {
+  CreditCard,
+  TrendingUp,
+  FileText,
+  Settings,
   ArrowRight,
   DollarSign,
   PieChart,
   ArrowUpRight,
   ArrowDownRight,
-  Activity
+  Activity,
+  RefreshCcw,
 } from "lucide-react";
-import { 
-  Button, 
-  Card, 
-  CardContent, 
-  Badge 
+import {
+  Button,
+  Card,
+  CardContent,
+  Badge,
 } from "@schoolerp/ui";
 
-const BILLING_STATS = [
-  { label: "MRR", value: "₹24.8L", change: "+12.5%", trend: "up", icon: TrendingUp },
-  { label: "Active Subs", value: "182", change: "+4", trend: "up", icon: Activity },
-  { label: "Churn Rate", value: "1.2%", change: "-0.3%", trend: "down", icon: PieChart },
-];
+type PlatformPayment = {
+  id: string;
+  tenant_name: string;
+  receipt_number: string;
+  amount_paid: number;
+  status: string;
+  created_at: string;
+};
+
+type BillingOverview = {
+  mrr: number;
+  active_subscriptions: number;
+  trial_subscriptions: number;
+  churn_rate_percent: number;
+};
 
 const PAYMENT_ACTIONS = [
-  { 
-    title: "Billing Overview", 
-    description: "Revenue trends and subscription analytics", 
-    href: "/platform/payments/manage?tab=overview", 
+  {
+    title: "Billing Overview",
+    description: "Revenue trends and subscription analytics",
+    href: "/platform/payments/manage?tab=overview",
     icon: TrendingUp,
   },
-  { 
-    title: "Invoice Management", 
-    description: "Issue, track, and manage all school invoices", 
-    href: "/platform/payments/manage?tab=invoices", 
+  {
+    title: "Invoice Management",
+    description: "Issue, track, and manage all school invoices",
+    href: "/platform/payments/manage?tab=invoices",
     icon: FileText,
   },
-  { 
-    title: "Billing Configuration", 
-    description: "Tax rules and payment gateway settings", 
-    href: "/platform/payments/manage?tab=config", 
+  {
+    title: "Billing Configuration",
+    description: "Tax rules and payment gateway settings",
+    href: "/platform/payments/manage?tab=config",
     icon: Settings,
   },
 ];
 
 export default function PaymentsDashboard() {
+  const [overview, setOverview] = useState<BillingOverview | null>(null);
+  const [payments, setPayments] = useState<PlatformPayment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [overviewRes, paymentsRes] = await Promise.all([
+        apiClient("/admin/platform/billing/overview"),
+        apiClient("/admin/platform/payments?limit=5"),
+      ]);
+
+      if (!overviewRes.ok) {
+        throw new Error("Failed to load billing overview.");
+      }
+      const overviewData = await overviewRes.json();
+      setOverview(overviewData);
+
+      if (paymentsRes.ok) {
+        const paymentRows = await paymentsRes.json();
+        setPayments(Array.isArray(paymentRows) ? paymentRows : []);
+      } else {
+        setPayments([]);
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to load payment dashboard.");
+      setOverview(null);
+      setPayments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(value || 0);
+
+  const billingStats = useMemo(
+    () => [
+      {
+        label: "MRR",
+        value: formatCurrency(overview?.mrr || 0),
+        change: `${overview?.trial_subscriptions || 0} on trial`,
+        trend: "up",
+        icon: TrendingUp,
+      },
+      {
+        label: "Active Subs",
+        value: (overview?.active_subscriptions || 0).toLocaleString(),
+        change: `${overview?.trial_subscriptions || 0} trial`,
+        trend: "up",
+        icon: Activity,
+      },
+      {
+        label: "Churn Rate",
+        value: `${(overview?.churn_rate_percent || 0).toFixed(1)}%`,
+        change: (overview?.churn_rate_percent || 0) <= 2 ? "Healthy range" : "Needs attention",
+        trend: (overview?.churn_rate_percent || 0) <= 2 ? "down" : "up",
+        icon: PieChart,
+      },
+    ],
+    [overview],
+  );
+
+  if (loading && !overview) {
+    return (
+      <div className="flex h-[45vh] items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+          <p className="mt-3 text-sm font-semibold text-muted-foreground">Loading billing dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 pb-10">
       {/* Header */}
@@ -65,8 +162,20 @@ export default function PaymentsDashboard() {
       </div>
 
       {/* Stats Grid */}
+      {error ? (
+        <Card className="border-destructive/20 bg-destructive/5">
+          <CardContent className="flex flex-col gap-3 p-5 md:flex-row md:items-center md:justify-between">
+            <p className="text-sm font-semibold text-destructive">{error}</p>
+            <Button size="sm" variant="outline" onClick={() => void load()} className="gap-2">
+              <RefreshCcw className="h-4 w-4" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <div className="grid gap-4 md:grid-cols-3">
-        {BILLING_STATS.map((stat) => (
+        {billingStats.map((stat) => (
           <Card key={stat.label} className="border-none shadow-sm bg-card/50 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -120,25 +229,38 @@ export default function PaymentsDashboard() {
           <Link href="/platform/payments/manage" className="text-xs font-bold text-primary hover:underline">View All</Link>
         </div>
         <CardContent className="p-0">
-          <div className="divide-y divide-border">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600 font-black text-[10px]">
-                    ₹
+          {payments.length === 0 ? (
+            <div className="space-y-3 p-6">
+              <p className="text-sm text-muted-foreground">No collections recorded yet.</p>
+              <Button size="sm" asChild>
+                <Link href="/platform/payments/manage?tab=invoices">Create first invoice</Link>
+              </Button>
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {payments.map((payment) => (
+                <div key={payment.id} className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600 font-black text-[10px]">
+                      ₹
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-foreground">{payment.tenant_name || "Unknown tenant"}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tight">
+                        Receipt #{payment.receipt_number || payment.id.slice(0, 8)}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-bold text-foreground">St. Joseph's School</p>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tight">Receipt #RCPT-2024-00{i}</p>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-foreground">{formatCurrency(payment.amount_paid || 0)}</p>
+                    <p className="text-[10px] text-muted-foreground font-bold">
+                      {payment.created_at ? new Date(payment.created_at).toLocaleString() : "Unknown date"}
+                    </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-black text-foreground">₹2,45,000</p>
-                  <p className="text-[10px] text-muted-foreground font-bold">Today, 2:45 PM</p>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
