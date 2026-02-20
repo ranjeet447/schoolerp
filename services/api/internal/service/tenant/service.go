@@ -89,7 +89,7 @@ var SystemPlugins = []PluginMetadata{
 }
 
 func (s *Service) GetConfig(ctx context.Context, tenantIDOrSubdomain string) (map[string]interface{}, error) {
-	t, err := s.q.GetTenantBySubdomain(ctx, tenantIDOrSubdomain)
+	t, err := s.resolveTenant(ctx, tenantIDOrSubdomain)
 	if err != nil {
 		return nil, err
 	}
@@ -102,6 +102,24 @@ func (s *Service) GetConfig(ctx context.Context, tenantIDOrSubdomain string) (ma
 	config["name"] = t.Name
 
 	return config, nil
+}
+
+func (s *Service) resolveTenant(ctx context.Context, identifier string) (db.Tenant, error) {
+	id := strings.TrimSpace(identifier)
+	if id == "" {
+		return db.Tenant{}, pgx.ErrNoRows
+	}
+
+	var tid pgtype.UUID
+	if err := tid.Scan(id); err == nil && tid.Valid {
+		return s.q.GetTenantByID(ctx, tid)
+	}
+
+	t, err := s.q.ResolveActiveTenantByIdentifier(ctx, id)
+	if err == nil {
+		return t, nil
+	}
+	return s.q.ResolveActiveTenantByHost(ctx, id)
 }
 
 func (s *Service) UpdateConfig(ctx context.Context, tenantID string, config map[string]interface{}) error {
@@ -128,7 +146,7 @@ func (s *Service) UpdateConfig(ctx context.Context, tenantID string, config map[
 }
 
 func (s *Service) ListPlugins(ctx context.Context, tenantSubdomain string) ([]map[string]interface{}, error) {
-	t, err := s.q.GetTenantBySubdomain(ctx, tenantSubdomain)
+	t, err := s.resolveTenant(ctx, tenantSubdomain)
 	if err != nil {
 		return nil, err
 	}
@@ -165,19 +183,19 @@ func (s *Service) ListPlugins(ctx context.Context, tenantSubdomain string) ([]ma
 }
 
 func (s *Service) MintImpersonationToken(ctx context.Context, claims jwt.MapClaims) (string, error) {
-    // In a real scenario, this would call the Auth service or use a shared secret.
-    // For this implementation, we assume the secret is available via configuration or environment.
-    // We will use a placeholder secret for now, or if configured, a real one.
-    // START: Temporary secret usage. Replace with s.config.JWTSecret or similar.
-    secret := []byte("temporary-secret-change-me-in-production") 
-    // END: Temporary secret usage.
+	// In a real scenario, this would call the Auth service or use a shared secret.
+	// For this implementation, we assume the secret is available via configuration or environment.
+	// We will use a placeholder secret for now, or if configured, a real one.
+	// START: Temporary secret usage. Replace with s.config.JWTSecret or similar.
+	secret := []byte("temporary-secret-change-me-in-production")
+	// END: Temporary secret usage.
 
-    token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-    signed, err := token.SignedString(secret)
-    if err != nil {
-        return "", fmt.Errorf("failed to sign token: %w", err)
-    }
-    return signed, nil
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := token.SignedString(secret)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign token: %w", err)
+	}
+	return signed, nil
 }
 
 func (s *Service) UpdatePluginConfig(ctx context.Context, tenantID string, pluginID string, enabled bool, settings map[string]interface{}) error {
@@ -248,33 +266,34 @@ type PlatformSummary struct {
 	TotalCollections int64 `json:"total_collections"`
 }
 
-
-
 type PlatformTenant struct {
-	ID                string    `json:"id"`
-	Name              string    `json:"name"`
-	Subdomain         string    `json:"subdomain"`
-	Domain            string    `json:"domain,omitempty"`
-	IsActive          bool      `json:"is_active"`
-	CreatedAt         time.Time `json:"created_at"`
-	LifecycleStatus   string    `json:"lifecycle_status"`
-	PlanCode          string    `json:"plan_code,omitempty"`
-	Region            string    `json:"region,omitempty"`
-	Timezone          string    `json:"timezone,omitempty"`
-	Locale            string    `json:"locale,omitempty"`
-	AcademicYear      string    `json:"academic_year,omitempty"`
-	BoardType         string    `json:"board_type,omitempty"`
-	WhiteLabel        bool      `json:"white_label"`
-	BrandPrimaryColor string    `json:"brand_primary_color,omitempty"`
-	BrandNameOverride string    `json:"brand_name_override,omitempty"`
-	BrandLogoURL      string    `json:"brand_logo_url,omitempty"`
-	CnameTarget       string    `json:"cname_target,omitempty"`
-	SslStatus         string    `json:"ssl_status,omitempty"`
-	BranchCount       int64     `json:"branch_count"`
-	StudentCount      int64     `json:"student_count"`
-	EmployeeCount     int64     `json:"employee_count"`
-	ReceiptCount      int64     `json:"receipt_count"`
-	TotalCollections  int64     `json:"total_collections"`
+	ID                       string    `json:"id"`
+	Name                     string    `json:"name"`
+	Subdomain                string    `json:"subdomain"`
+	Domain                   string    `json:"domain,omitempty"`
+	IsActive                 bool      `json:"is_active"`
+	CreatedAt                time.Time `json:"created_at"`
+	LifecycleStatus          string    `json:"lifecycle_status"`
+	PlanCode                 string    `json:"plan_code,omitempty"`
+	Region                   string    `json:"region,omitempty"`
+	Timezone                 string    `json:"timezone,omitempty"`
+	Locale                   string    `json:"locale,omitempty"`
+	AcademicYear             string    `json:"academic_year,omitempty"`
+	BoardType                string    `json:"board_type,omitempty"`
+	WhiteLabel               bool      `json:"white_label"`
+	BrandPrimaryColor        string    `json:"brand_primary_color,omitempty"`
+	BrandNameOverride        string    `json:"brand_name_override,omitempty"`
+	BrandLogoURL             string    `json:"brand_logo_url,omitempty"`
+	CnameTarget              string    `json:"cname_target,omitempty"`
+	SslStatus                string    `json:"ssl_status,omitempty"`
+	DomainVerified           bool      `json:"domain_verified"`
+	DomainVerificationStatus string    `json:"domain_verification_status,omitempty"`
+	DomainVerificationToken  string    `json:"domain_verification_token,omitempty"`
+	BranchCount              int64     `json:"branch_count"`
+	StudentCount             int64     `json:"student_count"`
+	EmployeeCount            int64     `json:"employee_count"`
+	ReceiptCount             int64     `json:"receipt_count"`
+	TotalCollections         int64     `json:"total_collections"`
 }
 
 type PlatformPayment struct {
@@ -320,6 +339,18 @@ type UpdateTenantParams struct {
 }
 
 func (s *Service) OnboardSchool(ctx context.Context, params OnboardSchoolParams) (string, error) {
+	subdomain, err := normalizeSubdomain(params.Subdomain)
+	if err != nil {
+		return "", err
+	}
+	domain, err := normalizeDomain(params.Domain)
+	if err != nil {
+		return "", err
+	}
+	if domain != "" {
+		return "", ErrWhiteLabelRequired
+	}
+
 	_, credentialHash, err := s.validatePasswordAgainstPolicy(ctx, "", params.Password)
 	if err != nil {
 		return "", err
@@ -349,8 +380,8 @@ func (s *Service) OnboardSchool(ctx context.Context, params OnboardSchoolParams)
 	_, err = qtx.CreateTenant(ctx, db.CreateTenantParams{
 		ID:        tid,
 		Name:      params.Name,
-		Subdomain: params.Subdomain,
-		Domain:    pgtype.Text{String: params.Domain, Valid: params.Domain != ""},
+		Subdomain: subdomain,
+		Domain:    pgtype.Text{String: domain, Valid: domain != ""},
 		Config:    configBytes,
 		BoardType: pgtype.Text{String: "other", Valid: true},
 		IsActive:  pgtype.Bool{Bool: true, Valid: true},
@@ -470,12 +501,16 @@ func (s *Service) ListPlatformTenants(ctx context.Context, filters TenantDirecto
 			COALESCE(t.config->>'timezone', '') AS timezone,
 			COALESCE(t.config->>'locale', '') AS locale,
 			COALESCE(t.config->>'academic_year', '') AS academic_year,
+			COALESCE(t.board_type, '') AS board_type,
 			COALESCE((t.config->>'white_label')::boolean, FALSE) AS white_label,
 			COALESCE(t.config->'branding'->>'primary_color', '') AS brand_primary_color,
 			COALESCE(t.config->'branding'->>'name_override', '') AS brand_name_override,
 			COALESCE(t.config->'branding'->>'logo_url', '') AS brand_logo_url,
 			COALESCE(t.config->>'cname_target', '') AS cname_target,
 			COALESCE(t.config->>'ssl_status', '') AS ssl_status,
+			COALESCE((t.config->>'domain_verified')::boolean, FALSE) AS domain_verified,
+			COALESCE(t.config->>'domain_verification_status', '') AS domain_verification_status,
+			COALESCE(t.config->>'domain_verification_token', '') AS domain_verification_token,
 			COALESCE(b.total_branches, 0) AS branch_count,
 			COALESCE(st.total_students, 0) AS student_count,
 			COALESCE(e.total_employees, 0) AS employee_count,
@@ -587,6 +622,9 @@ func (s *Service) ListPlatformTenants(ctx context.Context, filters TenantDirecto
 			&row.BrandLogoURL,
 			&row.CnameTarget,
 			&row.SslStatus,
+			&row.DomainVerified,
+			&row.DomainVerificationStatus,
+			&row.DomainVerificationToken,
 			&row.BranchCount,
 			&row.StudentCount,
 			&row.EmployeeCount,
@@ -615,12 +653,16 @@ func (s *Service) GetPlatformTenant(ctx context.Context, tenantID string) (Platf
 			COALESCE(t.config->>'timezone', '') AS timezone,
 			COALESCE(t.config->>'locale', '') AS locale,
 			COALESCE(t.config->>'academic_year', '') AS academic_year,
+			COALESCE(t.board_type, '') AS board_type,
 			COALESCE((t.config->>'white_label')::boolean, FALSE) AS white_label,
 			COALESCE(t.config->'branding'->>'primary_color', '') AS brand_primary_color,
 			COALESCE(t.config->'branding'->>'name_override', '') AS brand_name_override,
 			COALESCE(t.config->'branding'->>'logo_url', '') AS brand_logo_url,
 			COALESCE(t.config->>'cname_target', '') AS cname_target,
 			COALESCE(t.config->>'ssl_status', '') AS ssl_status,
+			COALESCE((t.config->>'domain_verified')::boolean, FALSE) AS domain_verified,
+			COALESCE(t.config->>'domain_verification_status', '') AS domain_verification_status,
+			COALESCE(t.config->>'domain_verification_token', '') AS domain_verification_token,
 			COALESCE(b.total_branches, 0) AS branch_count,
 			COALESCE(st.total_students, 0) AS student_count,
 			COALESCE(e.total_employees, 0) AS employee_count,
@@ -678,6 +720,9 @@ func (s *Service) GetPlatformTenant(ctx context.Context, tenantID string) (Platf
 		&row.BrandLogoURL,
 		&row.CnameTarget,
 		&row.SslStatus,
+		&row.DomainVerified,
+		&row.DomainVerificationStatus,
+		&row.DomainVerificationToken,
 		&row.BranchCount,
 		&row.StudentCount,
 		&row.EmployeeCount,
@@ -711,9 +756,9 @@ func (s *Service) UpdatePlatformTenant(ctx context.Context, tenantID string, par
 	}
 
 	if params.Subdomain != nil {
-		subdomain := strings.TrimSpace(*params.Subdomain)
-		if subdomain == "" {
-			return PlatformTenant{}, fmt.Errorf("%w: subdomain is required", ErrInvalidTenant)
+		subdomain, err := normalizeSubdomain(*params.Subdomain)
+		if err != nil {
+			return PlatformTenant{}, err
 		}
 		setClauses = append(setClauses, fmt.Sprintf("subdomain = $%d", argIndex))
 		args = append(args, subdomain)
@@ -721,7 +766,10 @@ func (s *Service) UpdatePlatformTenant(ctx context.Context, tenantID string, par
 	}
 
 	if params.Domain != nil {
-		domain := strings.TrimSpace(*params.Domain)
+		domain, err := normalizeDomain(*params.Domain)
+		if err != nil {
+			return PlatformTenant{}, err
+		}
 		if domain == "" {
 			setClauses = append(setClauses, "domain = NULL")
 		} else {

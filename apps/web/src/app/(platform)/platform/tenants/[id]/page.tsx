@@ -40,6 +40,9 @@ type Tenant = {
   brand_logo_url?: string;
   cname_target?: string;
   ssl_status?: string;
+  domain_verified?: boolean;
+  domain_verification_status?: string;
+  domain_verification_token?: string;
   branch_count: number;
   student_count: number;
   employee_count: number;
@@ -147,6 +150,9 @@ export default function PlatformTenantDetailPage() {
     domain: "",
     cname_target: "",
     ssl_status: "",
+    domain_verified: false,
+    domain_verification_status: "",
+    domain_verification_token: "",
   });
   const [branding, setBranding] = useState({
     white_label: false,
@@ -233,6 +239,9 @@ export default function PlatformTenantDetailPage() {
         domain: tenantData.domain || "",
         cname_target: tenantData.cname_target || "",
         ssl_status: tenantData.ssl_status || "",
+        domain_verified: Boolean(tenantData.domain_verified),
+        domain_verification_status: tenantData.domain_verification_status || "",
+        domain_verification_token: tenantData.domain_verification_token || "",
       });
       setBranding({
         white_label: tenantData.white_label || false,
@@ -324,6 +333,47 @@ export default function PlatformTenantDetailPage() {
       });
       if (!res.ok) throw new Error(await res.text());
     });
+  };
+
+  const verifyDomainMapping = async () => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await apiClient(`/admin/platform/tenants/${id}/domain/verify`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        throw new Error(await res.text());
+      }
+      setMessage("Domain verification completed.");
+    } catch (e: any) {
+      setError(e?.message || "Domain verification failed.");
+    } finally {
+      await loadData();
+      setBusy(false);
+    }
+  };
+
+  const provisionDomainSSL = async (forceRenew = false) => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await apiClient(`/admin/platform/tenants/${id}/domain/ssl`, {
+        method: "POST",
+        body: JSON.stringify({ force_renew: forceRenew }),
+      });
+      if (!res.ok) {
+        throw new Error(await res.text());
+      }
+      setMessage(forceRenew ? "SSL renewal started." : "SSL provisioning started.");
+    } catch (e: any) {
+      setError(e?.message || "SSL provisioning failed.");
+    } finally {
+      await loadData();
+      setBusy(false);
+    }
   };
 
   const submitBranding = async (e: FormEvent) => {
@@ -728,6 +778,10 @@ export default function PlatformTenantDetailPage() {
     }
   };
 
+  const isApexDomain = domainMap.domain.split(".").filter(Boolean).length === 2;
+  const verificationToken = domainMap.domain_verification_token || `schoolerp-tenant-${id.replaceAll("-", "").slice(0, 12)}`;
+  const platformIngressHint = process.env.NEXT_PUBLIC_PLATFORM_INGRESS_IP || "<platform-ingress-ip>";
+
   if (loading) return <div className="text-muted-foreground">Loading tenant details...</div>;
   if (!tenant) return <div className="text-destructive">Tenant not found.</div>;
 
@@ -924,7 +978,14 @@ export default function PlatformTenantDetailPage() {
             {/* DNS Records Table */}
             {domainMap.domain && (
               <div className="rounded-lg border border-border bg-muted/20 p-4">
-                <h4 className="text-sm font-bold text-foreground mb-3">📋 Required DNS Records</h4>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h4 className="text-sm font-bold text-foreground">📋 Required DNS Records</h4>
+                  {domainMap.domain_verified ? (
+                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">Verified</Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30">Pending Verification</Badge>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground mb-3">
                   The tenant must add these records in their DNS provider before the domain will work:
                 </p>
@@ -940,15 +1001,21 @@ export default function PlatformTenantDetailPage() {
                     </thead>
                     <tbody className="font-mono text-xs">
                       <tr className="border-b border-border/50">
-                        <td className="py-2.5"><Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">CNAME</Badge></td>
-                        <td className="py-2.5 text-foreground">{domainMap.domain}</td>
-                        <td className="py-2.5 text-foreground">{domainMap.cname_target || `${tenant?.subdomain || "tenant"}.app.schoolerp.com`}</td>
+                        <td className="py-2.5">
+                          <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">
+                            {isApexDomain ? "A / ALIAS" : "CNAME"}
+                          </Badge>
+                        </td>
+                        <td className="py-2.5 text-foreground">{isApexDomain ? "@" : domainMap.domain}</td>
+                        <td className="py-2.5 text-foreground">
+                          {isApexDomain ? platformIngressHint : (domainMap.cname_target || `${tenant?.subdomain || "tenant"}.app.schoolerp.com`)}
+                        </td>
                         <td className="py-2.5 text-muted-foreground">3600</td>
                       </tr>
                       <tr>
                         <td className="py-2.5"><Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30">TXT</Badge></td>
                         <td className="py-2.5 text-foreground">_schoolerp-verify.{domainMap.domain}</td>
-                        <td className="py-2.5 text-foreground">schoolerp-tenant-{id}</td>
+                        <td className="py-2.5 text-foreground">{verificationToken}</td>
                         <td className="py-2.5 text-muted-foreground">3600</td>
                       </tr>
                     </tbody>
@@ -956,7 +1023,10 @@ export default function PlatformTenantDetailPage() {
                 </div>
                 <div className="mt-3 flex gap-2">
                   <Button variant="outline" size="sm" type="button" onClick={() => {
-                    navigator.clipboard.writeText(`CNAME ${domainMap.domain} → ${domainMap.cname_target || `${tenant?.subdomain}.app.schoolerp.com`}\nTXT _schoolerp-verify.${domainMap.domain} → schoolerp-tenant-${id}`);
+                    const firstLine = isApexDomain
+                      ? `A/ALIAS @ → ${platformIngressHint}`
+                      : `CNAME ${domainMap.domain} → ${domainMap.cname_target || `${tenant?.subdomain}.app.schoolerp.com`}`;
+                    navigator.clipboard.writeText(`${firstLine}\nTXT _schoolerp-verify.${domainMap.domain} → ${verificationToken}`);
                   }}>
                     Copy DNS Records
                   </Button>
@@ -979,6 +1049,14 @@ export default function PlatformTenantDetailPage() {
           </div>
 
           <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-muted-foreground">Domain:</span>
+              {domainMap.domain_verified ? (
+                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">✅ Verified</Badge>
+              ) : (
+                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30">⏳ Not Verified</Badge>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-muted-foreground">Current Status:</span>
               {(!domainMap.ssl_status || domainMap.ssl_status === "pending") && (
@@ -1017,21 +1095,15 @@ export default function PlatformTenantDetailPage() {
                   size="sm"
                   type="button"
                   disabled={busy}
-                  onClick={() => {
-                    setDomainMap((p) => ({ ...p, ssl_status: "provisioning" }));
-                    submitDomainMapping(new Event("submit") as any);
-                  }}
+                  onClick={() => void verifyDomainMapping()}
                 >
                   Verify DNS
                 </Button>
                 <Button
                   size="sm"
                   type="button"
-                  disabled={busy || domainMap.ssl_status === "active"}
-                  onClick={() => {
-                    setDomainMap((p) => ({ ...p, ssl_status: "provisioning" }));
-                    submitDomainMapping(new Event("submit") as any);
-                  }}
+                  disabled={busy || !domainMap.domain_verified || domainMap.ssl_status === "active"}
+                  onClick={() => void provisionDomainSSL(false)}
                 >
                   Provision SSL
                 </Button>
@@ -1041,10 +1113,7 @@ export default function PlatformTenantDetailPage() {
                     size="sm"
                     type="button"
                     disabled={busy}
-                    onClick={() => {
-                      setDomainMap((p) => ({ ...p, ssl_status: "provisioning" }));
-                      submitDomainMapping(new Event("submit") as any);
-                    }}
+                    onClick={() => void provisionDomainSSL(true)}
                   >
                     Force Renew
                   </Button>

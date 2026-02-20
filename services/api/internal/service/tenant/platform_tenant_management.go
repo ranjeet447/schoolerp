@@ -33,6 +33,10 @@ var (
 	ErrInvalidDunningRules    = errors.New("invalid dunning rules")
 	ErrInvalidBillingLock     = errors.New("invalid billing lock action")
 	ErrInvalidBillingFreeze   = errors.New("invalid billing freeze action")
+	ErrWhiteLabelRequired     = errors.New("white-label add-on is required for custom domains")
+	ErrDomainNotVerified      = errors.New("domain is not verified")
+	ErrDomainVerificationFail = errors.New("domain verification failed")
+	ErrSSLProviderMissing     = errors.New("ssl automation provider is not configured")
 )
 
 type TenantDirectoryFilters struct {
@@ -1216,43 +1220,7 @@ func (s *Service) UpdateTenantDefaults(ctx context.Context, tenantID string, par
 }
 
 func (s *Service) UpdateTenantDomainMapping(ctx context.Context, tenantID string, params DomainMappingParams) (PlatformTenant, error) {
-	tid, err := parseTenantUUID(tenantID)
-	if err != nil {
-		return PlatformTenant{}, err
-	}
-
-	t, err := s.q.GetTenantByID(ctx, tid)
-	if err != nil {
-		return PlatformTenant{}, err
-	}
-
-	config := map[string]interface{}{}
-	if len(t.Config) > 0 {
-		_ = json.Unmarshal(t.Config, &config)
-	}
-	if strings.TrimSpace(params.CnameTarget) != "" {
-		config["cname_target"] = strings.TrimSpace(params.CnameTarget)
-	}
-	if strings.TrimSpace(params.SslStatus) != "" {
-		config["ssl_status"] = strings.TrimSpace(params.SslStatus)
-	}
-	configJSON, err := json.Marshal(config)
-	if err != nil {
-		return PlatformTenant{}, err
-	}
-
-	_, err = s.db.Exec(
-		ctx,
-		`UPDATE tenants SET domain = NULLIF($2, ''), config = $3, updated_at = NOW() WHERE id = $1`,
-		tid,
-		strings.TrimSpace(params.Domain),
-		configJSON,
-	)
-	if err != nil {
-		return PlatformTenant{}, err
-	}
-
-	return s.GetPlatformTenant(ctx, tenantID)
+	return s.updateTenantDomainMapping(ctx, tenantID, params)
 }
 
 func (s *Service) UpdateTenantBranding(ctx context.Context, tenantID string, params TenantBrandingParams) (PlatformTenant, error) {

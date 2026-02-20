@@ -75,6 +75,8 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 		r.Post("/tenants/{tenant_id}/limit-overrides", h.UpsertTenantLimitOverride)
 		r.Post("/tenants/{tenant_id}/branding", h.UpdateTenantBranding)
 		r.Post("/tenants/{tenant_id}/domain", h.UpdateTenantDomainMapping)
+		r.Post("/tenants/{tenant_id}/domain/verify", h.VerifyTenantDomainMapping)
+		r.Post("/tenants/{tenant_id}/domain/ssl", h.ProvisionTenantDomainSSL)
 		r.Post("/tenants/{tenant_id}/reset-admin-password", h.ResetTenantAdminPassword)
 		r.Post("/tenants/{tenant_id}/force-logout", h.ForceLogoutTenantUsers)
 		r.Post("/tenants/{tenant_id}/impersonate", h.ImpersonateTenantAdmin)
@@ -97,7 +99,7 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 		r.Use(middleware.PermissionGuard("platform:user.read"))
 		r.Get("/internal-users", h.ListPlatformInternalUsers)
 		r.Get("/internal-users/{user_id}/sessions", h.ListPlatformInternalUserSessions)
-		
+
 		// Global User Management
 		r.Get("/users", h.ListGlobalUsers)
 	})
@@ -106,7 +108,7 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 		r.Use(middleware.PermissionGuard("platform:user.write"))
 		r.Post("/internal-users", h.CreatePlatformInternalUser)
 		r.Patch("/internal-users/{user_id}", h.UpdatePlatformInternalUser)
-//		r.Post("/internal-users/{user_id}/rotate-credentials", h.RotatePlatformInternalUserCredentials)
+		//		r.Post("/internal-users/{user_id}/rotate-credentials", h.RotatePlatformInternalUserCredentials)
 		r.Post("/internal-users/{user_id}/revoke-sessions", h.RevokePlatformInternalUserSessions)
 
 		// Global User Management Actions
@@ -195,9 +197,12 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 }
 
 func (h *Handler) GetConfig(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Header.Get("X-Tenant-ID")
+	tenantID := strings.TrimSpace(middleware.GetTenantID(r.Context()))
 	if tenantID == "" {
-		http.Error(w, "X-Tenant-ID header required", http.StatusBadRequest)
+		tenantID = strings.TrimSpace(r.Header.Get("X-Tenant-ID"))
+	}
+	if tenantID == "" {
+		http.Error(w, "tenant context missing", http.StatusBadRequest)
 		return
 	}
 
@@ -309,6 +314,10 @@ func (h *Handler) OnboardSchool(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Password does not meet the platform password policy", http.StatusBadRequest)
 		case errors.Is(err, tenant.ErrPasswordReuseNotAllowed):
 			http.Error(w, "Password reuse is not allowed by policy", http.StatusBadRequest)
+		case errors.Is(err, tenant.ErrWhiteLabelRequired):
+			http.Error(w, "Custom domains can be configured only after white-label add-on is enabled.", http.StatusForbidden)
+		case errors.Is(err, tenant.ErrInvalidTenant):
+			http.Error(w, err.Error(), http.StatusBadRequest)
 		default:
 			http.Error(w, "Failed to onboard school", http.StatusInternalServerError)
 		}
@@ -3583,6 +3592,14 @@ func (h *Handler) UpdateTenantDomainMapping(w http.ResponseWriter, r *http.Reque
 			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
 			return
 		}
+		if errors.Is(err, tenant.ErrWhiteLabelRequired) {
+			http.Error(w, "White-label add-on is required before assigning a custom domain.", http.StatusForbidden)
+			return
+		}
+		if errors.Is(err, tenant.ErrInvalidTenant) {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		http.Error(w, "Failed to update domain mapping", http.StatusInternalServerError)
 		return
 	}
@@ -3596,6 +3613,84 @@ func (h *Handler) UpdateTenantDomainMapping(w http.ResponseWriter, r *http.Reque
 			"domain":       strings.TrimSpace(req.Domain),
 			"cname_target": strings.TrimSpace(req.CnameTarget),
 			"ssl_status":   strings.TrimSpace(req.SslStatus),
+		},
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
+}
+
+func (h *Handler) VerifyTenantDomainMapping(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	actorID := middleware.GetUserID(r.Context())
+
+	updated, err := h.service.VerifyTenantDomainMapping(r.Context(), tenantID)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+			return
+		case errors.Is(err, tenant.ErrDomainVerificationFail):
+			http.Error(w, "DNS verification failed. Check CNAME/A and TXT records.", http.StatusConflict)
+			return
+		default:
+			http.Error(w, "Failed to verify domain mapping", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.tenant.domain.verify",
+		ResourceType: "tenant",
+		ResourceID:   tenantID,
+		After: map[string]any{
+			"domain":       updated.Domain,
+			"ssl_status":   updated.SslStatus,
+			"verified":     updated.DomainVerified,
+			"verify_state": updated.DomainVerificationStatus,
+		},
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
+}
+
+func (h *Handler) ProvisionTenantDomainSSL(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	actorID := middleware.GetUserID(r.Context())
+
+	var req struct {
+		ForceRenew bool `json:"force_renew"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	updated, err := h.service.ProvisionTenantDomainSSL(r.Context(), tenantID, req.ForceRenew)
+	if err != nil {
+		switch {
+		case errors.Is(err, tenant.ErrInvalidTenantID):
+			http.Error(w, "Invalid tenant id", http.StatusBadRequest)
+			return
+		case errors.Is(err, tenant.ErrDomainNotVerified):
+			http.Error(w, "Domain must be verified before SSL provisioning.", http.StatusConflict)
+			return
+		case errors.Is(err, tenant.ErrSSLProviderMissing):
+			http.Error(w, "SSL provider is not configured for automation.", http.StatusNotImplemented)
+			return
+		default:
+			http.Error(w, "Failed to provision SSL", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	h.service.RecordPlatformAudit(r.Context(), actorID, tenant.PlatformAuditEntry{
+		TenantID:     tenantID,
+		Action:       "platform.tenant.domain.ssl.provision",
+		ResourceType: "tenant",
+		ResourceID:   tenantID,
+		After: map[string]any{
+			"domain":     updated.Domain,
+			"ssl_status": updated.SslStatus,
 		},
 	})
 

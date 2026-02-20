@@ -11,10 +11,10 @@ export async function apiClient(path: string, options: RequestInit = {}) {
       tenant = storedTenant
     }
 
-    const hostname = window.location.hostname
-    const parts = hostname.split(".")
-    if (!tenant && parts.length >= 2 && parts[0] !== "www" && parts[0] !== "localhost") {
-      tenant = parts[0]
+    const hostname = (window.location.host || window.location.hostname || "").toLowerCase()
+    const normalizedHost = hostname.split(":")[0]?.trim() || ""
+    if (!tenant && normalizedHost && normalizedHost !== "localhost" && normalizedHost !== "www") {
+      tenant = normalizedHost
     }
   }
 

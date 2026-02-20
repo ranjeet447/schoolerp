@@ -21,15 +21,16 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
+	"github.com/schoolerp/api/internal/db"
 	"github.com/schoolerp/api/internal/foundation/security"
 )
 
 type contextKey string
 
 const (
-	TenantIDKey contextKey = "tenant_id"
-	UserIDKey   contextKey = "user_id"
-	RoleKey     contextKey = "role"
+	TenantIDKey    contextKey = "tenant_id"
+	UserIDKey      contextKey = "user_id"
+	RoleKey        contextKey = "role"
 	LocaleKey      contextKey = "locale"
 	PermissionsKey contextKey = "permissions"
 )
@@ -110,7 +111,14 @@ var (
 		Help:    "Duration of HTTP requests.",
 		Buckets: prometheus.DefBuckets,
 	}, []string{"method", "path"})
+
+	tenantResolverQueries *db.Queries
 )
+
+// SetTenantLookup configures tenant lookup for host/subdomain/custom-domain resolution.
+func SetTenantLookup(q *db.Queries) {
+	tenantResolverQueries = q
+}
 
 // Metrics tracking middleware
 func Metrics(next http.Handler) http.Handler {
@@ -133,11 +141,111 @@ func Metrics(next http.Handler) http.Handler {
 // TenantResolver extracts the tenant ID from the X-Tenant-ID header
 func TenantResolver(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tenantID := r.Header.Get("X-Tenant-ID")
-		// In production, we would also check the subdomain or domain mapping
+		tenantID := strings.TrimSpace(r.Header.Get("X-Tenant-ID"))
+		if tenantID != "" {
+			if resolved := resolveTenantIDFromIdentifier(r.Context(), tenantID); resolved != "" {
+				tenantID = resolved
+			}
+		}
+		if tenantID == "" {
+			if resolved := resolveTenantIDFromHost(r.Context(), r); resolved != "" {
+				tenantID = resolved
+			}
+		}
 		ctx := context.WithValue(r.Context(), TenantIDKey, tenantID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func resolveTenantIDFromIdentifier(ctx context.Context, identifier string) string {
+	id := strings.TrimSpace(identifier)
+	if id == "" {
+		return ""
+	}
+
+	if parsed, err := uuid.Parse(id); err == nil {
+		return parsed.String()
+	}
+
+	if tenantResolverQueries == nil {
+		return ""
+	}
+
+	tenant, err := tenantResolverQueries.ResolveActiveTenantByIdentifier(ctx, id)
+	if err == nil {
+		return tenant.ID.String()
+	}
+
+	normalizedHost := normalizeTenantHost(id)
+	if normalizedHost == "" {
+		return ""
+	}
+	tenant, err = tenantResolverQueries.ResolveActiveTenantByHost(ctx, normalizedHost)
+	if err != nil {
+		return ""
+	}
+	return tenant.ID.String()
+}
+
+func resolveTenantIDFromHost(ctx context.Context, r *http.Request) string {
+	if tenantResolverQueries == nil {
+		return ""
+	}
+
+	host := normalizeTenantHost(hostFromRequest(r))
+	if host == "" {
+		return ""
+	}
+
+	tenant, err := tenantResolverQueries.ResolveActiveTenantByHost(ctx, host)
+	if err != nil {
+		return ""
+	}
+	return tenant.ID.String()
+}
+
+func hostFromRequest(r *http.Request) string {
+	// Prefer forwarded host when running behind a gateway.
+	if xfwd := strings.TrimSpace(r.Header.Get("X-Forwarded-Host")); xfwd != "" {
+		parts := strings.Split(xfwd, ",")
+		if len(parts) > 0 {
+			return strings.TrimSpace(parts[0])
+		}
+	}
+	if original := strings.TrimSpace(r.Header.Get("X-Original-Host")); original != "" {
+		return original
+	}
+	return strings.TrimSpace(r.Host)
+}
+
+func normalizeTenantHost(raw string) string {
+	host := strings.TrimSpace(strings.ToLower(raw))
+	if host == "" {
+		return ""
+	}
+
+	// Allow optional scheme in forwarded values.
+	host = strings.TrimPrefix(host, "https://")
+	host = strings.TrimPrefix(host, "http://")
+
+	// Strip path/query if present.
+	if slash := strings.IndexByte(host, '/'); slash >= 0 {
+		host = host[:slash]
+	}
+
+	// Strip optional port.
+	if parsed, _, err := net.SplitHostPort(host); err == nil {
+		host = parsed
+	}
+
+	host = strings.TrimSuffix(host, ".")
+	if host == "" || host == "localhost" {
+		return ""
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ""
+	}
+	return host
 }
 
 // AuthResolver validates JWT tokens from the Authorization header
@@ -395,7 +503,7 @@ func PermissionGuard(requiredPermission string) func(http.Handler) http.Handler 
 				}
 			}
 
-			// Fallback: check if user is super_admin (they have all permissions by default conceptually, 
+			// Fallback: check if user is super_admin (they have all permissions by default conceptually,
 			// though we should still prefer explicit mapping in token)
 			if GetRole(r.Context()) == "super_admin" {
 				next.ServeHTTP(w, r)

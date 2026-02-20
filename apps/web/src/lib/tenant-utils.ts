@@ -2,21 +2,28 @@ import { headers } from 'next/headers';
 
 export async function getTenantId(): Promise<string> {
   const headerList = await headers();
-  const host = headerList.get('host') || '';
+  const rawHost = (headerList.get('x-forwarded-host') || headerList.get('host') || '').trim().toLowerCase();
+  let host = rawHost;
+  if (host.includes(',')) {
+    host = host.split(',')[0]?.trim() || '';
+  }
+  if (host.startsWith('https://')) host = host.slice(8);
+  if (host.startsWith('http://')) host = host.slice(7);
+  if (host.includes('/')) host = host.split('/')[0] || host;
+  if (host.includes(':')) host = host.split(':')[0] || host;
+  host = host.replace(/\.$/, '');
 
-  // Logic aligned with middleware.ts
-  // Example: school1.schoolerp.com -> school1
-  // Local: school1.localhost:3000 -> school1
-  const parts = host.split('.');
-
-  if (parts.length >= 2) {
-    if (parts[0] !== 'www' && parts[0] !== 'localhost') {
-      return parts[0];
-    }
+  // Send the normalized host as tenant identifier.
+  // API resolves it as:
+  // - UUID
+  // - subdomain
+  // - full custom domain
+  if (host && host !== 'localhost' && host !== 'www') {
+    return host;
   }
 
   // Fallback for direct IP or non-subdomain access in development
-  return 'demo';
+  return process.env.NEXT_PUBLIC_DEFAULT_TENANT_ID || 'demo';
 }
 
 export interface TenantConfig {

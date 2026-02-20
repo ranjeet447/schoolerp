@@ -1,21 +1,19 @@
 import { NextResponse } from 'next/server';
 
 export default function proxy(request: any) {
-  const hostname = request.headers.get('host') || '';
-  const parts = hostname.split('.');
-  let tenant = '';
+  const hostname = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').toLowerCase();
+  const normalizedHost = hostname.split(',')[0]?.trim().split(':')[0]?.trim() || '';
 
-  if (parts.length >= 2) {
-    if (parts[0] !== 'www' && parts[0] !== 'localhost' && !parts[0].includes('vercel')) {
-      tenant = parts[0];
-    }
+  const requestHeaders = new Headers(request.headers);
+  if (normalizedHost && normalizedHost !== 'localhost' && !normalizedHost.includes('vercel.app')) {
+    requestHeaders.set('X-Tenant-ID', normalizedHost);
   }
 
-  const response = NextResponse.next();
-
-  if (tenant) {
-    response.headers.set('X-Tenant-ID', tenant);
-  }
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 
   // Diagnostic header to verify proxy inclusion
   response.headers.set('X-Proxy-Active', 'true');
