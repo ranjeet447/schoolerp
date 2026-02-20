@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Check, ChevronsUpDown, X } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
+import { useDebouncedValue } from "@/lib/use-debounced-value"
 // Import directly from UI package or ensure local re-exports exist. 
 // Given the pattern, we should use @schoolerp/ui for consistency if local files are just re-exports.
 import { 
@@ -38,12 +39,13 @@ export function TenantSelect({
 }: TenantSelectProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
+  const debouncedSearch = useDebouncedValue(search, 300)
 
   const { data: tenants = [], isLoading } = useQuery({
-    queryKey: ["tenants", search, includeInactive],
+    queryKey: ["tenants", debouncedSearch, includeInactive],
     queryFn: async () => {
       const params = new URLSearchParams({
-        search,
+        search: debouncedSearch,
         limit: "10",
         include_inactive: includeInactive ? "true" : "false",
       })

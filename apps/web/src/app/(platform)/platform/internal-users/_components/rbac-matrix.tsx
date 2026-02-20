@@ -24,6 +24,7 @@ import {
   Checkbox,
   Separator
 } from "@schoolerp/ui";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 type RbacTemplate = {
   roles: Array<{ role_code: string; role_name: string }>;
@@ -40,14 +41,15 @@ type RbacMatrixProps = {
 
 export function RbacMatrix({ rbac, rbacDraft, onToggle, onSave, busy }: RbacMatrixProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 250);
 
   const groupedPermissions = useMemo(() => {
     if (!rbac) return {};
     
     const filtered = rbac.permissions.filter(p => 
-      p.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.module.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.description || "").toLowerCase().includes(searchQuery.toLowerCase())
+      p.code.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+      p.module.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+      (p.description || "").toLowerCase().includes(debouncedSearchQuery.toLowerCase())
     );
 
     return filtered.reduce((acc, curr) => {
@@ -55,7 +57,7 @@ export function RbacMatrix({ rbac, rbacDraft, onToggle, onSave, busy }: RbacMatr
       acc[curr.module].push(curr);
       return acc;
     }, {} as Record<string, RbacTemplate["permissions"]>);
-  }, [rbac, searchQuery]);
+  }, [rbac, debouncedSearchQuery]);
 
   if (!rbac) return null;
 

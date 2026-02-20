@@ -29,6 +29,7 @@ import {
   TableHeader,
   TableRow
 } from "@schoolerp/ui";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 type PlatformTenant = {
   id: string;
@@ -76,16 +77,19 @@ const initialFilters: TenantFilters = {
 
 export default function PlatformTenantsPage() {
   const [filters, setFilters] = useState<TenantFilters>(initialFilters);
+  const debouncedSearch = useDebouncedValue(filters.search, 300);
+  const debouncedPlanCode = useDebouncedValue(filters.plan_code, 300);
+  const debouncedRegion = useDebouncedValue(filters.region, 300);
   const [rows, setRows] = useState<PlatformTenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyTenantId, setBusyTenantId] = useState("");
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
-    if (filters.search) params.set("search", filters.search);
-    if (filters.plan_code) params.set("plan_code", filters.plan_code);
+    if (debouncedSearch) params.set("search", debouncedSearch);
+    if (debouncedPlanCode) params.set("plan_code", debouncedPlanCode);
     if (filters.status) params.set("status", filters.status);
-    if (filters.region) params.set("region", filters.region);
+    if (debouncedRegion) params.set("region", debouncedRegion);
     if (filters.created_from) params.set("created_from", filters.created_from);
     if (filters.created_to) params.set("created_to", filters.created_to);
     if (filters.include_inactive) params.set("include_inactive", "true");
@@ -94,7 +98,7 @@ export default function PlatformTenantsPage() {
     params.set("limit", String(filters.limit));
     params.set("offset", String(filters.offset));
     return params.toString();
-  }, [filters]);
+  }, [debouncedPlanCode, debouncedRegion, debouncedSearch, filters.created_from, filters.created_to, filters.include_inactive, filters.limit, filters.offset, filters.order, filters.sort, filters.status]);
 
   const loadTenants = async () => {
     setLoading(true);

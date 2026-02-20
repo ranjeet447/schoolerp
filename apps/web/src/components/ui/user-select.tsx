@@ -16,6 +16,7 @@ import {
   PopoverTrigger 
 } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
+import { useDebouncedValue } from "@/lib/use-debounced-value"
 
 interface UserSelectProps {
   value?: string
@@ -36,12 +37,13 @@ export function UserSelect({
 }: UserSelectProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
+  const debouncedSearch = useDebouncedValue(search, 300)
 
   const { data: users = [], isLoading } = useQuery({
-    queryKey: ["global-users", search, roleCode, tenantId],
+    queryKey: ["global-users", debouncedSearch, roleCode, tenantId],
     queryFn: async () => {
       const params = new URLSearchParams()
-      if (search) params.append("search", search)
+      if (debouncedSearch) params.append("search", debouncedSearch)
       if (roleCode) params.append("role_code", roleCode)
       if (tenantId) params.append("tenant_id", tenantId)
       params.append("limit", "10")

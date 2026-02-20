@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog/log"
 	"github.com/schoolerp/api/internal/foundation/security"
 	"github.com/schoolerp/api/internal/middleware"
 	"github.com/schoolerp/api/internal/service/tenant"
@@ -577,6 +578,12 @@ func (h *Handler) ListPlatformTenants(w http.ResponseWriter, r *http.Request) {
 		SortOrder:       qp.Get("order"),
 	})
 	if err != nil {
+		log.Ctx(r.Context()).
+			Error().
+			Err(err).
+			Str("path", r.URL.Path).
+			Str("query", r.URL.RawQuery).
+			Msg("platform tenants list failed")
 		http.Error(w, "Failed to load tenants", http.StatusInternalServerError)
 		return
 	}

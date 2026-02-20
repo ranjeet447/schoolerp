@@ -504,13 +504,21 @@ func (s *Service) ListPlatformTenants(ctx context.Context, filters TenantDirecto
 			COALESCE(t.config->>'locale', '') AS locale,
 			COALESCE(t.config->>'academic_year', '') AS academic_year,
 			COALESCE(t.board_type, '') AS board_type,
-			COALESCE((t.config->>'white_label')::boolean, FALSE) AS white_label,
+			CASE
+				WHEN jsonb_typeof(t.config->'white_label') = 'boolean' THEN (t.config->>'white_label')::boolean
+				WHEN LOWER(COALESCE(t.config->>'white_label', '')) IN ('true', 'false') THEN (t.config->>'white_label')::boolean
+				ELSE FALSE
+			END AS white_label,
 			COALESCE(t.config->'branding'->>'primary_color', '') AS brand_primary_color,
 			COALESCE(t.config->'branding'->>'name_override', '') AS brand_name_override,
 			COALESCE(t.config->'branding'->>'logo_url', '') AS brand_logo_url,
 			COALESCE(t.config->>'cname_target', '') AS cname_target,
 			COALESCE(t.config->>'ssl_status', '') AS ssl_status,
-			COALESCE((t.config->>'domain_verified')::boolean, FALSE) AS domain_verified,
+			CASE
+				WHEN jsonb_typeof(t.config->'domain_verified') = 'boolean' THEN (t.config->>'domain_verified')::boolean
+				WHEN LOWER(COALESCE(t.config->>'domain_verified', '')) IN ('true', 'false') THEN (t.config->>'domain_verified')::boolean
+				ELSE FALSE
+			END AS domain_verified,
 			COALESCE(t.config->>'domain_verification_status', '') AS domain_verification_status,
 			COALESCE(t.config->>'domain_verification_token', '') AS domain_verification_token,
 			COALESCE(b.total_branches, 0) AS branch_count,
@@ -656,13 +664,21 @@ func (s *Service) GetPlatformTenant(ctx context.Context, tenantID string) (Platf
 			COALESCE(t.config->>'locale', '') AS locale,
 			COALESCE(t.config->>'academic_year', '') AS academic_year,
 			COALESCE(t.board_type, '') AS board_type,
-			COALESCE((t.config->>'white_label')::boolean, FALSE) AS white_label,
+			CASE
+				WHEN jsonb_typeof(t.config->'white_label') = 'boolean' THEN (t.config->>'white_label')::boolean
+				WHEN LOWER(COALESCE(t.config->>'white_label', '')) IN ('true', 'false') THEN (t.config->>'white_label')::boolean
+				ELSE FALSE
+			END AS white_label,
 			COALESCE(t.config->'branding'->>'primary_color', '') AS brand_primary_color,
 			COALESCE(t.config->'branding'->>'name_override', '') AS brand_name_override,
 			COALESCE(t.config->'branding'->>'logo_url', '') AS brand_logo_url,
 			COALESCE(t.config->>'cname_target', '') AS cname_target,
 			COALESCE(t.config->>'ssl_status', '') AS ssl_status,
-			COALESCE((t.config->>'domain_verified')::boolean, FALSE) AS domain_verified,
+			CASE
+				WHEN jsonb_typeof(t.config->'domain_verified') = 'boolean' THEN (t.config->>'domain_verified')::boolean
+				WHEN LOWER(COALESCE(t.config->>'domain_verified', '')) IN ('true', 'false') THEN (t.config->>'domain_verified')::boolean
+				ELSE FALSE
+			END AS domain_verified,
 			COALESCE(t.config->>'domain_verification_status', '') AS domain_verification_status,
 			COALESCE(t.config->>'domain_verification_token', '') AS domain_verification_token,
 			COALESCE(b.total_branches, 0) AS branch_count,

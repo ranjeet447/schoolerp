@@ -48,6 +48,7 @@ import {
   TabsContent,
 } from "@schoolerp/ui";
 import { TenantSelect } from "@/components/ui/tenant-select";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 // --- Types ---
 
@@ -117,6 +118,7 @@ export default function PlatformIncidentsPage() {
   
   // Filters
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [status, setStatus] = useState("all");
   const [severity, setSeverity] = useState("all");
   const [scope, setScope] = useState("all");
@@ -153,13 +155,13 @@ export default function PlatformIncidentsPage() {
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
-    if (search.trim()) params.set("search", search.trim());
+    if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
     if (status && status !== "all") params.set("status", status);
     if (severity && severity !== "all") params.set("severity", severity);
     if (scope && scope !== "all") params.set("scope", scope);
     params.set("limit", "50");
     return params.toString();
-  }, [scope, search, severity, status]);
+  }, [scope, debouncedSearch, severity, status]);
 
   const load = async () => {
     setLoading(true);

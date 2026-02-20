@@ -53,6 +53,7 @@ import {
 } from "@schoolerp/ui";
 import { TenantSelect } from "@/components/ui/tenant-select";
 import { UserSelect } from "@/components/ui/user-select";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 // --- Types ---
 
@@ -136,6 +137,7 @@ export default function PlatformSupportDeskPage() {
 
   // Filters
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
 
@@ -159,12 +161,12 @@ export default function PlatformSupportDeskPage() {
 
   const ticketQuery = useMemo(() => {
     const params = new URLSearchParams();
-    if (search.trim()) params.set("search", search.trim());
+    if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
     if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
     if (priorityFilter && priorityFilter !== "all") params.set("priority", priorityFilter);
     params.set("limit", "50");
     return params.toString();
-  }, [search, statusFilter, priorityFilter]);
+  }, [debouncedSearch, statusFilter, priorityFilter]);
 
   const loadTickets = async () => {
     setLoading(true);

@@ -37,6 +37,7 @@ import { toast } from "sonner"
 import { Loader2, MoreHorizontal, UserCog, Search, Key, RefreshCw } from "lucide-react"
 import { TenantSelect } from "@/components/ui/tenant-select"
 import { ResetPasswordDialog } from "./_components/reset-password-dialog"
+import { useDebouncedValue } from "@/lib/use-debounced-value"
 
 const TENANT_ROLE_OPTIONS = [
   { value: "tenant_admin", label: "Tenant Admin" },
@@ -50,6 +51,7 @@ const TENANT_ROLE_OPTIONS = [
 
 export default function GlobalUserDirectoryPage() {
   const [search, setSearch] = useState("")
+  const debouncedSearch = useDebouncedValue(search, 300)
   const [tenantId, setTenantId] = useState("")
   const [roleCode, setRoleCode] = useState("")
   const [page, setPage] = useState(0)
@@ -64,10 +66,10 @@ export default function GlobalUserDirectoryPage() {
   const [impersonateReason, setImpersonateReason] = useState("")
 
   const { data: users, isLoading, refetch } = useQuery({
-    queryKey: ["global-users", search, tenantId, roleCode, page],
+    queryKey: ["global-users", debouncedSearch, tenantId, roleCode, page],
     queryFn: async () => {
       const params = new URLSearchParams({
-        search,
+        search: debouncedSearch,
         tenant_id: tenantId,
         role_code: roleCode,
         limit: limit.toString(),

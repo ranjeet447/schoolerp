@@ -33,6 +33,7 @@ import {
 } from "@schoolerp/ui";
 import { apiClient } from "@/lib/api-client";
 import { format, subDays } from "date-fns";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 interface AuditEntry {
   id: number;
@@ -55,6 +56,7 @@ export default function AuditExplorerPage() {
     action: "all",
     dateRange: "7d",
   });
+  const debouncedSearch = useDebouncedValue(filters.search, 300);
 
   const buildQueryParams = () => {
     const params = new URLSearchParams();
@@ -102,7 +104,7 @@ export default function AuditExplorerPage() {
   }, [filters.action, filters.dateRange]);
 
   const filteredLogs = useMemo(() => {
-    const q = filters.search.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     if (!q) return logs;
     return logs.filter((log) => {
       const haystack = [
@@ -118,7 +120,7 @@ export default function AuditExplorerPage() {
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [logs, filters.search]);
+  }, [logs, debouncedSearch]);
 
   const exportCsv = async () => {
     try {
