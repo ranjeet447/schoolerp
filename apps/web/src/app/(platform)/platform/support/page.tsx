@@ -227,9 +227,12 @@ export default function PlatformSupportDeskPage() {
   };
 
   useEffect(() => {
-    loadTickets();
-    loadSLA();
+    void loadTickets();
   }, [ticketQuery]);
+
+  useEffect(() => {
+    void loadSLA();
+  }, []);
 
   // --- Actions ---
 
