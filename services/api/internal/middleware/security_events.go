@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -39,6 +40,8 @@ func (noopSecurityEventRecorder) Record(_ context.Context, _ SecurityEvent) erro
 
 var securityEventRecorder SecurityEventRecorder = noopSecurityEventRecorder{}
 
+const securityEventRecordTimeout = 250 * time.Millisecond
+
 func SetSecurityEventRecorder(recorder SecurityEventRecorder) {
 	if recorder == nil {
 		securityEventRecorder = noopSecurityEventRecorder{}
@@ -51,13 +54,20 @@ func RecordSecurityEvent(ctx context.Context, ev SecurityEvent) {
 	if strings.TrimSpace(ev.RequestID) == "" {
 		ev.RequestID = GetReqID(ctx)
 	}
-	if err := securityEventRecorder.Record(ctx, ev); err != nil {
-		log.Ctx(ctx).
-			Warn().
-			Err(err).
-			Str("event_type", strings.TrimSpace(ev.EventType)).
-			Msg("security event record failed")
-	}
+
+	// Security-event persistence must never block the main request path.
+	go func(parentCtx context.Context, event SecurityEvent) {
+		recordCtx, cancel := context.WithTimeout(context.Background(), securityEventRecordTimeout)
+		defer cancel()
+
+		if err := securityEventRecorder.Record(recordCtx, event); err != nil {
+			log.Ctx(parentCtx).
+				Warn().
+				Err(err).
+				Str("event_type", strings.TrimSpace(event.EventType)).
+				Msg("security event record failed")
+		}
+	}(ctx, ev)
 }
 
 type DBSecurityEventRecorder struct {
