@@ -18,7 +18,7 @@ func NewAutomationHandler(svc *automation.AutomationService) *AutomationHandler 
 }
 
 func (h *AutomationHandler) RegisterRoutes(r chi.Router) {
-	r.Route("/admin/automation", func(r chi.Router) {
+	r.Route("/automation", func(r chi.Router) {
 		r.Get("/rules", h.ListRules)
 		r.Post("/rules", h.CreateRule)
 		r.Put("/rules/{id}", h.UpdateRule)

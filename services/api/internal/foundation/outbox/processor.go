@@ -42,7 +42,7 @@ func (p *Processor) process(ctx context.Context) {
 
 	for _, event := range events {
 		err := p.handleEvent(ctx, event)
-		
+
 		status := "completed"
 		errorMsg := ""
 		if err != nil {
@@ -74,6 +74,8 @@ func (p *Processor) handleEvent(ctx context.Context, event db.Outbox) error {
 		return p.handleHomeworkReminder(ctx, event)
 	case "notice.published":
 		return p.handleNoticePublished(ctx, event)
+	case "automation.notification.dispatch":
+		return p.handleAutomationNotification(ctx, event)
 	default:
 		log.Warn().Str("event_type", event.EventType).Msg("unhandled outbox event type")
 		return nil
@@ -95,5 +97,12 @@ func (p *Processor) handleHomeworkReminder(ctx context.Context, event db.Outbox)
 func (p *Processor) handleNoticePublished(ctx context.Context, event db.Outbox) error {
 	// Logic to send notice notifications
 	log.Info().Interface("payload", string(event.Payload)).Msg("Sending notice notification...")
+	return nil
+}
+
+func (p *Processor) handleAutomationNotification(ctx context.Context, event db.Outbox) error {
+	// Placeholder dispatch path while channel providers are finalized.
+	// Keeping this explicit avoids silently dropping automation notification events.
+	log.Info().Interface("payload", string(event.Payload)).Msg("Processing automation notification dispatch event")
 	return nil
 }

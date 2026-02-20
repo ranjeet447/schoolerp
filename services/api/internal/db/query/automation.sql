@@ -1,3 +1,4 @@
+-- name: CreateAutomationRule :one
 INSERT INTO automation_rules (
     tenant_id, name, description, trigger_type, trigger_event, schedule_cron, condition_json, action_json, is_active, created_by
 ) VALUES (

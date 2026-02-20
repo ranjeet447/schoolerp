@@ -3,6 +3,7 @@ package automation
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/schoolerp/api/internal/db"
@@ -17,31 +18,36 @@ func NewAutomationService(q db.Querier) *AutomationService {
 }
 
 type AutomationRule struct {
-	ID           string          `json:"id"`
-	Name         string          `json:"name"`
-	Description  string          `json:"description,omitempty"`
-	TriggerType  string          `json:"trigger_type"` // event or time
-	TriggerEvent string          `json:"trigger_event"`
-	ScheduleCron string          `json:"schedule_cron,omitempty"`
+	ID            string          `json:"id"`
+	Name          string          `json:"name"`
+	Description   string          `json:"description,omitempty"`
+	TriggerType   string          `json:"trigger_type"` // event or time
+	TriggerEvent  string          `json:"trigger_event"`
+	ScheduleCron  string          `json:"schedule_cron,omitempty"`
 	ConditionJson json.RawMessage `json:"condition_json"`
-	ActionJson   json.RawMessage `json:"action_json"`
-	IsActive     bool            `json:"is_active"`
+	ActionJson    json.RawMessage `json:"action_json"`
+	IsActive      bool            `json:"is_active"`
 }
 
 func (s *AutomationService) CreateRule(ctx context.Context, tenantID string, rule AutomationRule, userID string) (db.AutomationRule, error) {
+	normalized, err := normalizeAndValidateRule(rule)
+	if err != nil {
+		return db.AutomationRule{}, fmt.Errorf("invalid automation rule: %w", err)
+	}
+
 	tID := toPgUUID(tenantID)
 	uID := toPgUUID(userID)
 
 	return s.q.CreateAutomationRule(ctx, db.CreateAutomationRuleParams{
 		TenantID:      tID,
-		Name:          rule.Name,
-		Description:   toPgText(rule.Description),
-		TriggerType:   rule.TriggerType,
-		TriggerEvent:  rule.TriggerEvent,
-		ScheduleCron:  toPgText(rule.ScheduleCron),
-		ConditionJson: rule.ConditionJson,
-		ActionJson:    rule.ActionJson,
-		IsActive:      rule.IsActive,
+		Name:          normalized.Name,
+		Description:   toPgText(normalized.Description),
+		TriggerType:   normalized.TriggerType,
+		TriggerEvent:  normalized.TriggerEvent,
+		ScheduleCron:  toPgText(normalized.ScheduleCron),
+		ConditionJson: normalized.ConditionJson,
+		ActionJson:    normalized.ActionJson,
+		IsActive:      normalized.IsActive,
 		CreatedBy:     uID,
 	})
 }
@@ -52,20 +58,25 @@ func (s *AutomationService) ListRules(ctx context.Context, tenantID string) ([]d
 }
 
 func (s *AutomationService) UpdateRule(ctx context.Context, tenantID string, id string, rule AutomationRule) (db.AutomationRule, error) {
+	normalized, err := normalizeAndValidateRule(rule)
+	if err != nil {
+		return db.AutomationRule{}, fmt.Errorf("invalid automation rule: %w", err)
+	}
+
 	tID := toPgUUID(tenantID)
 	rID := toPgUUID(id)
 
 	return s.q.UpdateAutomationRule(ctx, db.UpdateAutomationRuleParams{
 		ID:            rID,
 		TenantID:      tID,
-		Name:          rule.Name,
-		Description:   toPgText(rule.Description),
-		TriggerType:   rule.TriggerType,
-		TriggerEvent:  rule.TriggerEvent,
-		ScheduleCron:  toPgText(rule.ScheduleCron),
-		ConditionJson: rule.ConditionJson,
-		ActionJson:    rule.ActionJson,
-		IsActive:      rule.IsActive,
+		Name:          normalized.Name,
+		Description:   toPgText(normalized.Description),
+		TriggerType:   normalized.TriggerType,
+		TriggerEvent:  normalized.TriggerEvent,
+		ScheduleCron:  toPgText(normalized.ScheduleCron),
+		ConditionJson: normalized.ConditionJson,
+		ActionJson:    normalized.ActionJson,
+		IsActive:      normalized.IsActive,
 	})
 }
 

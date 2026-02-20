@@ -44,6 +44,7 @@ type Querier interface {
 	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) (AuditLog, error)
 	CreateAuthor(ctx context.Context, arg CreateAuthorParams) (LibraryAuthor, error)
 	CreateAutoDebitMandate(ctx context.Context, arg CreateAutoDebitMandateParams) (AutoDebitMandate, error)
+	CreateAutomationRule(ctx context.Context, arg CreateAutomationRuleParams) (AutomationRule, error)
 	CreateBook(ctx context.Context, arg CreateBookParams) (LibraryBook, error)
 	CreateBookAuthor(ctx context.Context, arg CreateBookAuthorParams) error
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (LibraryCategory, error)
