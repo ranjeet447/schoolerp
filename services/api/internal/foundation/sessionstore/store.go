@@ -40,6 +40,18 @@ type Store struct {
 	ioTimeout   time.Duration
 }
 
+type ConnectionInfo struct {
+	Address       string
+	Host          string
+	Port          string
+	Database      int
+	TLS           bool
+	HasUsername   bool
+	HasPassword   bool
+	DialTimeoutMS int64
+	IOTimeoutMS   int64
+}
+
 func NewFromURL(redisURL string) (*Store, error) {
 	redisURL = strings.TrimSpace(redisURL)
 	if redisURL == "" {
@@ -96,6 +108,31 @@ func NewFromURL(redisURL string) (*Store, error) {
 
 func (s *Store) Close() error {
 	return nil
+}
+
+func (s *Store) ConnectionInfo() ConnectionInfo {
+	if s == nil {
+		return ConnectionInfo{}
+	}
+
+	host := s.address
+	port := ""
+	if parsedHost, parsedPort, err := net.SplitHostPort(s.address); err == nil {
+		host = parsedHost
+		port = parsedPort
+	}
+
+	return ConnectionInfo{
+		Address:       s.address,
+		Host:          host,
+		Port:          port,
+		Database:      s.database,
+		TLS:           s.useTLS,
+		HasUsername:   strings.TrimSpace(s.username) != "",
+		HasPassword:   strings.TrimSpace(s.password) != "",
+		DialTimeoutMS: s.dialTimeout.Milliseconds(),
+		IOTimeoutMS:   s.ioTimeout.Milliseconds(),
+	}
 }
 
 func (s *Store) Enabled() bool {
@@ -322,7 +359,7 @@ func (s *Store) openConn(ctx context.Context) (net.Conn, *bufio.ReadWriter, erro
 	dialer := &net.Dialer{Timeout: s.dialTimeout}
 	baseConn, err := dialer.DialContext(ctx, "tcp", s.address)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("redis dial %s failed: %w", s.address, err)
 	}
 
 	conn := baseConn
@@ -330,7 +367,7 @@ func (s *Store) openConn(ctx context.Context) (net.Conn, *bufio.ReadWriter, erro
 		tlsConn := tls.Client(baseConn, &tls.Config{ServerName: s.tlsServer, MinVersion: tls.VersionTLS12})
 		if err := tlsConn.Handshake(); err != nil {
 			baseConn.Close()
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("redis tls handshake failed: %w", err)
 		}
 		conn = tlsConn
 	}
@@ -352,30 +389,30 @@ func (s *Store) openConn(ctx context.Context) (net.Conn, *bufio.ReadWriter, erro
 		}
 		if err := writeCommand(rw.Writer, authArgs...); err != nil {
 			conn.Close()
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("redis auth write failed: %w", err)
 		}
 		if err := rw.Flush(); err != nil {
 			conn.Close()
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("redis auth flush failed: %w", err)
 		}
 		if _, err := readResponse(rw.Reader); err != nil {
 			conn.Close()
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("redis auth failed: %w", err)
 		}
 	}
 
 	if s.database > 0 {
 		if err := writeCommand(rw.Writer, "SELECT", strconv.Itoa(s.database)); err != nil {
 			conn.Close()
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("redis select write failed: %w", err)
 		}
 		if err := rw.Flush(); err != nil {
 			conn.Close()
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("redis select flush failed: %w", err)
 		}
 		if _, err := readResponse(rw.Reader); err != nil {
 			conn.Close()
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("redis select db=%d failed: %w", s.database, err)
 		}
 	}
 

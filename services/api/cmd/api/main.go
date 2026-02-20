@@ -176,13 +176,25 @@ func main() {
 		log.Fatal().Err(err).Msg("Unable to configure Redis session store")
 	}
 	if sessionStore != nil && sessionStore.Enabled() {
+		redisInfo := sessionStore.ConnectionInfo()
+		log.Info().
+			Str("redis_host", redisInfo.Host).
+			Str("redis_port", redisInfo.Port).
+			Int("redis_db", redisInfo.Database).
+			Bool("redis_tls", redisInfo.TLS).
+			Bool("redis_has_username", redisInfo.HasUsername).
+			Bool("redis_has_password", redisInfo.HasPassword).
+			Int64("redis_dial_timeout_ms", redisInfo.DialTimeoutMS).
+			Int64("redis_io_timeout_ms", redisInfo.IOTimeoutMS).
+			Msg("Redis session store configured")
+
 		pingCtx, pingCancel := context.WithTimeout(context.Background(), 3*time.Second)
 		pingErr := sessionStore.Ping(pingCtx)
 		pingCancel()
 		if pingErr != nil {
 			log.Fatal().Err(pingErr).Msg("Unable to connect to Redis session store")
 		}
-		log.Info().Msg("Redis session store enabled")
+		log.Info().Msg("Redis session store connected (PING successful)")
 		defer sessionStore.Close()
 	} else {
 		log.Warn().Msg("Redis session store disabled (REDIS_URL not configured)")
