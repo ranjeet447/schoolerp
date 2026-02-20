@@ -30,12 +30,30 @@ type CreateBlockPayload = {
   expires_in_minutes?: number;
 };
 
+async function readAPIError(response: Response, fallback: string): Promise<string> {
+  try {
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const data = await response.json();
+      const message = String(data?.message || data?.error || "").trim();
+      if (message) return message;
+    } else {
+      const text = (await response.text()).trim();
+      if (text) return text;
+    }
+  } catch {
+    // ignore parse failures and return fallback below
+  }
+  return fallback;
+}
+
 export default function PlatformRiskBlocksPage() {
   const [rows, setRows] = useState<SecurityBlock[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [lastLoadedAt, setLastLoadedAt] = useState<string>("");
 
   const [status, setStatus] = useState<"active" | "released">("active");
   const [targetType, setTargetType] = useState<"tenant" | "user">("tenant");
@@ -56,12 +74,12 @@ export default function PlatformRiskBlocksPage() {
   const load = async () => {
     setLoading(true);
     setError("");
-    setMessage("");
     try {
       const res = await apiClient(`/admin/platform/security/blocks?${query}`);
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readAPIError(res, "Failed to load blocks."));
       const data = await res.json();
       setRows(Array.isArray(data) ? data : []);
+      setLastLoadedAt(new Date().toISOString());
     } catch (e: any) {
       setRows([]);
       setError(e?.message || "Failed to load blocks.");
@@ -104,12 +122,17 @@ export default function PlatformRiskBlocksPage() {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readAPIError(res, "Failed to create block."));
 
       setReason("");
       setExpiresInMinutes(0);
-      setMessage("Block created and sessions revoked.");
+      if (targetType === "tenant") {
+        setTenantId("");
+      } else {
+        setUserId("");
+      }
       await load();
+      setMessage("Block created and sessions revoked.");
     } catch (e: any) {
       setError(e?.message || "Failed to create block.");
     } finally {
@@ -127,15 +150,15 @@ export default function PlatformRiskBlocksPage() {
         method: "POST",
         body: JSON.stringify({ notes }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readAPIError(res, "Failed to release block."));
 
       setReleaseNotes((prev) => {
         const next = { ...prev };
         delete next[blockId];
         return next;
       });
-      setMessage("Block released.");
       await load();
+      setMessage("Block released.");
     } catch (e: any) {
       setError(e?.message || "Failed to release block.");
     } finally {
@@ -151,6 +174,9 @@ export default function PlatformRiskBlocksPage() {
         <h1 className="text-3xl font-bold text-foreground">Risk Blocks</h1>
         <p className="text-muted-foreground">
           Block a tenant or a user in response to security events. Blocks are audited and can be released.
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Workflow: create block for active abuse, verify access is revoked, then release with notes when incident is closed.
         </p>
       </div>
 
@@ -248,9 +274,16 @@ export default function PlatformRiskBlocksPage() {
               Refresh
             </button>
           </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Showing {rows.length} {status} block(s){lastLoadedAt ? ` · Last refresh: ${new Date(lastLoadedAt).toLocaleTimeString()}` : ""}
+          </p>
 
           <div className="mt-4 space-y-3">
-            {rows.length === 0 && <div className="text-sm text-muted-foreground">No blocks.</div>}
+            {rows.length === 0 && (
+              <div className="text-sm text-muted-foreground">
+                No {status} blocks found. Create one from the panel on the left to apply emergency access restrictions.
+              </div>
+            )}
             {rows.map((b) => (
               <div key={b.id} className="rounded-lg border border-border bg-background/40 p-3">
                 <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
@@ -296,4 +329,3 @@ export default function PlatformRiskBlocksPage() {
     </div>
   );
 }
-

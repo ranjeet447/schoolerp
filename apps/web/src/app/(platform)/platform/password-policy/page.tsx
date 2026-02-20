@@ -17,20 +17,37 @@ const DEFAULT_POLICY: PasswordPolicy = {
   updated_at: null,
 };
 
+async function readAPIError(response: Response, fallback: string): Promise<string> {
+  try {
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const data = await response.json();
+      const message = String(data?.message || data?.error || "").trim();
+      if (message) return message;
+    } else {
+      const text = (await response.text()).trim();
+      if (text) return text;
+    }
+  } catch {
+    // ignore parse failures and return fallback below
+  }
+  return fallback;
+}
+
 export default function PlatformPasswordPolicyPage() {
   const [policy, setPolicy] = useState<PasswordPolicy>(DEFAULT_POLICY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [lastLoadedAt, setLastLoadedAt] = useState<string>("");
 
   const load = async () => {
     setLoading(true);
     setError("");
-    setMessage("");
     try {
       const res = await apiClient("/admin/platform/security/password-policy");
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readAPIError(res, "Failed to load password policy."));
       const data: PasswordPolicy = await res.json();
       setPolicy({
         min_length: Number(data?.min_length ?? 8),
@@ -38,6 +55,7 @@ export default function PlatformPasswordPolicyPage() {
         max_age_days: Number(data?.max_age_days ?? 0),
         updated_at: data?.updated_at ?? null,
       });
+      setLastLoadedAt(new Date().toISOString());
     } catch (e: any) {
       setPolicy(DEFAULT_POLICY);
       setError(e?.message || "Failed to load password policy.");
@@ -65,7 +83,7 @@ export default function PlatformPasswordPolicyPage() {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readAPIError(res, "Failed to update password policy."));
 
       const updated: PasswordPolicy = await res.json();
       setPolicy({
@@ -87,9 +105,12 @@ export default function PlatformPasswordPolicyPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Password Policy</h1>
+        <h1 className="text-3xl font-bold text-foreground">Governance: Password Policy</h1>
         <p className="text-muted-foreground">
           Configure global password policy for password-based identities (min length, reuse history, and expiry).
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          This policy is applied platform-wide during registration, reset, and login enforcement checks.
         </p>
       </div>
 
@@ -112,14 +133,27 @@ export default function PlatformPasswordPolicyPage() {
             {policy.updated_at && (
               <p className="mt-1 text-xs text-muted-foreground">Last updated: {new Date(policy.updated_at).toLocaleString()}</p>
             )}
+            {lastLoadedAt && (
+              <p className="mt-1 text-xs text-muted-foreground">Last refreshed: {new Date(lastLoadedAt).toLocaleTimeString()}</p>
+            )}
           </div>
-          <button
-            onClick={() => void save()}
-            disabled={saving}
-            className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-          >
-            {saving ? "Saving..." : "Save"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void load()}
+              disabled={saving}
+              className="inline-flex items-center justify-center rounded-lg border border-border bg-background px-4 py-2 text-sm font-semibold text-foreground hover:bg-accent disabled:opacity-60"
+            >
+              Refresh
+            </button>
+            <button
+              onClick={() => void save()}
+              disabled={saving}
+              className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            >
+              {saving ? "Saving..." : "Save"}
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 grid gap-4 md:grid-cols-3">
@@ -174,4 +208,3 @@ export default function PlatformPasswordPolicyPage() {
     </div>
   );
 }
-

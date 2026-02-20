@@ -43,21 +43,21 @@ const ACCESS_ACTIONS = [
     icon: Users,
   },
   {
-    title: "Roles",
-    description: "Define and govern platform role templates",
-    href: "/platform/internal-users/manage/roles",
-    icon: ShieldCheck,
-  },
-  {
-    title: "Permissions",
-    description: "Tune permission grants across internal roles",
-    href: "/platform/internal-users/manage/permissions",
+    title: "RBAC Matrix",
+    description: "Define roles and permission grants for platform teams",
+    href: "/platform/internal-users/manage/rbac",
     icon: Lock,
   },
   {
-    title: "Audit Trail",
-    description: "Monitor administrative changes and login events",
-    href: "/platform/audit-logs",
+    title: "Security Policies",
+    description: "Manage IP allowlists, MFA policy, and break-glass controls",
+    href: "/platform/internal-users/manage/security",
+    icon: ShieldAlert,
+  },
+  {
+    title: "Audit Trails",
+    description: "Monitor administrative changes and authentication events",
+    href: "/platform/internal-users/manage/audit",
     icon: History,
   },
 ];

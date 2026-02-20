@@ -47,6 +47,23 @@ type ExecuteResult = {
   instructions: string[];
 };
 
+async function readAPIError(response: Response, fallback: string): Promise<string> {
+  try {
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const data = await response.json();
+      const message = String(data?.message || data?.error || "").trim();
+      if (message) return message;
+    } else {
+      const text = (await response.text()).trim();
+      if (text) return text;
+    }
+  } catch {
+    // ignore parse failures and return fallback below
+  }
+  return fallback;
+}
+
 export default function PlatformSecretsPage() {
   const [status, setStatus] = useState<SecretsStatus | null>(null);
   const [requests, setRequests] = useState<SecretRotationRequest[]>([]);
@@ -59,20 +76,24 @@ export default function PlatformSecretsPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [lastLoadedAt, setLastLoadedAt] = useState<string>("");
 
   const load = async () => {
     setLoading(true);
     setError("");
-    setMessage("");
     try {
       const [statusRes, reqRes] = await Promise.all([
         apiClient("/admin/platform/security/secrets/status"),
         apiClient("/admin/platform/security/secret-rotations?limit=50"),
       ]);
 
+      const loadErrors: string[] = [];
       if (statusRes.ok) {
         const data: SecretsStatus = await statusRes.json();
         setStatus(data);
+      } else {
+        setStatus(null);
+        loadErrors.push(await readAPIError(statusRes, "Failed to load secret status."));
       }
 
       if (reqRes.ok) {
@@ -80,8 +101,15 @@ export default function PlatformSecretsPage() {
         setRequests(Array.isArray(rows) ? rows : []);
       } else {
         setRequests([]);
+        loadErrors.push(await readAPIError(reqRes, "Failed to load rotation requests."));
       }
+
+      if (loadErrors.length > 0) {
+        setError(loadErrors.join(" "));
+      }
+      setLastLoadedAt(new Date().toISOString());
     } catch (e: any) {
+      setStatus(null);
       setRequests([]);
       setError(e?.message || "Failed to load secrets status.");
     } finally {
@@ -104,10 +132,10 @@ export default function PlatformSecretsPage() {
         method: "POST",
         body: JSON.stringify({ secret_name: secretName, reason: reason.trim() }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readAPIError(res, "Failed to create rotation request."));
       setReason("");
-      setMessage("Rotation request created.");
       await load();
+      setMessage("Rotation request created.");
     } catch (e: any) {
       setError(e?.message || "Failed to create rotation request.");
     } finally {
@@ -126,14 +154,14 @@ export default function PlatformSecretsPage() {
         method: "POST",
         body: JSON.stringify({ decision, notes }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readAPIError(res, "Failed to review rotation request."));
       setReviewNotes((prev) => {
         const next = { ...prev };
         delete next[requestId];
         return next;
       });
-      setMessage(`Rotation request ${decision}d.`);
       await load();
+      setMessage(`Rotation request ${decision}d.`);
     } catch (e: any) {
       setError(e?.message || "Failed to review rotation request.");
     } finally {
@@ -156,7 +184,7 @@ export default function PlatformSecretsPage() {
         method: "POST",
         body: JSON.stringify({ confirmation }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readAPIError(res, "Failed to execute rotation request."));
       const result: ExecuteResult = await res.json();
 
       setExecuteConfirmations((prev) => {
@@ -165,8 +193,8 @@ export default function PlatformSecretsPage() {
         return next;
       });
       setLastExecuteResult(result);
-      setMessage("Secret generated. Apply the instructions to complete rotation.");
       await load();
+      setMessage("Secret generated. Apply the instructions to complete rotation.");
     } catch (e: any) {
       setError(e?.message || "Failed to execute rotation request.");
     } finally {
@@ -182,6 +210,9 @@ export default function PlatformSecretsPage() {
         <h1 className="text-3xl font-bold text-foreground">Secrets & Key Rotation</h1>
         <p className="text-muted-foreground">
           Request, approve, and execute platform secret rotation with audit logging and guardrails.
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Workflow: request rotation, get approval from another admin, execute with typed confirmation, then update env vars and redeploy.
         </p>
       </div>
 
@@ -240,6 +271,9 @@ export default function PlatformSecretsPage() {
           <p className="mt-2 text-xs text-muted-foreground">
             Rotation is operationally completed by updating the relevant env var on Render and redeploying.
           </p>
+          {lastLoadedAt && (
+            <p className="mt-1 text-xs text-muted-foreground">Last refreshed: {new Date(lastLoadedAt).toLocaleTimeString()}</p>
+          )}
         </div>
 
         <div className="rounded-xl border border-border bg-card p-4">
@@ -265,7 +299,7 @@ export default function PlatformSecretsPage() {
             <div className="md:col-span-6">
               <button
                 type="button"
-                onClick={createRequest}
+                onClick={() => void createRequest()}
                 disabled={busyId === "create" || !reason.trim()}
                 className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
               >
@@ -279,14 +313,19 @@ export default function PlatformSecretsPage() {
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <h2 className="text-sm font-semibold text-foreground">Rotation Requests</h2>
-          <button
-            type="button"
-            onClick={load}
-            disabled={busyId !== ""}
-            className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
-          >
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              {requests.length} request(s)
+            </span>
+            <button
+              type="button"
+              onClick={() => void load()}
+              disabled={busyId !== ""}
+              className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 overflow-x-auto">
@@ -306,7 +345,7 @@ export default function PlatformSecretsPage() {
               {requests.length === 0 ? (
                 <tr>
                   <td className="py-3 text-muted-foreground" colSpan={7}>
-                    No rotation requests yet.
+                    No rotation requests yet. Create one above to begin the request/approve/execute flow.
                   </td>
                 </tr>
               ) : (
@@ -397,4 +436,3 @@ export default function PlatformSecretsPage() {
     </div>
   );
 }
-

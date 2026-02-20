@@ -25,6 +25,10 @@ import {
   CardDescription,
   Input,
   Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Table,
   TableBody,
   TableCell,
@@ -87,7 +91,16 @@ export function SecurityPolicies({
               <div className="flex-1 space-y-1.5">
                 <label className="text-[10px] font-bold uppercase text-muted-foreground">Admin Role</label>
                 <Select value={newAllowlist.role_name} onValueChange={v => setNewAllowlist({...newAllowlist, role_name: v})}>
-                  {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLE_OPTIONS.map((r) => (
+                      <SelectItem key={r} value={r}>
+                        {r}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
               <div className="flex-1 space-y-1.5">
@@ -106,7 +119,13 @@ export function SecurityPolicies({
                   onChange={e => setNewAllowlist({...newAllowlist, description: e.target.value})}
                 />
               </div>
-              <Button onClick={() => { onAddAllowlist(newAllowlist); setNewAllowlist({ ...newAllowlist, cidr_block: "", description: "" }); }} disabled={busy}>
+              <Button
+                onClick={async () => {
+                  await onAddAllowlist(newAllowlist);
+                  setNewAllowlist((prev) => ({ ...prev, cidr_block: "", description: "" }));
+                }}
+                disabled={busy}
+              >
                 <Plus className="h-4 w-4 mr-2" /> Authorize
               </Button>
             </div>

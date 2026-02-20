@@ -29,15 +29,39 @@ const DOC_OPTIONS: Array<{ key: "terms" | "privacy" | "dpa"; label: string }> = 
   { key: "dpa", label: "Data Processing Addendum (DPA)" },
 ];
 
+const DEFAULT_TITLE_BY_DOC: Record<CreatePayload["doc_key"], string> = {
+  terms: "SchoolERP Terms of Service",
+  privacy: "SchoolERP Privacy Policy",
+  dpa: "SchoolERP Data Processing Addendum",
+};
+
+async function readAPIError(response: Response, fallback: string): Promise<string> {
+  try {
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const data = await response.json();
+      const message = String(data?.message || data?.error || "").trim();
+      if (message) return message;
+    } else {
+      const text = (await response.text()).trim();
+      if (text) return text;
+    }
+  } catch {
+    // ignore parse failures and return fallback below
+  }
+  return fallback;
+}
+
 export default function PlatformLegalDocsPage() {
   const [rows, setRows] = useState<LegalDocVersion[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [lastLoadedAt, setLastLoadedAt] = useState<string>("");
 
   const [docKey, setDocKey] = useState<CreatePayload["doc_key"]>("terms");
-  const [title, setTitle] = useState("SchoolERP Terms");
+  const [title, setTitle] = useState(DEFAULT_TITLE_BY_DOC.terms);
   const [version, setVersion] = useState("");
   const [contentURL, setContentURL] = useState("");
   const [requiresAcceptance, setRequiresAcceptance] = useState(true);
@@ -55,12 +79,12 @@ export default function PlatformLegalDocsPage() {
   const load = async () => {
     setLoading(true);
     setError("");
-    setMessage("");
     try {
       const res = await apiClient("/admin/platform/legal/docs?include_inactive=true&limit=500");
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readAPIError(res, "Failed to load legal docs."));
       const data = await res.json();
       setRows(Array.isArray(data) ? data : []);
+      setLastLoadedAt(new Date().toISOString());
     } catch (e: any) {
       setRows([]);
       setError(e?.message || "Failed to load legal docs.");
@@ -72,6 +96,10 @@ export default function PlatformLegalDocsPage() {
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => {
+    setTitle(DEFAULT_TITLE_BY_DOC[docKey]);
+  }, [docKey]);
 
   const publish = async () => {
     setBusy(true);
@@ -94,11 +122,12 @@ export default function PlatformLegalDocsPage() {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readAPIError(res, "Failed to publish legal document."));
 
-      setMessage("Legal document version published (previous active version deactivated).");
       setVersion("");
+      setContentURL("");
       await load();
+      setMessage("Legal document version published (previous active version deactivated).");
     } catch (e: any) {
       setError(e?.message || "Failed to publish legal document.");
     } finally {
@@ -115,6 +144,9 @@ export default function PlatformLegalDocsPage() {
         <p className="text-muted-foreground">
           Publish new versions of Terms, Privacy, and DPA. Users will be prompted to accept required docs at next login.
         </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Workflow: publish a new version, verify it is active, and confirm users accept required documents on next sign-in.
+        </p>
       </div>
 
       {message && (
@@ -125,7 +157,22 @@ export default function PlatformLegalDocsPage() {
       {error && <div className="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
 
       <div className="rounded-xl border border-border bg-card p-4">
-        <h2 className="text-sm font-semibold text-foreground">Publish New Version</h2>
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <h2 className="text-sm font-semibold text-foreground">Publish New Version</h2>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void load()}
+              disabled={busy}
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground hover:bg-accent disabled:opacity-60"
+            >
+              Refresh
+            </button>
+            <span className="text-xs text-muted-foreground">
+              {rows.length} version(s){lastLoadedAt ? ` · ${new Date(lastLoadedAt).toLocaleTimeString()}` : ""}
+            </span>
+          </div>
+        </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <select
             className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
@@ -217,4 +264,3 @@ export default function PlatformLegalDocsPage() {
     </div>
   );
 }
-

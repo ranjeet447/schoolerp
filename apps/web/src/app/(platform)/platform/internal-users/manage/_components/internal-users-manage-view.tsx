@@ -11,10 +11,10 @@ import { RbacMatrix } from "../../_components/rbac-matrix";
 import { SecurityPolicies } from "../../_components/security-policies";
 import { AuditTrail } from "../../_components/audit-trail";
 
-export type InternalUsersManageTab = "users" | "roles" | "permissions" | "security" | "audit";
+export type InternalUsersManageTab = "users" | "rbac" | "security" | "audit";
 
 export function isInternalUsersManageTab(value: string): value is InternalUsersManageTab {
-  return value === "users" || value === "roles" || value === "permissions" || value === "security" || value === "audit";
+  return value === "users" || value === "rbac" || value === "security" || value === "audit";
 }
 
 /* ── Type Definitions ────────────────────────────────── */
@@ -218,9 +218,12 @@ export function InternalUsersManageView({ activeTab }: { activeTab: InternalUser
 
   const rotateTokens = async (userId: string) => {
     await withBusy(async () => {
-      const res = await apiClient(`/admin/platform/internal-users/${userId}/tokens/rotate`, { method: "POST" });
+      const res = await apiClient(`/admin/platform/internal-users/${userId}/revoke-sessions`, {
+        method: "POST",
+        body: JSON.stringify({ session_id: "" }),
+      });
       if (!res.ok) throw new Error(await res.text());
-    }, "Credentials rotated.");
+    }, "Sessions invalidated.");
   };
 
   const revokeSessions = async (userId: string) => {
@@ -365,13 +368,9 @@ export function InternalUsersManageView({ activeTab }: { activeTab: InternalUser
             <Users className="h-4 w-4" />
             User Directory
           </TabsTrigger>
-          <TabsTrigger value="roles" className="gap-2 rounded-lg font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
+          <TabsTrigger value="rbac" className="gap-2 rounded-lg font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <Shield className="h-4 w-4" />
-            Roles
-          </TabsTrigger>
-          <TabsTrigger value="permissions" className="gap-2 rounded-lg font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Shield className="h-4 w-4" />
-            Permissions
+            RBAC Matrix
           </TabsTrigger>
           <TabsTrigger value="security" className="gap-2 rounded-lg font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <Lock className="h-4 w-4" />
@@ -395,17 +394,7 @@ export function InternalUsersManageView({ activeTab }: { activeTab: InternalUser
           />
         </TabsContent>
 
-        <TabsContent value="roles">
-          <RbacMatrix
-            rbac={rbac}
-            rbacDraft={rbacDraft}
-            onToggle={toggleRolePermission}
-            onSave={saveRolePermissions}
-            busy={busy}
-          />
-        </TabsContent>
-
-        <TabsContent value="permissions">
+        <TabsContent value="rbac">
           <RbacMatrix
             rbac={rbac}
             rbacDraft={rbacDraft}

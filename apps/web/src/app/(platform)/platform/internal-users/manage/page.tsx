@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { isInternalUsersManageTab } from "./_components/internal-users-manage-view";
 
 function normalizeLegacyTab(tab: string): string {
-  if (tab === "rbac") return "roles";
+  if (tab === "roles" || tab === "permissions") return "rbac";
   if (tab === "invite") return "users";
   return tab;
 }
