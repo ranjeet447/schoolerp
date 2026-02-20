@@ -47,7 +47,7 @@ export function TenantSelect({
         limit: "10",
         include_inactive: includeInactive ? "true" : "false",
       })
-      const res = await apiClient(`/platform/tenants?${params.toString()}`)
+      const res = await apiClient(`/admin/platform/tenants?${params.toString()}`)
       if (!res.ok) return []
       return await res.json()
     },

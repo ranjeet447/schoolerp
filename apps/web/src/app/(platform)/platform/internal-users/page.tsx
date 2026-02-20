@@ -39,13 +39,19 @@ const ACCESS_ACTIONS = [
   {
     title: "User Management",
     description: "Provision and manage administrative users",
-    href: "/platform/internal-users/manage?tab=users",
+    href: "/platform/internal-users/manage/users",
     icon: Users,
   },
   {
-    title: "RBAC & Permissions",
-    description: "Define roles and platform access levels",
-    href: "/platform/internal-users/manage?tab=roles",
+    title: "Roles",
+    description: "Define and govern platform role templates",
+    href: "/platform/internal-users/manage/roles",
+    icon: ShieldCheck,
+  },
+  {
+    title: "Permissions",
+    description: "Tune permission grants across internal roles",
+    href: "/platform/internal-users/manage/permissions",
     icon: Lock,
   },
   {
@@ -163,7 +169,7 @@ export default function AccessControlDashboard() {
           <p className="mt-1 text-lg text-muted-foreground font-medium">Platform-wide user provisioning and role-based security.</p>
         </div>
         <Button asChild size="lg" className="shadow-lg shadow-primary/20">
-          <Link href="/platform/internal-users/manage?tab=invite">
+          <Link href="/platform/internal-users/manage/users">
             <UserPlus className="mr-2 h-5 w-5" />
             Invite Admin
           </Link>
@@ -183,7 +189,7 @@ export default function AccessControlDashboard() {
       ) : null}
 
       {/* Security Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {securityStats.map((stat) => (
           <Card key={stat.label} className="border-none shadow-sm bg-card/50 backdrop-blur-sm">
             <CardContent className="p-6 text-center lg:text-left lg:flex lg:items-center lg:justify-between">
@@ -236,7 +242,7 @@ export default function AccessControlDashboard() {
               <div className="space-y-3 p-6">
                 <p className="text-sm text-muted-foreground">No security events logged yet.</p>
                 <Button size="sm" asChild>
-                  <Link href="/platform/internal-users/manage?tab=invite">Invite first admin</Link>
+                  <Link href="/platform/internal-users/manage/users">Invite first admin</Link>
                 </Button>
               </div>
             ) : (

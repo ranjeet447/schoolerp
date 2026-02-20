@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -117,11 +118,42 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("Unable to parse DB config")
 	}
+
+	// Connection pool sizing: defaults are conservative and can starve bursty dashboard traffic.
+	// Allow env overrides and provide safer production defaults when unset.
+	if maxConnsRaw := strings.TrimSpace(os.Getenv("DB_MAX_CONNS")); maxConnsRaw != "" {
+		if maxConns, parseErr := strconv.Atoi(maxConnsRaw); parseErr == nil && maxConns > 0 {
+			poolConfig.MaxConns = int32(maxConns)
+		}
+	} else if poolConfig.MaxConns < 20 {
+		poolConfig.MaxConns = 20
+	}
+
+	if minConnsRaw := strings.TrimSpace(os.Getenv("DB_MIN_CONNS")); minConnsRaw != "" {
+		if minConns, parseErr := strconv.Atoi(minConnsRaw); parseErr == nil && minConns >= 0 {
+			poolConfig.MinConns = int32(minConns)
+		}
+	} else if poolConfig.MinConns < 2 {
+		poolConfig.MinConns = 2
+	}
+
+	if poolConfig.MaxConnLifetime == 0 {
+		poolConfig.MaxConnLifetime = 30 * time.Minute
+	}
+	if poolConfig.MaxConnIdleTime == 0 {
+		poolConfig.MaxConnIdleTime = 5 * time.Minute
+	}
+	if poolConfig.HealthCheckPeriod == 0 {
+		poolConfig.HealthCheckPeriod = 30 * time.Second
+	}
+
 	log.Info().
 		Str("db_host", poolConfig.ConnConfig.Host).
 		Uint16("db_port", poolConfig.ConnConfig.Port).
 		Str("db_name", poolConfig.ConnConfig.Database).
 		Str("db_user", poolConfig.ConnConfig.User).
+		Int32("db_pool_max_conns", poolConfig.MaxConns).
+		Int32("db_pool_min_conns", poolConfig.MinConns).
 		Msg("Database target configured")
 
 	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)

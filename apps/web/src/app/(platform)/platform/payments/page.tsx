@@ -43,19 +43,19 @@ const PAYMENT_ACTIONS = [
   {
     title: "Billing Overview",
     description: "Revenue trends and subscription analytics",
-    href: "/platform/payments/manage?tab=overview",
+    href: "/platform/payments/manage/overview",
     icon: TrendingUp,
   },
   {
     title: "Invoice Management",
     description: "Issue, track, and manage all school invoices",
-    href: "/platform/payments/manage?tab=invoices",
+    href: "/platform/payments/manage/invoices",
     icon: FileText,
   },
   {
     title: "Billing Configuration",
     description: "Tax rules and payment gateway settings",
-    href: "/platform/payments/manage?tab=config",
+    href: "/platform/payments/manage/config",
     icon: Settings,
   },
 ];
@@ -154,7 +154,7 @@ export default function PaymentsDashboard() {
           <p className="mt-1 text-lg text-muted-foreground font-medium">Revenue tracking and subscription life-cycle management.</p>
         </div>
         <Button asChild size="lg" className="shadow-lg shadow-primary/20">
-          <Link href="/platform/payments/manage?tab=invoices">
+          <Link href="/platform/payments/manage/invoices">
             <DollarSign className="mr-2 h-5 w-5" />
             Quick Invoice
           </Link>
@@ -226,14 +226,14 @@ export default function PaymentsDashboard() {
       <Card className="border-none shadow-sm shadow-black/5">
         <div className="flex items-center justify-between p-6 border-b border-border">
           <h3 className="font-black text-foreground uppercase tracking-wider text-xs">Recent Collections</h3>
-          <Link href="/platform/payments/manage" className="text-xs font-bold text-primary hover:underline">View All</Link>
+          <Link href="/platform/payments/manage/overview" className="text-xs font-bold text-primary hover:underline">View All</Link>
         </div>
         <CardContent className="p-0">
           {payments.length === 0 ? (
             <div className="space-y-3 p-6">
               <p className="text-sm text-muted-foreground">No collections recorded yet.</p>
               <Button size="sm" asChild>
-                <Link href="/platform/payments/manage?tab=invoices">Create first invoice</Link>
+                <Link href="/platform/payments/manage/invoices">Create first invoice</Link>
               </Button>
             </div>
           ) : (

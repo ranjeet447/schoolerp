@@ -46,7 +46,7 @@ export function UserSelect({
       if (tenantId) params.append("tenant_id", tenantId)
       params.append("limit", "10")
 
-      const res = await apiClient(`/platform/users?${params.toString()}`)
+      const res = await apiClient(`/admin/platform/users?${params.toString()}`)
       if (!res.ok) return []
       return await res.json()
     },

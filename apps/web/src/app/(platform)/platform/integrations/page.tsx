@@ -41,19 +41,19 @@ const INTEGRATION_ACTIONS = [
   {
     title: "Global Webhooks",
     description: "Manage platform-wide event delivery",
-    href: "/platform/integrations/manage?tab=webhooks",
+    href: "/platform/integrations/manage/webhooks",
     icon: Globe,
   },
   {
     title: "Activity Monitoring",
     description: "Real-time integration request logs",
-    href: "/platform/integrations/manage?tab=logs",
+    href: "/platform/integrations/manage/logs",
     icon: Activity,
   },
   {
     title: "Advanced Config",
     description: "API master keys and security policy",
-    href: "/platform/integrations/manage?tab=security",
+    href: "/platform/integrations/manage/security",
     icon: Settings,
   },
 ];
@@ -228,13 +228,13 @@ export default function IntegrationsDashboard() {
            <CardContent className="p-0">
              <div className="flex items-center justify-between p-6 border-b border-border">
                <h3 className="font-black text-foreground uppercase tracking-wider text-xs">Recent API Events</h3>
-               <Link href="/platform/integrations/manage?tab=logs" className="text-xs font-bold text-primary hover:underline">View Logs</Link>
+               <Link href="/platform/integrations/manage/logs" className="text-xs font-bold text-primary hover:underline">View Logs</Link>
              </div>
              {logs.length === 0 ? (
                <div className="space-y-3 p-6">
                  <p className="text-sm text-muted-foreground">No API events yet.</p>
                  <Button size="sm" asChild>
-                   <Link href="/platform/integrations/manage?tab=webhooks">Configure webhooks</Link>
+                   <Link href="/platform/integrations/manage/webhooks">Configure webhooks</Link>
                  </Button>
                </div>
              ) : (
