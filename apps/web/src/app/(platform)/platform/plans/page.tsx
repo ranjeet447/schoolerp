@@ -50,6 +50,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@schoolerp/ui";
+import { TenantSelect } from "@/components/ui/tenant-select";
 
 // --- Types ---
 
@@ -75,7 +76,7 @@ type FeatureRolloutForm = {
   plan_code: string;
   region: string;
   status: string;
-  tenant_ids_csv: string;
+  tenant_ids: string[];
   dry_run: boolean;
 };
 
@@ -86,7 +87,7 @@ const EMPTY_ROLLOUT_FORM: FeatureRolloutForm = {
   plan_code: "",
   region: "",
   status: "",
-  tenant_ids_csv: "",
+  tenant_ids: [],
   dry_run: true,
 };
 
@@ -261,7 +262,7 @@ export default function PlatformPlansPage() {
             plan_code: rolloutForm.plan_code.trim(),
             region: rolloutForm.region.trim(),
             status: rolloutForm.status.trim(),
-            tenant_ids: rolloutForm.tenant_ids_csv.split(",").map(t => t.trim()).filter(Boolean),
+            tenant_ids: rolloutForm.tenant_ids,
             dry_run: rolloutForm.dry_run,
         };
         const res = await apiClient("/admin/platform/feature-rollouts", {
@@ -427,12 +428,16 @@ export default function PlatformPlansPage() {
                             </div>
                          </div>
                          <div className="grid gap-2">
-                             <Label>Tenant IDs (CSV)</Label>
-                             <Textarea 
-                                placeholder="Specific tenant overrides..." 
-                                value={rolloutForm.tenant_ids_csv} 
-                                onChange={e => setRolloutForm(p => ({ ...p, tenant_ids_csv: e.target.value }))}
+                             <Label>Target Tenants (Optional)</Label>
+                             <TenantSelect
+                                multiple
+                                value={rolloutForm.tenant_ids}
+                                onSelect={(value) => setRolloutForm(p => ({ ...p, tenant_ids: Array.isArray(value) ? value : [value] }))}
+                                placeholder="Search and select tenants..."
                              />
+                             <p className="text-xs text-muted-foreground">
+                               Leave empty to apply rollout rules to all matching tenants.
+                             </p>
                          </div>
                          <div className="flex items-center gap-2">
                              <input type="checkbox" checked={rolloutForm.dry_run} onChange={e => setRolloutForm(p => ({ ...p, dry_run: e.target.checked }))} id="dryrun" />

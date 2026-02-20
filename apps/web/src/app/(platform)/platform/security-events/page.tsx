@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { apiClient } from "@/lib/api-client";
+import { TenantSelect } from "@/components/ui/tenant-select";
+import { UserSelect } from "@/components/ui/user-select";
 
 type PlatformSecurityEventRow = {
   id: string;
@@ -54,6 +56,23 @@ const initialFilters: Filters = {
   offset: 0,
 };
 
+async function readAPIError(response: Response, fallback: string): Promise<string> {
+  try {
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const data = await response.json();
+      const message = String(data?.message || data?.error || "").trim();
+      if (message) return message;
+    } else {
+      const text = (await response.text()).trim();
+      if (text) return text;
+    }
+  } catch {
+    // ignore parse failures and return fallback below
+  }
+  return fallback;
+}
+
 function severityBadge(severity: string) {
   const s = (severity || "").toLowerCase();
   if (s === "critical") return "border-red-600/40 text-red-700 dark:border-red-700 dark:text-red-200";
@@ -76,6 +95,7 @@ export default function PlatformSecurityEventsPage() {
   const [policyBusy, setPolicyBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [lastLoadedAt, setLastLoadedAt] = useState<string>("");
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -93,12 +113,12 @@ export default function PlatformSecurityEventsPage() {
   const load = async () => {
     setLoading(true);
     setError("");
-    setMessage("");
     try {
       const res = await apiClient(`/admin/platform/security/events?${query}`);
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readAPIError(res, "Failed to load security events."));
       const data = await res.json();
       setRows(Array.isArray(data) ? data : []);
+      setLastLoadedAt(new Date().toISOString());
     } catch (e: any) {
       setRows([]);
       setError(e?.message || "Failed to load security events.");
@@ -140,7 +160,7 @@ export default function PlatformSecurityEventsPage() {
           outbox_events_days: Number(retentionDraft.outbox_events_days) || 0,
         }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readAPIError(res, "Failed to update retention policy."));
       setMessage("Data retention policy updated.");
       await loadRetentionPolicy();
     } catch (e: any) {
@@ -165,6 +185,9 @@ export default function PlatformSecurityEventsPage() {
         <h1 className="text-3xl font-bold text-foreground">Security Events</h1>
         <p className="text-muted-foreground">
           Monitor authentication, IP allowlist blocks, CORS denials, and rate-limit events.
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Use searchable tenant and user filters to avoid manual UUID lookup.
         </p>
       </div>
 
@@ -277,17 +300,23 @@ export default function PlatformSecurityEventsPage() {
           </button>
         </div>
         <div className="mt-3 grid gap-2 md:grid-cols-6">
-          <input
-            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-            placeholder="Tenant ID (UUID)"
+          <TenantSelect
             value={filters.tenant_id}
-            onChange={(e) => setFilters((p) => ({ ...p, tenant_id: e.target.value, offset: 0 }))}
+            onSelect={(value) =>
+              setFilters((p) => ({
+                ...p,
+                tenant_id: typeof value === "string" ? value : value[0] || "",
+                user_id: "",
+                offset: 0,
+              }))
+            }
+            placeholder="Search tenant..."
           />
-          <input
-            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-            placeholder="User ID (UUID)"
+          <UserSelect
             value={filters.user_id}
-            onChange={(e) => setFilters((p) => ({ ...p, user_id: e.target.value, offset: 0 }))}
+            onSelect={(value) => setFilters((p) => ({ ...p, user_id: value, offset: 0 }))}
+            tenantId={filters.tenant_id || undefined}
+            placeholder={filters.tenant_id ? "Search tenant user..." : "Search user..."}
           />
           <input
             className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
@@ -325,6 +354,7 @@ export default function PlatformSecurityEventsPage() {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="text-sm text-muted-foreground">
           Showing {rows.length === 0 ? 0 : filters.offset + 1}-{filters.offset + rows.length}
+          {lastLoadedAt ? ` · Last refresh: ${new Date(lastLoadedAt).toLocaleTimeString()}` : ""}
         </div>
         <div className="flex items-center gap-2">
           <select

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { apiClient } from "@/lib/api-client";
+import { TenantSelect } from "@/components/ui/tenant-select";
+import { UserSelect } from "@/components/ui/user-select";
 
 type SecurityBlock = {
   id: string;
@@ -214,18 +216,16 @@ export default function PlatformRiskBlocksPage() {
             </div>
 
             {targetType === "tenant" ? (
-              <input
-                className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
-                placeholder="Tenant ID (UUID)"
+              <TenantSelect
                 value={tenantId}
-                onChange={(e) => setTenantId(e.target.value)}
+                onSelect={(value) => setTenantId(typeof value === "string" ? value : value[0] || "")}
+                placeholder="Search tenant..."
               />
             ) : (
-              <input
-                className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
-                placeholder="User ID (UUID)"
+              <UserSelect
                 value={userId}
-                onChange={(e) => setUserId(e.target.value)}
+                onSelect={setUserId}
+                placeholder="Search user..."
               />
             )}
 

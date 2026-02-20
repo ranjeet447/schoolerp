@@ -28,6 +28,8 @@ import {
   Badge
 } from "@schoolerp/ui";
 import { format } from "date-fns";
+import { TenantSelect } from "@/components/ui/tenant-select";
+import { UserSelect } from "@/components/ui/user-select";
 
 type AuditRow = {
   id: number;
@@ -93,19 +95,26 @@ export function AuditTrail({ rows, filters, setFilters, onExport, onReload, busy
                  />
               </div>
               <div className="space-y-1.5">
-                 <label className="text-[10px] font-bold uppercase text-muted-foreground">Tenant ID</label>
-                 <Input 
-                   placeholder="UUID" 
-                   value={filters.tenant_id} 
-                   onChange={e => setFilters({...filters, tenant_id: e.target.value})} 
+                 <label className="text-[10px] font-bold uppercase text-muted-foreground">Tenant</label>
+                 <TenantSelect
+                   value={filters.tenant_id}
+                   onSelect={(value) =>
+                     setFilters({
+                       ...filters,
+                       tenant_id: typeof value === "string" ? value : value[0] || "",
+                       user_id: "",
+                     })
+                   }
+                   placeholder="Search tenant..."
                  />
               </div>
               <div className="space-y-1.5">
-                 <label className="text-[10px] font-bold uppercase text-muted-foreground">User ID</label>
-                 <Input 
-                   placeholder="UUID" 
-                   value={filters.user_id} 
-                   onChange={e => setFilters({...filters, user_id: e.target.value})} 
+                 <label className="text-[10px] font-bold uppercase text-muted-foreground">User</label>
+                 <UserSelect
+                   value={filters.user_id}
+                   onSelect={(value) => setFilters({ ...filters, user_id: value })}
+                   tenantId={filters.tenant_id || undefined}
+                   placeholder={filters.tenant_id ? "Search tenant user..." : "Search user..."}
                  />
               </div>
               <div className="space-y-1.5">
