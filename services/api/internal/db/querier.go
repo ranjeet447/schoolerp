@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	AcknowledgeNotice(ctx context.Context, arg AcknowledgeNoticeParams) (NoticeAck, error)
+	AcknowledgeStudentRemark(ctx context.Context, arg AcknowledgeStudentRemarkParams) (StudentRemark, error)
 	AddChatParticipant(ctx context.Context, arg AddChatParticipantParams) error
 	AddExamSubject(ctx context.Context, arg AddExamSubjectParams) error
 	AddGroupMember(ctx context.Context, arg AddGroupMemberParams) error
@@ -61,6 +62,7 @@ type Querier interface {
 	CreateEnquiry(ctx context.Context, arg CreateEnquiryParams) (AdmissionEnquiry, error)
 	CreateExam(ctx context.Context, arg CreateExamParams) (Exam, error)
 	CreateFeeHead(ctx context.Context, arg CreateFeeHeadParams) (FeeHead, error)
+	CreateFeeLateWaiver(ctx context.Context, arg CreateFeeLateWaiverParams) (FeeLateWaiver, error)
 	CreateFeePlan(ctx context.Context, arg CreateFeePlanParams) (FeePlan, error)
 	CreateFeePlanItem(ctx context.Context, arg CreateFeePlanItemParams) (FeePlanItem, error)
 	CreateFile(ctx context.Context, arg CreateFileParams) (File, error)
@@ -121,6 +123,7 @@ type Querier interface {
 	// Transfers
 	CreateStaffTransfer(ctx context.Context, arg CreateStaffTransferParams) (StaffTransfer, error)
 	CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error)
+	CreateStudentRemark(ctx context.Context, arg CreateStudentRemarkParams) (StudentRemark, error)
 	CreateSubject(ctx context.Context, arg CreateSubjectParams) (Subject, error)
 	CreateSupplier(ctx context.Context, arg CreateSupplierParams) (InventorySupplier, error)
 	CreateTeacherSubjectSpecialization(ctx context.Context, arg CreateTeacherSubjectSpecializationParams) (TeacherSubjectSpecialization, error)
@@ -267,6 +270,7 @@ type Querier interface {
 	ListExams(ctx context.Context, tenantID pgtype.UUID) ([]Exam, error)
 	ListFeeClassConfigs(ctx context.Context, arg ListFeeClassConfigsParams) ([]ListFeeClassConfigsRow, error)
 	ListFeeHeads(ctx context.Context, tenantID pgtype.UUID) ([]FeeHead, error)
+	ListFeeLateWaivers(ctx context.Context, arg ListFeeLateWaiversParams) ([]ListFeeLateWaiversRow, error)
 	ListFeeReminderConfigs(ctx context.Context, tenantID pgtype.UUID) ([]FeeReminderConfig, error)
 	ListGatePasses(ctx context.Context, arg ListGatePassesParams) ([]ListGatePassesRow, error)
 	ListGatePassesForStudent(ctx context.Context, arg ListGatePassesForStudentParams) ([]ListGatePassesForStudentRow, error)
@@ -322,6 +326,7 @@ type Querier interface {
 	ListStaffTransfers(ctx context.Context, tenantID pgtype.UUID) ([]ListStaffTransfersRow, error)
 	ListStudentChatRooms(ctx context.Context, arg ListStudentChatRoomsParams) ([]ListStudentChatRoomsRow, error)
 	ListStudentReceipts(ctx context.Context, arg ListStudentReceiptsParams) ([]Receipt, error)
+	ListStudentRemarks(ctx context.Context, arg ListStudentRemarksParams) ([]ListStudentRemarksRow, error)
 	ListStudents(ctx context.Context, arg ListStudentsParams) ([]ListStudentsRow, error)
 	ListSubjects(ctx context.Context, tenantID pgtype.UUID) ([]Subject, error)
 	ListSubmissions(ctx context.Context, homeworkID pgtype.UUID) ([]ListSubmissionsRow, error)
@@ -340,8 +345,11 @@ type Querier interface {
 	RemoveGroupMember(ctx context.Context, arg RemoveGroupMemberParams) error
 	ResolveNotificationTemplate(ctx context.Context, arg ResolveNotificationTemplateParams) (NotificationTemplate, error)
 	ReturnBook(ctx context.Context, arg ReturnBookParams) (LibraryIssue, error)
+	ListUserRoleAssignmentsByScope(ctx context.Context, userID, tenantID pgtype.UUID, roleCode string) ([]UserRoleAssignmentScope, error)
+	ListUsersByTenant(ctx context.Context, tenantID pgtype.UUID) ([]ListUsersByTenantRow, error)
 	SearchKBChunksFTSOnly(ctx context.Context, arg SearchKBChunksFTSOnlyParams) ([]SearchKBChunksFTSOnlyRow, error)
 	SearchKBChunksWithTrgm(ctx context.Context, arg SearchKBChunksWithTrgmParams) ([]SearchKBChunksWithTrgmRow, error)
+	SearchStudents(ctx context.Context, arg SearchStudentsParams) ([]SearchStudentsRow, error)
 	SetMFAEnabled(ctx context.Context, arg SetMFAEnabledParams) error
 	SoftDeleteKBDocument(ctx context.Context, arg SoftDeleteKBDocumentParams) error
 	SubmitHomework(ctx context.Context, arg SubmitHomeworkParams) (HomeworkSubmission, error)
@@ -358,6 +366,7 @@ type Querier interface {
 	UpdateEmployee(ctx context.Context, arg UpdateEmployeeParams) (Employee, error)
 	UpdateEnquiryStatus(ctx context.Context, arg UpdateEnquiryStatusParams) error
 	UpdateExamSubjectMetadata(ctx context.Context, arg UpdateExamSubjectMetadataParams) error
+	UpdateFeeLateWaiverStatus(ctx context.Context, arg UpdateFeeLateWaiverStatusParams) (FeeLateWaiver, error)
 	UpdateKBDocument(ctx context.Context, arg UpdateKBDocumentParams) (KbDocument, error)
 	UpdateLeaveRequestStatus(ctx context.Context, arg UpdateLeaveRequestStatusParams) (StaffLeaveRequest, error)
 	UpdateLeaveStatus(ctx context.Context, arg UpdateLeaveStatusParams) (LeaveRequest, error)

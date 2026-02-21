@@ -7,15 +7,37 @@ import {
   Button, 
   FinalCTA,
   IconMapper,
-  FeatureMockup
+  FeatureMockup,
+  SoftwareApplicationSchema,
+  Breadcrumbs,
+  RelatedContent
 } from '@schoolerp/ui';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
+import { Metadata } from 'next';
 
 interface FeaturePageProps {
   params: Promise<{
     slug: string;
   }>;
+}
+
+export async function generateStaticParams() {
+  return FEATURES_DATA.map(f => ({ slug: f.slug }));
+}
+
+export async function generateMetadata({ params }: FeaturePageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const feature = FEATURES_DATA.find((f) => f.slug === slug);
+  if (!feature) return { title: 'Not Found' };
+  
+  return {
+    title: `${feature.title} - School ERP Product Modules`,
+    description: feature.longDescription,
+    alternates: {
+      canonical: `https://schoolerp.com/features/${slug}`
+    }
+  };
 }
 
 export default async function FeatureDetailPage({ params }: FeaturePageProps) {
@@ -26,19 +48,41 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
     notFound();
   }
 
+  const breadcrumbItems = [
+    { label: 'Features', href: '/features' },
+    { label: feature.title }
+  ];
+
+  // Pick 3 related features from same category
+  const relatedList = FEATURES_DATA.filter(f => f.category === feature.category && f.slug !== slug).slice(0, 3);
+  const relatedItems = relatedList.map(r => ({
+    type: 'Feature' as const,
+    title: r.title,
+    description: r.description,
+    href: `/features/${r.slug}`
+  }));
+
+  // Ensure at least 3 items if possible
+  if (relatedItems.length < 3) {
+    const backup = FEATURES_DATA.find(f => f.slug !== slug && !relatedList.includes(f));
+    if (backup) {
+      relatedItems.push({
+        type: 'Feature' as const,
+        title: backup.title,
+        description: backup.description,
+        href: `/features/${backup.slug}`
+      });
+    }
+  }
+
   return (
     <main className="pt-24 min-h-screen bg-background">
+      <SoftwareApplicationSchema name="School ERP" applicationCategory="EducationalApplication" description={feature.longDescription} />
       <Section spacing="large" className="bg-muted/30 overflow-hidden">
         <Container>
-          <Link 
-            href="/#features" 
-            className="inline-flex items-center gap-2 text-primary font-bold mb-8 hover:translate-x-1 transition-transform"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Features
-          </Link>
+          <Breadcrumbs items={breadcrumbItems} />
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center mt-6">
             <div className="space-y-8">
               <div className={`inline-flex h-16 w-16 items-center justify-center rounded-2xl text-white shadow-xl ${feature.color}`}>
                 <IconMapper name={feature.icon} size={32} />
@@ -49,12 +93,17 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
               <p className="text-2xl text-muted-foreground leading-relaxed">
                 {feature.longDescription}
               </p>
-              <div className="pt-4">
+              <div className="pt-4 flex items-center gap-4">
                 <Button size="lg" className="rounded-full px-10 text-lg" asChild>
                   <Link href="/book-demo">
                     Book a Demo
                   </Link>
                 </Button>
+                {feature.tier === 'addon' && (
+                  <div className="px-4 py-2 bg-yellow-400/20 text-yellow-700 font-bold uppercase tracking-widest text-xs rounded-full border border-yellow-400/50">
+                    Paid Add-on
+                  </div>
+                )}
               </div>
             </div>
 
@@ -105,6 +154,8 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
               ))}
             </div>
           </div>
+          
+          <RelatedContent items={relatedItems} />
         </Container>
       </Section>
 

@@ -4,23 +4,32 @@ import { Landmark, Github, Twitter, Linkedin } from 'lucide-react';
 
 const FOOTER_LINKS = [
   {
-    title: 'Product',
+    title: 'Product Features',
     links: [
-      { label: 'Features', href: '/features' },
-      { label: 'Use Cases', href: '/use-cases' },
-      { label: 'Pricing', href: '/pricing' },
-      { label: 'Integrations', href: '/integrations' },
-      { label: 'Roadmap', href: '/roadmap' },
-      { label: 'Security', href: '/security' },
+      { label: 'Fee Management Software', href: '/features/school-fee-management-software' },
+      { label: 'Attendance Management', href: '/features/school-attendance-management-system' },
+      { label: 'Report Card Generator', href: '/features/report-card-software-for-schools' },
+      { label: 'Parent Communication App', href: '/features/school-parent-communication-app' },
+      { label: 'Admission Enquiry Pipeline', href: '/features/enquiry-follow-up-pipeline' },
     ],
   },
   {
-    title: 'Company',
+    title: 'Solutions (Use Cases)',
     links: [
-      { label: 'About', href: '/about' },
-      { label: 'Blog', href: '/blog' },
-      { label: 'Careers', href: '/careers' },
-      { label: 'Contact', href: '/contact' },
+      { label: 'Reduce Fee Defaulters', href: '/use-cases/fees-collection-and-defaulters' },
+      { label: 'Stop WhatsApp Chaos', href: '/use-cases/reduce-whatsapp-chaos' },
+      { label: 'Inspection Ready Reports', href: '/use-cases/office-reports-for-inspection' },
+      { label: 'Print Certificates in 1-Click', href: '/use-cases/certificates-in-one-click' },
+    ],
+  },
+  {
+    title: 'Resources & Company',
+    links: [
+      { label: 'Pricing', href: '/pricing' },
+      { label: 'About Us', href: '/about' },
+      { label: 'Contact Sales', href: '/contact' },
+      { label: 'Blog & Insights', href: '/blog' },
+      { label: 'Templates Hub', href: '/resources' },
     ],
   },
   {

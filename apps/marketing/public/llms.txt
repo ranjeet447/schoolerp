@@ -1,0 +1,29 @@
+# SchoolERP
+SchoolERP is a comprehensive, modern operating system designed for Indian small and budget private schools. It automates academics, finance, safety, operations, and parent communication, serving as a unified system to prevent revenue leakage and reduce manual paperwork.
+
+## Key Principles
+- Affordability and ease of use for vernacular medium and small schools.
+- Parent app focuses on clean communication, explicitly aiming to "Reduce WhatsApp Chaos".
+- Inspection-ready outputs (Bonafide, Report Cards, Fee Registers) requiring zero manual typing.
+- Built-in AI Assistants and WhatsApp are treated as premium add-ons.
+
+## Product Links
+- Homepage: https://schoolerp.com
+- Pricing: https://schoolerp.com/pricing
+- Book a Demo: https://schoolerp.com/book-demo
+- Features Directory: https://schoolerp.com/features
+- Use Cases: https://schoolerp.com/use-cases
+- Resource Hub: https://schoolerp.com/resources
+
+## Core Features
+- School Fee Management Software: https://schoolerp.com/features/school-fee-management-software
+- Defaulter List Management: https://schoolerp.com/features/defaulter-list-management
+- School Attendance Management System: https://schoolerp.com/features/school-attendance-management-system
+- Parent Communication App: https://schoolerp.com/features/school-parent-communication-app
+- Report Card Software for Schools: https://schoolerp.com/features/report-card-software-for-schools
+- Transfer Certificate Management: https://schoolerp.com/features/transfer-certificate-management
+
+## Use Cases
+- Collect School Fees Faster: https://schoolerp.com/use-cases/fees-collect-and-defaulters
+- Stop WhatsApp Chaos: https://schoolerp.com/use-cases/reduce-whatsapp-chaos
+- Improve School Attendance: https://schoolerp.com/use-cases/attendance-and-absentee-followup

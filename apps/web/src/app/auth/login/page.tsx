@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation';
 import { RBACService } from '@/lib/auth-service';
 import { 
   ShieldCheck, 
-  UserCircle, 
-  Users, 
   Lock, 
   Mail, 
   ArrowRight, 
@@ -156,36 +154,7 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="relative my-10">
-            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 border-b border-border" />
-            <div className="relative flex justify-center uppercase">
-              <span className="bg-card px-4 text-[10px] font-black text-muted-foreground tracking-[0.3em]">
-                Quick Access Portals
-              </span>
-            </div>
           </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <button onClick={() => { setEmail('admin@school.edu.in'); }} className="p-4 bg-muted/40 border border-border rounded-2xl hover:bg-muted/70 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all text-center group cursor-pointer backdrop-blur-md">
-              <div className="h-10 w-10 bg-background text-primary rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300">
-                <ShieldCheck className="h-6 w-6" />
-              </div>
-              <span className="text-[10px] font-black text-muted-foreground block tracking-widest uppercase group-hover:text-foreground transition-colors">Admin</span>
-            </button>
-            <button onClick={() => { setEmail('teacher@school.edu.in'); }} className="p-4 bg-muted/40 border border-border rounded-2xl hover:bg-muted/70 hover:border-emerald-500/40 hover:shadow-lg hover:shadow-emerald-500/10 transition-all text-center group cursor-pointer backdrop-blur-md">
-              <div className="h-10 w-10 bg-background text-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 group-hover:bg-emerald-500 group-hover:text-white transition-all duration-300">
-                <UserCircle className="h-6 w-6" />
-              </div>
-              <span className="text-[10px] font-black text-muted-foreground block tracking-widest uppercase group-hover:text-foreground transition-colors">Teacher</span>
-            </button>
-            <button onClick={() => { setEmail('parent@school.edu.in'); }} className="p-4 bg-muted/40 border border-border rounded-2xl hover:bg-muted/70 hover:border-purple-500/40 hover:shadow-lg hover:shadow-purple-500/10 transition-all text-center group cursor-pointer backdrop-blur-md">
-              <div className="h-10 w-10 bg-background text-purple-600 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 group-hover:bg-purple-500 group-hover:text-white transition-all duration-300">
-                <Users className="h-6 w-6" />
-              </div>
-              <span className="text-[10px] font-black text-muted-foreground block tracking-widest uppercase group-hover:text-foreground transition-colors">Parent</span>
-            </button>
-          </div>
-        </div>
 
         <div className="mt-8 text-center">
           <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">

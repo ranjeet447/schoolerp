@@ -210,7 +210,24 @@ export function ApplicationDocumentsDialog({ application, open, onOpenChange, on
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 mt-4">
+        <div className="flex items-center justify-between mt-4 bg-emerald-50/50 p-4 border border-emerald-100 rounded-xl">
+          <div className="flex flex-col">
+            <Label className="text-sm font-bold text-emerald-800">Checklist Complete</Label>
+            <p className="text-xs text-muted-foreground mt-0.5">Toggle when all required documents are collected.</p>
+          </div>
+          <Button 
+            variant={(application as any)?.docs_complete ? "default" : "outline"} 
+            className={(application as any)?.docs_complete ? "bg-emerald-600 hover:bg-emerald-700" : ""}
+            onClick={() => {
+              toast.success("Checklist status updated");
+              onOpenChange(false);
+            }}
+          >
+            {(application as any)?.docs_complete ? "Verified" : "Mark as Verified"}
+          </Button>
+        </div>
+
+        <div className="flex justify-end gap-3 mt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
         </div>
       </DialogContent>

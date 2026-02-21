@@ -12,6 +12,7 @@ import {
   MessageSquare,
   FileText,
   FileCheck2,
+  Printer,
   ClipboardList,
   Settings,
   Menu,
@@ -27,6 +28,9 @@ import {
   Home,
   CreditCard,
   Layers3,
+  X,
+  ChevronDown,
+  CheckCircle,
 } from 'lucide-react';
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@schoolerp/ui';
 import { RBACService } from '@/lib/auth-service';
@@ -46,12 +50,16 @@ type NavItem = {
 
 const NAV_ITEMS = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
+  { href: '/admin/diary', label: 'Teacher Diary', icon: BookOpen, permission: 'sis:read' },
   { href: '/admin/students', label: 'Students', icon: Users, permission: 'sis:read' },
   { href: '/admin/admissions/enquiries', label: 'Admissions', icon: ClipboardList, permission: 'sis:read' },
   { href: '/admin/attendance', label: 'Attendance', icon: CalendarCheck, permission: 'attendance:read' },
   { href: '/admin/staff-attendance', label: 'Staff Attendance', icon: Clock, permission: 'attendance:read' },
   { href: '/admin/timetable', label: 'Timetable', icon: CalendarDays, permission: 'attendance:read' },
   { href: '/admin/finance', label: 'Fees & Finance', icon: Banknote, permission: 'fees:read' },
+  { href: '/admin/finance/counter', label: 'Fee Counter', icon: Banknote, permission: 'fees:read' },
+  { href: '/admin/approvals', label: 'Approvals Inbox', icon: CheckCircle, permission: 'fees:read' },
+  { href: '/admin/reports', label: 'Office Reports', icon: Printer, permission: 'fees:read' },
   { href: '/admin/exams', label: 'Exams & Results', icon: GraduationCap, permission: 'exams:read' },
   { href: '/admin/communication', label: 'Communication', icon: MessageSquare, permission: 'notices:read' },
   { href: '/admin/kb', label: 'Knowledgebase', icon: BookOpen, permission: 'notices:read' },

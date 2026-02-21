@@ -198,6 +198,49 @@ func (q *Queries) CreateFeeHead(ctx context.Context, arg CreateFeeHeadParams) (F
 	return i, err
 }
 
+const createFeeLateWaiver = `-- name: CreateFeeLateWaiver :one
+INSERT INTO fee_late_waivers (
+    tenant_id, student_id, fee_plan_item_id, amount_waived, reason, requested_by
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING id, tenant_id, student_id, fee_plan_item_id, amount_waived, reason, requested_by, status, decided_by, decided_at, created_at
+`
+
+type CreateFeeLateWaiverParams struct {
+	TenantID      pgtype.UUID `json:"tenant_id"`
+	StudentID     pgtype.UUID `json:"student_id"`
+	FeePlanItemID pgtype.UUID `json:"fee_plan_item_id"`
+	AmountWaived  int64       `json:"amount_waived"`
+	Reason        string      `json:"reason"`
+	RequestedBy   pgtype.UUID `json:"requested_by"`
+}
+
+func (q *Queries) CreateFeeLateWaiver(ctx context.Context, arg CreateFeeLateWaiverParams) (FeeLateWaiver, error) {
+	row := q.db.QueryRow(ctx, createFeeLateWaiver,
+		arg.TenantID,
+		arg.StudentID,
+		arg.FeePlanItemID,
+		arg.AmountWaived,
+		arg.Reason,
+		arg.RequestedBy,
+	)
+	var i FeeLateWaiver
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.StudentID,
+		&i.FeePlanItemID,
+		&i.AmountWaived,
+		&i.Reason,
+		&i.RequestedBy,
+		&i.Status,
+		&i.DecidedBy,
+		&i.DecidedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createFeePlan = `-- name: CreateFeePlan :one
 INSERT INTO fee_plans (tenant_id, name, academic_year_id, total_amount)
 VALUES ($1, $2, $3, $4)
@@ -789,6 +832,72 @@ func (q *Queries) ListFeeHeads(ctx context.Context, tenantID pgtype.UUID) ([]Fee
 	return items, nil
 }
 
+const listFeeLateWaivers = `-- name: ListFeeLateWaivers :many
+SELECT flw.id, flw.tenant_id, flw.student_id, flw.fee_plan_item_id, flw.amount_waived, flw.reason, flw.requested_by, flw.status, flw.decided_by, flw.decided_at, flw.created_at, s.full_name as student_name, s.admission_number, fpi.info as fee_item_info
+FROM fee_late_waivers flw
+JOIN students s ON flw.student_id = s.id
+LEFT JOIN fee_plan_items fpi ON flw.fee_plan_item_id = fpi.plan_id -- Simplified join for summary
+WHERE flw.tenant_id = $1 AND ($2::TEXT IS NULL OR flw.status = $2::TEXT)
+ORDER BY flw.created_at DESC
+`
+
+type ListFeeLateWaiversParams struct {
+	TenantID pgtype.UUID `json:"tenant_id"`
+	Status   string      `json:"status"`
+}
+
+type ListFeeLateWaiversRow struct {
+	ID              pgtype.UUID        `json:"id"`
+	TenantID        pgtype.UUID        `json:"tenant_id"`
+	StudentID       pgtype.UUID        `json:"student_id"`
+	FeePlanItemID   pgtype.UUID        `json:"fee_plan_item_id"`
+	AmountWaived    int64              `json:"amount_waived"`
+	Reason          string             `json:"reason"`
+	RequestedBy     pgtype.UUID        `json:"requested_by"`
+	Status          pgtype.Text        `json:"status"`
+	DecidedBy       pgtype.UUID        `json:"decided_by"`
+	DecidedAt       pgtype.Timestamptz `json:"decided_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	StudentName     string             `json:"student_name"`
+	AdmissionNumber string             `json:"admission_number"`
+	FeeItemInfo     pgtype.Text        `json:"fee_item_info"`
+}
+
+func (q *Queries) ListFeeLateWaivers(ctx context.Context, arg ListFeeLateWaiversParams) ([]ListFeeLateWaiversRow, error) {
+	rows, err := q.db.Query(ctx, listFeeLateWaivers, arg.TenantID, arg.Status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFeeLateWaiversRow
+	for rows.Next() {
+		var i ListFeeLateWaiversRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.StudentID,
+			&i.FeePlanItemID,
+			&i.AmountWaived,
+			&i.Reason,
+			&i.RequestedBy,
+			&i.Status,
+			&i.DecidedBy,
+			&i.DecidedAt,
+			&i.CreatedAt,
+			&i.StudentName,
+			&i.AdmissionNumber,
+			&i.FeeItemInfo,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLedgerMappings = `-- name: ListLedgerMappings :many
 SELECT lm.id, lm.tenant_id, lm.fee_head_id, lm.tally_ledger_name, lm.created_at, fh.name as fee_head_name
 FROM tally_ledger_mappings lm
@@ -1004,6 +1113,44 @@ func (q *Queries) LogPaymentEvent(ctx context.Context, arg LogPaymentEventParams
 		&i.GatewayEventID,
 		&i.EventType,
 		&i.ProcessedAt,
+	)
+	return i, err
+}
+
+const updateFeeLateWaiverStatus = `-- name: UpdateFeeLateWaiverStatus :one
+UPDATE fee_late_waivers
+SET status = $1, decided_by = $2, decided_at = NOW()
+WHERE id = $3 AND tenant_id = $4
+RETURNING id, tenant_id, student_id, fee_plan_item_id, amount_waived, reason, requested_by, status, decided_by, decided_at, created_at
+`
+
+type UpdateFeeLateWaiverStatusParams struct {
+	Status    pgtype.Text `json:"status"`
+	DecidedBy pgtype.UUID `json:"decided_by"`
+	ID        pgtype.UUID `json:"id"`
+	TenantID  pgtype.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) UpdateFeeLateWaiverStatus(ctx context.Context, arg UpdateFeeLateWaiverStatusParams) (FeeLateWaiver, error) {
+	row := q.db.QueryRow(ctx, updateFeeLateWaiverStatus,
+		arg.Status,
+		arg.DecidedBy,
+		arg.ID,
+		arg.TenantID,
+	)
+	var i FeeLateWaiver
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.StudentID,
+		&i.FeePlanItemID,
+		&i.AmountWaived,
+		&i.Reason,
+		&i.RequestedBy,
+		&i.Status,
+		&i.DecidedBy,
+		&i.DecidedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }

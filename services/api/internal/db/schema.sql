@@ -11,7 +11,13 @@ CREATE TABLE tenants (
     domain TEXT UNIQUE, -- Custom domain
     logo_url TEXT,
     board_type TEXT DEFAULT 'other', -- 'CBSE', 'ICSE', 'STATE', 'OTHER'
-    config JSONB DEFAULT '{}', -- Branding, term terminology overrides
+    config JSONB DEFAULT '{
+      "enable_fee_counter": true,
+      "require_parent_acks": true,
+      "block_results_on_dues": false,
+      "enable_office_reports": true,
+      "enable_diary_acks": true
+    }', -- Branding, term terminology overrides, Indian school toggles
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -640,6 +646,24 @@ CREATE TABLE notice_acks (
     PRIMARY KEY(notice_id, user_id)
 );
 
+CREATE TABLE student_remarks (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    posted_by UUID NOT NULL REFERENCES users(id),
+    category TEXT NOT NULL, -- "discipline", "performance", "general", "appreciation"
+    remark_text TEXT NOT NULL,
+    requires_ack BOOLEAN DEFAULT FALSE,
+    is_acknowledged BOOLEAN DEFAULT FALSE,
+    ack_by_user_id UUID REFERENCES users(id),
+    ack_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_student_remarks_student ON student_remarks(student_id);
+CREATE INDEX idx_student_remarks_tenant ON student_remarks(tenant_id, created_at DESC);
+
 -- PHASE 6: EXAMS
 CREATE TABLE exams (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -705,6 +729,20 @@ CREATE TABLE fee_refunds (
     receipt_id UUID NOT NULL REFERENCES receipts(id),
     amount BIGINT NOT NULL,
     reason TEXT,
+    status TEXT DEFAULT 'pending', -- "pending", "approved", "rejected"
+    decided_by UUID REFERENCES users(id),
+    decided_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE fee_late_waivers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    fee_plan_item_id UUID, -- Optional specific item
+    amount_waived BIGINT NOT NULL,
+    reason TEXT NOT NULL,
+    requested_by UUID REFERENCES users(id),
     status TEXT DEFAULT 'pending', -- "pending", "approved", "rejected"
     decided_by UUID REFERENCES users(id),
     decided_at TIMESTAMP WITH TIME ZONE,

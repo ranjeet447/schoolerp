@@ -4,8 +4,9 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Button } from './button';
 import { Container, Section } from './layout-foundation';
-import { ChevronRight, Sparkles } from 'lucide-react';
+import { ChevronRight, Sparkles, CheckCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { trackEvent } from '../lib/analytics';
 
 export const HeroSection = () => {
   return (
@@ -49,12 +50,12 @@ export const HeroSection = () => {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-          className="max-w-5xl text-6xl font-black tracking-tight text-foreground sm:text-8xl lg:text-9xl leading-[0.95]"
+          className="max-w-5xl text-5xl font-black tracking-tight text-foreground sm:text-7xl lg:text-8xl leading-[0.95]"
         >
-          Modernize Your <br />
+          Run Your School Effortlessly.<br />
           <span className="relative inline-block mt-4 drop-shadow-2xl">
             <span className="relative z-10 bg-gradient-to-br from-primary via-violet-500 to-fuchsia-500 bg-clip-text text-transparent italic px-2">
-              Education
+              No Registers, No Errors.
             </span>
             <div className="absolute -bottom-2 left-0 right-0 h-4 bg-primary/20 blur-2xl -rotate-1" />
           </span>
@@ -66,25 +67,35 @@ export const HeroSection = () => {
           transition={{ duration: 0.8, delay: 0.4 }}
           className="mt-10 max-w-2xl text-xl md:text-2xl text-muted-foreground/80 leading-relaxed font-medium"
         >
-          The all-in-one operating system for schools that value 
-          <span className="text-foreground"> safety</span>, 
-          <span className="text-foreground"> speed</span>, and 
-          <span className="text-foreground"> precision</span>.
+          The modern SchoolERP built for Indian schools. 
+          <span className="text-foreground"> Fast fee counters</span>, 
+          <span className="text-foreground"> instant parent updates</span>, and 
+          <span className="text-foreground"> inspection-ready reports</span> with zero manual typing.
         </motion.p>
         
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.6 }}
-          className="mt-12 flex flex-col gap-6 sm:flex-row items-center justify-center"
+          className="mt-12 flex flex-col items-center justify-center gap-6"
         >
-          <Button size="lg" className="rounded-full px-12 text-lg font-black uppercase tracking-widest transition-all duration-500 group" onClick={() => window.location.href = '/book-demo'}>
-            Book a Demo
-            <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-          </Button>
-          <a href="/features" className="text-lg font-bold text-muted-foreground hover:text-foreground transition-colors px-6 py-3 border-b-2 border-transparent hover:border-primary/50">
-            Explore Features →
-          </a>
+          <div className="flex flex-col gap-6 sm:flex-row items-center border-red-500">
+            <Button size="lg" className="rounded-full px-12 text-lg font-black uppercase tracking-widest transition-all duration-500 group" onClick={() => {
+              trackEvent('book_demo_click', { location: 'hero_section' });
+              window.location.href = '/book-demo';
+            }}>
+              Book a 15-Min Demo
+              <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+            </Button>
+            <a href="#features" onClick={() => trackEvent('features_search', { location: 'hero_section' })} className="text-lg font-bold text-muted-foreground hover:text-foreground transition-colors px-6 py-3 border-b-2 border-transparent hover:border-primary/50">
+              Explore Features →
+            </a>
+          </div>
+          <div className="flex flex-wrap justify-center gap-6 text-sm font-semibold text-muted-foreground mt-2">
+            <span className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-emerald-500" /> Setup in 48 hours</span>
+            <span className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-emerald-500" /> Mobile-ready for teachers</span>
+            <span className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-emerald-500" /> 100% Data Security</span>
+          </div>
         </motion.div>
 
         {/* Abstract UI Mockup */}

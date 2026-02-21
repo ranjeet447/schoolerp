@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { Navbar, Footer } from "@schoolerp/ui";
+import { Navbar, Footer, OrganizationSchema } from "@schoolerp/ui";
 import "@schoolerp/ui/styles.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "School ERP - Modern Education Operating System",
-  description: "Comprehensive platform for academics, finance, and campus safety.",
+  metadataBase: new URL("https://schoolerp.com"),
+  title: "School ERP - Modern Education Operating System for Indian Schools",
+  description: "Comprehensive platform for academics, finance, and campus safety. Fast fee counters, instant parent updates, and inspection-ready reports with zero manual typing.",
   openGraph: {
     title: "School ERP - Modern Education Operating System",
     description: "All-in-one platform for academics, finance, safety, operations, communication, and automation.",
@@ -57,6 +58,7 @@ export default function RootLayout({
             </Script>
           </>
         )}
+        <OrganizationSchema />
         <Navbar />
         {children}
         <Footer />

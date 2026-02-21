@@ -42,6 +42,11 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	// CSV Import
 	r.Post("/students/import", h.Import)
 
+	// Student Remarks
+	r.Post("/remarks", h.CreateRemark)
+	r.Get("/students/{studentID}/remarks", h.ListRemarks)
+	r.Post("/remarks/{id}/acknowledge", h.AcknowledgeRemark)
+
 	// Confidential Notes
 	confHandler := NewConfidentialNotesHandler(nil) // Note: actual service injection happens in registry
 	confHandler.RegisterRoutes(r)
@@ -479,15 +484,35 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
-	tenantID := middleware.GetTenantID(r.Context())
+	ctx := r.Context()
+	tenantID := middleware.GetTenantID(ctx)
+	userID := middleware.GetUserID(ctx)
+	role := middleware.GetRole(ctx)
 
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	query := r.URL.Query().Get("q")
+	limitStr := r.URL.Query().Get("limit")
+	limit, _ := strconv.Atoi(limitStr)
 	if limit == 0 {
 		limit = 20
 	}
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 
-	students, err := h.svc.ListStudents(r.Context(), tenantID, int32(limit), int32(offset))
+	if query != "" {
+		students, err := h.svc.SearchStudents(ctx, tenantID, userID, role, query, int32(limit))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if students == nil {
+			w.Write([]byte("[]"))
+		} else {
+			json.NewEncoder(w).Encode(students)
+		}
+		return
+	}
+
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	students, err := h.svc.ListStudents(ctx, tenantID, int32(limit), int32(offset))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -261,3 +261,24 @@ RETURNING *;
 
 
 
+
+-- name: CreateFeeLateWaiver :one
+INSERT INTO fee_late_waivers (
+    tenant_id, student_id, fee_plan_item_id, amount_waived, reason, requested_by
+) VALUES (
+    @tenant_id, @student_id, @fee_plan_item_id, @amount_waived, @reason, @requested_by
+) RETURNING *;
+
+-- name: UpdateFeeLateWaiverStatus :one
+UPDATE fee_late_waivers
+SET status = @status, decided_by = @decided_by, decided_at = NOW()
+WHERE id = @id AND tenant_id = @tenant_id
+RETURNING *;
+
+-- name: ListFeeLateWaivers :many
+SELECT flw.*, s.full_name as student_name, s.admission_number, fpi.info as fee_item_info
+FROM fee_late_waivers flw
+JOIN students s ON flw.student_id = s.id
+LEFT JOIN fee_plan_items fpi ON flw.fee_plan_item_id = fpi.plan_id -- Simplified join for summary
+WHERE flw.tenant_id = @tenant_id AND (@status::TEXT IS NULL OR flw.status = @status::TEXT)
+ORDER BY flw.created_at DESC;

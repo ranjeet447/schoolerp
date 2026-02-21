@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from "@schoolerp/ui";
 import { apiClient } from "@/lib/api-client";
+import { toast } from "sonner";
 import {
   Upload, FileSpreadsheet, CheckCircle2, XCircle, Download,
   AlertTriangle, Clock, ArrowRight,
@@ -63,7 +64,7 @@ export default function BulkImportPage() {
 
   const handleUpload = async (file: File) => {
     if (!file.name.endsWith(".csv")) {
-      alert("Please upload a CSV file.");
+      toast.error("Please upload a CSV file.");
       return;
     }
 
@@ -79,15 +80,15 @@ export default function BulkImportPage() {
         });
         if (res.ok) {
           const result = await res.json();
-          alert(`Import complete: ${result.success_count || 0} imported, ${result.error_count || 0} errors`);
+          toast.success(`Import complete: ${result.success_count || 0} imported, ${result.error_count || 0} errors`);
         } else {
           const err = await res.text();
-          alert(`Import failed: ${err}`);
+          toast.error(`Import failed: ${err}`);
         }
       }
     } catch (e: unknown) {
       console.error(e);
-      alert("Upload failed");
+      toast.error("Upload failed");
     }
     setUploading(false);
     loadJobs();

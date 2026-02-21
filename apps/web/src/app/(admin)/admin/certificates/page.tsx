@@ -23,7 +23,8 @@ import {
   TableRow,
 } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
-import { FileCheck2, Loader2, RefreshCw } from "lucide-react"
+import { FileCheck2, Loader2, RefreshCw, Clock } from "lucide-react"
+import { toast } from "sonner"
 
 type CertificateType = "transfer_certificate" | "bonafide_certificate" | "character_certificate"
 type CertificateStatus = "pending" | "approved" | "rejected" | "issued"
@@ -100,6 +101,11 @@ export default function CertificatesPage() {
     requested_on: new Date().toISOString().slice(0, 10),
   })
 
+  // Student Search State
+  const [studentQuery, setStudentQuery] = useState("")
+  const [searchingStudents, setSearchingStudents] = useState(false)
+  const [selectedStudentDisplay, setSelectedStudentDisplay] = useState<any>(null)
+
   const fetchRequests = async (status?: CertificateStatus | "all") => {
     const query = status && status !== "all" ? `?status=${encodeURIComponent(status)}` : ""
     const res = await apiClient(`/admin/certificates/requests${query}`)
@@ -108,30 +114,38 @@ export default function CertificatesPage() {
     setRequests(Array.isArray(payload) ? payload : [])
   }
 
+  // Debounced Search
+  useEffect(() => {
+    if (studentQuery.length > 1) {
+      const timer = setTimeout(async () => {
+        setSearchingStudents(true)
+        try {
+          const res = await apiClient(`/admin/students?query=${encodeURIComponent(studentQuery)}&limit=10`)
+          if (res.ok) {
+            const data = await res.json()
+            setStudents(Array.isArray(data) ? data : data.data || [])
+          }
+        } catch (err) {
+          console.error("Failed to fetch students", err)
+        } finally {
+          setSearchingStudents(false)
+        }
+      }, 300)
+      return () => clearTimeout(timer)
+    } else {
+      setStudents([])
+    }
+  }, [studentQuery])
+
   const fetchAll = async (silent = false) => {
     if (silent) setRefreshing(true)
     else setLoading(true)
     setError("")
 
     try {
-      const [studentsRes, requestsRes] = await Promise.all([
-        apiClient("/admin/students?limit=300"),
-        apiClient("/admin/certificates/requests"),
-      ])
-
-      if (!studentsRes.ok) throw new Error((await studentsRes.text()) || "Failed to fetch students")
+      const requestsRes = await apiClient("/admin/certificates/requests")
       if (!requestsRes.ok) throw new Error((await requestsRes.text()) || "Failed to fetch certificate requests")
-
-      const studentsPayload = await studentsRes.json()
       const requestsPayload = await requestsRes.json()
-
-      const studentRows = Array.isArray(studentsPayload)
-        ? studentsPayload
-        : Array.isArray(studentsPayload?.data)
-          ? studentsPayload.data
-          : []
-
-      setStudents(studentRows)
       setRequests(Array.isArray(requestsPayload) ? requestsPayload : [])
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load certificate module"
@@ -171,6 +185,8 @@ export default function CertificatesPage() {
 
       await fetchRequests(statusFilter)
       setForm((prev) => ({ ...prev, reason: "" }))
+      setSelectedStudentDisplay(null)
+      setForm(prev => ({ ...prev, student_id: "" }))
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create request"
       setError(message)
@@ -260,20 +276,49 @@ export default function CertificatesPage() {
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
             <div className="space-y-2 md:col-span-2">
-              <Label>Student</Label>
-              <Select value={form.student_id} onValueChange={(value) => setForm((prev) => ({ ...prev, student_id: value }))}>
-                <SelectTrigger><SelectValue placeholder="Select student" /></SelectTrigger>
-                <SelectContent>
-                  {students.map((student) => {
-                    const id = uuidValue(student.id)
-                    return (
-                      <SelectItem key={id} value={id}>
-                        {student.full_name} ({student.admission_number})
-                      </SelectItem>
-                    )
-                  })}
-                </SelectContent>
-              </Select>
+              <Label>Student Search</Label>
+              {selectedStudentDisplay ? (
+                <div className="flex items-center justify-between p-2.5 bg-primary/5 border border-primary/20 rounded-xl">
+                  <div>
+                    <div className="font-bold text-sm">{selectedStudentDisplay.full_name}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-widest">{selectedStudentDisplay.admission_number}</div>
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => {
+                    setSelectedStudentDisplay(null)
+                    setForm(p => ({ ...p, student_id: "" }))
+                  }}>Change</Button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Input 
+                    placeholder="Type name or admission no..." 
+                    value={studentQuery}
+                    onChange={(e) => setStudentQuery(e.target.value)}
+                  />
+                  {students.length > 0 && studentQuery.length > 1 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-card border rounded-xl shadow-xl z-50 overflow-hidden">
+                      {students.map((s) => (
+                        <button
+                          key={uuidValue(s.id)}
+                          type="button"
+                          className="w-full px-4 py-2 text-left hover:bg-muted flex justify-between items-center border-b last:border-0"
+                          onClick={() => {
+                             setSelectedStudentDisplay(s)
+                             setForm(p => ({ ...p, student_id: uuidValue(s.id) }))
+                             setStudentQuery("")
+                             setStudents([])
+                          }}
+                        >
+                          <div>
+                            <div className="font-medium text-sm">{s.full_name}</div>
+                            <div className="text-[10px] text-muted-foreground">{s.admission_number}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -368,6 +413,9 @@ export default function CertificatesPage() {
                       <TableCell className="font-mono text-xs text-muted-foreground">{row.certificate_number || "-"}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-slate-400 hover:text-slate-600" onClick={() => toast("History: Requested -> Approved -> Issued")}>
+                             <Clock className="h-4 w-4" />
+                          </Button>
                           {row.status === "pending" && (
                             <>
                               <Button size="sm" variant="outline" className="h-8" disabled={saving} onClick={() => updateStatus(row.id, "approved")}>Approve</Button>
@@ -375,7 +423,7 @@ export default function CertificatesPage() {
                             </>
                           )}
                           {(row.status === "approved" || row.status === "pending") && (
-                            <Button size="sm" className="h-8" disabled={saving} onClick={() => updateStatus(row.id, "issued")}>Issue</Button>
+                            <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white" disabled={saving} onClick={() => updateStatus(row.id, "issued")}>Issue</Button>
                           )}
                         </div>
                       </TableCell>

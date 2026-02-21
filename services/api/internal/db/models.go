@@ -555,6 +555,20 @@ type FeeLateRule struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+type FeeLateWaiver struct {
+	ID            pgtype.UUID        `json:"id"`
+	TenantID      pgtype.UUID        `json:"tenant_id"`
+	StudentID     pgtype.UUID        `json:"student_id"`
+	FeePlanItemID pgtype.UUID        `json:"fee_plan_item_id"`
+	AmountWaived  int64              `json:"amount_waived"`
+	Reason        string             `json:"reason"`
+	RequestedBy   pgtype.UUID        `json:"requested_by"`
+	Status        pgtype.Text        `json:"status"`
+	DecidedBy     pgtype.UUID        `json:"decided_by"`
+	DecidedAt     pgtype.Timestamptz `json:"decided_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
 type FeePlan struct {
 	ID             pgtype.UUID        `json:"id"`
 	TenantID       pgtype.UUID        `json:"tenant_id"`
@@ -2138,6 +2152,21 @@ type StudentPromotion struct {
 	PromotedBy         pgtype.UUID        `json:"promoted_by"`
 	Status             string             `json:"status"`
 	Remarks            pgtype.Text        `json:"remarks"`
+}
+
+type StudentRemark struct {
+	ID             pgtype.UUID        `json:"id"`
+	TenantID       pgtype.UUID        `json:"tenant_id"`
+	StudentID      pgtype.UUID        `json:"student_id"`
+	PostedBy       pgtype.UUID        `json:"posted_by"`
+	Category       string             `json:"category"`
+	RemarkText     string             `json:"remark_text"`
+	RequiresAck    pgtype.Bool        `json:"requires_ack"`
+	IsAcknowledged pgtype.Bool        `json:"is_acknowledged"`
+	AckByUserID    pgtype.UUID        `json:"ack_by_user_id"`
+	AckAt          pgtype.Timestamptz `json:"ack_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type StudentScholarship struct {

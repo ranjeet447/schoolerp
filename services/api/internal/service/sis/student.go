@@ -102,6 +102,46 @@ func (s *StudentService) ListStudents(ctx context.Context, tenantID string, limi
 	})
 }
 
+func (s *StudentService) SearchStudents(ctx context.Context, tenantID, userID, role, query string, limit int32) ([]db.SearchStudentsRow, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(userID)
+
+	var sectionIDs []pgtype.UUID
+	var classIDs []pgtype.UUID
+
+	// If role is teacher, restrict search to assigned classes/sections
+	if role == "teacher" {
+		scopes, err := s.q.ListUserRoleAssignmentsByScope(ctx, uUUID, tUUID, "teacher")
+		if err != nil {
+			return nil, err
+		}
+
+		for _, sc := range scopes {
+			if sc.ScopeType == "section" && sc.ScopeID.Valid {
+				sectionIDs = append(sectionIDs, sc.ScopeID)
+			} else if sc.ScopeType == "class" && sc.ScopeID.Valid {
+				classIDs = append(classIDs, sc.ScopeID)
+			}
+		}
+
+		// If teacher has no assignments, return empty list (scoped to "none")
+		if len(sectionIDs) == 0 && len(classIDs) == 0 {
+			return []db.SearchStudentsRow{}, nil
+		}
+	}
+
+	return s.q.SearchStudents(ctx, db.SearchStudentsParams{
+		TenantID:   tUUID,
+		Column2:    query,
+		SectionIds: sectionIDs,
+		ClassIds:   classIDs,
+		Limit:      limit,
+	})
+}
+
 func (s *StudentService) GetStudent(ctx context.Context, tenantID, studentID string) (db.GetStudentRow, error) {
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(tenantID)

@@ -166,6 +166,9 @@ INSERT INTO permissions (id, code, module, description) VALUES
 ('019c4d42-49ca-72b7-a1d6-779b799bb55c', 'tenant:addons.read', 'tenant', 'View tenant add-ons and activation status'),
 ('019c4d42-49ca-72b7-a1d6-779b799bb55d', 'tenant:addons.request', 'tenant', 'Create tenant add-on activation requests'),
 ('019c4d42-49ca-72b7-a1d6-779b799bb55e', 'tenant:addons.configure', 'tenant', 'Configure active tenant add-ons'),
+('019c4d42-7db1-7001-9293-000000000009', 'sis:remarks:view', 'sis', 'View student remarks and observations'),
+('019c4d42-7db1-7001-9293-000000000010', 'sis:remarks:create', 'sis', 'Add new student remarks'),
+('019c4d42-7db1-7001-9293-000000000011', 'sis:remarks:acknowledge', 'sis', 'Acknowledge student remarks as parent/admin'),
 
 -- PLATFORM
 ('019c4d42-7db1-7999-9293-000000000001', 'platform:manage', 'platform', 'Full platform administrative control')
@@ -489,12 +492,12 @@ INSERT INTO students (id, tenant_id, admission_number, roll_number, full_name, s
 ON CONFLICT DO NOTHING;
 
 -- 3.2 Guardians (Expanded)
-INSERT INTO guardians (id, tenant_id, full_name, phone, email) VALUES
-('019c4d42-49ca-752d-8a6d-591b96cc63d7', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', 'Vijay Sharma', '+919811122233', 'vijay@email.com'),
-('019c4d42-49ca-7c66-a3e1-34041dbcaeca', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', 'Meera Iyer', '+919822233344', 'meera@email.com'),
-('019c4d42-49ca-7156-a4a6-092e9c891fc7', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', 'Suresh Gupta', '+919833344455', 'suresh@email.com'),
-('019c4d42-49ca-7b45-ad5e-f13ce2b12cca', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', 'Lata Verma', '+919844455566', 'lata@email.com'),
-('019c4d42-49ca-7d87-b3fc-fccaf69c9a18', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', 'Sunil Ramesh', '+919855566677', 'sunil@email.com')
+INSERT INTO guardians (id, tenant_id, full_name, phone, email, user_id) VALUES
+('019c4d42-49ca-752d-8a6d-591b96cc63d7', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', 'Rajesh Sharma', '+919811122233', 'parent@elite.com', '019c4d42-c25e-7b45-9ad9-840d567925ba'),
+('019c4d42-49ca-7c66-a3e1-34041dbcaeca', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', 'Meera Iyer', '+919822233344', 'meera@email.com', NULL),
+('019c4d42-49ca-7156-a4a6-092e9c891fc7', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', 'Suresh Gupta', '+919833344455', 'suresh@email.com', NULL),
+('019c4d42-49ca-7b45-ad5e-f13ce2b12cca', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', 'Lata Verma', '+919844455566', 'lata@email.com', NULL),
+('019c4d42-49ca-7d87-b3fc-fccaf69c9a18', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', 'Sunil Ramesh', '+919855566677', 'sunil@email.com', NULL)
 ON CONFLICT DO NOTHING;
 
 -- 3.3 Link Student-Guardian
@@ -509,6 +512,12 @@ ON CONFLICT DO NOTHING;
 -- 3.4 Student Promotion History (2024 -> 2025)
 INSERT INTO student_promotions (id, tenant_id, student_id, from_academic_year_id, to_academic_year_id, from_section_id, to_section_id, status) VALUES
 ('019c4d42-c260-701b-8363-0881d8ffd0fa', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', '019c4d42-c260-784b-b5f9-a0a6b03c773d', '019c4d42-c260-719d-bd5f-8f843af60012', '019c4d42-49ca-7ec3-a3fc-de2bd942e1e6', '019c4d42-c260-74da-b160-0c0bbfde23a6', '019c4d42-49ca-71a1-bf87-9053f8107881', 'promoted')
+ON CONFLICT DO NOTHING;
+
+-- 3.5 Student Remarks
+INSERT INTO student_remarks (id, tenant_id, student_id, posted_by, category, remark_text, requires_ack, is_acknowledged) VALUES
+('019c4d42-c264-701b-8363-998877665544', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', '019c4d42-49ca-794f-b77f-68b3b291152c', '019c4d42-c25e-71c0-b844-a502ab4e9681', 'behavior', 'Arjun has shown great leadership skills in the classroom this week.', TRUE, FALSE),
+('019c4d42-c264-701b-8363-998877665545', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', '019c4d42-49ca-7d7d-8d5b-dd8f34b5d0af', '019c4d42-c25e-71c0-b844-a502ab4e9681', 'academic', 'Sanya scored the highest in the surprise Physics quiz. Outstanding!', FALSE, FALSE)
 ON CONFLICT DO NOTHING;
 
 -- ============================================
@@ -1810,9 +1819,9 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO legal_doc_versions (id, doc_key, title, version, content_url, requires_acceptance, is_active, published_at, created_by)
 VALUES
-  (uuid_generate_v7(), 'terms', 'Terms of Service', '2026-02', 'https://schoolerp.example/legal/terms-2026-02', TRUE, TRUE, NOW() - INTERVAL '20 days', '019c4d42-49ca-767c-b3bd-b1a7faf5ad04'),
-  (uuid_generate_v7(), 'privacy', 'Privacy Policy', '2026-02', 'https://schoolerp.example/legal/privacy-2026-02', TRUE, TRUE, NOW() - INTERVAL '20 days', '019c4d42-49ca-767c-b3bd-b1a7faf5ad04'),
-  (uuid_generate_v7(), 'dpa', 'Data Processing Addendum', '2026-02', 'https://schoolerp.example/legal/dpa-2026-02', TRUE, TRUE, NOW() - INTERVAL '20 days', '019c4d42-49ca-767c-b3bd-b1a7faf5ad04')
+  (uuid_generate_v7(), 'terms', 'Terms of Service', '2026-02', 'https://schoolerp.example/legal/terms-2026-02', FALSE, TRUE, NOW() - INTERVAL '20 days', '019c4d42-49ca-767c-b3bd-b1a7faf5ad04'),
+  (uuid_generate_v7(), 'privacy', 'Privacy Policy', '2026-02', 'https://schoolerp.example/legal/privacy-2026-02', FALSE, TRUE, NOW() - INTERVAL '20 days', '019c4d42-49ca-767c-b3bd-b1a7faf5ad04'),
+  (uuid_generate_v7(), 'dpa', 'Data Processing Addendum', '2026-02', 'https://schoolerp.example/legal/dpa-2026-02', FALSE, TRUE, NOW() - INTERVAL '20 days', '019c4d42-49ca-767c-b3bd-b1a7faf5ad04')
 ON CONFLICT (doc_key, version) DO NOTHING;
 
 INSERT INTO user_legal_acceptances (id, user_id, doc_key, version, accepted_at, ip_address, user_agent, metadata)

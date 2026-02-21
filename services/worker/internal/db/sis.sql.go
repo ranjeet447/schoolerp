@@ -11,6 +11,39 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const acknowledgeStudentRemark = `-- name: AcknowledgeStudentRemark :one
+UPDATE student_remarks
+SET is_acknowledged = TRUE, ack_by_user_id = $1, ack_at = NOW()
+WHERE id = $2 AND tenant_id = $3
+RETURNING id, tenant_id, student_id, posted_by, category, remark_text, requires_ack, is_acknowledged, ack_by_user_id, ack_at, created_at, updated_at
+`
+
+type AcknowledgeStudentRemarkParams struct {
+	AckByUserID pgtype.UUID `json:"ack_by_user_id"`
+	ID          pgtype.UUID `json:"id"`
+	TenantID    pgtype.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) AcknowledgeStudentRemark(ctx context.Context, arg AcknowledgeStudentRemarkParams) (StudentRemark, error) {
+	row := q.db.QueryRow(ctx, acknowledgeStudentRemark, arg.AckByUserID, arg.ID, arg.TenantID)
+	var i StudentRemark
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.StudentID,
+		&i.PostedBy,
+		&i.Category,
+		&i.RemarkText,
+		&i.RequiresAck,
+		&i.IsAcknowledged,
+		&i.AckByUserID,
+		&i.AckAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const countStudents = `-- name: CountStudents :one
 SELECT count(*) FROM students
 WHERE tenant_id = $1
@@ -257,6 +290,50 @@ func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (S
 		&i.HouseID,
 		&i.RfidTag,
 		&i.BiometricID,
+	)
+	return i, err
+}
+
+const createStudentRemark = `-- name: CreateStudentRemark :one
+INSERT INTO student_remarks (
+    tenant_id, student_id, posted_by, category, remark_text, requires_ack
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING id, tenant_id, student_id, posted_by, category, remark_text, requires_ack, is_acknowledged, ack_by_user_id, ack_at, created_at, updated_at
+`
+
+type CreateStudentRemarkParams struct {
+	TenantID    pgtype.UUID `json:"tenant_id"`
+	StudentID   pgtype.UUID `json:"student_id"`
+	PostedBy    pgtype.UUID `json:"posted_by"`
+	Category    string      `json:"category"`
+	RemarkText  string      `json:"remark_text"`
+	RequiresAck pgtype.Bool `json:"requires_ack"`
+}
+
+func (q *Queries) CreateStudentRemark(ctx context.Context, arg CreateStudentRemarkParams) (StudentRemark, error) {
+	row := q.db.QueryRow(ctx, createStudentRemark,
+		arg.TenantID,
+		arg.StudentID,
+		arg.PostedBy,
+		arg.Category,
+		arg.RemarkText,
+		arg.RequiresAck,
+	)
+	var i StudentRemark
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.StudentID,
+		&i.PostedBy,
+		&i.Category,
+		&i.RemarkText,
+		&i.RequiresAck,
+		&i.IsAcknowledged,
+		&i.AckByUserID,
+		&i.AckAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -713,6 +790,69 @@ func (q *Queries) ListSectionsByTenant(ctx context.Context, tenantID pgtype.UUID
 			&i.Name,
 			&i.Capacity,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStudentRemarks = `-- name: ListStudentRemarks :many
+SELECT sr.id, sr.tenant_id, sr.student_id, sr.posted_by, sr.category, sr.remark_text, sr.requires_ack, sr.is_acknowledged, sr.ack_by_user_id, sr.ack_at, sr.created_at, sr.updated_at, u.full_name as posted_by_name 
+FROM student_remarks sr
+JOIN users u ON sr.posted_by = u.id
+WHERE sr.student_id = $1 AND sr.tenant_id = $2
+ORDER BY sr.created_at DESC
+`
+
+type ListStudentRemarksParams struct {
+	StudentID pgtype.UUID `json:"student_id"`
+	TenantID  pgtype.UUID `json:"tenant_id"`
+}
+
+type ListStudentRemarksRow struct {
+	ID             pgtype.UUID        `json:"id"`
+	TenantID       pgtype.UUID        `json:"tenant_id"`
+	StudentID      pgtype.UUID        `json:"student_id"`
+	PostedBy       pgtype.UUID        `json:"posted_by"`
+	Category       string             `json:"category"`
+	RemarkText     string             `json:"remark_text"`
+	RequiresAck    pgtype.Bool        `json:"requires_ack"`
+	IsAcknowledged pgtype.Bool        `json:"is_acknowledged"`
+	AckByUserID    pgtype.UUID        `json:"ack_by_user_id"`
+	AckAt          pgtype.Timestamptz `json:"ack_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	PostedByName   string             `json:"posted_by_name"`
+}
+
+func (q *Queries) ListStudentRemarks(ctx context.Context, arg ListStudentRemarksParams) ([]ListStudentRemarksRow, error) {
+	rows, err := q.db.Query(ctx, listStudentRemarks, arg.StudentID, arg.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStudentRemarksRow
+	for rows.Next() {
+		var i ListStudentRemarksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.StudentID,
+			&i.PostedBy,
+			&i.Category,
+			&i.RemarkText,
+			&i.RequiresAck,
+			&i.IsAcknowledged,
+			&i.AckByUserID,
+			&i.AckAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PostedByName,
 		); err != nil {
 			return nil, err
 		}

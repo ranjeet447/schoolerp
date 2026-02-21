@@ -131,6 +131,7 @@ export default function AdminExamsPage() {
   const [papers, setPapers] = useState<PaperRow[]>([])
   const [loading, setLoading] = useState(true)
 
+  const [examPreset, setExamPreset] = useState("custom")
   const [newName, setNewName] = useState("")
   const [newAYID, setNewAYID] = useState("")
   const [newStartDate, setNewStartDate] = useState("")
@@ -495,14 +496,38 @@ export default function AdminExamsPage() {
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleCreate} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Exam Name</Label>
-                      <Input 
-                        placeholder="e.g. Mid-Term 2025" 
-                        value={newName}
-                        onChange={(e) => setNewName(e.target.value)}
-                        required 
-                      />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Template</Label>
+                        <Select value={examPreset} onValueChange={(val) => {
+                          setExamPreset(val)
+                          if(val !== 'custom') {
+                            const yearName = years.find(y => y.id === newAYID)?.name || new Date().getFullYear().toString()
+                            setNewName(`${val} - ${yearName}`)
+                          }
+                        }}>
+                          <SelectTrigger><SelectValue placeholder="Preset" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="custom">Custom</SelectItem>
+                            <SelectItem value="Unit Test 1">Unit Test 1</SelectItem>
+                            <SelectItem value="Unit Test 2">Unit Test 2</SelectItem>
+                            <SelectItem value="Half-Yearly">Half-Yearly</SelectItem>
+                            <SelectItem value="Annual Exam">Annual Exam</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Exam Name</Label>
+                        <Input 
+                          placeholder="e.g. Mid-Term 2025" 
+                          value={newName}
+                          onChange={(e) => {
+                            setNewName(e.target.value)
+                            setExamPreset("custom")
+                          }}
+                          required 
+                        />
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label>Academic Year</Label>

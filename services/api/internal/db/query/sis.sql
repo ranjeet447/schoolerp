@@ -20,6 +20,22 @@ LEFT JOIN classes c ON sec.class_id = c.id
 WHERE s.tenant_id = $1 
 LIMIT $2 OFFSET $3;
 
+-- name: SearchStudents :many
+SELECT s.id, s.full_name, s.admission_number, s.status, s.section_id, c.id as class_id, sec.name as section_name, c.name as class_name
+FROM students s
+LEFT JOIN sections sec ON s.section_id = sec.id
+LEFT JOIN classes c ON sec.class_id = c.id
+WHERE s.tenant_id = $1
+  AND (
+    $2::text = '' 
+    OR s.full_name ILIKE '%' || $2 || '%' 
+    OR s.admission_number ILIKE '%' || $2 || '%'
+  )
+  AND (array_length($3::uuid[], 1) IS NULL OR s.section_id = ANY($3::uuid[]))
+  AND (array_length($4::uuid[], 1) IS NULL OR sec.class_id = ANY($4::uuid[]))
+  AND s.status = 'active'
+LIMIT $5;
+
 -- name: UpdateStudent :one
 UPDATE students
 SET 
@@ -153,3 +169,23 @@ INSERT INTO promotion_rules (
     @tenant_id, @priority, @min_aggregate_percent, @min_subject_percent,
     @required_attendance_percent, @is_active
 ) RETURNING *;
+
+-- name: CreateStudentRemark :one
+INSERT INTO student_remarks (
+    tenant_id, student_id, posted_by, category, remark_text, requires_ack
+) VALUES (
+    @tenant_id, @student_id, @posted_by, @category, @remark_text, @requires_ack
+) RETURNING *;
+
+-- name: ListStudentRemarks :many
+SELECT sr.*, u.full_name as posted_by_name 
+FROM student_remarks sr
+JOIN users u ON sr.posted_by = u.id
+WHERE sr.student_id = @student_id AND sr.tenant_id = @tenant_id
+ORDER BY sr.created_at DESC;
+
+-- name: AcknowledgeStudentRemark :one
+UPDATE student_remarks
+SET is_acknowledged = TRUE, ack_by_user_id = @ack_by_user_id, ack_at = NOW()
+WHERE id = @id AND tenant_id = @tenant_id
+RETURNING *;

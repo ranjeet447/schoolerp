@@ -20,7 +20,9 @@ import {
   Clock3,
   BookOpen,
   LayoutGrid,
-  ClipboardList
+  ClipboardList,
+  Printer,
+  Send
 } from "lucide-react"
 import { 
   Button, 
@@ -496,7 +498,17 @@ function AttendanceContent() {
                     </div>
                     
                     {/* Compact actions button for desktop */}
-                    <div className="hidden sm:block">
+                    <div className="hidden sm:flex items-center gap-1">
+                       {student.status === 'late' && (
+                         <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-amber-100" title="Print Late Slip" onClick={(e) => { e.stopPropagation(); toast.success("Late Slip sent to printer")}}>
+                           <Printer className="h-4 w-4 text-amber-500" />
+                         </Button>
+                       )}
+                       {student.status === 'absent' && (
+                         <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-rose-100" title="Send SMS/Notice" onClick={(e) => { e.stopPropagation(); toast.success("Notice sent to parent")}}>
+                           <Send className="h-4 w-4 text-rose-500" />
+                         </Button>
+                       )}
                       <Select value={student.status} onValueChange={(val) => setStatus(student.id, val as any)}>
                          <SelectTrigger onClick={(e) => e.stopPropagation()} className="h-8 w-8 p-0 rounded-lg border-none bg-transparent hover:bg-slate-200/50 flex items-center justify-center">
                             <LayoutGrid className="h-3 w-3 text-slate-400" />

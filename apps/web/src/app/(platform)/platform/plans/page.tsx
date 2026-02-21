@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
+import { toast } from "sonner";
 import { 
   PackageOpen, 
   Flag, 
@@ -216,7 +217,7 @@ export default function PlatformPlansPage() {
       setPlanDialogOpen(false);
       loadPlans();
     } catch (e: any) {
-      alert(e.message); // Simple alert for now, toast in real app
+      toast.error(e.message); 
     } finally {
       setBusyId("");
     }

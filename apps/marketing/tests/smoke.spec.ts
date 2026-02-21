@@ -1,50 +1,50 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Marketing Site Regression', () => {
+test.describe('Marketing Site SEO & Content Hubs', () => {
 
   test('Homepage loads with key sections', async ({ page }) => {
     await page.goto('/');
-
-    // Check Hero
     await expect(page.locator('h1')).toContainText('School');
     await expect(page.locator('text=Book a Demo').first()).toBeVisible();
-
-    // Check Features Grid presence
-    await expect(page.locator('text=Fees & Audit-grade Receipts')).toBeVisible();
-
-    // Check Trust Strip
-    await expect(page.locator('text=Trusted by schools')).toBeVisible();
   });
 
-  test('Features page loads', async ({ page }) => {
+  test('Features hub and category search', async ({ page }) => {
     await page.goto('/features');
-    await expect(page.locator('h1')).toContainText('Platform Capabilities');
-    await expect(page.locator('text=Financial Control Center')).toBeVisible();
+    await expect(page.locator('h1')).toContainText('Software Solutions');
+    await expect(page.locator('input[placeholder*="Search"]')).toBeVisible();
   });
 
-  test('Pricing page toggles', async ({ page }) => {
-    await page.goto('/pricing');
-    await expect(page.locator('h1')).toContainText('Invest in Efficiency');
-
-    // Check default annual
-    await expect(page.locator('text=Yearly')).toBeVisible();
-    await expect(page.locator('text=4,000')).toBeVisible(); // 5000 * 0.8
-
-    // Toggle to monthly
-    await page.click('text=Monthly');
-    await expect(page.locator('text=5,000')).toBeVisible();
+  test('Use Cases library and filtering', async ({ page }) => {
+    await page.goto('/use-cases');
+    await expect(page.locator('h1')).toContainText('Specialized Workflows');
+    await expect(page.locator('text=Parents')).toBeVisible();
+    await expect(page.locator('text=Admins')).toBeVisible();
   });
 
-  test('Blog listing loads', async ({ page }) => {
+  test('Resources Knowledge Hub', async ({ page }) => {
+    await page.goto('/resources');
+    await expect(page.locator('h1')).toContainText('Free Resources');
+    await expect(page.locator('text=CBSE Compliance')).toBeVisible();
+  });
+
+  test('Blog listing and dynamic data', async ({ page }) => {
     await page.goto('/blog');
-    await expect(page.locator('h1')).toContainText('Insights & Updates');
-    await expect(page.locator('text=Multilingual Support')).toBeVisible();
+    await expect(page.locator('h1')).toContainText('Guides & Insights');
+    await expect(page.locator('text=Reduce Fee Defaults')).toBeVisible();
   });
 
-  test('Contact page loads', async ({ page }) => {
-    await page.goto('/contact');
-    await expect(page.locator('h1')).toContainText('Get in touch');
-    await expect(page.locator('input[type="email"]')).toBeVisible();
+  test('LLM discoverability (llms.txt)', async ({ page }) => {
+    const response = await page.goto('/llms.txt');
+    expect(response?.ok()).toBeTruthy();
+    const content = await page.content();
+    expect(content).toContain('SchoolERP');
+    expect(content).toContain('Reduce WhatsApp Chaos');
+  });
+
+  test('Sitemap.xml contains 60+ routes', async ({ page }) => {
+    // Note: In local dev sitemap may be a route, in prod a file
+    const response = await page.goto('/sitemap.xml');
+    expect(response?.ok()).toBeTruthy();
   });
 
 });

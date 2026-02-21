@@ -174,3 +174,35 @@ func (q *Queries) UpdateUserLastLogin(ctx context.Context, arg UpdateUserLastLog
 	_, err := q.db.Exec(ctx, query, arg.ID)
 	return err
 }
+
+// UserRoleAssignmentScope represents a scope for a role assignment
+type UserRoleAssignmentScope struct {
+	ScopeType string
+	ScopeID   pgtype.UUID
+}
+
+// ListUserRoleAssignmentsByScope retrieves all scope assignments for a user and role
+func (q *Queries) ListUserRoleAssignmentsByScope(ctx context.Context, userID, tenantID pgtype.UUID, roleCode string) ([]UserRoleAssignmentScope, error) {
+	const query = `
+		SELECT scope_type, scope_id
+		FROM role_assignments ra
+		JOIN roles r ON r.id = ra.role_id
+		WHERE ra.user_id = $1 AND ra.tenant_id = $2 AND r.code = $3
+	`
+
+	rows, err := q.db.Query(ctx, query, userID, tenantID, roleCode)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var scopes []UserRoleAssignmentScope
+	for rows.Next() {
+		var s UserRoleAssignmentScope
+		if err := rows.Scan(&s.ScopeType, &s.ScopeID); err != nil {
+			return nil, err
+		}
+		scopes = append(scopes, s)
+	}
+	return scopes, nil
+}

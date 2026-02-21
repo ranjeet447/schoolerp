@@ -1058,3 +1058,75 @@
                 promoted: { type: integer }
                 failed: { type: integer }
                 skipped: { type: integer }
+
+# ─── Student Remarks ────────────────────────────────
+/admin/remarks:
+  post:
+    operationId: createStudentRemark
+    tags: [Student Remarks]
+    summary: Create a new student remark
+    description: Adds a behavioral or academic remark for a student.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [student_id, category, remark_text]
+            properties:
+              student_id: { type: string, format: uuid }
+              category: { type: string, enum: [academic, behavior, attendance, other] }
+              remark_text: { type: string }
+              requires_ack: { type: boolean, default: false }
+    responses:
+      '201':
+        description: Remark created
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string, format: uuid }
+
+/admin/students/{studentID}/remarks:
+  get:
+    operationId: listStudentRemarks
+    tags: [Student Remarks]
+    summary: List remarks for a specific student
+    parameters:
+      - name: studentID
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: List of remarks
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  category: { type: string }
+                  remark_text: { type: string }
+                  posted_by_name: { type: string }
+                  created_at: { type: string, format: date-time }
+                  is_acknowledged: { type: boolean }
+
+/admin/remarks/{id}/acknowledge:
+  post:
+    operationId: acknowledgeStudentRemark
+    tags: [Student Remarks]
+    summary: Acknowledge a student remark
+    description: Marks a remark as acknowledged by the parent or admin.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: Remark ID
+    responses:
+      '200':
+        description: Remark acknowledged

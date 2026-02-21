@@ -36,6 +36,7 @@ import {
   Switch
 } from "@schoolerp/ui";
 import { apiClient } from "@/lib/api-client";
+import { toast } from "sonner";
 
 interface AutomationRule {
   id: string;
@@ -103,7 +104,7 @@ export default function AutomationManagementPage() {
         fetchRules();
       }
     } catch (e) {
-      alert("Invalid JSON in condition or action field");
+      toast.error("Invalid JSON in condition or action field");
       console.error(e);
     } finally {
       setIsSaving(false);

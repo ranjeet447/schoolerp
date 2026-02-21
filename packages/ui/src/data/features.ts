@@ -1,6 +1,3 @@
-
-
-
 export type FeatureCategory = 'academics' | 'finance' | 'safety' | 'communication' | 'platform' | 'ai';
 export type FeatureStage = 'live' | 'beta' | 'planned';
 export type FeatureTier = 'core' | 'addon' | 'enterprise';
@@ -25,462 +22,440 @@ export interface FeatureItem {
 
 export const FEATURES_DATA: FeatureItem[] = [
   {
-    id: "academics",
-    slug: "academic-lifecycle",
-    title: "Academic Lifecycle",
-    description: "End-to-end management from student admission to automated report card generation.",
-    longDescription: "Manage every aspect of the student journey. Our board-agnostic gradebook supports CBSE, ICSE, and regional standards with automated weighted calculations.",
-    icon: "GraduationCap",
-    color: "bg-purple-500",
+    id: "fee-mgmt",
+    slug: "school-fee-management-software",
+    title: "School Fee Management",
+    description: "Automate fee collection, send reminders, and reconcile payments seamlessly.",
+    longDescription: "The most comprehensive fee management software for Indian schools. Stop revenue leakage with audit-grade financial tools and automated SMS/Email reminders ensuring over 98% on-time fee collection. Give parents multiple payment options including zero-cost UPI.",
+    icon: "Wallet",
+    color: "bg-emerald-500",
+    category: "finance",
+    stage: "live",
+    tier: "core",
+    benefits: [
+      "Zero-Transaction-Cost UPI Integration",
+      "Auto-Reconciliation via Gateway",
+      "Daily Defaulter Target Setting",
+      "Bulk SMS/WhatsApp Reminders"
+    ],
+    mockUI: { title: "Fee Collection Dashboard", type: "chart" }
+  },
+  {
+    id: "fee-receipt",
+    slug: "fee-receipt-software",
+    title: "Fee Receipt Engine",
+    description: "Generate compliant, sequential fee receipts in 1-click.",
+    longDescription: "Speed up your fee counter. Our fee receipt software allows clerks to collect cash, cheque, or online payments and print sequential, audit-proof receipts instantly. Includes day-book closures and cancellation audits.",
+    icon: "Receipt",
+    color: "bg-teal-500",
+    category: "finance",
+    stage: "live",
+    tier: "core",
+    benefits: [
+      "Thermal & A4 Print Formats",
+      "Partial Payment Tracking",
+      "End-of-Day Cashier Book",
+      "Tally-ready format Exports"
+    ],
+    mockUI: { title: "Point of Sale View", type: "list" }
+  },
+  {
+    id: "defaulter",
+    slug: "defaulter-list-management",
+    title: "Defaulter List Management",
+    description: "1-click generation of defaulter lists segmented by class, section, or amount.",
+    longDescription: "Stop tracking pending fees in Excel. Our dynamic defaulter list management auto-updates the moment a parent pays online. Set thresholds to block report cards or parent app access until dues are cleared.",
+    icon: "AlertTriangle",
+    color: "bg-red-500",
+    category: "finance",
+    stage: "live",
+    tier: "core",
+    benefits: [
+      "Real-time Pending Dues",
+      "Targeted Reminder Triggers",
+      "Concession & Scholarship Adjustments",
+      "Report Card Blocking (Optional)"
+    ],
+    mockUI: { title: "Defaulter Action Tracking", type: "table" }
+  },
+  {
+    id: "late-fee",
+    slug: "late-fee-and-concession-management",
+    title: "Late Fee & Concessions",
+    description: "Auto-calculate late fees and manage sibling concessions systematically.",
+    longDescription: "Enforce your fee policies without arguments at the counter. Configure daily or flat late fees that auto-apply after due dates. Give principals a secure override dashboard for approving discounts or waivers.",
+    icon: "Calculator",
+    color: "bg-orange-500",
+    category: "finance",
+    stage: "live",
+    tier: "core",
+    benefits: [
+      "Automated Late Fines",
+      "Sibling & Staff Ward Concessions",
+      "Approval Workflow for Waivers",
+      "Audit logs on all discounts"
+    ],
+    mockUI: { title: "Concession Policy Builder", type: "nodes" }
+  },
+  {
+    id: "attendance",
+    slug: "school-attendance-management",
+    title: "Attendance Management",
+    description: "Fast exception-based attendance marking for teachers. Takes less than 15 seconds.",
+    longDescription: "A school attendance management system that teachers actually want to use. Mark only the absentees. The system auto-compiles daily, weekly, and monthly registers ready for printing or inspection.",
+    icon: "UserCheck",
+    color: "bg-blue-500",
     category: "academics",
     stage: "live",
     tier: "core",
     benefits: [
-      "Customizable Gradebook Schemas",
-      "Automated Hall Ticket Generation",
-      "Teacher Lesson Planning & Tracking",
-      "Digital Student Portfolios"
+      "Exception-based Marking",
+      "Auto-calculated Monthly Percentages",
+      "Holiday & Weekend Aware",
+      "Subject-wise or Daily marking"
     ],
-    mockUI: {
-      title: "Gradebook Dashboard",
-      type: "table"
-    }
+    mockUI: { title: "Daily Attendance Grid", type: "table" }
   },
   {
-    id: "finance",
-    slug: "financial-controls",
-    title: "Financial Controls",
-    description: "Compliance-grade receipt series, automated fee collection, and Tally export.",
-    longDescription: "Stop revenue leakage with audit-grade financial tools. Automated SMS/Email reminders ensuring over 98% on-time fee collection.",
-    icon: "Wallet",
-    color: "bg-emerald-500",
-    category: "finance",
-    stage: "beta",
-    tier: "core",
-    benefits: [
-      "Sequential Receipt Compliance",
-      "Auto-Reconciliation via Gateway",
-      "Direct Tally Export Integration",
-      "Scholarship & Concession Management"
-    ],
-    mockUI: {
-      title: "Fee Collection Snippet",
-      type: "chart"
-    }
-  },
-  {
-    id: "safety",
-    slug: "campus-safety",
-    title: "Campus Safety",
-    description: "Built-in visitor management and pickup authorizations with secure QR verification.",
-    longDescription: "A secure perimeter for your students. Manage visitor logs, teacher gate passes, and pickup authorizations from a single dashboard.",
-    icon: "ShieldCheck",
-    color: "bg-orange-500",
-    category: "safety",
-    stage: "beta",
-    tier: "core",
-    benefits: [
-      "QR-Based Secure Gate Pass",
-      "Visitor Photo & ID Verification",
-      "Emergency Broadcast System",
-      "Verified Guardian Pickup Logs"
-    ],
-    mockUI: {
-      title: "Visitor Log Mockup",
-      type: "list"
-    }
-  },
-  {
-    id: "automation",
-    slug: "automation-studio",
-    title: "Automation Studio",
-    description: "A no-code engine to build custom workflows and school-specific triggers.",
-    longDescription: "Your school, your rules. Build custom automation for everything from birthday alerts to low-balance fee triggers without writing code.",
-    icon: "Zap",
-    color: "bg-yellow-500",
-    category: "platform",
-    stage: "planned",
-    tier: "core",
-    benefits: [
-      "Drag-and-Drop Logic Builder",
-      "Custom SMS & Email Templates",
-      "Time-Based Scheduled Tasks",
-      "External API Webhooks"
-    ],
-    mockUI: {
-      title: "Workflow Builder Interface",
-      type: "nodes"
-    }
-  },
-  {
-    id: "alerts",
-    slug: "alert-management",
-    title: "Smart Alerts",
-    description: "Automated, event-driven notifications for absences, fees, and safety events.",
-    longDescription: "React instantly to critical events. Our Smart Alert system enqueues notifications across Push, WhatsApp, and SMS based on tenant policies.",
-    icon: "Bell",
+    id: "absentee",
+    slug: "absentee-follow-up-system",
+    title: "Absentee Follow-up",
+    description: "Automate SMS/Push alerts to parents the moment a child is marked absent.",
+    longDescription: "Ensure student safety and keep parents informed. Our absentee follow-up system triggers an alert to parents as soon as the first-period attendance is submitted, reducing manual phone calls from the front desk by 90%.",
+    icon: "PhoneCall",
     color: "bg-indigo-500",
     category: "communication",
+    stage: "live",
     tier: "core",
     benefits: [
-      "Absence Auto-Alerts",
-      "Payment Success Receipts",
-      "Safety Emergency Broadcasts",
-      "Multilingual Template Engine"
+      "Instant SMS/Push Alerts",
+      "Parent Response Tracking",
+      "Consecutive Leave Warnings",
+      "Truancy Analytics"
     ],
-    mockUI: {
-      title: "Alert Trigger Config",
-      type: "nodes"
-    }
+    mockUI: { title: "Follow-up Logs", type: "list" }
   },
   {
-    id: "notices",
-    slug: "notices-circulars",
-    title: "Notices & Circulars",
-    description: "Targeted broadcasting of circulars and tracking of parent acknowledgments.",
-    longDescription: "Ensure your message is heard. Send targeted notices to specific classes, sections, or user groups and track who has read them in real-time.",
-    icon: "Megaphone",
-    color: "bg-teal-500",
+    id: "parent-app",
+    slug: "parent-communication-app",
+    title: "Parent Communication App",
+    description: "A centralized digital diary for parents to track fees, attendance, and homework.",
+    longDescription: "Replace WhatsApp chaos with a structured parent communication app. Protect teacher privacy while keeping parents fully informed about fee dues, homework, and exam schedules through a beautiful, vernacular-ready interface.",
+    icon: "Smartphone",
+    color: "bg-violet-500",
     category: "communication",
+    stage: "live",
     tier: "core",
     benefits: [
-      "Role-Based Targeting",
-      "Read Receipt Tracking",
-      "Attachment Support (PDF/Images)",
-      "Scheduled Publishing"
+      "No Personal Number Sharing",
+      "Role-based Announcements",
+      "Secure Digital Notice Board",
+      "Multilingual UI Support"
     ],
-    mockUI: {
-      title: "Notice Board View",
-      type: "list"
-    }
+    mockUI: { title: "Parent App Engagement", type: "chart" }
   },
   {
-    id: "discipline",
-    slug: "student-discipline",
-    title: "Discipline & Behavior",
-    description: "Structured incident logging, behavioral tracking, and parent transparency.",
-    longDescription: "Foster a positive school environment. Track incidents with severity levels, manage resolutions, and maintain parent transparency.",
-    icon: "FileWarning",
-    color: "bg-red-500",
-    category: "platform",
+    id: "circulars",
+    slug: "school-circular-acknowledgement",
+    title: "Circular Acknowledgement",
+    description: "Send important notices and track exactly which parents have read them.",
+    longDescription: "Never hear 'I didn't get the message' again. Send digital circulars with attachments and enable a one-click acknowledgement button. Track read receipts and compliance in real-time.",
+    icon: "Megaphone",
+    color: "bg-pink-500",
+    category: "communication",
+    stage: "live",
     tier: "core",
     benefits: [
-      "Behavioral Incident Logs",
-      "Severity-Based Notifications",
-      "Merit & Demerit Tracking",
-      "Confidential Management Notes"
+      "Digital Signatures / Acknowledgement",
+      "Targeted Broadcasting (Class/Section)",
+      "PDF/Image Attachments",
+      "Read Receipt Analytics"
     ],
-    mockUI: {
-      title: "Incident Report View",
-      type: "list"
-    }
+    mockUI: { title: "Broadcaster Stats", type: "selection" }
   },
   {
     id: "homework",
-    slug: "homework-tracking",
-    title: "Homework & Assignments",
-    description: "Digital assignment posting, submission tracking, and teacher feedback.",
-    longDescription: "Extend learning beyond the classroom. Teachers post topics with attachments, and students submit work directly via the mobile app.",
+    slug: "homework-diary-module",
+    title: "Homework Diary Module",
+    description: "Digital assignment posting and submission tracking with teacher feedback.",
+    longDescription: "Extend learning beyond the classroom. Teachers post homework or study materials, set due dates, and track submissions. Parents get automated push notifications so no assignment is ever missed.",
     icon: "ClipboardList",
-    color: "bg-blue-600",
-    category: "academics",
-    stage: "planned",
-    tier: "core",
-    benefits: [
-      "Photo-Based Submissions",
-      "Automated Due Reminders",
-      "Resource Library Integration",
-      "Digital Teacher Remarks"
-    ],
-    mockUI: {
-      title: "Assignment Dashboard",
-      type: "list"
-    }
-  },
-  {
-    id: "lesson-plan",
-    slug: "curriculum-tracking",
-    title: "Lesson Planning",
-    description: "Weekly syllabus coverage tracking and coordinator-level progress monitoring.",
-    longDescription: "Ensure academic consistency. Track syllabus completion against planned timelines and manage teacher workload efficiently.",
-    icon: "CalendarDays",
     color: "bg-cyan-500",
     category: "academics",
-    stage: "planned",
+    stage: "live",
     tier: "core",
     benefits: [
-      "Weekly Topic Planning",
-      "Syllabus Lag Alerts",
-      "Coordinator Review Flow",
-      "Holiday-Aware Scheduling"
+      "Multimedia Attachments",
+      "Automated Due Reminders",
+      "Digital Submission Engine",
+      "Teacher Grading & Remarks"
     ],
-    mockUI: {
-      title: "Curriculum Progress",
-      type: "chart"
-    }
+    mockUI: { title: "Homework Tracking", type: "list" }
   },
   {
-    id: "ptm",
-    slug: "parent-teacher-chat",
-    title: "Parent-Teacher Connect",
-    description: "Managed PTM slot booking and moderated teacher-parent interaction.",
-    longDescription: "Bridge the communication gap. Book PTM slots instantly and engage in moderated, student-specific chats without sharing personal numbers.",
-    icon: "MessagesSquare",
-    color: "bg-pink-500",
+    id: "admission",
+    slug: "school-admission-management",
+    title: "Admission Management",
+    description: "End-to-end digital admissions, from enquiry forms to enrolled student.",
+    longDescription: "Digitize your admission season. Track walk-ins, process online applications, collect registration fees, and seamlessly convert leads into enrolled students without re-typing their data.",
+    icon: "UserPlus",
+    color: "bg-emerald-600",
+    category: "platform",
+    stage: "live",
+    tier: "core",
+    benefits: [
+      "Customizable Enquiry Forms",
+      "Document Checklist Vault (Aadhar, TC)",
+      "Interview Scheduling",
+      "1-Click Lead to Student Conversion"
+    ],
+    mockUI: { title: "Admission Funnel", type: "chart" }
+  },
+  {
+    id: "enquiry",
+    slug: "enquiry-follow-up-pipeline",
+    title: "Enquiry Follow-up Pipeline",
+    description: "Track leads, schedule callbacks, and never lose a prospective admission.",
+    longDescription: "Increase your admission conversions. A Kan-ban style pipeline to track parent enquiries. Set follow-up dates, log call notes, and send promotional SMS templates directly from the CRM.",
+    icon: "Kanban",
+    color: "bg-orange-600",
     category: "communication",
-    stage: "planned",
+    stage: "live",
     tier: "core",
     benefits: [
-      "Instant PTM Slot Booking",
-      "Moderated Two-Way Chat",
-      "Interaction History Logs",
-      "Automated PTM Reminders"
+      "Visual Lead Pipeline",
+      "Daily Callback Reminders",
+      "Conversion Rate Analytics",
+      "Bulk Promotional Messaging"
     ],
-    mockUI: {
-      title: "Chat & Booking Interface",
-      type: "selection"
-    }
+    mockUI: { title: "Enquiry Pipeline", type: "nodes" }
   },
   {
-    id: "access",
-    slug: "secure-access",
-    title: "Identity & MFA",
-    description: "Enterprise-grade identity management with MFA and IP allowlisting.",
-    longDescription: "Security you can trust. Protect sensitive financial and academic data with 2FA, session tracking, and role-level permission customization.",
-    icon: "Fingerprint",
+    id: "sis",
+    slug: "student-information-system",
+    title: "Student Information System",
+    description: "A centralized, searchable master database for every student in the school.",
+    longDescription: "Say goodbye to dusty filing cabinets. Access complete student histories—academic records, fee payments, disciplinary logs, and medical information—in seconds from any device.",
+    icon: "Database",
     color: "bg-slate-700",
-    category: "safety",
-    stage: "planned",
-    tier: "enterprise",
-    benefits: [
-      "TOTP/SMS Authenticator",
-      "Role-Level Customization",
-      "IP Range Restrictions",
-      "Active Session Revocation"
-    ],
-    mockUI: {
-      title: "Security Controller",
-      type: "nodes"
-    }
-  },
-  {
-    id: "logistics",
-    slug: "fleet-tracking",
-    title: "Transport & Logistics",
-    description: "Full-stack transport management with live GPS tracking and optimized route mapping.",
-    longDescription: "Real-time visibility for parents and administrators. Track location, fuel consumption, and maintenance schedules for your entire fleet.",
-    icon: "Truck",
-    color: "bg-rose-500",
-    category: "safety",
-    stage: "beta",
+    category: "platform",
+    stage: "live",
     tier: "core",
     benefits: [
-      "Live GPS Bus Tracking",
-      "Route Optimization Engine",
-      "Automated Fee Integration",
-      "Maintenance & Fuel Logs"
+      "Unified Student Profiling",
+      "Sibling Auto-mapping",
+      "Digital Document Vault",
+      "Historical Data Retention"
     ],
-    mockUI: {
-      title: "Live Transport Map",
-      type: "map"
-    }
+    mockUI: { title: "Student 360 View", type: "selection" }
+  },
+  {
+    id: "report-card",
+    slug: "report-card-software",
+    title: "Report Card Software",
+    description: "Board-aligned, customizable report card generation with 1-click bulk printing.",
+    longDescription: "Reduce exam season stress. Our report card software supports CBSE, ICSE, and State Board formats. Automatically calculate aggregates, grades, and percentiles, then print hundreds of beautiful report cards instantly.",
+    icon: "GraduationCap",
+    color: "bg-purple-600",
+    category: "academics",
+    stage: "live",
+    tier: "core",
+    benefits: [
+      "Pre-configured Board Templates",
+      "Customizable Branding & Logos",
+      "Co-scholastic Grading Native",
+      "Digital Publishing to Parent App"
+    ],
+    mockUI: { title: "Report Card Builder", type: "table" }
+  },
+  {
+    id: "marks-entry",
+    slug: "exam-marks-entry-system",
+    title: "Exam Marks Entry System",
+    description: "Fast, spreadsheet-like marks entry for teachers to speed up result processing.",
+    longDescription: "Built for speed. Teachers can input marks in a dynamic grid layout that calculates totals on the fly. Prevent errors with built-in validation rules for max marks and passing thresholds.",
+    icon: "PenTool",
+    color: "bg-sky-500",
+    category: "academics",
+    stage: "live",
+    tier: "core",
+    benefits: [
+      "Spreadsheet-style Data Entry",
+      "Max Marks Validation",
+      "Coordinator Lock Controls",
+      "Absent/Medical Exception Handling"
+    ],
+    mockUI: { title: "Marks Entry Grid", type: "table" }
+  },
+  {
+    id: "bonafide",
+    slug: "bonafide-certificate-generator",
+    title: "Bonafide Certificate Generator",
+    description: "Generate official Bonafide and Character certificates in 5 seconds.",
+    longDescription: "Automate office requests. Select a student, pick a template, and generate a pre-filled Bonafide or Fee Certificate instantly, complete with digital signatures and school letterhead.",
+    icon: "FileSignature",
+    color: "bg-rose-500",
+    category: "platform",
+    stage: "live",
+    tier: "core",
+    benefits: [
+      "Pre-mapped Student Data",
+      "Customizable Letterheads",
+      "Issuance History Tracking",
+      "Multiple Template Support"
+    ],
+    mockUI: { title: "Certificate Preview", type: "list" }
+  },
+  {
+    id: "tc",
+    slug: "transfer-certificate-management",
+    title: "Transfer Certificate (TC)",
+    description: "Complete TC workflow ensuring all dues are cleared before issuance.",
+    longDescription: "Streamline the most critical exit process. Generate Transfer Certificates that comply with state formats. The system enforces 'No-Dues' checks across Library, Transport, and Fees before allowing TC generation.",
+    icon: "FileOutput",
+    color: "bg-red-600",
+    category: "platform",
+    stage: "live",
+    tier: "core",
+    benefits: [
+      "Automated No-Dues Verification",
+      "Draft vs Final Issuance Modes",
+      "State Board Compliant Templates",
+      "TC Register Export"
+    ],
+    mockUI: { title: "TC Generation Flow", type: "nodes" }
+  },
+  {
+    id: "reports",
+    slug: "school-reports-and-print-center",
+    title: "School Reports & Print Center",
+    description: "Your entire school's data, formatted for inspection and audits.",
+    longDescription: "Stop formatting Excel files. Our Print Center contains dozens of pre-built, inspection-ready reports. Generate Daily Fee Registers, Monthly Attendance summaries, and Category-wise Admission counts instantly.",
+    icon: "Printer",
+    color: "bg-slate-800",
+    category: "platform",
+    stage: "live",
+    tier: "core",
+    benefits: [
+      "One-click PDF/Excel Exports",
+      "Inspection-Ready Register Formats",
+      "Custom Date Range Filtering",
+      "Cross-Module Analytics"
+    ],
+    mockUI: { title: "Report Center Library", type: "list" }
+  },
+  {
+    id: "roles",
+    slug: "role-based-access-school-erp",
+    title: "Role-Based Access (RBAC)",
+    description: "Enterprise-grade security ensuring staff only see what they need.",
+    longDescription: "Protect sensitive school data. Accountants see fees, teachers see academics. Our RBAC engine allows you to customize permissions down to the button level, with complete audit logs of all actions.",
+    icon: "Key",
+    color: "bg-neutral-600",
+    category: "safety",
+    stage: "live",
+    tier: "core",
+    benefits: [
+      "Granular Permission Controls",
+      "Activity Audit Logs",
+      "Restricted IP Login (Optional)",
+      "Temporary Access Grants"
+    ],
+    mockUI: { title: "Role Manager", type: "selection" }
+  },
+  {
+    id: "transport",
+    slug: "transport-management-software",
+    title: "Transport Management",
+    description: "Map routes, track buses via GPS, and automate transport fee billing.",
+    longDescription: "End-to-end management of your school fleet. Assign students to specific stops, automatically calculate distance-based fees, and provide parents with live GPS tracking via the parent app.",
+    icon: "Truck",
+    color: "bg-yellow-600",
+    category: "safety",
+    stage: "live",
+    tier: "addon",
+    benefits: [
+      "Distance/Slab-based Fee Integration",
+      "Live GPS Tracking for Parents",
+      "Driver and Helper Directory",
+      "Vehicle Maintenance Reminders"
+    ],
+    mockUI: { title: "Live Route Map", type: "map" }
   },
   {
     id: "library",
-    slug: "digital-library",
-    title: "Digital Media Center",
-    description: "Next-gen library management with digital media support and ISBN integration.",
-    longDescription: "Bridge physical books with digital resources. Manage stocks, circulation, and library memberships while providing access to e-books and video content.",
+    slug: "library-management-for-schools",
+    title: "Library Management",
+    description: "Manage books, track issuances, and automate fine calculations.",
+    longDescription: "A complete digital catalog for your library. Track textbook inventory, manage student lending periods, and automatically post late-return fines directly into the student's fee ledger.",
     icon: "BookOpen",
-    color: "bg-amber-500",
+    color: "bg-amber-600",
     category: "academics",
-    stage: "beta",
-    tier: "core",
-    benefits: [
-      "Digital Asset Support (PDF/Video)",
-      "Automated Issue & Return Logs",
-      "ISBN & QR Cataloging",
-      "Student Reading Progress"
-    ],
-    mockUI: {
-      title: "Library Catalog View",
-      type: "table"
-    }
-  },
-  {
-    id: "inventory",
-    slug: "inventory-procurement",
-    title: "Inventory & Procurement",
-    description: "Audit-grade inventory controls with purchase order workflows and vendor management.",
-    longDescription: "Stop leakage in your supply chain. Manage recurring stock, purchase orders, and asset allocations across all departments.",
-    icon: "ShoppingCart",
-    color: "bg-sky-500",
-    category: "finance",
-    stage: "beta",
-    tier: "core",
-    benefits: [
-      "Purchase Order Workflow",
-      "Multi-Godown Stock Tracking",
-      "Supplier Performance Metrics",
-      "Low Stock Auto-Alerts"
-    ],
-    mockUI: {
-      title: "Inventory Dashboard",
-      type: "chart"
-    }
-  },
-  {
-    id: "hrms",
-    slug: "automated-payroll",
-    title: "HRMS & Payroll",
-    description: "Complete employee lifecycle management with automated biometric payroll processing.",
-    longDescription: "Manage your workforce with precision. From recruitment to payslip generation, our HRMS ensures compliance and teacher satisfaction.",
-    icon: "Users",
-    color: "bg-violet-500",
-    category: "finance",
-    stage: "planned",
-    tier: "enterprise",
-    benefits: [
-      "Biometric Attendance Link",
-      "Automated Payslip Engine",
-      "Salary Structure Configurator",
-      "Performance and KRA Logs"
-    ],
-    mockUI: {
-      title: "Payroll Summary",
-      type: "table"
-    }
-  },
-  {
-    id: "portfolio",
-    slug: "portfolio-dashboards",
-    title: "Portfolio Dashboards",
-    description: "High-level analytics for school groups to monitor performance across all campuses.",
-    longDescription: "Manage multiple schools from a single cockpit. Compare academic results, financial health, and safety metrics across your entire portfolio.",
-    icon: "Sparkles",
-    color: "bg-fuchsia-500",
-    category: "platform",
-    stage: "planned",
-    tier: "enterprise",
-    benefits: [
-      "Cross-Campus Data Views",
-      "Financial Health Aggregators",
-      "Member School Comparisons",
-      "Group-Level Policy Control"
-    ],
-    mockUI: {
-      title: "Group Analytics View",
-      type: "chart"
-    }
-  },
-  {
-    id: "alumni",
-    slug: "alumni-placement",
-    title: "Alumni & Placements",
-    description: "Build a thriving community with alumni directories and coordinate career placement drives.",
-    longDescription: "Nurture your school's legacy. Stay connected with alumni, celebrate their success, and coordinate placement drives for current batches.",
-    icon: "Globe",
-    color: "bg-blue-500",
-    category: "academics",
-    stage: "planned",
-    tier: "core",
-    benefits: [
-      "Alumni Directory Portal",
-      "Placement Drive Coordination",
-      "Application Tracking System",
-      "Verified Professional Profiles"
-    ],
-    mockUI: {
-      title: "Alumni Connector",
-      type: "list"
-    }
-  },
-  {
-    id: "ai-copilot",
-    slug: "teacher-copilot",
-    title: "Teacher Copilot (AI Assist)",
-    description: "AI-driven drafting of lesson plans, worksheets, and quizzes with teacher-in-the-loop controls.",
-    longDescription: "Automate administrative paperwork. Teachers can generate draft syllabi and assignments grounded in their own curriculum records. Note: Subjective answers require teacher final say.",
-    icon: "BrainCircuit",
-    color: "bg-violet-600",
-    category: "ai",
-    stage: "beta",
+    stage: "live",
     tier: "addon",
     benefits: [
-      "Draft Lesson Plans in Seconds",
-      "Teacher-in-the-loop Verification",
-      "Grounded in ERP Academic Data",
-      "Assisted Subjective Rubrics"
+      "ISBN / Barcode Integration",
+      "Automated Due Reminders",
+      "Fine Ledger Sync",
+      "Digital Resource Cataloging"
     ],
-    mockUI: {
-      title: "AI Draft Interface",
-      type: "nodes"
-    }
+    mockUI: { title: "Library Circulation", type: "table" }
   },
   {
-    id: "ai-helpdesk",
-    slug: "parent-helpdesk",
-    title: "AI Parent Helpdesk",
-    description: "24/7 multilingual automated assistant grounded in your school's official records.",
-    longDescription: "Reduce front-desk load by 80%. Our AI bot answers parent queries about fees, holidays, and homework instantly via WhatsApp and Web Chat.",
+    id: "whatsapp",
+    slug: "whatsapp-integration-for-schools",
+    title: "WhatsApp API Integration",
+    description: "Send official fee reminders and notices via automated WhatsApp messages.",
+    longDescription: "Reach parents where they already are. Our official WhatsApp API integration allows you to send automated fee reminders, attendance alerts, and circulars directly to parent WhatsApp numbers with a verified business profile.",
     icon: "MessageCircle",
-    color: "bg-blue-500",
-    category: "ai",
-    stage: "beta",
+    color: "bg-emerald-400",
+    category: "communication",
+    stage: "live",
     tier: "addon",
     benefits: [
-      "24/7 WhatsApp & Web Chat",
-      "Hindi/English Multilingual",
-      "Grounded in ERP Records",
-      "Billed via Communication Wallet"
+      "High Open Rates (98%+)",
+      "Automated Trigger Messages",
+      "Official Green Tick Verification",
+      "Replaces Unofficial Spam Groups"
     ],
-    mockUI: {
-      title: "AI Support Chat",
-      type: "list"
-    }
+    mockUI: { title: "WhatsApp Broadcast Log", type: "list" }
   },
   {
-    id: "ai-finance",
-    slug: "fee-intelligence",
-    title: "Fee Intelligence",
-    description: "Predictive delay-risk flags and optimized reminder cadence for your finance team.",
-    longDescription: "Stay ahead of cashflow gaps. Our AI analyzes payment velocity to flag students likely to delay, suggesting the optimal time to send reminders.",
-    icon: "TrendingUp",
-    color: "bg-emerald-600",
-    category: "ai",
-    stage: "beta",
+    id: "sms",
+    slug: "sms-integration-for-schools",
+    title: "SMS Integration",
+    description: "DLT-compliant SMS broadcasting for urgent updates and notifications.",
+    longDescription: "The reliable fallback for critical alerts. Send DLT-approved SMS messages for unexpected holidays, transport delays, or OTP verifications at a fraction of the cost of manual calling.",
+    icon: "MessageSquare",
+    color: "bg-blue-400",
+    category: "communication",
+    stage: "live",
     tier: "addon",
     benefits: [
-      "Explainable Risk Flags",
-      "Predictive Cashflow Trends",
-      "Automated Reminder Cadence",
-      "Explainable Decision Logic"
+      "100% Delivery on Active Numbers",
+      "DLT Template Pre-approvals",
+      "Cost-effective broadcasting",
+      "Delivery Status Tracking"
     ],
-    mockUI: {
-      title: "Risk Analysis Dashboard",
-      type: "chart"
-    }
+    mockUI: { title: "SMS Gateway Metrics", type: "chart" }
   },
   {
-    id: "ai-insights",
-    slug: "smart-insights",
-    title: "Advanced AI Insights",
-    description: "Constraint-based timetable optimization and systemic anomaly alerts.",
-    longDescription: "Enterprise-grade intelligence for management. Solve complex timetabling constraints and detect anomalies in attendance or transport instantly.",
-    icon: "Activity",
+    id: "ai",
+    slug: "ai-assistant-for-schools",
+    title: "AI Assistant (Coming Soon)",
+    description: "A 24/7 AI-powered helpdesk grounded directly in your school's data.",
+    longDescription: "Reduce front-desk workload by 80%. Our cutting-edge AI answers routine parent queries about holidays, fee amounts, and syllabus changes in multiple languages, directly via WhatsApp or the Parent App.",
+    icon: "BrainCircuit",
     color: "bg-fuchsia-600",
     category: "ai",
-    stage: "planned",
-    tier: "enterprise",
+    stage: "beta",
+    tier: "addon",
     benefits: [
-      "Constraint Timetable Solver",
-      "Attendance Anomaly Alerts",
-      "Transport Deviation Logs",
-      "Remedial Study Suggestions"
+      "24/7 Query Resolution",
+      "Multilingual Support (Hindi/English)",
+      "Grounded only in permitted ERP records",
+      "Teacher Copilot for Lesson Drafting"
     ],
-    mockUI: {
-      title: "Anomaly Alert Feed",
-      type: "list"
-    }
+    mockUI: { title: "AI Chat Interface", type: "selection" }
   }
 ];

@@ -10,7 +10,7 @@ import { apiClient } from "@/lib/api-client"
 import { AdmissionEnquiry } from "@/types/admission"
 import { format } from "date-fns"
 import { toast } from "sonner"
-import { Loader2, RefreshCw } from "lucide-react"
+import { Loader2, RefreshCw, Calendar, MessageSquare } from "lucide-react"
 
 const textValue = (value: unknown) => {
   if (typeof value === "string") return value
@@ -210,16 +210,24 @@ export default function AdminEnquiriesPage() {
                         </Select>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => createApplication(enquiry)}
-                        disabled={creatingForID === enquiry.id || enquiry.status === "converted"}
-                        className="gap-2"
-                      >
-                        {creatingForID === enquiry.id && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                        {enquiry.status === "converted" ? "Converted" : "Create Application"}
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button variant="ghost" size="icon" title="Add Follow-up Reminder" onClick={() => toast.success("Follow-up reminder set")}>
+                          <Calendar className="h-4 w-4 text-slate-500" />
+                        </Button>
+                        <Button variant="ghost" size="icon" title="Record Outcome Note" onClick={() => toast.success("Outcome note recorded")}>
+                          <MessageSquare className="h-4 w-4 text-slate-500" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => createApplication(enquiry)}
+                          disabled={creatingForID === enquiry.id || enquiry.status === "converted"}
+                          className="gap-2 ml-2"
+                        >
+                          {creatingForID === enquiry.id && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                          {enquiry.status === "converted" ? "Converted" : "Create Application"}
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

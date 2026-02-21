@@ -84,34 +84,31 @@ export default function FeeCollectionPage() {
   const [refNo, setRefNo] = useState("")
   const [processing, setProcessing] = useState(false)
 
-  // Load Students on Mount
+  // Debounced Search Logic
   useEffect(() => {
-    const loadStudents = async () => {
-      setLoadingStudents(true)
-      try {
-        const res = await apiClient("/admin/students?limit=100")
-        if (res.ok) {
-          const data = await res.json()
-          setStudents(Array.isArray(data) ? data : data.data || [])
+    if (query.length > 1) {
+      const timer = setTimeout(async () => {
+        setLoadingStudents(true)
+        try {
+          const res = await apiClient(`/admin/students?query=${encodeURIComponent(query)}&limit=10`)
+          if (res.ok) {
+            const data = await res.json()
+            setStudents(Array.isArray(data) ? data : data.data || [])
+          }
+        } catch (err) {
+          console.error("Failed to fetch students", err)
+        } finally {
+          setLoadingStudents(false)
         }
-      } catch (err) {
-        toast.error("Failed to load students")
-      } finally {
-        setLoadingStudents(false)
-      }
+      }, 300)
+      return () => clearTimeout(timer)
+    } else {
+      setStudents([])
     }
-    loadStudents()
-  }, [])
+  }, [query])
 
-  // Filter Students
-  const filteredStudents = students.filter(s => {
-    if (!query) return true
-    const q = query.toLowerCase()
-    return (
-      s.full_name.toLowerCase().includes(q) ||
-      (s.admission_no && s.admission_no.toLowerCase().includes(q))
-    )
-  })
+  // Filter Students - no longer needed with API search, but keeping structure for now
+  const filteredStudents = students
 
   // Select Student
   const handleSelectStudent = async (student: Student) => {
