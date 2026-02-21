@@ -114,15 +114,15 @@ function ConfidentialNotesPageContent() {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-6 min-h-screen bg-slate-950 text-white">
+    <div className="flex flex-col gap-6 p-6 min-h-screen">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-rose-400 to-pink-400 bg-clip-text text-transparent">
             Confidential Notes
           </h1>
-          <p className="text-slate-400 mt-1 flex items-center gap-2">
+          <p className="text-muted-foreground mt-1 flex items-center gap-2">
             <User className="h-4 w-4" /> {studentName}
-            <Badge className="bg-rose-500/10 text-rose-400 border-rose-500/30 rounded-full text-[10px]">
+            <Badge className="bg-rose-500/10 text-rose-500 border-rose-500/30 rounded-full text-[10px]">
               <Lock className="h-3 w-3 mr-1" /> Admin Only
             </Badge>
           </p>
@@ -130,11 +130,11 @@ function ConfidentialNotesPageContent() {
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-rose-600 hover:bg-rose-500">
+            <Button className="bg-rose-600 hover:bg-rose-500 text-white">
               <Plus className="mr-2 h-4 w-4" /> Add Note
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-slate-900 border-slate-800 text-white">
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Add Confidential Note</DialogTitle>
             </DialogHeader>
@@ -142,23 +142,23 @@ function ConfidentialNotesPageContent() {
               <div className="space-y-2">
                 <Label>Note</Label>
                 <textarea
-                  className="w-full bg-slate-950 border border-slate-800 rounded-md p-3 text-sm min-h-[120px] text-white"
+                  className="w-full bg-muted/50 border border-border/50 rounded-md p-3 text-sm min-h-[120px] text-foreground focus:outline-none focus:border-rose-500 transition-colors"
                   value={noteText}
                   onChange={(e) => setNoteText(e.target.value)}
                   placeholder="Enter a private note about this student..."
                 />
               </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border/50">
                 <div className="flex items-center gap-2">
-                  <ShieldAlert className="h-4 w-4 text-amber-400" />
-                  <span className="text-sm">Mark as sensitive</span>
+                  <ShieldAlert className="h-4 w-4 text-amber-500" />
+                  <span className="text-sm font-medium">Mark as sensitive</span>
                 </div>
                 <Switch checked={isSensitive} onCheckedChange={setIsSensitive} />
               </div>
               <Button
                 onClick={handleCreate}
                 disabled={creating}
-                className="w-full bg-rose-600 hover:bg-rose-500"
+                className="w-full bg-rose-600 hover:bg-rose-500 text-white"
               >
                 {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
                 Save Note
@@ -169,23 +169,23 @@ function ConfidentialNotesPageContent() {
       </div>
 
       {!studentId ? (
-        <Card className="bg-slate-900 border-slate-800">
+        <Card className="bg-card">
           <CardContent className="py-16 text-center">
-            <Lock className="h-12 w-12 mx-auto text-slate-600 mb-4" />
-            <p className="text-slate-400 text-lg">No student selected.</p>
-            <p className="text-slate-600 text-sm mt-1">Navigate here from a student profile to view notes.</p>
+            <Lock className="h-12 w-12 mx-auto text-muted-foreground mb-4 opacity-50" />
+            <p className="text-muted-foreground text-lg font-medium">No student selected.</p>
+            <p className="text-muted-foreground text-sm mt-1">Navigate here from a student profile to view notes.</p>
           </CardContent>
         </Card>
       ) : loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-rose-400" />
+          <Loader2 className="h-8 w-8 animate-spin text-rose-500" />
         </div>
       ) : notes.length === 0 ? (
-        <Card className="bg-slate-900 border-slate-800">
+        <Card className="bg-card">
           <CardContent className="py-16 text-center">
-            <Lock className="h-12 w-12 mx-auto text-slate-600 mb-4" />
-            <p className="text-slate-400 text-lg">No confidential notes yet.</p>
-            <p className="text-slate-600 text-sm mt-1">Add your first note using the button above.</p>
+            <Lock className="h-12 w-12 mx-auto text-muted-foreground mb-4 opacity-50" />
+            <p className="text-muted-foreground text-lg font-medium">No confidential notes yet.</p>
+            <p className="text-muted-foreground text-sm mt-1">Add your first note using the button above.</p>
           </CardContent>
         </Card>
       ) : (
@@ -194,7 +194,7 @@ function ConfidentialNotesPageContent() {
             <Card
               key={note.id}
               className={cn(
-                "bg-slate-900 border-slate-800 hover:border-slate-700 transition-colors",
+                "bg-card hover:border-border/80 transition-colors shadow-sm",
                 note.is_sensitive && "border-amber-500/30"
               )}
             >
@@ -202,12 +202,12 @@ function ConfidentialNotesPageContent() {
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     {note.is_sensitive && (
-                      <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/30 rounded-full text-[10px] mb-2">
+                      <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/30 rounded-full text-[10px] mb-2 font-bold uppercase tracking-wider">
                         <ShieldAlert className="h-3 w-3 mr-1" /> Sensitive
                       </Badge>
                     )}
-                    <p className="text-slate-200 whitespace-pre-wrap">{note.note}</p>
-                    <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
+                    <p className="text-foreground whitespace-pre-wrap">{note.note}</p>
+                    <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground font-medium">
                       <span className="flex items-center gap-1">
                         <User className="h-3 w-3" /> {note.author_name}
                       </span>
@@ -219,7 +219,7 @@ function ConfidentialNotesPageContent() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-slate-600 hover:text-red-400 hover:bg-red-500/10"
+                    className="h-8 w-8 text-muted-foreground hover:text-rose-500 hover:bg-rose-50"
                     onClick={() => handleDelete(note.id)}
                   >
                     <Trash2 className="h-4 w-4" />

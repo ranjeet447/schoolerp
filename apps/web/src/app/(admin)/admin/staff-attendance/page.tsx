@@ -115,19 +115,19 @@ export default function StaffAttendancePage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-white tracking-tight">Staff Attendance</h1>
-          <p className="text-slate-400 font-medium">Mark and track daily attendance for all staff members.</p>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">Staff Attendance</h1>
+          <p className="text-muted-foreground font-medium">Mark and track daily attendance for all staff members.</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button onClick={() => changeDate(-1)} variant="ghost" className="text-slate-400 hover:text-white rounded-xl">
+          <Button onClick={() => changeDate(-1)} variant="ghost" className="text-muted-foreground hover:text-foreground rounded-xl">
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <div className="flex items-center gap-2 bg-slate-800/50 border border-white/5 rounded-xl px-4 py-2.5">
-            <Calendar className="h-4 w-4 text-indigo-400" />
+          <div className="flex items-center gap-2 bg-muted/50 border border-border/50 rounded-xl px-4 py-2.5">
+            <Calendar className="h-4 w-4 text-primary" />
             <input type="date" value={date} onChange={e => setDate(e.target.value)}
-              className="bg-transparent text-white font-bold border-none outline-none" />
+              className="bg-transparent text-foreground font-bold border-none outline-none" />
           </div>
-          <Button onClick={() => changeDate(1)} variant="ghost" className="text-slate-400 hover:text-white rounded-xl">
+          <Button onClick={() => changeDate(1)} variant="ghost" className="text-muted-foreground hover:text-foreground rounded-xl">
             <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
@@ -144,14 +144,14 @@ export default function StaffAttendancePage() {
             { label: "Half Day", value: stats.half_day, icon: Coffee, color: "text-orange-400", bg: "bg-orange-500/10" },
             { label: "On Leave", value: stats.on_leave, icon: Briefcase, color: "text-blue-400", bg: "bg-blue-500/10" },
           ].map(s => (
-            <div key={s.label} className="bg-slate-900/50 border border-white/5 rounded-2xl p-4 backdrop-blur-sm">
+            <div key={s.label} className="bg-card border border-border/50 shadow-sm rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-1">
                 <div className={`h-8 w-8 ${s.bg} rounded-lg flex items-center justify-center ${s.color}`}>
                   <s.icon className="h-4 w-4" />
                 </div>
               </div>
-              <div className="text-2xl font-black text-white">{s.value}</div>
-              <div className="text-xs font-bold text-slate-500 uppercase tracking-wide">{s.label}</div>
+              <div className="text-2xl font-black text-foreground">{s.value}</div>
+              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide">{s.label}</div>
             </div>
           ))}
         </div>
@@ -159,7 +159,7 @@ export default function StaffAttendancePage() {
 
       {/* Quick Actions */}
       <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-sm font-bold text-slate-500">Mark All:</span>
+        <span className="text-sm font-bold text-muted-foreground">Mark All:</span>
         {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
           <button key={key} onClick={() => setAllStatus(key)}
             className={`${cfg.bg} ${cfg.class} px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition-opacity`}>
@@ -169,14 +169,14 @@ export default function StaffAttendancePage() {
       </div>
 
       {/* Attendance Table */}
-      <div className="bg-slate-900/50 border border-white/5 rounded-3xl overflow-hidden backdrop-blur-sm">
-        <div className="p-6 border-b border-white/5 flex items-center justify-between">
+      <div className="bg-card border border-border/50 shadow-sm rounded-3xl overflow-hidden">
+        <div className="p-6 border-b border-border/50 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Clock className="h-5 w-5 text-indigo-400" />
-            <h2 className="text-lg font-bold text-white">Attendance Sheet</h2>
+            <Clock className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-bold text-foreground">Attendance Sheet</h2>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="ghost" className="text-slate-400 hover:text-white rounded-xl text-sm">
+            <Button variant="ghost" className="text-muted-foreground hover:text-foreground rounded-xl text-sm">
               <Download className="h-4 w-4 mr-2" /> Export
             </Button>
             <Button onClick={handleMark} disabled={saving || employees.length === 0}
@@ -187,33 +187,33 @@ export default function StaffAttendancePage() {
         </div>
 
         {loading ? (
-          <div className="p-6 text-sm text-slate-400">Loading…</div>
+          <div className="p-6 text-sm text-muted-foreground">Loading…</div>
         ) : employees.length === 0 ? (
           <div className="p-12 text-center">
-            <Users className="h-12 w-12 text-slate-700 mx-auto mb-3" />
-            <p className="text-slate-500 font-bold">No employees found</p>
-            <p className="text-sm text-slate-600">Add employees in HRMS to mark attendance.</p>
+            <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+            <p className="text-muted-foreground font-bold">No employees found</p>
+            <p className="text-sm text-muted-foreground">Add employees in HRMS to mark attendance.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-white/5">
-                  <th className="text-left px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Employee</th>
-                  <th className="text-left px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Department</th>
-                  <th className="text-center px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                <tr className="border-b border-border/50 bg-muted/50">
+                  <th className="text-left px-6 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee</th>
+                  <th className="text-left px-6 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Department</th>
+                  <th className="text-center px-6 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-border/50">
                 {employees.map(emp => {
                   const status = entries[emp.id] || "present";
                   return (
-                    <tr key={emp.id} className="hover:bg-white/[0.02] transition-colors">
+                    <tr key={emp.id} className="hover:bg-muted/50 transition-colors">
                       <td className="px-6 py-3">
-                        <span className="text-white font-bold">{emp.full_name}</span>
+                        <span className="text-foreground font-bold">{emp.full_name}</span>
                       </td>
                       <td className="px-6 py-3">
-                        <span className="text-slate-400">{emp.department || "—"}</span>
+                        <span className="text-muted-foreground">{emp.department || "—"}</span>
                       </td>
                       <td className="px-6 py-3">
                         <div className="flex items-center justify-center gap-1">
@@ -223,7 +223,7 @@ export default function StaffAttendancePage() {
                               <button key={key} onClick={() => setEntries(prev => ({ ...prev, [emp.id]: key }))}
                                 className={`p-2 rounded-lg transition-all ${status === key
                                   ? `${cfg.bg} ${cfg.class} ring-1 ring-current`
-                                  : "text-slate-700 hover:text-slate-500"
+                                  : "text-muted-foreground hover:bg-muted/50"
                                 }`} title={cfg.label}>
                                 <Icon className="h-4 w-4" />
                               </button>

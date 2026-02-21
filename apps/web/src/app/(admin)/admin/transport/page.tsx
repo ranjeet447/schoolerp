@@ -90,15 +90,15 @@ export default function TransportPage() {
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-black text-white tracking-tight">Transport Network</h1>
-          <p className="text-slate-400 font-medium">Coordinate fleet, routes, and student safety.</p>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">Transport Network</h1>
+          <p className="text-muted-foreground font-medium">Coordinate fleet, routes, and student safety.</p>
         </div>
         <div className="flex gap-2">
-            <Button onClick={handleGenerateFees} disabled={generating} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={handleGenerateFees} disabled={generating} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 <Fuel className={`h-4 w-4 mr-2 ${generating ? 'animate-spin' : ''}`} /> 
                 {generating ? 'Generating...' : 'Generate Fees'}
             </Button>
-            <Button className="bg-indigo-600">
+            <Button className="bg-foreground hover:bg-foreground/90 text-background">
                 <Plus className="h-4 w-4 mr-2" /> Add Vehicle
             </Button>
             <Button variant="outline">
@@ -108,7 +108,7 @@ export default function TransportPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-slate-900 border-white/5 p-1 rounded-xl">
+        <TabsList className="bg-muted border-border/50 p-1 rounded-xl">
           <TabsTrigger value="routes" className="rounded-lg gap-2"><Map className="h-4 w-4" /> Transit Routes</TabsTrigger>
           <TabsTrigger value="fleet" className="rounded-lg gap-2"><Bus className="h-4 w-4" /> Vehicle Fleet</TabsTrigger>
           <TabsTrigger value="staff" className="rounded-lg gap-2"><User className="h-4 w-4" /> Drivers</TabsTrigger>
@@ -119,30 +119,30 @@ export default function TransportPage() {
         <TabsContent value="routes">
            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {routes.map((route: any) => (
-                <Card key={route.id} className="bg-slate-900/50 border-white/5 rounded-3xl overflow-hidden group hover:border-indigo-500/30 transition-all">
-                  <div className="h-2 bg-indigo-500 w-full" />
+                <Card key={route.id} className="bg-card border-border/50 rounded-3xl overflow-hidden group hover:border-primary/30 shadow-sm transition-all">
+                  <div className="h-2 bg-primary w-full" />
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
-                        <CardTitle className="text-xl font-black text-white">{route.name}</CardTitle>
-                        <Badge variant="outline" className="border-indigo-500/20 text-indigo-400 bg-indigo-400/5">
+                        <CardTitle className="text-xl font-black text-foreground">{route.name}</CardTitle>
+                        <Badge variant="outline" className="border-primary/20 text-primary bg-primary/5">
                             {route.vehicle_reg || 'No Vehicle'}
                         </Badge>
                     </div>
-                    <p className="text-sm text-slate-500 mt-1">{route.description || 'Main transport route'}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{route.description || 'Main transport route'}</p>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="flex items-center gap-4 py-2 border-y border-white/5">
+                    <div className="flex items-center gap-4 py-2 border-y border-border/50">
                         <div className="flex-1">
-                            <p className="text-xs font-bold text-slate-600 uppercase">Driver</p>
-                            <p className="text-white font-medium">{route.driver_name || 'Unassigned'}</p>
+                            <p className="text-xs font-bold text-muted-foreground uppercase">Driver</p>
+                            <p className="text-foreground font-medium">{route.driver_name || 'Unassigned'}</p>
                         </div>
                         <div className="flex-1 text-right">
-                           <p className="text-xs font-bold text-slate-600 uppercase">Capacity</p>
-                           <p className="text-white font-medium">{route.allocation_count || 0} / {route.vehicle_capacity || 0}</p>
+                           <p className="text-xs font-bold text-muted-foreground uppercase">Capacity</p>
+                           <p className="text-foreground font-medium">{route.allocation_count || 0} / {route.vehicle_capacity || 0}</p>
                         </div>
                     </div>
                     <div className="flex justify-between items-center">
-                        <Button variant="ghost" size="sm" className="text-indigo-400 hover:text-white px-0">
+                        <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80 px-0">
                             View 12 Stops
                         </Button>
                         <Button size="sm" variant="secondary">Edit Route</Button>
@@ -154,10 +154,10 @@ export default function TransportPage() {
         </TabsContent>
 
         <TabsContent value="fleet">
-            <Card className="bg-slate-900/50 border-white/5 rounded-3xl overflow-hidden">
+            <Card className="bg-card shadow-sm border-border/50 rounded-3xl overflow-hidden">
                 <Table>
-                    <TableHeader className="bg-white/5">
-                      <TableRow>
+                    <TableHeader className="bg-muted/50">
+                      <TableRow className="border-border/50">
                         <TableHead>Registration</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Capacity</TableHead>
@@ -167,16 +167,16 @@ export default function TransportPage() {
                     </TableHeader>
                     <TableBody>
                         {vehicles.map((v: any) => (
-                          <TableRow key={v.id} className="hover:bg-white/5 border-white/5">
-                            <TableCell className="font-bold text-white">{v.registration_number}</TableCell>
-                            <TableCell className="text-slate-400 capitalize">{v.type}</TableCell>
-                            <TableCell className="text-slate-400">{v.capacity} Seater</TableCell>
+                          <TableRow key={v.id} className="hover:bg-muted/50 border-border/50">
+                            <TableCell className="font-bold text-foreground">{v.registration_number}</TableCell>
+                            <TableCell className="text-muted-foreground capitalize">{v.type}</TableCell>
+                            <TableCell className="text-muted-foreground">{v.capacity} Seater</TableCell>
                             <TableCell>
-                                <Badge className={v.status === 'active' ? 'bg-emerald-500' : 'bg-rose-500'}>
+                                <Badge className={v.status === 'active' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-rose-500 hover:bg-rose-600'}>
                                     {v.status.toUpperCase()}
                                 </Badge>
                             </TableCell>
-                            <TableCell className="text-emerald-400 text-sm flex items-center gap-1">
+                            <TableCell className="text-emerald-500 text-sm flex items-center gap-1">
                                 <ShieldCheck className="h-3 w-3" /> Fit
                             </TableCell>
                           </TableRow>
@@ -189,19 +189,19 @@ export default function TransportPage() {
         <TabsContent value="staff">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {drivers.map((d: any) => (
-                  <Card key={d.id} className="bg-slate-900/50 border-white/5 rounded-3xl">
+                  <Card key={d.id} className="bg-card shadow-sm border-border/50 rounded-3xl">
                     <CardHeader className="flex flex-row items-center gap-4">
-                        <Avatar className="h-12 w-12 bg-slate-800">
+                        <Avatar className="h-12 w-12 bg-muted">
                             <AvatarFallback>{d.full_name[0]}</AvatarFallback>
                         </Avatar>
                         <div>
                             <CardTitle className="text-lg">{d.full_name}</CardTitle>
-                            <p className="text-xs text-slate-500">License: {d.license_number}</p>
+                            <p className="text-xs text-muted-foreground">License: {d.license_number}</p>
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-1">
-                        <p className="text-sm text-slate-400">Tel: {d.phone}</p>
-                        <Badge variant="secondary" className="mt-2">{d.status}</Badge>
+                        <p className="text-sm text-muted-foreground">Tel: {d.phone}</p>
+                        <Badge variant="secondary" className="mt-2 text-[10px] uppercase font-bold">{d.status}</Badge>
                     </CardContent>
                   </Card>
                 ))}
@@ -209,10 +209,10 @@ export default function TransportPage() {
         </TabsContent>
 
         <TabsContent value="fuel">
-            <Card className="bg-slate-900/50 border-white/5 rounded-3xl overflow-hidden">
+            <Card className="bg-card shadow-sm border-border/50 rounded-3xl overflow-hidden">
                 <Table>
-                    <TableHeader className="bg-white/5">
-                      <TableRow>
+                    <TableHeader className="bg-muted/50">
+                      <TableRow className="border-border/50">
                         <TableHead>Date</TableHead>
                         <TableHead>Vehicle</TableHead>
                         <TableHead>Qty (Ltr)</TableHead>
@@ -225,19 +225,19 @@ export default function TransportPage() {
                         {fuelLogs.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={6} className="h-64 text-center">
-                                    <Fuel className="h-12 w-12 mb-4 mx-auto opacity-20 text-indigo-400" />
-                                    <p className="text-slate-500">No fuel logs found for this period.</p>
-                                    <Button variant="outline" className="mt-4 border-white/10 hover:bg-white/5">Add Manual Entry</Button>
+                                    <Fuel className="h-12 w-12 mb-4 mx-auto opacity-20 text-primary" />
+                                    <p className="text-muted-foreground">No fuel logs found for this period.</p>
+                                    <Button variant="outline" className="mt-4 border-border hover:bg-muted/50">Add Manual Entry</Button>
                                 </TableCell>
                             </TableRow>
                         ) : fuelLogs.map((log: any) => (
-                          <TableRow key={log.id} className="hover:bg-white/5 border-white/5">
-                            <TableCell className="text-slate-400">{new Date(log.fill_date).toLocaleDateString()}</TableCell>
-                            <TableCell className="font-bold text-white">{log.vehicle_reg}</TableCell>
-                            <TableCell className="text-white font-medium">{log.quantity}</TableCell>
-                            <TableCell className="text-emerald-400 font-bold">₹ {log.total_cost}</TableCell>
-                            <TableCell className="text-slate-500">{log.odometer_reading}</TableCell>
-                            <TableCell className="text-slate-400 text-sm">{log.user_name}</TableCell>
+                          <TableRow key={log.id} className="hover:bg-muted/50 border-border/50">
+                            <TableCell className="text-muted-foreground">{new Date(log.fill_date).toLocaleDateString()}</TableCell>
+                            <TableCell className="font-bold text-foreground">{log.vehicle_reg}</TableCell>
+                            <TableCell className="text-foreground font-medium">{log.quantity}</TableCell>
+                            <TableCell className="text-emerald-500 font-bold">₹ {log.total_cost}</TableCell>
+                            <TableCell className="text-muted-foreground">{log.odometer_reading}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm">{log.user_name}</TableCell>
                           </TableRow>
                         ))}
                     </TableBody>
@@ -246,10 +246,10 @@ export default function TransportPage() {
         </TabsContent>
 
         <TabsContent value="allocations">
-            <Card className="bg-slate-900/50 border-white/5 rounded-3xl overflow-hidden">
+            <Card className="bg-card shadow-sm border-border/50 rounded-3xl overflow-hidden">
                 <Table>
-                    <TableHeader className="bg-white/5">
-                      <TableRow>
+                    <TableHeader className="bg-muted/50">
+                      <TableRow className="border-border/50">
                         <TableHead>Student</TableHead>
                         <TableHead>Route</TableHead>
                         <TableHead>Stop</TableHead>
@@ -259,12 +259,12 @@ export default function TransportPage() {
                     </TableHeader>
                     <TableBody>
                         {allocations.map((a: any) => (
-                          <TableRow key={a.id} className="hover:bg-white/5 border-white/5">
-                            <TableCell className="font-bold text-white">{a.student_name}</TableCell>
-                            <TableCell className="text-slate-400">{a.route_name}</TableCell>
-                            <TableCell className="text-slate-400">{a.stop_name}</TableCell>
-                            <TableCell className="text-slate-500 text-sm">{new Date(a.start_date).toLocaleDateString()}</TableCell>
-                            <TableCell><Badge variant="outline" className="text-emerald-400 border-emerald-400/20">{a.status}</Badge></TableCell>
+                          <TableRow key={a.id} className="hover:bg-muted/50 border-border/50">
+                            <TableCell className="font-bold text-foreground">{a.student_name}</TableCell>
+                            <TableCell className="text-muted-foreground">{a.route_name}</TableCell>
+                            <TableCell className="text-muted-foreground">{a.stop_name}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm">{new Date(a.start_date).toLocaleDateString()}</TableCell>
+                            <TableCell><Badge variant="outline" className="text-emerald-500 border-emerald-500/20">{a.status}</Badge></TableCell>
                           </TableRow>
                         ))}
                     </TableBody>

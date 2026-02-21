@@ -512,7 +512,7 @@ export default function TimetablePage() {
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Status</span>
-                    <span className={v.is_active ? "text-green-600 font-bold" : "text-slate-500"}>{v.is_active ? 'Live' : 'Draft'}</span>
+                    <span className={v.is_active ? "text-green-600 font-bold" : "text-muted-foreground"}>{v.is_active ? 'Live' : 'Draft'}</span>
                   </div>
                   <div className="pt-4 flex gap-2">
                     <Button variant="outline" size="sm" className="flex-1 h-8">Edit</Button>
@@ -589,7 +589,7 @@ export default function TimetablePage() {
                       </DialogHeader>
                       <div className="space-y-6 pt-4">
                         <div className="space-y-2">
-                          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Teacher</Label>
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Select Teacher</Label>
                           <TeacherSelect 
                             value={selectedTeacherForAbsence} 
                             onSelect={setSelectedTeacherForAbsence}
@@ -598,7 +598,7 @@ export default function TimetablePage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Reason (Optional)</Label>
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Reason (Optional)</Label>
                           <Textarea 
                             placeholder="Sick leave, Personal work, etc." 
                             className="rounded-2xl resize-none h-24"
@@ -607,7 +607,7 @@ export default function TimetablePage() {
                           />
                         </div>
                         <Button 
-                          className="w-full h-14 bg-slate-900 rounded-2xl font-black text-lg gap-2"
+                          className="w-full h-14 bg-foreground hover:bg-foreground/90 text-background rounded-2xl font-black text-lg gap-2"
                           onClick={handleMarkAbsent}
                           disabled={submittingAbsence || !selectedTeacherForAbsence}
                         >
@@ -623,31 +623,31 @@ export default function TimetablePage() {
                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   {/* Absent Teachers List */}
                   <div className="space-y-4">
-                    <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <h3 className="text-sm font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                       <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" /> Absent Today
                     </h3>
                     <div className="space-y-3">
                       {absentTeachers.length === 0 ? (
-                        <div className="p-12 text-center border-2 border-dashed border-red-100 rounded-[2rem] bg-white/50">
+                        <div className="p-12 text-center border-2 border-dashed border-red-100 rounded-[2rem] bg-background/50">
                            <CheckCircle2 className="h-10 w-10 text-emerald-200 mx-auto mb-2" />
-                           <p className="text-xs font-bold text-slate-400">All faculty present.</p>
+                           <p className="text-xs font-bold text-muted-foreground">All faculty present.</p>
                         </div>
                       ) : absentTeachers.map(at => (
                         <div 
                           key={at.id}
                           onClick={() => setSelectedAbsentTeacher(at)}
-                          className={`group relative p-4 pl-6 rounded-3xl border touch-none select-none flex items-center justify-between transition-all cursor-pointer ${selectedAbsentTeacher?.id === at.id ? 'bg-slate-900 border-slate-900 shadow-xl' : 'bg-white border-slate-100'}`}
+                          className={`group relative p-4 pl-6 rounded-3xl border touch-none select-none flex items-center justify-between transition-all cursor-pointer ${selectedAbsentTeacher?.id === at.id ? 'bg-primary border-primary text-primary-foreground shadow-sm' : 'bg-card border-border/50 hover:border-border'}`}
                         >
                           <div className="flex items-center gap-3">
-                            <div className={`h-10 w-10 rounded-full flex items-center justify-center font-black text-sm ${selectedAbsentTeacher?.id === at.id ? 'bg-white/10 text-white' : 'bg-red-50 text-red-600'}`}>
+                            <div className={`h-10 w-10 rounded-full flex items-center justify-center font-black text-sm ${selectedAbsentTeacher?.id === at.id ? 'bg-primary-foreground/20' : 'bg-red-50/50 text-red-600'}`}>
                               {at.name.split(' ').map((n: string) => n[0]).join('')}
                             </div>
                             <div>
-                              <p className={`text-sm font-black ${selectedAbsentTeacher?.id === at.id ? 'text-white' : 'text-slate-900'}`}>{at.name}</p>
-                              <p className={`text-[10px] font-bold ${selectedAbsentTeacher?.id === at.id ? 'text-white/50' : 'text-slate-400'}`}>{at.reason || 'No reason provided'}</p>
+                              <p className={`text-sm font-black ${selectedAbsentTeacher?.id === at.id ? 'text-primary-foreground' : 'text-foreground'}`}>{at.name}</p>
+                              <p className={`text-[10px] font-bold ${selectedAbsentTeacher?.id === at.id ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>{at.reason || 'No reason provided'}</p>
                             </div>
                           </div>
-                          {selectedAbsentTeacher?.id === at.id && <ChevronRight className="h-5 w-5 text-white animate-bounce-x" />}
+                          {selectedAbsentTeacher?.id === at.id && <ChevronRight className="h-5 w-5 text-primary-foreground" />}
                         </div>
                       ))}
                     </div>
@@ -655,10 +655,10 @@ export default function TimetablePage() {
 
                   {/* Teacher Lessons requiring sub */}
                   <div className="lg:col-span-2 space-y-6">
-                    {selectedAbsentTeacher ? (
+                     {selectedAbsentTeacher ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-right-4 duration-500">
                          <div className="space-y-4">
-                            <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                            <h3 className="text-sm font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                                <RefreshCw className="h-4 w-4" /> Identify Slots
                             </h3>
                             <div className="space-y-3">
@@ -669,19 +669,19 @@ export default function TimetablePage() {
                                     setSelectedLesson(lesson)
                                     fetchFreeTeachers(lesson.period_id)
                                   }}
-                                  className={`p-5 rounded-[2.5rem] border-2 transition-all cursor-pointer relative overflow-hidden group ${selectedLesson?.id === lesson.id ? 'border-primary bg-primary/5 shadow-inner' : 'bg-white border-slate-100 hover:border-primary/30'}`}
+                                  className={`p-5 rounded-[2.5rem] border-2 transition-all cursor-pointer relative overflow-hidden group ${selectedLesson?.id === lesson.id ? 'border-primary bg-primary/5 shadow-sm' : 'bg-card border-border/50 hover:border-primary/30'}`}
                                  >
                                     <div className="flex justify-between items-start mb-2">
-                                      <Badge variant="outline" className="text-[10px] font-black border-slate-200">{lesson.period_name}</Badge>
-                                      <span className="text-[10px] font-bold text-slate-400">{lesson.start_time} - {lesson.end_time}</span>
+                                      <Badge variant="outline" className="text-[10px] font-black border-border">{lesson.period_name}</Badge>
+                                      <span className="text-[10px] font-bold text-muted-foreground">{lesson.start_time} - {lesson.end_time}</span>
                                     </div>
-                                    <h4 className="text-base font-black text-slate-900">{lesson.subject}</h4>
-                                    <p className="text-xs font-bold text-slate-500">{lesson.class_section}</p>
+                                    <h4 className="text-base font-black text-foreground">{lesson.subject}</h4>
+                                    <p className="text-xs font-bold text-muted-foreground">{lesson.class_section}</p>
                                     
                                     {lesson.substitute_name && (
-                                       <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2">
-                                          <div className="h-5 w-5 rounded-full bg-emerald-100 flex items-center justify-center">
-                                             <Check className="h-3 w-3 text-emerald-600" />
+                                       <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-2">
+                                          <div className="h-5 w-5 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                                             <Check className="h-3 w-3" />
                                           </div>
                                           <span className="text-[10px] font-black text-emerald-600 uppercase">Sub: {lesson.substitute_name}</span>
                                        </div>
@@ -692,14 +692,14 @@ export default function TimetablePage() {
                          </div>
 
                          <div className="space-y-4">
-                            <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                            <h3 className="text-sm font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                                <UserPlus className="h-4 w-4" /> Suggestions
                             </h3>
                             <div className="space-y-3">
                                {!selectedLesson ? (
-                                  <div className="p-12 text-center rounded-[2rem] border-2 border-dashed border-slate-100 bg-white/50 grayscale opacity-40">
-                                     <UsersIcon className="h-10 w-10 mx-auto mb-2" />
-                                     <p className="text-xs font-bold text-slate-400">Select a slot to see free faculty.</p>
+                                  <div className="p-12 text-center rounded-[2rem] border-2 border-dashed border-border/50 bg-muted/30 grayscale opacity-40">
+                                     <UsersIcon className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
+                                     <p className="text-xs font-bold text-muted-foreground">Select a slot to see free faculty.</p>
                                   </div>
                                ) : loadingSubs ? (
                                   <div className="p-12 text-center">
@@ -712,19 +712,19 @@ export default function TimetablePage() {
                                      <p className="text-[10px] text-amber-600 mt-1">Every faculty member is busy in this period.</p>
                                   </div>
                                ) : suggestedSubstitutes.map(sub => (
-                                  <div key={sub.id} className="p-4 rounded-3xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-all flex items-center justify-between group">
+                                  <div key={sub.id} className="p-4 rounded-3xl bg-card border border-border/50 shadow-sm hover:shadow-md transition-all flex items-center justify-between group">
                                      <div className="flex items-center gap-3">
-                                        <div className="h-10 w-10 rounded-2xl bg-slate-50 flex items-center justify-center font-black group-hover:bg-primary group-hover:text-white transition-colors">
+                                        <div className="h-10 w-10 rounded-2xl bg-muted flex items-center justify-center font-black group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                                            {sub.name[0]}
                                         </div>
                                         <div>
-                                           <p className="text-sm font-black text-slate-900">{sub.name}</p>
-                                           <p className="text-[10px] font-bold text-primary uppercase">Available</p>
+                                           <p className="text-sm font-black text-foreground">{sub.name}</p>
+                                           <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Available</p>
                                         </div>
                                      </div>
                                      <Button 
                                       size="sm" 
-                                      className="h-9 rounded-xl font-bold bg-slate-900"
+                                      className="h-9 rounded-xl font-bold bg-foreground text-background hover:bg-foreground/90"
                                       onClick={() => handleAssignSub(sub.id)}
                                       disabled={submittingSub}
                                      >
@@ -736,12 +736,12 @@ export default function TimetablePage() {
                          </div>
                       </div>
                     ) : (
-                      <div className="h-full flex flex-col items-center justify-center p-20 grayscale opacity-20">
-                         <div className="p-10 rounded-full bg-slate-100">
-                            <UsersIcon className="h-20 w-20 text-slate-400" />
+                      <div className="h-full flex flex-col items-center justify-center p-20 grayscale opacity-40">
+                         <div className="p-10 rounded-full bg-muted">
+                            <UsersIcon className="h-20 w-20 text-muted-foreground" />
                          </div>
-                         <h3 className="mt-6 text-xl font-black text-slate-900">Portal Standby</h3>
-                         <p className="text-slate-500 font-medium">Select an absent teacher to start the workflow.</p>
+                         <h3 className="mt-6 text-xl font-black text-foreground">Portal Standby</h3>
+                         <p className="text-muted-foreground font-medium">Select an absent teacher to start the workflow.</p>
                       </div>
                     )}
                   </div>

@@ -63,8 +63,8 @@ export default function StudentsPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-white tracking-tight">Student Directory</h1>
-          <p className="text-slate-400 font-medium">Manage student records, admissions, and academic profiles.</p>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">Student Directory</h1>
+          <p className="text-muted-foreground font-medium">Manage student records, admissions, and academic profiles.</p>
         </div>
         <div className="flex items-center gap-3">
           <ImportStudentWizard />
@@ -73,26 +73,26 @@ export default function StudentsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-slate-900/50 border border-white/5 rounded-3xl p-6 backdrop-blur-sm">
+        <div className="bg-card border border-border/50 shadow-sm rounded-3xl p-6">
           <div className="flex items-center gap-4 mb-2">
-            <div className="h-10 w-10 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-400">
+            <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
               <Users className="h-5 w-5" />
             </div>
-            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Total Students</span>
+            <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Total Students</span>
           </div>
-          <div className="text-4xl font-black text-white">{students.length}</div>
+          <div className="text-4xl font-black text-foreground">{students.length}</div>
         </div>
       </div>
 
-      <div className="bg-slate-900/50 border border-white/5 rounded-3xl overflow-hidden backdrop-blur-sm">
-        <div className="p-6 border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-card border border-border/50 shadow-sm rounded-3xl overflow-hidden">
+        <div className="p-6 border-b border-border/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="relative group flex-1 max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <Input
               placeholder="Search by name, roll no, or class..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-11 pl-11 bg-slate-800/50 border border-white/5 rounded-xl text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
+              className="w-full h-11 pl-11 bg-muted/50 border border-border/50 rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
             />
           </div>
           <div className="w-[200px]">
@@ -103,10 +103,10 @@ export default function StudentsPage() {
              />
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" className="text-slate-400 hover:text-white">
+            <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
               <Filter className="h-4 w-4 mr-2" /> Filters
             </Button>
-            <Button variant="ghost" className="text-slate-400 hover:text-white">
+            <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
               <Download className="h-4 w-4 mr-2" /> Export
             </Button>
           </div>
@@ -114,7 +114,7 @@ export default function StudentsPage() {
 
         <StudentTable columns={columns} data={filteredStudents} />
         {loading && (
-          <div className="p-4 text-sm text-slate-400">Loading students...</div>
+          <div className="p-4 text-sm text-muted-foreground">Loading students...</div>
         )}
       </div>
     </div>

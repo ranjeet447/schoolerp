@@ -197,32 +197,32 @@ export default function PromotionManagerPage() {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 uppercase italic">Promotion Manager</h1>
+          <h1 className="text-3xl font-black tracking-tight text-foreground uppercase italic">Promotion Manager</h1>
           <p className="text-muted-foreground font-medium">Manage student graduation and academic transitions.</p>
         </div>
         <div className="flex items-center gap-3">
-            <div className="h-12 w-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100">
+            <div className="h-12 w-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shadow-sm border border-primary/20">
                 <GraduationCap className="w-6 h-6" />
             </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <Card className="lg:col-span-1 border-none shadow-xl bg-white/50 backdrop-blur-md h-fit sticky top-6">
+        <Card className="lg:col-span-1 border-border/50 shadow-sm bg-card h-fit sticky top-6">
           <CardHeader>
-            <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-400">Control Panel</CardTitle>
-            <CardDescription className="text-xs font-bold">Configure source and destination.</CardDescription>
+            <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground">Control Panel</CardTitle>
+            <CardDescription className="text-xs font-bold text-muted-foreground">Configure source and destination.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-4">
-               <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-3">
+               <div className="p-3 rounded-2xl bg-muted border border-border/50 text-foreground space-y-3">
                   <div className="flex items-center gap-2 mb-1">
-                    <Filter className="w-3.5 h-3.5 text-indigo-400" />
+                    <Filter className="w-3.5 h-3.5 text-primary" />
                     <span className="text-[10px] font-black uppercase tracking-widest">Source Context</span>
                   </div>
                   <div className="space-y-3">
                     <Select value={sourceAY} onValueChange={setSourceAY}>
-                        <SelectTrigger className="bg-slate-800 border-none h-11 rounded-xl text-xs font-bold">
+                        <SelectTrigger className="bg-background border-none h-11 rounded-xl text-xs font-bold">
                             <SelectValue placeholder="Academic Year" />
                         </SelectTrigger>
                         <SelectContent>
@@ -230,7 +230,7 @@ export default function PromotionManagerPage() {
                         </SelectContent>
                     </Select>
                     <Select value={sourceClass} onValueChange={(v) => { setSourceClass(v); setSourceSection("all") }}>
-                        <SelectTrigger className="bg-slate-800 border-none h-11 rounded-xl text-xs font-bold">
+                        <SelectTrigger className="bg-background border-none h-11 rounded-xl text-xs font-bold">
                             <SelectValue placeholder="Current Class" />
                         </SelectTrigger>
                         <SelectContent>
@@ -238,7 +238,7 @@ export default function PromotionManagerPage() {
                         </SelectContent>
                     </Select>
                     <Select value={sourceSection} onValueChange={setSourceSection}>
-                        <SelectTrigger className="bg-slate-800 border-none h-11 rounded-xl text-xs font-bold">
+                        <SelectTrigger className="bg-background border-none h-11 rounded-xl text-xs font-bold">
                             <SelectValue placeholder="Section (Opt)" />
                         </SelectTrigger>
                         <SelectContent>
@@ -250,17 +250,17 @@ export default function PromotionManagerPage() {
                </div>
 
                <div className="flex justify-center">
-                    <ArrowRight className="w-6 h-6 text-slate-300 rotate-90 lg:rotate-0" />
+                    <ArrowRight className="w-6 h-6 text-muted-foreground rotate-90 lg:rotate-0" />
                </div>
 
-               <div className="p-3 rounded-2xl bg-indigo-600 text-white space-y-3 shadow-lg shadow-indigo-100">
+               <div className="p-3 rounded-2xl bg-primary text-primary-foreground space-y-3 shadow-lg shadow-primary/20">
                   <div className="flex items-center gap-2 mb-1">
-                    <GraduationCap className="w-3.5 h-3.5 text-indigo-200" />
+                    <GraduationCap className="w-3.5 h-3.5 text-primary-foreground/70" />
                     <span className="text-[10px] font-black uppercase tracking-widest">Destination</span>
                   </div>
                   <div className="space-y-3">
                     <Select value={targetAY} onValueChange={setTargetAY}>
-                        <SelectTrigger className="bg-indigo-700 border-none h-11 rounded-xl text-xs font-bold">
+                        <SelectTrigger className="bg-background/20 hover:bg-background/30 border-none h-11 rounded-xl text-xs font-bold text-primary-foreground">
                             <SelectValue placeholder="Next Year" />
                         </SelectTrigger>
                         <SelectContent>
@@ -268,7 +268,7 @@ export default function PromotionManagerPage() {
                         </SelectContent>
                     </Select>
                     <Select value={targetClass} onValueChange={(v) => { setTargetClass(v); setTargetSection("") }}>
-                        <SelectTrigger className="bg-indigo-700 border-none h-11 rounded-xl text-xs font-bold">
+                        <SelectTrigger className="bg-background/20 hover:bg-background/30 border-none h-11 rounded-xl text-xs font-bold text-primary-foreground">
                             <SelectValue placeholder="Target Class" />
                         </SelectTrigger>
                         <SelectContent>
@@ -276,7 +276,7 @@ export default function PromotionManagerPage() {
                         </SelectContent>
                     </Select>
                     <Select value={targetSection} onValueChange={setTargetSection}>
-                        <SelectTrigger className="bg-indigo-700 border-none h-11 rounded-xl text-xs font-bold">
+                        <SelectTrigger className="bg-background/20 hover:bg-background/30 border-none h-11 rounded-xl text-xs font-bold text-primary-foreground">
                             <SelectValue placeholder="Target Section" />
                         </SelectTrigger>
                         <SelectContent>
@@ -287,7 +287,7 @@ export default function PromotionManagerPage() {
                </div>
             </div>
 
-            <Button className="w-full bg-slate-900 hover:bg-black h-14 rounded-2xl font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-slate-100" onClick={handlePromote} disabled={promoting || selectedStudents.length === 0}>
+            <Button className="w-full bg-foreground hover:bg-foreground/90 text-background h-14 rounded-2xl font-black uppercase tracking-widest flex items-center gap-2 shadow-sm" onClick={handlePromote} disabled={promoting || selectedStudents.length === 0}>
                 {promoting ? <Loader2 className="w-5 h-5 animate-spin" /> : <GraduationCap className="w-5 h-5" />}
                 Promote {selectedStudents.length || ""} Selected
             </Button>
@@ -295,15 +295,15 @@ export default function PromotionManagerPage() {
         </Card>
 
         <div className="lg:col-span-3 space-y-4">
-          <Card className="border-none shadow-sm bg-white overflow-hidden">
-            <div className="p-4 border-b border-slate-50 flex items-center justify-between gap-4">
+          <Card className="border border-border/50 shadow-sm bg-card overflow-hidden">
+            <div className="p-4 border-b border-border/50 flex items-center justify-between gap-4">
                 <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input 
                         placeholder="Search students..." 
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10 h-10 border-slate-100 rounded-xl bg-slate-50/50"
+                        className="pl-10 h-10 border-border/50 rounded-xl bg-background"
                     />
                 </div>
                 <div className="flex items-center gap-2">
@@ -311,31 +311,31 @@ export default function PromotionManagerPage() {
                 </div>
             </div>
             <Table>
-                <TableHeader className="bg-slate-50">
-                    <TableRow>
+                <TableHeader className="bg-muted/50">
+                    <TableRow className="border-border/50">
                         <TableHead className="w-[50px]">
                             <Checkbox 
                                 checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0} 
                                 onCheckedChange={toggleSelectAll} 
                             />
                         </TableHead>
-                        <TableHead className="text-[10px] font-black uppercase tracking-widest">Student</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase tracking-widest">Admission No</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase tracking-widest">Current Class/Sec</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase tracking-widest text-right">Status</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Student</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Admission No</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Current Class/Sec</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest text-right text-muted-foreground">Status</TableHead>
                     </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody className="divide-y divide-border/50">
                     {loading ? (
                         <TableRow>
-                            <TableCell colSpan={5} className="h-32 text-center text-slate-400 italic">Loading student roster...</TableCell>
+                            <TableCell colSpan={5} className="h-32 text-center text-muted-foreground italic">Loading student roster...</TableCell>
                         </TableRow>
                     ) : filteredStudents.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={5} className="h-32 text-center text-slate-400 italic">No students match current filters.</TableCell>
+                            <TableCell colSpan={5} className="h-32 text-center text-muted-foreground italic">No students match current filters.</TableCell>
                         </TableRow>
                     ) : filteredStudents.map(s => (
-                        <TableRow key={s.id} className="hover:bg-slate-50/50 transition-colors">
+                        <TableRow key={s.id} className="hover:bg-muted/30 transition-colors border-none">
                             <TableCell>
                                 <Checkbox 
                                     checked={selectedStudents.includes(s.id)} 
@@ -346,11 +346,11 @@ export default function PromotionManagerPage() {
                                 />
                             </TableCell>
                             <TableCell>
-                                <div className="font-bold text-slate-900">{s.full_name}</div>
+                                <div className="font-bold text-foreground">{s.full_name}</div>
                             </TableCell>
-                            <TableCell className="font-mono text-xs font-bold text-slate-500">{s.admission_number}</TableCell>
+                            <TableCell className="font-mono text-xs font-bold text-muted-foreground">{s.admission_number}</TableCell>
                             <TableCell>
-                                <div className="text-xs font-medium text-slate-600">
+                                <div className="text-xs font-medium text-muted-foreground">
                                     {s.class_name} — {s.section_name}
                                 </div>
                             </TableCell>
@@ -365,12 +365,12 @@ export default function PromotionManagerPage() {
             </Table>
           </Card>
 
-          <Card className="border-none bg-indigo-50 border-indigo-100 p-4">
+          <Card className="border border-primary/20 bg-primary/5 p-4">
             <div className="flex items-start gap-3">
-                <ShieldAlert className="w-5 h-5 text-indigo-500 mt-0.5" />
+                <ShieldAlert className="w-5 h-5 text-primary mt-0.5" />
                 <div className="space-y-1">
-                    <h4 className="text-sm font-black text-indigo-900 uppercase tracking-tight">Bulk Promotion Safety Guard</h4>
-                    <p className="text-xs text-indigo-700 leading-relaxed font-medium">
+                    <h4 className="text-sm font-black text-primary uppercase tracking-tight">Bulk Promotion Safety Guard</h4>
+                    <p className="text-xs text-primary/80 leading-relaxed font-medium">
                         Promoting students will move their primary academic record to the new year and target class/section. This action is recorded in the <strong>Promotion Audit Vault</strong>. Ensure all dues are cleared and final marks are published before batch transition.
                     </p>
                 </div>

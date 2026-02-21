@@ -162,96 +162,96 @@ export default function GatePassPage() {
     <div className="p-6 space-y-8 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-4xl font-black tracking-tight text-white italic uppercase">Security <span className="text-indigo-500">Gate Passes</span></h1>
-          <p className="text-slate-400 font-medium mt-1">
+          <h1 className="text-4xl font-black tracking-tight text-foreground italic uppercase">Security <span className="text-primary">Gate Passes</span></h1>
+          <p className="text-muted-foreground font-medium mt-1">
             Secure tracking of student entry and exit with QR-validated permissions.
           </p>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-12 px-6 rounded-2xl transition-all shadow-lg active:scale-95 gap-2">
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-12 px-6 rounded-2xl transition-all shadow-sm active:scale-95 gap-2">
               <Plus className="w-5 h-5" /> Request Gate Pass
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-slate-900 border-white/10 rounded-3xl max-w-md">
+          <DialogContent className="max-w-md rounded-3xl">
             <DialogHeader>
-              <DialogTitle className="text-2xl font-black text-white">Create Request</DialogTitle>
-              <DialogDescription className="text-slate-400">Request permission for a student to leave campus.</DialogDescription>
+              <DialogTitle className="text-2xl font-black text-foreground">Create Request</DialogTitle>
+              <DialogDescription className="text-muted-foreground">Request permission for a student to leave campus.</DialogDescription>
             </DialogHeader>
             <div className="space-y-6 py-4">
               <div className="space-y-3">
-                <Label className="text-slate-300 font-bold ml-1">Student</Label>
+                <Label className="text-foreground font-bold ml-1">Student</Label>
                 <StudentSelect 
                   value={formData.student_id}
                   onValueChange={(val) => setFormData({ ...formData, student_id: val })}
                 />
               </div>
               <div className="space-y-3">
-                <Label className="text-slate-300 font-bold ml-1">Reason for Exit</Label>
+                <Label className="text-foreground font-bold ml-1">Reason for Exit</Label>
                 <Textarea 
                   placeholder="Medical emergency, family pick-up, etc." 
-                  className="bg-slate-800 border-white/5 focus:border-indigo-500 min-h-[100px] text-white"
+                  className="bg-background border-border focus:border-primary min-h-[100px]"
                   value={formData.reason}
                   onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                 />
               </div>
             </div>
             <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => setIsCreateOpen(false)} className="border-white/5 bg-transparent text-slate-400">Cancel</Button>
-              <Button onClick={handleCreate} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold">Submit Request</Button>
+              <Button variant="outline" onClick={() => setIsCreateOpen(false)} className="rounded-xl">Cancel</Button>
+              <Button onClick={handleCreate} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl">Submit Request</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="bg-slate-900/50 border-white/5 rounded-3xl shadow-2xl group hover:border-indigo-500/30 transition-all">
+        <Card className="bg-card border-border/50 rounded-3xl shadow-sm group hover:border-primary/30 transition-all">
           <CardHeader className="py-5">
-            <CardTitle className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+            <CardTitle className="text-xs font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
               <Clock className="w-4 h-4 text-amber-500" /> Pending Approval
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-black text-white">
+            <div className="text-4xl font-black text-foreground">
               {gatePasses.filter(gp => gp.status === 'pending').length}
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-slate-900/50 border-white/5 rounded-3xl shadow-2xl group hover:border-emerald-500/30 transition-all">
+        <Card className="bg-card border-border/50 rounded-3xl shadow-sm group hover:border-emerald-500/30 transition-all">
           <CardHeader className="py-5">
-            <CardTitle className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+            <CardTitle className="text-xs font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-500" /> Active Passes
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-black text-white">
+            <div className="text-4xl font-black text-foreground">
               {gatePasses.filter(gp => gp.status === 'approved').length}
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-slate-900/50 border-white/5 rounded-3xl shadow-2xl group hover:border-blue-500/30 transition-all">
+        <Card className="bg-card border-border/50 rounded-3xl shadow-sm group hover:border-blue-500/30 transition-all">
           <CardHeader className="py-5">
-            <CardTitle className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+            <CardTitle className="text-xs font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-blue-500" /> Total Used
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-black text-white">
+            <div className="text-4xl font-black text-foreground">
               {gatePasses.filter(gp => gp.status === 'used').length}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="bg-slate-900/40 border-white/5 rounded-3xl overflow-hidden shadow-2xl">
-        <CardHeader className="border-b border-white/5 bg-slate-900/20 px-8 py-6">
+      <Card className="bg-card border-border/50 rounded-3xl overflow-hidden shadow-sm">
+        <CardHeader className="border-b border-border/50 bg-muted/20 px-8 py-6">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <CardTitle className="text-xl font-black text-white">Pass History</CardTitle>
+            <CardTitle className="text-xl font-black text-foreground">Pass History</CardTitle>
             <div className="relative w-full md:w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search student or reason..."
-                className="bg-slate-800 border-white/5 pl-10 h-10 rounded-xl text-white focus:ring-1 focus:ring-indigo-500/50"
+                className="bg-muted/50 border-border/50 pl-10 h-10 rounded-xl text-foreground focus:ring-1 focus:ring-primary/50"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -260,39 +260,39 @@ export default function GatePassPage() {
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="py-20 text-center text-slate-500 font-medium">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500 mx-auto mb-4"></div>
+            <div className="py-20 text-center text-muted-foreground font-medium">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
                 Syncing security logs...
             </div>
           ) : filteredPasses.length === 0 ? (
             <div className="py-20 text-center">
-                <ShieldCheck className="h-16 w-16 text-slate-800 mx-auto mb-4" />
-                <p className="text-slate-500 font-medium">No security records found for this period.</p>
+                <ShieldCheck className="h-16 w-16 text-muted-foreground opacity-50 mx-auto mb-4" />
+                <p className="text-muted-foreground font-medium">No security records found for this period.</p>
             </div>
           ) : (
             <Table>
-              <TableHeader className="bg-white/5">
-                <TableRow className="border-white/5">
-                  <TableHead className="text-slate-500 font-black tracking-tighter uppercase px-8 py-4">Student</TableHead>
-                  <TableHead className="text-slate-500 font-black tracking-tighter uppercase">Reason</TableHead>
-                  <TableHead className="text-slate-500 font-black tracking-tighter uppercase">Requested By</TableHead>
-                  <TableHead className="text-slate-500 font-black tracking-tighter uppercase">Valid Thru</TableHead>
-                  <TableHead className="text-slate-500 font-black tracking-tighter uppercase">Status</TableHead>
+              <TableHeader className="bg-muted/50 border-b border-border/50">
+                <TableRow className="border-none">
+                  <TableHead className="text-muted-foreground font-black tracking-tighter uppercase px-8 py-4">Student</TableHead>
+                  <TableHead className="text-muted-foreground font-black tracking-tighter uppercase">Reason</TableHead>
+                  <TableHead className="text-muted-foreground font-black tracking-tighter uppercase">Requested By</TableHead>
+                  <TableHead className="text-muted-foreground font-black tracking-tighter uppercase">Valid Thru</TableHead>
+                  <TableHead className="text-muted-foreground font-black tracking-tighter uppercase">Status</TableHead>
                   <TableHead className="text-right px-8">Actions</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody className="divide-y divide-border/50">
                 {filteredPasses.map((gp) => (
-                  <TableRow key={gp.id} className="border-white/5 hover:bg-white/[0.02] transition-colors">
-                    <TableCell className="font-bold text-white px-8 py-5">{gp.student_name}</TableCell>
-                    <TableCell className="text-slate-400 font-medium">{gp.reason}</TableCell>
-                    <TableCell className="text-slate-400 font-medium">{gp.requested_by_name}</TableCell>
+                  <TableRow key={gp.id} className="border-none hover:bg-muted/30 transition-colors">
+                    <TableCell className="font-bold text-foreground px-8 py-5">{gp.student_name}</TableCell>
+                    <TableCell className="text-muted-foreground font-medium">{gp.reason}</TableCell>
+                    <TableCell className="text-muted-foreground font-medium">{gp.requested_by_name}</TableCell>
                     <TableCell>
                       <div className="flex flex-col text-xs font-bold">
-                        <span className="flex items-center gap-1 text-indigo-400">
+                        <span className="flex items-center gap-1 text-primary">
                           <Clock className="w-3 h-3" /> {format(new Date(gp.valid_until), "p")}
                         </span>
-                        <span className="text-slate-500">
+                        <span className="text-muted-foreground">
                           {format(new Date(gp.valid_until), "MMM dd")}
                         </span>
                       </div>
@@ -313,7 +313,7 @@ export default function GatePassPage() {
                           <Button 
                             size="sm" 
                             variant="outline" 
-                            className="border-white/10 hover:bg-white/5 text-slate-300 font-bold rounded-xl gap-2"
+                            className="text-muted-foreground font-bold rounded-xl gap-2"
                             onClick={() => {
                               setSelectedPass(gp);
                               setIsQRDocsOpen(true);
@@ -342,12 +342,12 @@ export default function GatePassPage() {
       </Card>
 
       <Dialog open={isQRDocsOpen} onOpenChange={setIsQRDocsOpen}>
-        <DialogContent className="bg-slate-900 border-white/10 rounded-[2.5rem] max-w-sm p-8">
+        <DialogContent className="rounded-[2.5rem] max-w-sm p-8">
           <DialogHeader className="text-center p-0">
-            <DialogTitle className="text-2xl font-black text-white uppercase italic">Security <span className="text-indigo-500">Pass</span></DialogTitle>
+            <DialogTitle className="text-2xl font-black text-foreground uppercase italic">Security <span className="text-primary">Pass</span></DialogTitle>
           </DialogHeader>
           <div className="flex flex-col items-center space-y-8 py-6">
-            <div className="bg-white p-6 rounded-[2rem] shadow-[0_0_50px_rgba(79,70,229,0.3)]">
+            <div className="bg-white p-6 rounded-[2rem] shadow-lg">
                 {selectedPass?.qr_code && (
                     <QRCodeSVG 
                         value={selectedPass.qr_code} 
@@ -358,15 +358,15 @@ export default function GatePassPage() {
                 )}
             </div>
             <div className="text-center space-y-2">
-                <h3 className="text-xl font-bold text-white">{selectedPass?.student_name}</h3>
-                <p className="text-slate-500 text-sm font-medium italic">VALID UNTIL {selectedPass?.valid_until && format(new Date(selectedPass.valid_until), "p, MMM dd")}</p>
+                <h3 className="text-xl font-bold text-foreground">{selectedPass?.student_name}</h3>
+                <p className="text-muted-foreground text-sm font-medium italic">VALID UNTIL {selectedPass?.valid_until && format(new Date(selectedPass.valid_until), "p, MMM dd")}</p>
             </div>
-            <div className="w-full h-px bg-white/5" />
+            <div className="w-full h-px bg-border/50" />
             <div className="flex gap-4 w-full">
-                <Button variant="outline" className="flex-1 border-white/5 bg-slate-800 text-white rounded-2xl gap-2 h-12">
+                <Button variant="outline" className="flex-1 rounded-2xl gap-2 h-12">
                     <Download className="w-4 h-4" /> Save
                 </Button>
-                <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl gap-2 h-12">
+                <Button className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-2xl gap-2 h-12">
                     <Printer className="w-4 h-4" /> Print
                 </Button>
             </div>
