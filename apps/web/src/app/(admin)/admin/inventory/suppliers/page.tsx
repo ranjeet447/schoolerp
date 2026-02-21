@@ -52,51 +52,51 @@ export default function SuppliersPage() {
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>All Suppliers ({suppliers.length})</CardTitle>
+      <Card className="border-none shadow-sm overflow-hidden">
+        <CardHeader className="border-b">
+          <CardTitle className="text-lg">All Suppliers ({suppliers.length})</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead>Supplier Name</TableHead>
-                <TableHead>Contact Person</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-muted-foreground font-bold">Supplier Name</TableHead>
+                <TableHead className="text-muted-foreground font-bold">Contact Person</TableHead>
+                <TableHead className="text-muted-foreground font-bold">Phone</TableHead>
+                <TableHead className="text-muted-foreground font-bold">Email</TableHead>
+                <TableHead className="text-right text-muted-foreground font-bold">Actions</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className="divide-y">
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground font-medium">
                     Loading suppliers...
                   </TableCell>
                 </TableRow>
               ) : suppliers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground font-medium">
                     No suppliers found.
                   </TableCell>
                 </TableRow>
               ) : (
                 suppliers.map((supplier) => (
-                  <TableRow key={supplier.id}>
-                    <TableCell className="font-medium">
+                  <TableRow key={supplier.id} className="hover:bg-muted/30 transition-colors">
+                    <TableCell className="font-semibold text-foreground">
                       <div className="flex items-center gap-2">
                         <User className="w-4 h-4 text-muted-foreground" />
                         {supplier.name}
                       </div>
                     </TableCell>
-                    <TableCell>{supplier.contact_person || "-"}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-muted-foreground font-medium">{supplier.contact_person || "-"}</TableCell>
+                    <TableCell className="text-muted-foreground font-medium">
                         <div className="flex items-center gap-1">
                             <Phone className="w-3 h-3 text-muted-foreground" />
                             {supplier.phone || "-"}
                         </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-muted-foreground font-medium">
                         <div className="flex items-center gap-1">
                             <Mail className="w-3 h-3 text-muted-foreground" />
                             {supplier.email || "-"}
@@ -106,7 +106,7 @@ export default function SuppliersPage() {
                       <Button variant="ghost" size="sm" onClick={() => {
                           setSelectedSupplier(supplier)
                           setDialogOpen(true)
-                      }}>
+                      }} className="text-primary hover:text-primary hover:bg-primary/10">
                         Edit
                       </Button>
                     </TableCell>

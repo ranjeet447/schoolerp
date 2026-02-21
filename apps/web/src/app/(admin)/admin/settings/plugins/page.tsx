@@ -86,12 +86,12 @@ export default function PluginManagementPage() {
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-indigo-400 font-bold uppercase tracking-widest text-xs">
+          <div className="flex items-center gap-2 text-primary font-bold uppercase tracking-widest text-xs">
             <Puzzle className="h-3 w-3" />
             <span>Marketplace</span>
           </div>
-          <h1 className="text-4xl font-black text-white tracking-tight">Plugin Management</h1>
-          <p className="text-slate-400 font-medium">Extend your ERP functionality by enabling modular integrations.</p>
+          <h1 className="text-4xl font-black text-foreground tracking-tight">Plugin Management</h1>
+          <p className="text-muted-foreground font-medium">Extend your ERP functionality by enabling modular integrations.</p>
         </div>
         
         <Button 

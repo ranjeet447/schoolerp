@@ -17,7 +17,7 @@ import {
   AvatarFallback,
   Badge
 } from "@schoolerp/ui"
-import { Plus, UserCheck, School } from "lucide-react"
+import { Plus, UserCheck, School, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 type Teacher = {
@@ -151,8 +151,8 @@ export default function ClassTeachersPage() {
                     </SelectContent>
                 </Select>
             </div>
-            <Button onClick={handleAssign} className="w-full bg-indigo-600 hover:bg-indigo-500 mt-4">
-                <UserCheck className="h-4 w-4 mr-2" /> Assign
+            <Button disabled={loading} onClick={handleAssign} className="w-full bg-indigo-600 hover:bg-indigo-500 mt-4">
+                {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <UserCheck className="h-4 w-4 mr-2" />} Assign
             </Button>
           </CardContent>
         </Card>

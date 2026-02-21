@@ -72,23 +72,23 @@ export default function IssuesPage() {
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Active Issues & History ({issues.length})</CardTitle>
+      <Card className="border-none shadow-sm overflow-hidden">
+        <CardHeader className="border-b bg-muted/20">
+          <CardTitle className="text-lg">Active Issues & History ({issues.length})</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead>Book Title</TableHead>
-                <TableHead>Student</TableHead>
-                <TableHead>Issue Date</TableHead>
-                <TableHead>Due Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="font-bold text-muted-foreground">Book Title</TableHead>
+                <TableHead className="font-bold text-muted-foreground">Student</TableHead>
+                <TableHead className="font-bold text-muted-foreground">Issue Date</TableHead>
+                <TableHead className="font-bold text-muted-foreground">Due Date</TableHead>
+                <TableHead className="font-bold text-muted-foreground">Status</TableHead>
+                <TableHead className="text-right font-bold text-muted-foreground">Actions</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className="divide-y">
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
@@ -103,37 +103,39 @@ export default function IssuesPage() {
                 </TableRow>
               ) : (
                 issues.map((issue) => (
-                  <TableRow key={issue.id}>
+                  <TableRow key={issue.id} className="hover:bg-muted/30 transition-colors">
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         <BookOpen className="w-4 h-4 text-muted-foreground" />
-                        {issue.book_title}
+                        <span className="font-semibold text-foreground">{issue.book_title}</span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{issue.student_name}</div>
-                        <div className="text-xs text-muted-foreground">{issue.admission_number}</div>
+                        <div className="font-medium text-foreground">{issue.student_name}</div>
+                        <div className="text-xs text-muted-foreground font-mono mt-0.5">{issue.admission_number}</div>
                       </div>
                     </TableCell>
-                    <TableCell>{new Date(issue.issue_date).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-muted-foreground font-medium text-sm">{new Date(issue.issue_date).toLocaleDateString()}</TableCell>
                     <TableCell>
-                        <div className="flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-muted-foreground" />
-                            {new Date(issue.due_date).toLocaleDateString()}
+                        <div className="flex items-center gap-1.5 text-sm font-medium">
+                            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                            <span className={issue.status === 'overdue' ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-muted-foreground'}>
+                                {new Date(issue.due_date).toLocaleDateString()}
+                            </span>
                         </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant={
                           issue.status === 'returned' ? 'secondary' : 
-                          issue.status === 'overdue' ? 'secondary' : 'default'
-                      }>
+                          issue.status === 'overdue' ? 'destructive' : 'default'
+                      } className={issue.status === 'issued' ? 'bg-primary' : ''}>
                         {issue.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       {issue.status === 'issued' && (
-                          <Button variant="outline" size="sm" onClick={() => handleReturn(issue)}>
+                          <Button variant="outline" size="sm" onClick={() => handleReturn(issue)} className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/50">
                             Mark Returned
                           </Button>
                       )}

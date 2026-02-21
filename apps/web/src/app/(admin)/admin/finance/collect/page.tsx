@@ -29,6 +29,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Card,
+  CardContent,
 } from "@schoolerp/ui"
 import { cn } from "@/lib/utils"
 
@@ -195,68 +197,69 @@ export default function FeeCollectionPage() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 pb-10">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-black text-white tracking-tight">Fee Collection</h1>
-          <p className="text-slate-400 font-medium">Collect fees and generate receipts.</p>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">Fee Collection</h1>
+          <p className="text-muted-foreground font-medium text-sm mt-1">Collect fees and generate receipts.</p>
         </div>
       </div>
 
       {/* Student Search Section */}
       {showSearch ? (
-        <div className="bg-slate-900/50 border border-white/5 rounded-3xl p-6 backdrop-blur-sm">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <Search className="h-5 w-5 text-indigo-400" />
-            Search Student
-          </h2>
-          <Command className="bg-slate-950/50 border border-white/10 rounded-xl overflow-hidden">
-            <CommandInput 
-              placeholder="Search by name or admission no..." 
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="text-white placeholder:text-slate-500"
-            />
-            <CommandList className="max-h-[300px]">
-              <CommandEmpty>No students found.</CommandEmpty>
-              <CommandGroup heading="Students">
-                {filteredStudents.map(student => (
-                  <CommandItem
-                    key={student.id}
-                    value={student.id}
-                    onSelect={() => handleSelectStudent(student)}
-                    className="flex justify-between items-center p-3 hover:bg-white/5 cursor-pointer text-slate-300 hover:text-white"
-                  >
-                    <div>
-                      <div className="font-bold">{student.full_name}</div>
-                      <div className="text-xs text-slate-500">{student.admission_no}</div>
-                    </div>
-                    {student.class_name && (
-                      <div className="text-xs bg-indigo-500/10 text-indigo-400 px-2 py-1 rounded">
-                        {student.class_name} {student.section_name}
+        <Card className="border-none shadow-sm">
+          <CardContent className="pt-6">
+            <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+              <Search className="h-5 w-5 text-primary" />
+              Search Student
+            </h2>
+            <Command className="border rounded-xl overflow-hidden shadow-sm">
+              <CommandInput 
+                placeholder="Search by name or admission no..." 
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+              <CommandList className="max-h-[300px]">
+                <CommandEmpty>No students found.</CommandEmpty>
+                <CommandGroup heading="Students">
+                  {filteredStudents.map(student => (
+                    <CommandItem
+                      key={student.id}
+                      value={student.id}
+                      onSelect={() => handleSelectStudent(student)}
+                      className="flex justify-between items-center p-3 cursor-pointer"
+                    >
+                      <div>
+                        <div className="font-semibold text-foreground">{student.full_name}</div>
+                        <div className="text-xs text-muted-foreground font-medium">{student.admission_no}</div>
                       </div>
-                    )}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </div>
+                      {student.class_name && (
+                        <div className="text-xs font-semibold bg-primary/10 text-primary px-2.5 py-1 rounded-md">
+                          {student.class_name} {student.section_name}
+                        </div>
+                      )}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4 flex justify-between items-center">
+        <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 bg-indigo-500 rounded-xl flex items-center justify-center text-white">
+            <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary shrink-0">
               <User className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">{selectedStudent?.full_name}</h3>
-              <p className="text-slate-400 text-sm">{selectedStudent?.admission_no}</p>
+              <h3 className="text-lg font-bold text-foreground">{selectedStudent?.full_name}</h3>
+              <p className="text-muted-foreground text-sm font-medium">{selectedStudent?.admission_no}</p>
             </div>
           </div>
           <Button 
-            variant="ghost" 
+            variant="outline" 
             onClick={() => { setSelectedStudent(null); setShowSearch(true); setFeeSummary([]) }}
-            className="text-slate-400 hover:text-white"
+            className="w-full sm:w-auto"
           >
             Change Student
           </Button>
@@ -264,132 +267,137 @@ export default function FeeCollectionPage() {
       )}
 
       {selectedStudent && !showSearch && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Fee Summary Table */}
-          <div className="lg:col-span-2 bg-slate-900/50 border border-white/5 rounded-3xl p-6 backdrop-blur-sm">
-            <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-              <FileText className="h-5 w-5 text-indigo-400" />
-              Fee Structure
-            </h2>
+          <div className="xl:col-span-2 space-y-4">
+            <Card className="border-none shadow-sm">
+              <CardContent className="pt-6">
+                <h2 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" />
+                  Fee Structure
+                </h2>
 
-            {loadingFees ? (
-              <div className="flex items-center justify-center py-10 text-slate-400">
-                <Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading details...
-              </div>
-            ) : feeSummary.length === 0 ? (
-              <div className="py-10 text-center text-slate-500">No fee plans assigned.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-white/10 text-slate-400 text-sm">
-                      <th className="py-3 px-2 font-medium">Head</th>
-                      <th className="py-3 px-2 font-medium text-right">Plan Amt</th>
-                      <th className="py-3 px-2 font-medium text-right">Paid</th>
-                      <th className="py-3 px-2 font-medium text-right text-red-400">Balance</th>
-                      <th className="py-3 px-2 font-medium text-right w-32">Pay Now</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {feeSummary.map((item, idx) => {
-                      const outstanding = Math.max(0, item.amount - (item.paid_amount || 0))
-                      const isPaid = outstanding === 0
-                      
-                      return (
-                        <tr key={`${item.head_id}-${idx}`} className="group hover:bg-white/5 transition-colors">
-                          <td className="py-3 px-2 text-slate-300 font-medium">
-                            {item.head_name}
-                            <div className="text-xs text-slate-500">{item.info}</div>
-                          </td>
-                          <td className="py-3 px-2 text-right text-slate-400">{formatCurrency(item.amount)}</td>
-                          <td className="py-3 px-2 text-right text-green-400/80">{formatCurrency(item.paid_amount || 0)}</td>
-                          <td className="py-3 px-2 text-right font-bold text-red-400">{formatCurrency(outstanding)}</td>
-                          <td className="py-3 px-2 text-right">
-                             {!isPaid ? (
-                               <Input
-                                 type="number"
-                                 min="0"
-                                 max={outstanding}
-                                 placeholder="0"
-                                 value={paymentAmounts[item.head_id] || ""}
-                                 onChange={(e) => handleAmountChange(item.head_id, e.target.value)}
-                                 className="h-9 w-full text-right bg-slate-950/50 border-white/10 focus:border-indigo-500"
-                               />
-                             ) : (
-                               <span className="flex items-center justify-end text-green-500 text-sm font-bold">
-                                 <CheckCircle className="h-4 w-4 mr-1" /> Paid
-                               </span>
-                             )}
-                          </td>
+                {loadingFees ? (
+                  <div className="flex items-center justify-center py-10 text-muted-foreground">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading details...
+                  </div>
+                ) : feeSummary.length === 0 ? (
+                  <div className="py-10 text-center text-muted-foreground bg-muted/20 border border-dashed rounded-xl font-medium">No fee plans assigned.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-muted/50 border-y">
+                        <tr className="text-muted-foreground font-semibold">
+                          <th className="py-3 px-4">Head</th>
+                          <th className="py-3 px-4 text-right">Plan Amt</th>
+                          <th className="py-3 px-4 text-right">Paid</th>
+                          <th className="py-3 px-4 text-right text-destructive">Balance</th>
+                          <th className="py-3 px-4 text-right w-32">Pay Now</th>
                         </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                      </thead>
+                      <tbody className="divide-y">
+                        {feeSummary.map((item, idx) => {
+                          const outstanding = Math.max(0, item.amount - (item.paid_amount || 0))
+                          const isPaid = outstanding === 0
+                          
+                          return (
+                            <tr key={`${item.head_id}-${idx}`} className="hover:bg-muted/30 transition-colors">
+                              <td className="py-3 px-4">
+                                <div className="font-semibold text-foreground">{item.head_name}</div>
+                                {item.info && <div className="text-xs text-muted-foreground mt-0.5">{item.info}</div>}
+                              </td>
+                              <td className="py-3 px-4 text-right font-medium text-muted-foreground">{formatCurrency(item.amount)}</td>
+                              <td className="py-3 px-4 text-right font-medium text-emerald-600">{formatCurrency(item.paid_amount || 0)}</td>
+                              <td className="py-3 px-4 text-right font-bold text-destructive">{formatCurrency(outstanding)}</td>
+                              <td className="py-3 px-4 text-right">
+                                 {!isPaid ? (
+                                   <Input
+                                     type="number"
+                                     min="0"
+                                     max={outstanding}
+                                     placeholder="0"
+                                     value={paymentAmounts[item.head_id] || ""}
+                                     onChange={(e) => handleAmountChange(item.head_id, e.target.value)}
+                                     className="h-9 w-full text-right"
+                                   />
+                                 ) : (
+                                   <span className="flex items-center justify-end text-emerald-600 text-sm font-bold">
+                                     <CheckCircle className="h-4 w-4 mr-1" /> Paid
+                                   </span>
+                                 )}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           {/* Payment Widget */}
           <div className="space-y-6">
-            <div className="bg-slate-900 border border-white/10 rounded-3xl p-6 shadow-2xl">
-              <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                <Banknote className="h-5 w-5 text-green-400" />
-                Payment Details
-              </h3>
-              
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <Label>Total Paying Amount</Label>
-                  <div className="text-4xl font-black text-white">{formatCurrency(totalPaying)}</div>
-                </div>
-
-                <div className="space-y-4 pt-4 border-t border-white/10">
-                  <div className="space-y-2">
-                    <Label htmlFor="mode">Payment Mode</Label>
-                    <Select value={paymentMode} onValueChange={setPaymentMode}>
-                      <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                        <SelectValue placeholder="Select Mode" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cash">Cash</SelectItem>
-                        <SelectItem value="upi">UPI / Online</SelectItem>
-                        <SelectItem value="cheque">Cheque / DD</SelectItem>
-                        <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                      </SelectContent>
-                    </Select>
+            <Card className="border-none shadow-sm">
+              <CardContent className="pt-6">
+                <h3 className="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
+                  <Banknote className="h-5 w-5 text-emerald-600" />
+                  Payment Details
+                </h3>
+                
+                <div className="space-y-6">
+                  <div className="space-y-1.5 p-4 bg-muted/20 border rounded-xl text-center">
+                    <Label className="text-muted-foreground text-xs uppercase tracking-widest font-bold">Total Paying Amount</Label>
+                    <div className="text-4xl font-black text-foreground">{formatCurrency(totalPaying)}</div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="ref">Reference No. (Optional)</Label>
-                    <Input 
-                      id="ref" 
-                      placeholder="e.g. UTR Number, Cheque No" 
-                      value={refNo}
-                      onChange={(e) => setRefNo(e.target.value)}
-                      className="bg-white/5 border-white/10 text-white"
-                    />
-                  </div>
-                </div>
+                  <div className="space-y-4 pt-4 border-t border-border/50">
+                    <div className="space-y-2">
+                      <Label htmlFor="mode">Payment Mode</Label>
+                      <Select value={paymentMode} onValueChange={setPaymentMode}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Mode" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cash">Cash</SelectItem>
+                          <SelectItem value="upi">UPI / Online</SelectItem>
+                          <SelectItem value="cheque">Cheque / DD</SelectItem>
+                          <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                <Button 
-                  className="w-full h-12 text-lg font-bold bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-500/20"
-                  onClick={handleCollectFee}
-                  disabled={totalPaying <= 0 || processing}
-                >
-                  {processing ? (
-                    <Loader2 className="h-5 w-5 animate-spin" /> 
-                  ) : (
-                    <>Collect {formatCurrency(totalPaying)}</>
-                  )}
-                </Button>
-              </div>
-            </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ref">Reference No. (Optional)</Label>
+                      <Input 
+                        id="ref" 
+                        placeholder="e.g. UTR Number, Cheque No" 
+                        value={refNo}
+                        onChange={(e) => setRefNo(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <Button 
+                    className="w-full h-12 text-base font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={handleCollectFee}
+                    disabled={totalPaying <= 0 || processing}
+                  >
+                    {processing ? (
+                      <Loader2 className="h-5 w-5 animate-spin" /> 
+                    ) : (
+                      <>Collect {formatCurrency(totalPaying)}</>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
             
-            <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl">
+            <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl">
                <div className="flex gap-3">
-                 <AlertCircle className="h-5 w-5 text-indigo-400 flex-shrink-0" />
-                 <p className="text-sm text-indigo-200">
+                 <AlertCircle className="h-5 w-5 text-primary flex-shrink-0" />
+                 <p className="text-sm font-medium text-foreground">
                    Note: Receipts are generated automatically upon successful payment collection.
                  </p>
                </div>

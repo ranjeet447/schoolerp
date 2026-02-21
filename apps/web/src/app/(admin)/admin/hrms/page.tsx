@@ -107,40 +107,43 @@ export default function HRMSDashboard() {
   const recentTasks = useMemo(() => tasks.slice(0, 5), [tasks]);
 
   const stats = [
-    { title: "Total Employees", value: String(summary.totalEmployees), icon: Users, color: "text-blue-400", bg: "bg-blue-500/10" },
-    { title: "Active Employees", value: String(summary.activeEmployees), icon: Activity, color: "text-emerald-400", bg: "bg-emerald-500/10" },
-    { title: "Open Tasks", value: String(summary.openTasks), icon: ClipboardList, color: "text-amber-400", bg: "bg-amber-500/10" },
-    { title: "Pending Payroll Runs", value: String(summary.pendingPayroll), icon: Banknote, color: "text-rose-400", bg: "bg-rose-500/10" },
+    { title: "Total Employees", value: String(summary.totalEmployees), icon: Users, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-500/10" },
+    { title: "Active Employees", value: String(summary.activeEmployees), icon: Activity, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10" },
+    { title: "Open Tasks", value: String(summary.openTasks), icon: ClipboardList, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10" },
+    { title: "Pending Payroll Runs", value: String(summary.pendingPayroll), icon: Banknote, color: "text-rose-600 dark:text-rose-400", bg: "bg-rose-500/10" },
   ];
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-6 space-y-6 max-w-7xl mx-auto pb-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-white tracking-tight">HRMS Command Center</h1>
-          <p className="text-slate-400 font-medium">Manage your workforce, payroll, and organization operations.</p>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">HRMS Command Center</h1>
+          <p className="text-muted-foreground font-medium text-sm mt-1">Manage your workforce, payroll, and organization operations.</p>
         </div>
-        <Button variant="outline" className="border-white/10 bg-slate-900/50" onClick={() => void loadDashboard(true)} disabled={refreshing}>
+        <Button variant="outline" onClick={() => void loadDashboard(true)} disabled={refreshing}>
           <RefreshCw className={cn("mr-2 h-4 w-4", refreshing && "animate-spin")} /> Refresh
         </Button>
       </div>
 
       {loading ? (
-        <Card className="bg-slate-900/50 border-white/5">
-          <CardContent className="p-8 text-center text-slate-400">Loading HRMS data...</CardContent>
+        <Card className="border-none shadow-sm">
+          <CardContent className="p-12 text-center text-muted-foreground flex flex-col items-center justify-center">
+             <RefreshCw className="h-6 w-6 animate-spin mb-4 text-primary" />
+             Loading HRMS data...
+          </CardContent>
         </Card>
       ) : null}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat) => (
-          <Card key={stat.title} className="bg-slate-900/50 border-white/5 hover:bg-slate-900/80 transition-colors">
+          <Card key={stat.title} className="border-none shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-6 flex items-center gap-4">
               <div className={`p-3 rounded-xl ${stat.bg}`}>
                 <stat.icon className={`h-6 w-6 ${stat.color}`} />
               </div>
               <div>
-                <p className="text-sm text-slate-400 font-medium">{stat.title}</p>
-                <h3 className="text-2xl font-bold text-white">{stat.value}</h3>
+                <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">{stat.title}</p>
+                <h3 className="text-3xl font-bold text-foreground mt-1">{stat.value}</h3>
               </div>
             </CardContent>
           </Card>
@@ -149,17 +152,17 @@ export default function HRMSDashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {MODULES.map((mod) => (
-          <Card key={mod.title} className="bg-slate-900/50 border-white/5 group hover:border-indigo-500/30 transition-all">
+          <Card key={mod.title} className="border-none shadow-sm group hover:shadow-md transition-all">
             <CardHeader>
-              <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <mod.icon className="h-6 w-6 text-indigo-400" />
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <mod.icon className="h-6 w-6 text-primary" />
               </div>
               <CardTitle className="text-xl">{mod.title}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <p className="text-slate-400">{mod.desc}</p>
+              <p className="text-sm font-medium text-muted-foreground">{mod.desc}</p>
               <Link href={mod.href} className="block">
-                <Button className="w-full bg-slate-800 hover:bg-indigo-600 border border-white/5 hover:border-indigo-500/50 transition-all">
+                <Button variant="secondary" className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-all">
                   {mod.action} <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
@@ -169,36 +172,36 @@ export default function HRMSDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="bg-slate-900/50 border-white/5">
+        <Card className="border-none shadow-sm">
           <CardHeader>
-            <CardTitle>Recent Payroll Runs</CardTitle>
+            <CardTitle className="text-lg">Recent Payroll Runs</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {recentRuns.length === 0 ? (
-              <p className="text-sm text-slate-500">No payroll runs found.</p>
+              <p className="text-sm text-muted-foreground font-medium py-4 text-center bg-muted/30 rounded-lg">No payroll runs found.</p>
             ) : (
               recentRuns.map((run) => (
-                <div key={run.id} className="flex items-center justify-between rounded-lg border border-white/5 p-3">
-                  <div className="text-sm text-slate-200">Run #{run.id.slice(0, 8)} ({run.month || "-"} / {run.year || "-"})</div>
-                  <span className="text-xs uppercase text-slate-400">{asText(run.status) || "unknown"}</span>
+                <div key={run.id} className="flex items-center justify-between rounded-xl border border-border/50 bg-muted/20 p-4">
+                  <div className="text-sm font-semibold text-foreground">Run #{run.id.slice(0, 8)} <span className="text-muted-foreground font-medium ml-1">({run.month || "-"} / {run.year || "-"})</span></div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted p-1.5 rounded-md">{asText(run.status) || "unknown"}</span>
                 </div>
               ))
             )}
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-900/50 border-white/5">
+        <Card className="border-none shadow-sm">
           <CardHeader>
-            <CardTitle>Open Task Snapshot</CardTitle>
+            <CardTitle className="text-lg">Open Task Snapshot</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {recentTasks.length === 0 ? (
-              <p className="text-sm text-slate-500">No staff tasks found.</p>
+              <p className="text-sm text-muted-foreground font-medium py-4 text-center bg-muted/30 rounded-lg">No staff tasks found.</p>
             ) : (
               recentTasks.map((task) => (
-                <div key={task.id} className="flex items-center justify-between rounded-lg border border-white/5 p-3">
-                  <div className="text-sm text-slate-200 truncate">{task.title || `Task #${task.id.slice(0, 8)}`}</div>
-                  <span className="text-xs uppercase text-slate-400">{asText(task.status) || "open"}</span>
+                <div key={task.id} className="flex items-center justify-between rounded-xl border border-border/50 bg-muted/20 p-4">
+                  <div className="text-sm font-semibold text-foreground truncate max-w-[200px]">{task.title || `Task #${task.id.slice(0, 8)}`}</div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted p-1.5 rounded-md">{asText(task.status) || "open"}</span>
                 </div>
               ))
             )}

@@ -174,34 +174,34 @@ export default function IDCardsPage() {
   }, [templates]);
 
   return (
-    <div className="flex flex-col gap-6 p-6 min-h-screen bg-slate-950 text-white">
+    <div className="flex flex-col gap-6 p-6 max-w-7xl mx-auto pb-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-black text-foreground tracking-tight">
             Digital ID Cards
           </h1>
-          <p className="text-slate-400 mt-1">Design templates and generate smart ID cards for everyone.</p>
+          <p className="text-muted-foreground font-medium text-sm mt-1">Design templates and generate smart ID cards for everyone.</p>
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" className="border-slate-800 bg-slate-900/50" onClick={() => void fetchTemplates(true)} disabled={refreshing}>
+          <Button variant="outline" onClick={() => void fetchTemplates(true)} disabled={refreshing}>
             <RefreshCw className={cn("mr-2 h-4 w-4", refreshing && "animate-spin")} /> Refresh
           </Button>
-          <Button variant="outline" className="border-slate-800 bg-slate-900/50">
+          <Button variant="outline">
             <Printer className="mr-2 h-4 w-4" /> Bulk Print
           </Button>
         </div>
       </div>
 
       <Tabs defaultValue="templates" className="w-full" onValueChange={setActiveView}>
-        <TabsList className="bg-slate-900 border-slate-800 mb-6 h-12">
-          <TabsTrigger value="templates" className="data-[state=active]:bg-slate-800 px-6">Templates</TabsTrigger>
-          <TabsTrigger value="generate" className="data-[state=active]:bg-slate-800 px-6">Generate / Issue</TabsTrigger>
-          <TabsTrigger value="settings" className="data-[state=active]:bg-slate-800 px-6">General Settings</TabsTrigger>
+        <TabsList className="mb-6 h-12">
+          <TabsTrigger value="templates" className="px-6">Templates</TabsTrigger>
+          <TabsTrigger value="generate" className="px-6">Generate / Issue</TabsTrigger>
+          <TabsTrigger value="settings" className="px-6">General Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="templates" className="space-y-6">
-          <Card className="bg-slate-900 border-slate-800">
+          <Card className="border-none shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg">Create New Template</CardTitle>
             </CardHeader>
@@ -250,7 +250,7 @@ export default function IDCardsPage() {
                 </div>
               </div>
               <div className="md:col-span-2 lg:col-span-3">
-                <Button onClick={() => void createTemplate()} className="bg-blue-600 hover:bg-blue-500" disabled={saving}>
+                <Button onClick={() => void createTemplate()} disabled={saving}>
                   <Plus className="mr-2 h-4 w-4" /> {saving ? "Creating..." : "Create Template"}
                 </Button>
               </div>
@@ -258,30 +258,30 @@ export default function IDCardsPage() {
           </Card>
 
           {loading ? (
-            <Card className="bg-slate-900 border-slate-800 p-8 text-center text-slate-400">Loading templates...</Card>
+            <Card className="border-none shadow-sm p-12 text-center text-muted-foreground font-medium">Loading templates...</Card>
           ) : templates.length === 0 ? (
-            <Card className="bg-slate-900 border-slate-800 p-8 text-center text-slate-400">No ID card templates found.</Card>
+            <Card className="border-none shadow-sm p-12 text-center text-muted-foreground font-medium">No ID card templates found.</Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {templates.map((tpl) => {
                 const color = templateColor(tpl);
                 return (
-                  <Card key={tpl.id} className="bg-slate-900 border-slate-800 overflow-hidden group">
-                    <div className="aspect-[3/4] p-6 flex flex-col items-center justify-center bg-slate-950/80 relative overflow-hidden">
-                      <div className="w-full h-full rounded-xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col" style={{ borderColor: `${color}40` }}>
+                  <Card key={tpl.id} className="border-none shadow-sm overflow-hidden group">
+                    <div className="aspect-[3/4] p-6 flex flex-col items-center justify-center bg-muted/30 relative overflow-hidden">
+                      <div className="w-full h-full rounded-xl border border-border/50 shadow-md overflow-hidden flex flex-col" style={{ borderColor: `${color}40` }}>
                         <div className="h-1/4 flex items-center justify-center p-3 relative" style={{ background: `linear-gradient(to bottom right, ${color}, ${color}dd)` }}>
                           <div className="text-[10px] font-bold text-white/60 absolute top-2 right-2">ID: {tpl.id.slice(0, 8)}</div>
                           <div className="h-6 w-full bg-white/20 rounded blur-[2px]" />
                         </div>
-                        <div className="flex-1 bg-slate-900 p-4 flex flex-col items-center gap-3">
-                          <div className="h-20 w-20 rounded-full border-4 border-slate-800 bg-slate-800 flex items-center justify-center -mt-10 overflow-hidden">
-                            <User className="h-10 w-10 text-slate-700" />
+                        <div className="flex-1 bg-card p-4 flex flex-col items-center gap-3">
+                          <div className="h-20 w-20 rounded-full border-4 border-card bg-muted flex items-center justify-center -mt-10 overflow-hidden">
+                            <User className="h-10 w-10 text-muted-foreground/50" />
                           </div>
                           <div className="space-y-2 w-full">
-                            <div className="h-4 bg-slate-800 rounded w-3/4 mx-auto" />
-                            <div className="h-3 bg-slate-800 rounded w-1/2 mx-auto" />
+                            <div className="h-4 bg-muted rounded w-3/4 mx-auto" />
+                            <div className="h-3 bg-muted rounded w-1/2 mx-auto" />
                           </div>
-                          <div className="mt-auto h-8 w-8 bg-white/10 rounded-sm border border-slate-800" />
+                          <div className="mt-auto h-8 w-8 bg-muted rounded-sm border border-border/50" />
                         </div>
                       </div>
                     </div>
@@ -290,14 +290,14 @@ export default function IDCardsPage() {
                       <div className="flex justify-between items-center gap-2">
                         <CardTitle className="text-base">{tpl.name}</CardTitle>
                         {tpl.is_default ? (
-                          <span className="text-[8px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 uppercase font-black">
+                          <span className="text-[8px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 uppercase font-black">
                             Default
                           </span>
                         ) : null}
                       </div>
                     </CardHeader>
                     <CardContent className="pb-4 pt-0">
-                      <div className="flex items-center justify-between text-xs text-slate-500">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
                         <div className="flex items-center gap-3">
                           <span className="flex items-center gap-1"><Layout className="h-3 w-3" /> {tpl.layout}</span>
                           <span className="flex items-center gap-1"><User className="h-3 w-3" /> {tpl.user_type}</span>
@@ -305,7 +305,7 @@ export default function IDCardsPage() {
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-8 w-8"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
                           onClick={() => void deleteTemplate(tpl.id)}
                           disabled={deletingID === tpl.id}
                         >
@@ -321,30 +321,30 @@ export default function IDCardsPage() {
         </TabsContent>
 
         <TabsContent value="generate">
-          <Card className="bg-slate-900 border-slate-800">
+          <Card className="border-none shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg">Issue New ID Cards</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Total Templates</label>
-                  <div className="h-10 px-3 rounded-md bg-slate-950 border border-slate-800 flex items-center">{summary.total}</div>
+                  <label className="text-xs font-bold text-muted-foreground uppercase">Total Templates</label>
+                  <div className="h-10 px-3 rounded-md bg-muted/50 border border-border/50 flex items-center font-medium">{summary.total}</div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Student Templates</label>
-                  <div className="h-10 px-3 rounded-md bg-slate-950 border border-slate-800 flex items-center">{summary.student}</div>
+                  <label className="text-xs font-bold text-muted-foreground uppercase">Student Templates</label>
+                  <div className="h-10 px-3 rounded-md bg-muted/50 border border-border/50 flex items-center font-medium">{summary.student}</div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Employee Templates</label>
-                  <div className="h-10 px-3 rounded-md bg-slate-950 border border-slate-800 flex items-center">{summary.employee}</div>
+                  <label className="text-xs font-bold text-muted-foreground uppercase">Employee Templates</label>
+                  <div className="h-10 px-3 rounded-md bg-muted/50 border border-border/50 flex items-center font-medium">{summary.employee}</div>
                 </div>
               </div>
 
-              <div className="border border-slate-800 rounded-lg p-10 text-center bg-slate-950/30">
-                <CreditCard className="h-12 w-12 text-slate-700 mx-auto mb-4" />
-                <h3 className="text-slate-300 font-medium">Template catalog is now API-backed.</h3>
-                <p className="text-slate-500 text-sm mt-1">
+              <div className="border border-border/50 rounded-lg p-10 text-center bg-muted/20">
+                <CreditCard className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+                <h3 className="text-foreground font-semibold">Template catalog is now API-backed.</h3>
+                <p className="text-muted-foreground text-sm mt-1 font-medium">
                   Use template APIs and roster APIs to generate issuance batches in the next step.
                 </p>
               </div>
@@ -353,11 +353,11 @@ export default function IDCardsPage() {
         </TabsContent>
 
         <TabsContent value="settings">
-          <Card className="bg-slate-900 border-slate-800">
+          <Card className="border-none shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg">General Settings</CardTitle>
             </CardHeader>
-            <CardContent className="text-sm text-slate-400">
+            <CardContent className="text-sm text-muted-foreground font-medium">
               Template settings are persisted through the ID card template API.
             </CardContent>
           </Card>

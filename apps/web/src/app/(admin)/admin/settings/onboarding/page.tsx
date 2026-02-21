@@ -123,11 +123,11 @@ export default function OnboardingPage() {
   return (
     <div className="max-w-4xl mx-auto py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-          <ShieldCheck className="h-8 w-8 text-indigo-500" />
+        <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
+          <ShieldCheck className="h-8 w-8 text-primary" />
           Institution Onboarding
         </h1>
-        <p className="text-slate-400 mt-2">Register a new school or university on the platform</p>
+        <p className="text-muted-foreground mt-2">Register a new school or university on the platform</p>
       </div>
 
       <form onSubmit={handleOnboard} className="space-y-8">

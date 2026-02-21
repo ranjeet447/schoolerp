@@ -191,22 +191,22 @@ export default function ResourcesPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-6 min-h-screen bg-slate-950 text-white">
+    <div className="flex flex-col gap-6 p-6 max-w-7xl mx-auto pb-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-amber-400 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-black text-foreground tracking-tight">
             Learning Resources
           </h1>
-          <p className="text-slate-400 mt-1">Central repository for study materials, videos, and worksheets.</p>
+          <p className="text-muted-foreground font-medium text-sm mt-1">Central repository for study materials, videos, and worksheets.</p>
         </div>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-amber-600 hover:bg-amber-500">
+            <Button>
               <Upload className="mr-2 h-4 w-4" /> Upload Material
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-slate-900 border-slate-800 text-white">
+          <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
               <DialogTitle>Add Learning Resource</DialogTitle>
             </DialogHeader>
@@ -214,7 +214,6 @@ export default function ResourcesPage() {
               <div className="space-y-2">
                 <Label>Title *</Label>
                 <Input
-                  className="bg-slate-950 border-slate-800"
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
                   placeholder="Introduction to Algebra"
@@ -223,7 +222,6 @@ export default function ResourcesPage() {
               <div className="space-y-2">
                 <Label>Description</Label>
                 <Input
-                  className="bg-slate-950 border-slate-800"
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   placeholder="Optional description"
@@ -233,7 +231,7 @@ export default function ResourcesPage() {
                 <div className="space-y-2">
                   <Label>Type</Label>
                   <Select value={form.resource_type} onValueChange={(v) => setForm({ ...form, resource_type: v })}>
-                    <SelectTrigger className="bg-slate-950 border-slate-800">
+                    <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -246,7 +244,6 @@ export default function ResourcesPage() {
                 <div className="space-y-2">
                   <Label>URL *</Label>
                   <Input
-                    className="bg-slate-950 border-slate-800"
                     value={form.url}
                     onChange={(e) => setForm({ ...form, url: e.target.value })}
                     placeholder="https://..."
@@ -257,7 +254,7 @@ export default function ResourcesPage() {
                 <div className="space-y-2">
                   <Label>Class</Label>
                   <Select value={form.class_id} onValueChange={(v) => setForm({ ...form, class_id: v })}>
-                    <SelectTrigger className="bg-slate-950 border-slate-800">
+                    <SelectTrigger>
                       <SelectValue placeholder="Select class" />
                     </SelectTrigger>
                     <SelectContent>
@@ -270,7 +267,7 @@ export default function ResourcesPage() {
                 <div className="space-y-2">
                   <Label>Subject</Label>
                   <Select value={form.subject_id} onValueChange={(v) => setForm({ ...form, subject_id: v })}>
-                    <SelectTrigger className="bg-slate-950 border-slate-800">
+                    <SelectTrigger>
                       <SelectValue placeholder="Select subject" />
                     </SelectTrigger>
                     <SelectContent>
@@ -281,7 +278,7 @@ export default function ResourcesPage() {
                   </Select>
                 </div>
               </div>
-              <Button type="submit" disabled={creating} className="w-full bg-amber-600 hover:bg-amber-500">
+              <Button type="submit" disabled={creating} className="w-full">
                 {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
                 Add Resource
               </Button>
@@ -293,15 +290,15 @@ export default function ResourcesPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Filters Sidebar */}
         <div className="md:col-span-1 space-y-6">
-          <Card className="bg-slate-900 border-slate-800">
+          <Card className="border-none shadow-sm pb-2">
             <CardHeader>
               <CardTitle className="text-lg">Filters</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 uppercase">Class / Grade</label>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Class / Grade</label>
                 <Select value={filterClass} onValueChange={setFilterClass}>
-                  <SelectTrigger className="bg-slate-950 border-slate-800">
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -313,9 +310,9 @@ export default function ResourcesPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 uppercase">Subject</label>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Subject</label>
                 <Select value={filterSubject} onValueChange={setFilterSubject}>
-                  <SelectTrigger className="bg-slate-950 border-slate-800">
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -327,7 +324,7 @@ export default function ResourcesPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 uppercase">Resource Type</label>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Resource Type</label>
                 <div className="flex flex-wrap gap-2 pt-1">
                   {[
                     { value: "all", label: "All" },
@@ -337,12 +334,11 @@ export default function ResourcesPage() {
                   ].map((t) => (
                     <Button
                       key={t.value}
-                      variant="outline"
+                      variant={filterType === t.value ? "default" : "outline"}
                       size="sm"
                       onClick={() => setFilterType(t.value)}
                       className={cn(
-                        "border-slate-800 rounded-full text-[10px] h-7 px-3",
-                        filterType === t.value ? "bg-amber-600/20 border-amber-500 text-amber-400" : "bg-slate-950"
+                        "rounded-full text-xs h-8 px-4 font-medium transition-colors"
                       )}
                     >
                       {t.label}
@@ -351,8 +347,8 @@ export default function ResourcesPage() {
                 </div>
               </div>
               <Button
-                variant="default"
-                className="w-full bg-slate-800 hover:bg-slate-700 mt-2"
+                variant="outline"
+                className="w-full mt-4"
                 onClick={() => {
                   setFilterClass("all");
                   setFilterSubject("all");
@@ -365,13 +361,13 @@ export default function ResourcesPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-900 border-slate-800">
-            <CardHeader>
-              <CardTitle className="text-sm">Resource Count</CardTitle>
+          <Card className="border-none shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Resource Count</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-amber-400">{resources.length}</div>
-              <p className="text-xs text-slate-500 mt-1">Total materials uploaded</p>
+              <div className="text-3xl font-black text-foreground">{resources.length}</div>
+              <p className="text-xs font-medium text-muted-foreground mt-1">Total materials uploaded</p>
             </CardContent>
           </Card>
         </div>
@@ -379,10 +375,10 @@ export default function ResourcesPage() {
         {/* Main Content */}
         <div className="md:col-span-2 space-y-6">
           <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search materials, videos, exam papers..."
-              className="bg-slate-900 border-slate-800 pl-10 h-12"
+              className="pl-10 h-12"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -390,14 +386,14 @@ export default function ResourcesPage() {
 
           {loading ? (
             <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : filtered.length === 0 ? (
-            <Card className="bg-slate-900 border-slate-800">
+            <Card className="border-none shadow-sm">
               <CardContent className="py-16 text-center">
-                <BookOpen className="h-12 w-12 mx-auto text-slate-600 mb-4" />
-                <p className="text-slate-400 text-lg font-medium">No resources found</p>
-                <p className="text-slate-600 text-sm mt-1">Upload your first material to get started.</p>
+                <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-foreground text-lg font-medium">No resources found</p>
+                <p className="text-muted-foreground text-sm mt-1">Upload your first material to get started.</p>
               </CardContent>
             </Card>
           ) : (
@@ -405,7 +401,7 @@ export default function ResourcesPage() {
               {filtered.map((res) => (
                 <Card
                   key={res.id}
-                  className="bg-slate-900 border-slate-800 hover:border-slate-700 transition-colors group overflow-hidden"
+                  className="border-none shadow-sm hover:shadow-md transition-shadow group overflow-hidden"
                 >
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
@@ -420,7 +416,7 @@ export default function ResourcesPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-slate-600 group-hover:text-red-400 hover:bg-red-500/10"
+                        className="h-8 w-8 text-muted-foreground group-hover:text-destructive hover:bg-destructive/10"
                         onClick={() => handleDelete(res.id)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -428,23 +424,23 @@ export default function ResourcesPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <h3 className="font-bold text-slate-200 line-clamp-1">{res.title}</h3>
+                    <h3 className="font-semibold text-foreground line-clamp-1">{res.title}</h3>
                     {res.description && (
-                      <p className="text-xs text-slate-500 mt-1 line-clamp-2">{res.description}</p>
+                      <p className="text-xs text-muted-foreground font-medium mt-1 line-clamp-2">{res.description}</p>
                     )}
                     <div className="flex flex-col gap-1 mt-2">
-                      <span className="text-xs text-slate-500 flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
                         <BookOpen className="h-3 w-3" /> {res.subject_name || "General"}
                       </span>
-                      <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider">
+                      <span className="text-[10px] text-primary font-bold uppercase tracking-wider">
                         {res.class_name || "All Classes"}
                       </span>
                     </div>
                     <div className="mt-4 flex gap-2">
                       <Button
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
-                        className="flex-1 text-[10px] h-8 border-slate-800 hover:bg-slate-800"
+                        className="flex-1 text-xs h-8"
                         onClick={() => window.open(res.url, "_blank")}
                       >
                         {res.resource_type === "video_link" ? "Watch Now" : "Open / Download"}

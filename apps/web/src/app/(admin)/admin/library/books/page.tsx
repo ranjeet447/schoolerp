@@ -88,36 +88,36 @@ export default function BooksPage() {
       )}
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card className="border-none shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Catalog Size</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Catalog Size</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{books.length}</div>
+            <div className="text-3xl font-black text-foreground">{books.length}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-none shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Available Copies</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Available Copies</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{availableCopies}</div>
+            <div className="text-3xl font-black text-foreground">{availableCopies}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-none shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Copies</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total Copies</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalCopies}</div>
+            <div className="text-3xl font-black text-foreground">{totalCopies}</div>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
+      <Card className="border-none shadow-sm overflow-hidden">
+        <CardHeader className="pb-3 border-b bg-muted/20">
           <div className="flex items-center justify-between">
-            <CardTitle>All Books ({books.length})</CardTitle>
+            <CardTitle className="text-lg">All Books ({books.length})</CardTitle>
             <div className="relative w-72">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input 
@@ -129,20 +129,20 @@ export default function BooksPage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>ISBN</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Copies</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="font-bold text-muted-foreground">Title</TableHead>
+                <TableHead className="font-bold text-muted-foreground">ISBN</TableHead>
+                <TableHead className="font-bold text-muted-foreground">Category</TableHead>
+                <TableHead className="font-bold text-muted-foreground">Copies</TableHead>
+                <TableHead className="font-bold text-muted-foreground">Location</TableHead>
+                <TableHead className="font-bold text-muted-foreground">Status</TableHead>
+                <TableHead className="text-right font-bold text-muted-foreground">Actions</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className="divide-y">
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
@@ -157,32 +157,34 @@ export default function BooksPage() {
                 </TableRow>
               ) : (
                 filteredBooks.map((book) => (
-                  <TableRow key={book.id}>
+                  <TableRow key={book.id} className="hover:bg-muted/30 transition-colors">
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         <BookOpen className="w-4 h-4 text-muted-foreground" />
                         <div>
-                            <div className="font-semibold">{book.title}</div>
-                            <div className="text-xs text-muted-foreground">{book.publisher} ({book.published_year})</div>
+                            <div className="font-semibold text-foreground">{book.title}</div>
+                            <div className="text-xs text-muted-foreground font-medium">{book.publisher} ({book.published_year})</div>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{book.isbn || "-"}</TableCell>
-                    <TableCell>{book.category_id || "General"}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground font-medium">{book.isbn || "-"}</TableCell>
                     <TableCell>
-                        <Badge variant={book.available_copies > 0 ? "outline" : "secondary"}>
+                      <Badge variant="outline" className="font-normal text-muted-foreground">{book.category_id || "General"}</Badge>
+                    </TableCell>
+                    <TableCell>
+                        <Badge variant={book.available_copies > 0 ? "outline" : "secondary"} className={book.available_copies > 0 ? "text-emerald-600 border-emerald-600/20 bg-emerald-600/10 dark:text-emerald-400" : ""}>
                             {book.available_copies} / {book.total_copies}
                         </Badge>
                     </TableCell>
-                    <TableCell>{book.shelf_location || "-"}</TableCell>
+                    <TableCell className="text-muted-foreground font-medium text-sm">{book.shelf_location || "-"}</TableCell>
                     <TableCell>
-                      <Badge variant={book.status === 'active' ? 'default' : 'secondary'}>
+                      <Badge variant={book.status === 'active' ? 'default' : 'secondary'} className={book.status === 'active' ? 'bg-emerald-600 hover:bg-emerald-600 dark:bg-emerald-600/80' : ''}>
                         {book.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="sm" asChild>
+                        <Button variant="ghost" size="sm" asChild className="text-primary hover:text-primary hover:bg-primary/10">
                           <Link href={`/admin/library/digital-assets?book_id=${book.id}&title=${encodeURIComponent(book.title)}`}>
                             Assets
                           </Link>

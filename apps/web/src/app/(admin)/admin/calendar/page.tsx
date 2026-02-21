@@ -22,6 +22,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  Badge,
 } from "@schoolerp/ui";
 import {
   format,
@@ -64,12 +65,12 @@ function toDate(value: string | Date) {
   return Number.isNaN(d.getTime()) ? new Date() : d;
 }
 
-function eventBadgeClass(eventType: string) {
+function eventBadgeVariant(eventType: string): "default" | "secondary" | "destructive" | "outline" {
   const value = (eventType || "").toLowerCase();
-  if (value.includes("holiday")) return "bg-red-500/10 text-red-400 border-red-500/20";
-  if (value.includes("meeting")) return "bg-blue-500/10 text-blue-400 border-blue-500/20";
-  if (value.includes("exam")) return "bg-amber-500/10 text-amber-400 border-amber-500/20";
-  return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+  if (value.includes("holiday")) return "destructive";
+  if (value.includes("meeting")) return "default";
+  if (value.includes("exam")) return "secondary";
+  return "outline";
 }
 
 export default function CalendarPage() {
@@ -197,73 +198,70 @@ export default function CalendarPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-6 min-h-screen bg-slate-950 text-white">
+    <div className="flex flex-col gap-6 p-6 min-h-screen">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
             School Calendar
           </h1>
-          <p className="text-slate-400 mt-1">Manage events, holidays, and academic activities.</p>
+          <p className="text-muted-foreground mt-1">Manage events, holidays, and academic activities.</p>
         </div>
 
-        <div className="flex items-center gap-3 bg-slate-900/50 p-1 rounded-lg border border-slate-800">
+        <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg border border-border">
           <Button
-            variant={view === "grid" ? "default" : "ghost"}
+            variant={view === "grid" ? "secondary" : "ghost"}
             size="icon"
             onClick={() => setView("grid")}
-            className={cn(view === "grid" && "bg-blue-600 hover:bg-blue-500")}
           >
             <LayoutGrid className="h-4 w-4" />
           </Button>
           <Button
-            variant={view === "list" ? "default" : "ghost"}
+            variant={view === "list" ? "secondary" : "ghost"}
             size="icon"
             onClick={() => setView("list")}
-            className={cn(view === "list" && "bg-blue-600 hover:bg-blue-500")}
           >
             <ListIcon className="h-4 w-4" />
           </Button>
-          <div className="w-px h-6 bg-slate-800 mx-1" />
-          <Button onClick={() => setIsEventModalOpen(true)} className="bg-indigo-600 hover:bg-indigo-500">
+          <div className="w-px h-6 bg-border mx-1" />
+          <Button onClick={() => setIsEventModalOpen(true)}>
             <Plus className="mr-2 h-4 w-4" /> New Event
           </Button>
         </div>
       </div>
 
       {error ? (
-        <Card className="bg-red-500/10 border-red-500/20">
-          <CardContent className="p-4 text-sm text-red-300">{error}</CardContent>
+        <Card className="border-destructive/50 bg-destructive/10">
+          <CardContent className="p-4 text-sm text-destructive">{error}</CardContent>
         </Card>
       ) : null}
 
-      <Card className="bg-slate-900/50 border-slate-800 shadow-xl overflow-hidden">
-        <CardHeader className="flex flex-row items-center justify-between border-b border-slate-800 py-4">
+      <Card className="shadow-sm overflow-hidden border-none">
+        <CardHeader className="flex flex-row items-center justify-between border-b py-4">
           <CardTitle className="text-xl font-semibold flex items-center gap-2">
-            <CalendarIcon className="h-5 w-5 text-blue-400" />
+            <CalendarIcon className="h-5 w-5 text-primary" />
             {format(currentDate, "MMMM yyyy")}
           </CardTitle>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={prevMonth} className="border-slate-800 hover:bg-slate-800">
+            <Button variant="outline" size="icon" onClick={prevMonth}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setCurrentDate(new Date())}
-              className="border-slate-800 hover:bg-slate-800"
             >
               Today
             </Button>
-            <Button variant="outline" size="icon" onClick={nextMonth} className="border-slate-800 hover:bg-slate-800">
+            <Button variant="outline" size="icon" onClick={nextMonth}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">
           {view === "grid" ? (
-            <div className="grid grid-cols-7 border-b border-slate-800">
+            <div className="grid grid-cols-7 border-b bg-muted/30">
               {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-                <div key={day} className="py-3 text-center text-sm font-medium text-slate-500 border-r border-slate-800 last:border-r-0">
+                <div key={day} className="py-3 text-center text-sm font-medium text-muted-foreground border-r last:border-r-0">
                   {day}
                 </div>
               ))}
@@ -271,7 +269,7 @@ export default function CalendarPage() {
           ) : null}
 
           {loading ? (
-            <div className="py-12 text-center text-slate-400">Loading events...</div>
+            <div className="py-12 text-center text-muted-foreground">Loading events...</div>
           ) : view === "grid" ? (
             <div className="grid grid-cols-7">
               {days.map((day) => {
@@ -283,17 +281,17 @@ export default function CalendarPage() {
                   <div
                     key={day.toISOString()}
                     className={cn(
-                      "min-h-[140px] p-2 border-r border-b border-slate-800 last:border-r-0 transition-colors hover:bg-slate-800/30",
-                      !isCurrentMonth && "bg-slate-950/50 text-slate-600",
-                      isToday && "bg-blue-500/5",
+                      "min-h-[140px] p-2 border-r border-b last:border-r-0 transition-colors hover:bg-muted/50",
+                      !isCurrentMonth && "bg-muted/20 text-muted-foreground/50",
+                      isToday && "bg-primary/5",
                     )}
                   >
                     <div className="flex justify-between items-center mb-1">
                       <span
-                        className={cn(
+                         className={cn(
                           "text-sm font-medium h-7 w-7 flex items-center justify-center rounded-full",
-                          isToday && "bg-blue-600 text-white",
-                          !isToday && isCurrentMonth && "text-slate-300",
+                          isToday && "bg-primary text-primary-foreground",
+                          !isToday && isCurrentMonth && "text-foreground",
                         )}
                       >
                         {format(day, "d")}
@@ -301,37 +299,44 @@ export default function CalendarPage() {
                     </div>
                     <div className="flex flex-col gap-1">
                       {dayEvents.slice(0, 3).map((event) => (
-                        <div key={event.id} className={cn("text-[10px] px-2 py-1 rounded truncate border", eventBadgeClass(event.event_type))}>
-                          {event.title}
+                        <div key={event.id} className={cn("text-[10px] px-2 py-1 rounded truncate border")}>
+                           <Badge variant={eventBadgeVariant(event.event_type)} className="text-[10px] px-1 py-0 h-4 border-none bg-transparent hover:bg-transparent">
+                             {event.title}
+                           </Badge>
                         </div>
                       ))}
+                      {dayEvents.length > 3 && (
+                        <div className="text-[10px] px-2 py-1 text-muted-foreground">
+                          +{dayEvents.length - 3} more
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
               })}
             </div>
           ) : sortedEvents.length === 0 ? (
-            <div className="py-12 text-center text-slate-400">No events scheduled for this period.</div>
+            <div className="py-12 text-center text-muted-foreground">No events scheduled for this period.</div>
           ) : (
-            <div className="divide-y divide-slate-800">
+            <div className="divide-y divide-border">
               {sortedEvents.map((event) => (
-                <div key={event.id} className="p-4 flex items-center justify-between hover:bg-slate-800/30 transition-colors">
+                <div key={event.id} className="p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
                   <div className="flex items-center gap-4">
-                    <div className="flex flex-col items-center justify-center h-14 w-14 bg-slate-800 rounded-lg border border-slate-700">
-                      <span className="text-xs text-slate-400 uppercase">{format(toDate(event.start_time), "MMM")}</span>
-                      <span className="text-xl font-bold text-white">{format(toDate(event.start_time), "dd")}</span>
+                    <div className="flex flex-col items-center justify-center h-14 w-14 bg-muted rounded-lg border">
+                      <span className="text-xs text-muted-foreground uppercase">{format(toDate(event.start_time), "MMM")}</span>
+                      <span className="text-xl font-bold text-foreground">{format(toDate(event.start_time), "dd")}</span>
                     </div>
                     <div>
-                      <h3 className="font-semibold text-slate-200">{event.title}</h3>
-                      <div className="flex items-center gap-3 mt-1 text-sm text-slate-400">
+                      <h3 className="font-semibold text-foreground">{event.title}</h3>
+                      <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {event.location || "N/A"}</span>
-                        <span className="flex items-center gap-1 uppercase text-[10px] px-1.5 py-0.5 rounded border border-slate-700">
+                        <Badge variant={eventBadgeVariant(event.event_type)} className="uppercase text-[10px]">
                           {event.event_type || "event"}
-                        </span>
+                        </Badge>
                       </div>
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" className="text-slate-500 hover:text-white">
+                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </div>
@@ -342,26 +347,26 @@ export default function CalendarPage() {
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 bg-slate-900/50 border-slate-800">
+        <Card className="lg:col-span-2 border-none shadow-sm">
           <CardHeader>
             <CardTitle className="text-lg">Upcoming Activities</CardTitle>
           </CardHeader>
           <CardContent>
             {upcomingEvents.length === 0 ? (
-              <p className="text-slate-400 text-sm">No upcoming activities.</p>
+              <p className="text-muted-foreground text-sm">No upcoming activities.</p>
             ) : (
               <div className="space-y-4">
                 {upcomingEvents.map((event) => (
-                  <div key={event.id} className="flex gap-4 p-3 rounded-lg bg-slate-800/20 border border-slate-800 hover:border-slate-700 transition-colors">
-                    <div className="h-10 w-10 shrink-0 bg-blue-500/10 rounded-full flex items-center justify-center">
-                      <CalendarIcon className="h-5 w-5 text-blue-400" />
+                  <div key={event.id} className="flex gap-4 p-3 rounded-lg bg-muted/30 border hover:border-border transition-colors">
+                    <div className="h-10 w-10 shrink-0 bg-primary/10 rounded-full flex items-center justify-center">
+                      <CalendarIcon className="h-5 w-5 text-primary" />
                     </div>
                     <div className="flex-1">
                       <div className="flex justify-between">
-                        <h4 className="font-medium text-slate-200">{event.title}</h4>
-                        <span className="text-xs text-slate-500">{format(toDate(event.start_time), "EEE, MMM dd")}</span>
+                        <h4 className="font-medium text-foreground">{event.title}</h4>
+                        <span className="text-xs text-muted-foreground">{format(toDate(event.start_time), "EEE, MMM dd")}</span>
                       </div>
-                      <p className="text-sm text-slate-400 mt-1 flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
                         <MapPin className="h-3 w-3" /> {event.location || "N/A"}
                       </p>
                     </div>
@@ -372,27 +377,27 @@ export default function CalendarPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-900/50 border-slate-800">
+        <Card className="border-none shadow-sm">
           <CardHeader>
             <CardTitle className="text-lg">Event Statistics</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex justify-between items-center p-3 rounded bg-slate-800/30">
-                <span className="text-slate-400 text-sm">Holidays</span>
-                <span className="font-bold text-red-400">{stats.holidays}</span>
+              <div className="flex justify-between items-center p-3 rounded bg-muted/50">
+                <span className="text-muted-foreground text-sm">Holidays</span>
+                <span className="font-bold text-destructive">{stats.holidays}</span>
               </div>
-              <div className="flex justify-between items-center p-3 rounded bg-slate-800/30">
-                <span className="text-slate-400 text-sm">Activities</span>
-                <span className="font-bold text-emerald-400">{stats.activities}</span>
+              <div className="flex justify-between items-center p-3 rounded bg-muted/50">
+                <span className="text-muted-foreground text-sm">Activities</span>
+                <span className="font-bold text-emerald-500">{stats.activities}</span>
               </div>
-              <div className="flex justify-between items-center p-3 rounded bg-slate-800/30">
-                <span className="text-slate-400 text-sm">Exams</span>
-                <span className="font-bold text-blue-400">{stats.exams}</span>
+              <div className="flex justify-between items-center p-3 rounded bg-muted/50">
+                <span className="text-muted-foreground text-sm">Exams</span>
+                <span className="font-bold text-primary">{stats.exams}</span>
               </div>
-              <div className="flex justify-between items-center p-3 rounded bg-slate-800/30">
-                <span className="text-slate-400 text-sm">Total This Period</span>
-                <span className="font-bold text-white">{stats.total}</span>
+              <div className="flex justify-between items-center p-3 rounded bg-muted/50">
+                <span className="text-muted-foreground text-sm">Total This Period</span>
+                <span className="font-bold text-foreground">{stats.total}</span>
               </div>
             </div>
           </CardContent>
@@ -400,46 +405,43 @@ export default function CalendarPage() {
       </div>
 
       <Dialog open={isEventModalOpen} onOpenChange={setIsEventModalOpen}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold italic">Create New Event</DialogTitle>
+            <DialogTitle>Create New Event</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-slate-400">Event Title</label>
+              <label className="text-sm font-medium text-foreground">Event Title</label>
               <Input
                 value={form.title}
                 onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
                 placeholder="Enter event name..."
-                className="bg-slate-950 border-slate-800"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-400">Start Date</label>
+                <label className="text-sm font-medium text-foreground">Start Date</label>
                 <Input
                   type="date"
                   value={form.start_date}
                   onChange={(e) => setForm((p) => ({ ...p, start_date: e.target.value }))}
-                  className="bg-slate-950 border-slate-800"
                 />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-400">End Date</label>
+                <label className="text-sm font-medium text-foreground">End Date</label>
                 <Input
                   type="date"
                   value={form.end_date}
                   onChange={(e) => setForm((p) => ({ ...p, end_date: e.target.value }))}
-                  className="bg-slate-950 border-slate-800"
                 />
               </div>
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-slate-400">Event Type</label>
+              <label className="text-sm font-medium text-foreground">Event Type</label>
               <select
                 value={form.event_type}
                 onChange={(e) => setForm((p) => ({ ...p, event_type: e.target.value }))}
-                className="flex h-10 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value="activity">Activity</option>
                 <option value="holiday">Holiday</option>
@@ -448,12 +450,11 @@ export default function CalendarPage() {
               </select>
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-slate-400">Location</label>
+              <label className="text-sm font-medium text-foreground">Location</label>
               <Input
                 value={form.location}
                 onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))}
                 placeholder="School Ground, Auditorium etc."
-                className="bg-slate-950 border-slate-800"
               />
             </div>
           </div>
@@ -461,7 +462,7 @@ export default function CalendarPage() {
             <Button variant="ghost" onClick={() => setIsEventModalOpen(false)}>
               Cancel
             </Button>
-            <Button className="bg-blue-600 hover:bg-blue-500" disabled={saving} onClick={() => void handleCreateEvent()}>
+            <Button disabled={saving} onClick={() => void handleCreateEvent()}>
               {saving ? "Saving..." : "Save Event"}
             </Button>
           </div>

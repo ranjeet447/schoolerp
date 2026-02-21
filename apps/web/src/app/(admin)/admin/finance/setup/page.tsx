@@ -221,26 +221,26 @@ export default function FeeSetupPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 pb-10">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-black text-white tracking-tight">Fee Setup Wizard</h1>
-          <p className="text-slate-400 font-medium">Configure fee structures, heads, and payment gateways.</p>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">Fee Setup Wizard</h1>
+          <p className="text-muted-foreground font-medium text-sm mt-1">Configure fee structures, heads, and payment gateways.</p>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="bg-slate-900/50 p-1 border border-white/5 rounded-2xl mb-6">
-          <TabsTrigger value="heads" className="rounded-xl px-6 py-2.5 data-[state=active]:bg-indigo-600 data-[state=active]:text-white gap-2">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 max-w-3xl">
+          <TabsTrigger value="heads" className="gap-2">
             <Layers className="h-4 w-4" /> Fee Heads
           </TabsTrigger>
-          <TabsTrigger value="structure" className="rounded-xl px-6 py-2.5 data-[state=active]:bg-indigo-600 data-[state=active]:text-white gap-2">
+          <TabsTrigger value="structure" className="gap-2">
             <School className="h-4 w-4" /> Class Structures
           </TabsTrigger>
-          <TabsTrigger value="optional" className="rounded-xl px-6 py-2.5 data-[state=active]:bg-indigo-600 data-[state=active]:text-white gap-2">
+          <TabsTrigger value="optional" className="gap-2">
             <Layers className="h-4 w-4" /> Optional / Transport
           </TabsTrigger>
-          <TabsTrigger value="gateways" className="rounded-xl px-6 py-2.5 data-[state=active]:bg-indigo-600 data-[state=active]:text-white gap-2">
+          <TabsTrigger value="gateways" className="gap-2">
             <CreditCard className="h-4 w-4" /> Payment Gateways
           </TabsTrigger>
         </TabsList>
@@ -248,9 +248,9 @@ export default function FeeSetupPage() {
         {/* --- TAB 1: FEE HEADS --- */}
         <TabsContent value="heads">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="bg-slate-900/50 border-white/5 rounded-3xl md:col-span-1 h-fit">
+            <Card className="border-none shadow-sm md:col-span-1 h-fit">
               <CardHeader>
-                <CardTitle>Create New Head</CardTitle>
+                <CardTitle className="text-lg">Create New Head</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -272,28 +272,32 @@ export default function FeeSetupPage() {
                         </SelectContent>
                     </Select>
                 </div>
-                <Button onClick={handleCreateHead} className="w-full bg-indigo-600 hover:bg-indigo-500">
+                <Button onClick={handleCreateHead} className="w-full">
                     <Plus className="h-4 w-4 mr-2" /> Add Fee Head
                 </Button>
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-900/50 border-white/5 rounded-3xl md:col-span-2">
+            <Card className="border-none shadow-sm md:col-span-2">
               <CardHeader>
-                <CardTitle>Existing Fee Heads</CardTitle>
+                <CardTitle className="text-lg">Existing Fee Heads</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
+                <div className="space-y-3">
                     {heads.map(head => (
-                        <div key={head.id} className="p-4 bg-white/5 rounded-xl flex items-center justify-between border border-white/5">
+                        <div key={head.id} className="p-4 bg-muted/40 rounded-xl flex items-center justify-between border border-border/50">
                             <div>
-                                <h4 className="font-bold text-white">{head.name}</h4>
-                                <span className="text-xs text-slate-400 uppercase tracking-wider">{head.type}</span>
+                                <h4 className="font-semibold text-foreground text-sm">{head.name}</h4>
+                                <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-0.5 inline-block">{head.type}</span>
                             </div>
-                            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">Edit</Button>
+                            <Button variant="ghost" size="sm">Edit</Button>
                         </div>
                     ))}
-                    {heads.length === 0 && <p className="text-slate-500 text-center py-8">No fee heads found.</p>}
+                    {heads.length === 0 && (
+                      <div className="text-center py-10 bg-muted/20 border border-dashed rounded-xl">
+                        <p className="text-muted-foreground text-sm font-medium">No fee heads found.</p>
+                      </div>
+                    )}
                 </div>
               </CardContent>
             </Card>
@@ -302,18 +306,18 @@ export default function FeeSetupPage() {
 
         {/* --- TAB 2: STRUCTURES --- */}
         <TabsContent value="structure">
-             <Card className="bg-slate-900/50 border-white/5 rounded-3xl">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Class Fee Configuration</CardTitle>
-                <div className="flex items-center gap-2">
+             <Card className="border-none shadow-sm">
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <CardTitle className="text-lg">Class Fee Configuration</CardTitle>
+                <div className="flex flex-col sm:flex-row items-center gap-2">
                   <Select value={activeYearId} onValueChange={setActiveYearId}>
-                      <SelectTrigger className="w-[220px]"><SelectValue placeholder="Select Academic Year" /></SelectTrigger>
+                      <SelectTrigger className="w-full sm:w-[220px]"><SelectValue placeholder="Select Academic Year" /></SelectTrigger>
                       <SelectContent>
                           {academicYears.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}
                       </SelectContent>
                   </Select>
                   <Select value={selectedClass} onValueChange={(v) => { setSelectedClass(v); fetchStructure(v); }}>
-                      <SelectTrigger className="w-[200px]"><SelectValue placeholder="Select Class" /></SelectTrigger>
+                      <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder="Select Class" /></SelectTrigger>
                       <SelectContent>
                           {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                       </SelectContent>
@@ -322,79 +326,83 @@ export default function FeeSetupPage() {
               </CardHeader>
               <CardContent>
                 {!selectedClass ? (
-                    <div className="text-center py-20 text-slate-500">
+                    <div className="text-center py-20 text-muted-foreground bg-muted/20 border border-dashed rounded-xl">
                         <School className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p>Select a class to configure fees</p>
+                        <p className="font-medium text-sm">Select a class to configure fees</p>
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        <div className="bg-amber-500/10 text-amber-500 p-4 rounded-xl text-sm mb-4">
-                            Define the standard fee structure for this class. Variations can be handled via scholarships.
+                        <div className="bg-amber-500/10 text-amber-600 border border-amber-500/20 p-4 rounded-xl text-sm mb-4 font-medium flex gap-3 items-start">
+                            <AlertCircle className="h-5 w-5 shrink-0" />
+                            <p>Define the standard fee structure for this class. Variations can be handled via scholarships.</p>
                         </div>
 {/* Matrix Editor */}
-                        <div className="bg-slate-900/50 rounded-2xl border border-white/5 overflow-hidden">
-                            <table className="w-full">
-                                <thead className="bg-white/5">
-                                    <tr>
-                                        <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Fee Head</th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Amount (₹)</th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Due Date</th>
-                                        <th className="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Optional</th>
-                                        <th className="px-6 py-4"></th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-white/5">
-                                    {heads.map(head => {
-                                        const cfg = configs.find(c => c.fee_head_id === head.id) || {
-                                            academic_year_id: "",
-                                            class_id: selectedClass,
-                                            fee_head_id: head.id,
-                                            amount: 0,
-                                            is_optional: false,
-                                            due_date: ""
-                                        } as FeeConfig
-                                        return (
-                                            <tr key={head.id} className="hover:bg-white/5 transition-colors">
-                                                <td className="px-6 py-4 font-medium text-white">{head.name}</td>
-                                                <td className="px-6 py-4">
-                                                    <Input 
-                                                        type="number" 
-                                                        value={cfg.amount} 
-                                                        onChange={e => {
-                                                            const val = parseFloat(e.target.value)
-                                                            handleUpdateConfig(head.id, { amount: isNaN(val) ? 0 : val })
-                                                        }}
-                                                        className="h-9 bg-slate-800/50 border-white/10 w-32"
-                                                    />
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <Input 
-                                                        type="date" 
-                                                        value={cfg.due_date ? cfg.due_date.slice(0, 10) : ""} 
-                                                        onChange={e => handleUpdateConfig(head.id, { due_date: e.target.value })}
-                                                        className="h-9 bg-slate-800/50 border-white/10 w-40"
-                                                    />
-                                                </td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <Switch 
-                                                        checked={cfg.is_optional} 
-                                                        onCheckedChange={c => handleUpdateConfig(head.id, { is_optional: c })}
-                                                    />
-                                                </td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <Button 
-                                                        size="sm" 
-                                                        onClick={() => saveConfig(head.id, cfg)}
-                                                        className="bg-indigo-600 hover:bg-indigo-500 h-8"
-                                                    >
-                                                        Save
-                                                    </Button>
-                                                </td>
-                                            </tr>
-                                        )
-                                    })}
-                                </tbody>
-                            </table>
+                        <div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm text-left">
+                                  <thead className="bg-muted/50 border-b">
+                                      <tr className="text-muted-foreground font-semibold">
+                                          <th className="px-6 py-4">Fee Head</th>
+                                          <th className="px-6 py-4">Amount (₹)</th>
+                                          <th className="px-6 py-4">Due Date</th>
+                                          <th className="px-6 py-4 text-center">Optional</th>
+                                          <th className="px-6 py-4"></th>
+                                      </tr>
+                                  </thead>
+                                  <tbody className="divide-y">
+                                      {heads.map(head => {
+                                          const cfg = configs.find(c => c.fee_head_id === head.id) || {
+                                              academic_year_id: "",
+                                              class_id: selectedClass,
+                                              fee_head_id: head.id,
+                                              amount: 0,
+                                              is_optional: false,
+                                              due_date: ""
+                                          } as FeeConfig
+                                          return (
+                                              <tr key={head.id} className="hover:bg-muted/30 transition-colors">
+                                                  <td className="px-6 py-4 font-semibold text-foreground">{head.name}</td>
+                                                  <td className="px-6 py-4">
+                                                      <Input 
+                                                          type="number" 
+                                                          value={cfg.amount} 
+                                                          onChange={e => {
+                                                              const val = parseFloat(e.target.value)
+                                                              handleUpdateConfig(head.id, { amount: isNaN(val) ? 0 : val })
+                                                          }}
+                                                          className="h-9 w-32"
+                                                      />
+                                                  </td>
+                                                  <td className="px-6 py-4">
+                                                      <Input 
+                                                          type="date" 
+                                                          value={cfg.due_date ? cfg.due_date.slice(0, 10) : ""} 
+                                                          onChange={e => handleUpdateConfig(head.id, { due_date: e.target.value })}
+                                                          className="h-9 w-40"
+                                                      />
+                                                  </td>
+                                                  <td className="px-6 py-4 text-center align-middle">
+                                                      <div className="flex justify-center">
+                                                        <Switch 
+                                                            checked={cfg.is_optional} 
+                                                            onCheckedChange={c => handleUpdateConfig(head.id, { is_optional: c })}
+                                                        />
+                                                      </div>
+                                                  </td>
+                                                  <td className="px-6 py-4 text-right">
+                                                      <Button 
+                                                          size="sm" 
+                                                          onClick={() => saveConfig(head.id, cfg)}
+                                                      >
+                                                          Save
+                                                      </Button>
+                                                  </td>
+                                              </tr>
+                                          )
+                                      })}
+                                  </tbody>
+                              </table>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -404,21 +412,24 @@ export default function FeeSetupPage() {
 
         {/* --- TAB 3: OPTIONAL / TRANSPORT FEES --- */}
         <TabsContent value="optional">
-           <Card className="bg-slate-900/50 border-white/5 rounded-3xl">
+           <Card className="border-none shadow-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Layers className="h-5 w-5 text-amber-400" /> Optional & Transport Fees
+                <CardTitle className="flex items-center gap-2 text-lg">
+                    <Layers className="h-5 w-5 text-amber-500" /> Optional & Transport Fees
                 </CardTitle>
-                <p className="text-slate-400 text-sm">
+                <p className="text-muted-foreground text-sm mt-1 font-medium">
                     Items like Bus Routes, Uniform Kits, or Annual Function tickets that can be assigned to specific students. 
-                    <br/>
+                    <br className="hidden sm:block" />
                     (Management of individual student assignment is done via the <strong>Student 360</strong> profile).
                 </p>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-10 text-slate-500 bg-white/5 rounded-2xl border border-white/5 border-dashed">
-                    <p>Optional Items Configuration coming soon.</p>
-                    <p className="text-xs mt-2">Currently, these are managed via the database or 'Extras' module.</p>
+                <div className="text-center py-16 bg-muted/20 rounded-2xl border border-dashed flex flex-col items-center justify-center space-y-3">
+                    <Layers className="h-10 w-10 text-muted-foreground/40" />
+                    <div>
+                      <p className="font-semibold text-foreground text-sm">Optional Items Configuration coming soon.</p>
+                      <p className="text-muted-foreground text-xs mt-1">Currently, these are managed via the database or 'Extras' module.</p>
+                    </div>
                 </div>
               </CardContent>
             </Card>
@@ -426,10 +437,10 @@ export default function FeeSetupPage() {
 
         {/* --- TAB 4: GATEWAYS --- */}
         <TabsContent value="gateways">
-           <Card className="bg-slate-900/50 border-white/5 rounded-3xl max-w-2xl mx-auto">
+           <Card className="border-none shadow-sm max-w-2xl mx-auto">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="h-5 w-5 text-indigo-400" /> Gateway Configuration
+                <CardTitle className="flex items-center gap-2 text-lg">
+                    <CreditCard className="h-5 w-5 text-primary" /> Gateway Configuration
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -437,21 +448,19 @@ export default function FeeSetupPage() {
                     <Button 
                         variant={gateway.provider === 'razorpay' ? 'default' : 'outline'}
                         onClick={() => { setGateway({...gateway, provider: 'razorpay'}); fetchGateway('razorpay'); }}
-                        className={gateway.provider === 'razorpay' ? "bg-blue-600 hover:bg-blue-500" : ""}
                     >
                         Razorpay
                     </Button>
                     <Button 
                         variant={gateway.provider === 'payu' ? 'default' : 'outline'}
                         onClick={() => { setGateway({...gateway, provider: 'payu'}); fetchGateway('payu'); }}
-                        className={gateway.provider === 'payu' ? "bg-emerald-600 hover:bg-emerald-500" : ""}
                     >
                         PayU / PayU Bolt
                     </Button>
                 </div>
 
                 <div className="space-y-4">
-                    <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-white/5">
+                    <div className="flex items-center justify-between bg-muted/40 p-4 rounded-xl border border-border/50">
                         <Label className="text-base font-medium">Enable {gateway.provider === 'razorpay' ? 'Razorpay' : 'PayU'}</Label>
                         <Switch checked={gateway.is_active} onCheckedChange={c => setGateway({...gateway, is_active: c})} />
                     </div>
@@ -464,7 +473,7 @@ export default function FeeSetupPage() {
                     <div className="space-y-2">
                         <Label>API Secret / Salt</Label>
                         <Input value={gateway.api_secret} onChange={e => setGateway({...gateway, api_secret: e.target.value})} type="password" />
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-muted-foreground">
                             {gateway.provider === 'payu' ? 'Stored as the Merchant Salt' : 'Stored securely'}
                         </p>
                     </div>
@@ -474,7 +483,7 @@ export default function FeeSetupPage() {
                         <Input value={gateway.webhook_secret} onChange={e => setGateway({...gateway, webhook_secret: e.target.value})} type="password" />
                     </div>
 
-                    <Button onClick={handleSaveGateway} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-12 rounded-xl mt-4">
+                    <Button onClick={handleSaveGateway} className="w-full h-12 text-base font-bold mt-4">
                         <Save className="h-4 w-4 mr-2" /> Save Configuration
                     </Button>
                 </div>

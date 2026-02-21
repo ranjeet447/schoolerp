@@ -17,7 +17,7 @@ import {
   Avatar,
   AvatarFallback
 } from "@schoolerp/ui"
-import { Plus, Trash2, GraduationCap, BookOpen } from "lucide-react"
+import { Plus, Trash2, GraduationCap, BookOpen, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 type Teacher = {
@@ -141,8 +141,8 @@ export default function SpecializationsPage() {
                     </SelectContent>
                 </Select>
             </div>
-            <Button onClick={handleAssign} className="w-full bg-indigo-600 hover:bg-indigo-500 mt-4">
-                <Plus className="h-4 w-4 mr-2" /> Assign
+            <Button disabled={loading} onClick={handleAssign} className="w-full bg-indigo-600 hover:bg-indigo-500 mt-4">
+                {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />} Assign
             </Button>
           </CardContent>
         </Card>

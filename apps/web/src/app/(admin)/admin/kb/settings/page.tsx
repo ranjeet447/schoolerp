@@ -98,14 +98,14 @@ export default function KBSettingsPage() {
       </div>
 
       {error && (
-        <Card>
-          <CardContent className="pt-6 text-sm text-red-600 dark:text-red-400">{error}</CardContent>
+        <Card className="border-none shadow-sm bg-destructive/10">
+          <CardContent className="pt-6 text-sm font-medium text-destructive">{error}</CardContent>
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Access Controls</CardTitle>
+      <Card className="border-none shadow-sm overflow-hidden">
+        <CardHeader className="border-b bg-muted/20">
+          <CardTitle className="text-lg">Access Controls</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex items-center justify-between">

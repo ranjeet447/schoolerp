@@ -462,16 +462,16 @@ export default function AdminExamsPage() {
   }
 
   return (
-    <div className="p-6 space-y-8">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 pb-10">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Examination Management</h1>
-          <p className="text-muted-foreground font-medium">Schedule exams, manage sets, and publish results.</p>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">Examination Management</h1>
+          <p className="text-muted-foreground font-medium text-sm mt-1">Schedule exams, manage sets, and publish results.</p>
         </div>
       </div>
 
       <Tabs defaultValue="management" className="space-y-6">
-        <TabsList className="bg-muted/50 p-1">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 max-w-3xl">
           <TabsTrigger value="management" className="gap-2">
             <ListChecks className="w-4 h-4" /> Exam Management
           </TabsTrigger>
@@ -487,9 +487,9 @@ export default function AdminExamsPage() {
         </TabsList>
 
         <TabsContent value="management" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1 space-y-6">
-              <Card className="border-none shadow-lg bg-white/50 backdrop-blur-sm">
+              <Card className="border-none shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-lg">Schedule New Exam</CardTitle>
                 </CardHeader>
@@ -501,14 +501,13 @@ export default function AdminExamsPage() {
                         placeholder="e.g. Mid-Term 2025" 
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
-                        className="bg-white"
                         required 
                       />
                     </div>
                     <div className="space-y-2">
                       <Label>Academic Year</Label>
                       <Select value={newAYID} onValueChange={setNewAYID}>
-                        <SelectTrigger className="bg-white">
+                        <SelectTrigger>
                           <SelectValue placeholder="Select year" />
                         </SelectTrigger>
                         <SelectContent>
@@ -521,14 +520,14 @@ export default function AdminExamsPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Start Date</Label>
-                        <Input type="date" value={newStartDate} onChange={(e) => setNewStartDate(e.target.value)} className="bg-white" />
+                        <Input type="date" value={newStartDate} onChange={(e) => setNewStartDate(e.target.value)} />
                       </div>
                       <div className="space-y-2">
                         <Label>End Date</Label>
-                        <Input type="date" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)} className="bg-white" />
+                        <Input type="date" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)} />
                       </div>
                     </div>
-                    <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" disabled={creating || loading}>
+                    <Button type="submit" className="w-full" disabled={creating || loading}>
                       {creating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                       <Plus className="w-4 h-4 mr-2" />
                       Create Exam
@@ -537,16 +536,16 @@ export default function AdminExamsPage() {
                 </CardContent>
               </Card>
 
-              <Card className="border-none shadow-lg bg-white/50 backdrop-blur-sm">
+              <Card className="border-none shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-lg">Assign Subjects</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleAddSubject} className="space-y-3">
+                  <form onSubmit={handleAddSubject} className="space-y-4">
                     <div className="space-y-2">
                       <Label>Select Exam</Label>
                       <Select value={selectedExamID} onValueChange={setSelectedExamID}>
-                        <SelectTrigger className="bg-white">
+                        <SelectTrigger>
                           <SelectValue placeholder="Select exam" />
                         </SelectTrigger>
                         <SelectContent>
@@ -562,17 +561,16 @@ export default function AdminExamsPage() {
                           value={subjectID} 
                           onSelect={setSubjectID} 
                           placeholder="Select subject"
-                          className="bg-white"
                         />
                       </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
                         <Label className="text-xs">Max Marks</Label>
-                        <Input type="number" value={maxMarks} onChange={(e) => setMaxMarks(e.target.value)} placeholder="Max marks" className="bg-white" />
+                        <Input type="number" value={maxMarks} onChange={(e) => setMaxMarks(e.target.value)} placeholder="Max marks" />
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-2">
                         <Label className="text-xs">Exam Date</Label>
-                        <Input type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} className="bg-white" />
+                        <Input type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} />
                       </div>
                     </div>
                     <Button type="submit" variant="outline" className="w-full" disabled={addingSubject || !selectedExamID || !subjectID}>
@@ -582,17 +580,17 @@ export default function AdminExamsPage() {
                   </form>
 
                   {selectedExamID && examSubjects.length > 0 && (
-                    <div className="mt-4 space-y-2 max-h-[300px] overflow-auto pr-2">
+                    <div className="mt-6 space-y-3 max-h-[300px] overflow-auto pr-2">
                       <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Assigned Subjects</p>
                       {examSubjects.map((item) => (
-                        <div key={`${item.subject_id}-${item.subject_name}`} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                        <div key={`${item.subject_id}-${item.subject_name}`} className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50">
                           <div>
-                            <div className="font-bold text-sm">{item.subject_name}</div>
-                            <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">
+                            <div className="font-bold text-sm text-foreground">{item.subject_name}</div>
+                            <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter mt-1">
                                 {item.exam_date ? new Date(item.exam_date).toLocaleDateString() : "No Date"}
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
                             <RubricGeneratorDialog 
                               subjectName={item.subject_name}
                               subjectId={item.subject_id}
@@ -600,7 +598,7 @@ export default function AdminExamsPage() {
                               examId={selectedExamID}
                               maxMarks={item.max_marks}
                             />
-                            <Badge variant="outline" className="bg-white">{item.max_marks} M</Badge>
+                            <Badge variant="secondary" className="font-mono">{item.max_marks} M</Badge>
                           </div>
                         </div>
                       ))}
@@ -611,44 +609,55 @@ export default function AdminExamsPage() {
             </div>
 
             <div className="lg:col-span-2 space-y-4">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-500 bg-clip-text text-transparent">Planned Exams</h2>
-                <Badge variant="secondary">{exams.length} Total</Badge>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold tracking-tight">Planned Exams</h2>
+                <Badge variant="secondary" className="font-mono">{exams.length} Total</Badge>
               </div>
               <div className="grid grid-cols-1 gap-4">
                 {loading ? (
-                  <div className="flex items-center justify-center p-12 bg-white/50 rounded-2xl border border-dashed">
+                  <div className="flex items-center justify-center p-12 bg-muted/30 rounded-2xl border border-dashed">
                     <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                   </div>
                 ) : exams.length === 0 ? (
-                  <div className="text-center p-12 bg-white/50 rounded-2xl border border-dashed">
-                    <Calendar className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-                    <p className="text-sm text-slate-400 font-medium">No exams scheduled yet.</p>
+                  <div className="text-center p-12 bg-muted/30 rounded-2xl border border-dashed">
+                    <Calendar className="w-10 h-10 text-muted-foreground/30 mx-auto mb-4" />
+                    <p className="text-sm text-muted-foreground font-medium">No exams scheduled yet.</p>
                   </div>
                 ) : exams.map(exam => (
-                  <Card key={exam.id} className="group hover:ring-2 hover:ring-indigo-100 transition-all border-none shadow-sm overflow-hidden">
+                  <Card key={exam.id} className="group hover:border-primary/50 transition-colors border shadow-sm overflow-hidden">
                     <CardContent className="p-0">
                       <div className="flex">
-                        <div className={`w-2 ${exam.status === 'published' ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+                        <div className={`w-2 shrink-0 ${exam.status === 'published' ? 'bg-emerald-500' : 'bg-orange-500'}`} />
                         <div className="p-5 flex-1 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                          <div className="space-y-1">
-                            <h3 className="font-black text-xl text-slate-900 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{exam.name}</h3>
-                            <div className="flex items-center gap-4 text-xs font-bold text-slate-400 uppercase tracking-widest">
+                          <div className="space-y-1.5">
+                            <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors tracking-tight">{exam.name}</h3>
+                            <div className="flex items-center gap-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                               <div className="flex items-center gap-1.5">
                                 <Calendar className="w-3.5 h-3.5" />
                                 {exam.start_date || "TBD"} — {exam.end_date || "TBD"}
                               </div>
-                              <span className="text-slate-200">•</span>
-                              <div className="flex items-center gap-1.5 capitalize">
-                                <div className={`w-1.5 h-1.5 rounded-full ${exam.status === 'published' ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+                              <span className="text-muted-foreground/30">•</span>
+                              <div className="flex items-center gap-1.5 capitalize text-foreground">
+                                <div className={`w-1.5 h-1.5 rounded-full ${exam.status === 'published' ? 'bg-emerald-500' : 'bg-orange-500'}`} />
                                 {exam.status}
                               </div>
                             </div>
                           </div>
-                          <div className="flex gap-2">
-                            <Button variant="ghost" size="sm" onClick={() => setSelectedExamID(exam.id)} className="font-bold text-xs uppercase tracking-wider">Manage Subjects</Button>
-                            <Button className={`${exam.status === 'published' ? 'bg-emerald-50/50 text-emerald-600 hover:bg-emerald-100' : 'bg-indigo-600 text-white hover:bg-indigo-700'} font-bold transition-all px-6`} disabled={exam.status === "published" || publishingExamID === exam.id} onClick={() => handlePublish(exam.id)}>
-                              {publishingExamID === exam.id ? "Publishing..." : exam.status === "published" ? "Published" : "Publish Results"}
+                          <div className="flex items-center gap-3">
+                            <Button variant="ghost" size="sm" onClick={() => setSelectedExamID(exam.id)} className="font-semibold text-xs h-9">Manage Subjects</Button>
+                            <Button 
+                              variant={exam.status === 'published' ? 'outline' : 'default'}
+                              className="font-semibold h-9" 
+                              disabled={exam.status === "published" || publishingExamID === exam.id} 
+                              onClick={() => handlePublish(exam.id)}
+                            >
+                              {publishingExamID === exam.id ? (
+                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Publishing...</>
+                              ) : exam.status === "published" ? (
+                                "Published"
+                              ) : (
+                                "Publish Results"
+                              )}
                             </Button>
                           </div>
                         </div>
@@ -662,12 +671,12 @@ export default function AdminExamsPage() {
         </TabsContent>
 
         <TabsContent value="papers" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1">
-              <Card className="border-none shadow-lg bg-white/50 backdrop-blur-sm sticky top-6">
+              <Card className="border-none shadow-sm sticky top-6">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <Lock className="w-5 h-5 text-indigo-500" /> Secure Paper Deposit
+                    <Lock className="w-5 h-5 text-primary" /> Secure Paper Deposit
                   </CardTitle>
                   <CardDescription>Upload question paper sets with time-based locking.</CardDescription>
                 </CardHeader>
@@ -676,7 +685,7 @@ export default function AdminExamsPage() {
                     <div className="space-y-2">
                       <Label>Target Exam (Optional)</Label>
                       <Select value={pExamID} onValueChange={setPExamID}>
-                        <SelectTrigger className="bg-white">
+                        <SelectTrigger>
                           <SelectValue placeholder="Select exam" />
                         </SelectTrigger>
                         <SelectContent>
@@ -690,7 +699,7 @@ export default function AdminExamsPage() {
                     <div className="space-y-2">
                       <Label>Subject (Optional)</Label>
                       <Select value={pSubjectID} onValueChange={setPSubjectID}>
-                        <SelectTrigger className="bg-white">
+                        <SelectTrigger>
                           <SelectValue placeholder="Select subject" />
                         </SelectTrigger>
                         <SelectContent>
@@ -704,11 +713,11 @@ export default function AdminExamsPage() {
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label>Set Name</Label>
-                            <Input value={pSetName} onChange={(e) => setPSetName(e.target.value)} placeholder="e.g. Set A" className="bg-white" />
+                            <Input value={pSetName} onChange={(e) => setPSetName(e.target.value)} placeholder="e.g. Set A" />
                         </div>
                         <div className="space-y-2">
                             <Label>Unlock At</Label>
-                            <Input type="datetime-local" value={pUnlockAt} onChange={(e) => setPUnlockAt(e.target.value)} className="bg-white" />
+                            <Input type="datetime-local" value={pUnlockAt} onChange={(e) => setPUnlockAt(e.target.value)} />
                         </div>
                     </div>
                     <div className="space-y-2">
@@ -717,27 +726,26 @@ export default function AdminExamsPage() {
                         placeholder="s3://archives/math-set-a.pdf" 
                         value={pFilePath}
                         onChange={(e) => setPFilePath(e.target.value)}
-                        className="bg-white"
                         required 
                       />
                     </div>
-                    <div className="flex items-center justify-between p-3 rounded-xl bg-indigo-50/50 border border-indigo-100">
+                    <div className="flex items-center justify-between p-4 rounded-xl bg-primary/5 border border-primary/20">
                         <div className="space-y-0.5">
-                            <Label className="text-sm font-bold">Encrypted Storage</Label>
-                            <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">AES-256 enabled</p>
+                            <Label className="text-sm font-semibold">Encrypted Storage</Label>
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">AES-256 enabled</p>
                         </div>
                         <Switch checked={pIsEncrypted} onCheckedChange={setPIsEncrypted} />
                     </div>
-                    <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div className="flex items-center justify-between p-4 rounded-xl bg-muted/40 border border-border/50">
                         <div className="space-y-0.5">
-                            <Label className="text-sm font-bold">Previous Year Paper</Label>
-                            <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Add to visible archive</p>
+                            <Label className="text-sm font-semibold">Previous Year Paper</Label>
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Add to visible archive</p>
                         </div>
                         <Switch checked={pIsPrevious} onCheckedChange={setPIsPrevious} />
                     </div>
-                    <Button type="submit" className="w-full bg-slate-900 hover:bg-black font-bold h-12 rounded-xl mt-4" disabled={uploadingPaper}>
+                    <Button type="submit" className="w-full h-11" disabled={uploadingPaper}>
                       {uploadingPaper && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                      <ShieldCheck className="w-5 h-5 mr-2" />
+                      <ShieldCheck className="w-4 h-4 mr-2" />
                       Deposit to Vault
                     </Button>
                   </form>
@@ -746,41 +754,41 @@ export default function AdminExamsPage() {
             </div>
 
             <div className="lg:col-span-2 space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold">Paper Repository</h2>
-                <Badge variant="outline" className="font-bold tracking-widest uppercase text-[10px] px-3">Secure Vault Active</Badge>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold tracking-tight">Paper Repository</h2>
+                <Badge variant="outline" className="font-semibold tracking-widest uppercase text-[10px] px-3">Secure Vault Active</Badge>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {papers.length === 0 ? (
-                  <div className="col-span-2 text-center p-12 bg-white/50 rounded-2xl border border-dashed border-slate-200">
-                    <FileText className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-                    <p className="text-sm text-slate-400 font-medium italic">Vault is empty.</p>
+                  <div className="col-span-2 text-center p-12 bg-muted/30 rounded-2xl border border-dashed border-border/50">
+                    <FileText className="w-10 h-10 text-muted-foreground/30 mx-auto mb-4" />
+                    <p className="text-sm text-muted-foreground font-medium">Vault is empty.</p>
                   </div>
                 ) : papers.map(paper => (
-                  <Card key={paper.id} className="border-none shadow-sm group hover:ring-2 hover:ring-indigo-100 transition-all overflow-hidden bg-white/80">
+                  <Card key={paper.id} className="border-none shadow-sm group hover:border-primary/30 transition-colors overflow-hidden bg-muted/10 border">
                     <CardContent className="p-5">
                       <div className="flex items-start justify-between gap-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-black uppercase text-indigo-500 tracking-wider font-mono">{paper.set_name}</span>
-                            {paper.is_previous_year && <Badge className="text-[8px] h-4 bg-amber-500 text-white border-none uppercase">Archive</Badge>}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant="secondary" className="text-[10px] font-bold uppercase tracking-wider font-mono bg-primary/10 text-primary hover:bg-primary/20 border-none">{paper.set_name}</Badge>
+                            {paper.is_previous_year && <Badge variant="outline" className="text-[10px] uppercase font-semibold">Archive</Badge>}
                           </div>
-                          <h3 className="font-bold text-lg text-slate-900 line-clamp-1 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{paper.subject_name}</h3>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                            <Calendar className="w-3 h-3" /> {paper.exam_name}
+                          <h3 className="font-bold text-base text-foreground line-clamp-1 group-hover:text-primary transition-colors tracking-tight">{paper.subject_name}</h3>
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5" /> {paper.exam_name}
                           </p>
                         </div>
-                        <div className="p-2 bg-slate-50 rounded-xl group-hover:bg-indigo-50 transition-colors">
-                            {paper.is_encrypted ? <Lock className="w-5 h-5 text-indigo-400" /> : <Unlock className="w-5 h-5 text-slate-300" />}
+                        <div className="p-2.5 bg-background rounded-full border shadow-sm group-hover:bg-primary/5 group-hover:border-primary/20 transition-colors shrink-0">
+                            {paper.is_encrypted ? <Lock className="w-4 h-4 text-primary" /> : <Unlock className="w-4 h-4 text-muted-foreground" />}
                         </div>
                       </div>
                       
-                      <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+                      <div className="mt-5 pt-4 border-t border-border/50 flex items-center justify-between gap-3">
                         <div className="flex flex-col">
-                            <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Locked Until</span>
-                            <span className="text-xs font-bold text-slate-600 font-mono italic">{paper.unlock_at || "Released"}</span>
+                            <span className="text-[10px] font-semibold uppercase text-muted-foreground tracking-widest mb-0.5">Locked Until</span>
+                            <span className="text-xs font-bold text-foreground font-mono">{paper.unlock_at || "Released"}</span>
                         </div>
-                        <Button variant="outline" size="sm" className="h-8 text-xs font-black uppercase tracking-widest px-4 hover:bg-slate-900 hover:text-white transition-all border-slate-200" onClick={() => window.open(paper.file_path)}>
+                        <Button variant="outline" size="sm" className="font-semibold" onClick={() => window.open(paper.file_path)}>
                           View Paper
                         </Button>
                       </div>
@@ -793,22 +801,22 @@ export default function AdminExamsPage() {
         </TabsContent>
 
         <TabsContent value="grading" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Card className="border-none shadow-lg bg-white/50 backdrop-blur-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="border-none shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                    <History className="w-5 h-5 text-indigo-500" /> Report Card Aggregates
+                    <History className="w-5 h-5 text-primary" /> Report Card Aggregates
                 </CardTitle>
                 <CardDescription>Run weighted aggregate calculation after all subject marks are entered and exams are published.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 text-sm text-indigo-900 font-medium">
+              <CardContent className="space-y-6">
+                <div className="bg-primary/5 p-4 rounded-xl border border-primary/20 text-sm text-foreground font-medium">
                     This will process all marks entries for the selected academic year based on your defined weightage rules (e.g., Mid-Term: 40%, Finals: 60%).
                 </div>
                 <div className="space-y-2">
                   <Label>Academic Year</Label>
                   <Select value={newAYID} onValueChange={setNewAYID}>
-                    <SelectTrigger className="bg-white">
+                    <SelectTrigger>
                       <SelectValue placeholder="Select year" />
                     </SelectTrigger>
                     <SelectContent>
@@ -818,46 +826,48 @@ export default function AdminExamsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button className="w-full bg-indigo-600 hover:bg-indigo-700 h-14 rounded-2xl font-black text-lg shadow-lg shadow-indigo-100" onClick={handleCalculate} disabled={calculating || !newAYID}>
-                  {calculating && <Loader2 className="w-6 h-6 mr-3 animate-spin" />}
+                <Button className="w-full h-11" onClick={handleCalculate} disabled={calculating || !newAYID}>
+                  {calculating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   Calculate Final Aggregates
                 </Button>
               </CardContent>
             </Card>
 
             <div className="space-y-6">
-                <Card className="border-none shadow-lg bg-white/50 backdrop-blur-sm">
+                <Card className="border-none shadow-sm">
                     <CardHeader>
                         <CardTitle className="text-lg">Grading Policy</CardTitle>
                         <CardDescription>Define how percentage maps to grade labels.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                             <Button 
                               variant="outline" 
-                              className="w-full mb-4 border-dashed border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+                              className="w-full h-11 border-dashed"
                               onClick={handleInitializeGrading}
                               disabled={initializingGrading}
                             >
-                              {initializingGrading && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
+                              {initializingGrading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                               Sync Board-Specific Grading (CBSE/ICSE)
                             </Button>
-                            {/* Example of a policy item, would be a separate component/logic in full version */}
-                            {[
-                                { label: 'A+', range: '91-100', color: 'bg-emerald-500' },
-                                { label: 'A', range: '81-90', color: 'bg-emerald-400' },
-                                { label: 'B', range: '71-80', color: 'bg-indigo-400' },
-                                { label: 'C', range: '33-70', color: 'bg-amber-400' },
-                                { label: 'F', range: '0-32', color: 'bg-red-500' },
-                            ].map(p => (
-                                <div key={p.label} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-3 h-3 rounded-full ${p.color}`} />
-                                        <span className="font-bold text-slate-700">{p.label}</span>
-                                    </div>
-                                    <span className="text-xs font-black text-slate-400 font-mono">{p.range}%</span>
-                                </div>
-                            ))}
+                            <div className="space-y-2">
+                              {/* Example of a policy item, would be a separate component/logic in full version */}
+                              {[
+                                  { label: 'A+', range: '91-100', color: 'bg-emerald-500' },
+                                  { label: 'A', range: '81-90', color: 'bg-emerald-400' },
+                                  { label: 'B', range: '71-80', color: 'bg-primary' },
+                                  { label: 'C', range: '33-70', color: 'bg-orange-500' },
+                                  { label: 'F', range: '0-32', color: 'bg-destructive' },
+                              ].map(p => (
+                                  <div key={p.label} className="flex items-center justify-between p-3 bg-muted/30 rounded-xl border border-border/50">
+                                      <div className="flex items-center gap-3">
+                                          <div className={`w-2.5 h-2.5 rounded-full ${p.color}`} />
+                                          <span className="font-semibold text-foreground text-sm">{p.label}</span>
+                                      </div>
+                                      <span className="text-xs font-mono font-medium text-muted-foreground">{p.range}%</span>
+                                  </div>
+                              ))}
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
@@ -866,9 +876,9 @@ export default function AdminExamsPage() {
         </TabsContent>
 
         <TabsContent value="hall-tickets" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1 space-y-6">
-              <Card className="border-none shadow-lg bg-white/50 backdrop-blur-sm">
+              <Card className="border-none shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-lg">Generate Hall Tickets</CardTitle>
                   <CardDescription>Assign roll numbers and room locations automatically.</CardDescription>
@@ -877,7 +887,7 @@ export default function AdminExamsPage() {
                   <div className="space-y-2">
                     <Label>Select Exam</Label>
                     <Select value={selectedExamID} onValueChange={setSelectedExamID}>
-                      <SelectTrigger className="bg-white">
+                      <SelectTrigger>
                         <SelectValue placeholder="Select exam" />
                       </SelectTrigger>
                       <SelectContent>
@@ -889,19 +899,19 @@ export default function AdminExamsPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>Class (Optional filter)</Label>
-                    <ClassSelect value={targetClassID} onSelect={(v) => { setTargetClassID(v); setTargetSectionID(""); }} className="bg-white" />
+                    <ClassSelect value={targetClassID} onSelect={(v) => { setTargetClassID(v); setTargetSectionID(""); }} />
                   </div>
                   <div className="space-y-2">
                     <Label>Section (Optional filter)</Label>
-                    <SectionSelect classId={targetClassID} value={targetSectionID} onSelect={setTargetSectionID} className="bg-white" />
+                    <SectionSelect classId={targetClassID} value={targetSectionID} onSelect={setTargetSectionID} />
                   </div>
                   <div className="space-y-2">
                     <Label>Roll Number Prefix</Label>
-                    <Input placeholder="e.g. FIN-A" value={rollPrefix} onChange={(e) => setRollPrefix(e.target.value)} className="bg-white" />
+                    <Input placeholder="e.g. FIN-A" value={rollPrefix} onChange={(e) => setRollPrefix(e.target.value)} />
                   </div>
-                  <Button className="w-full bg-slate-900 hover:bg-black font-bold h-12 rounded-xl mt-4" onClick={handleGenerateTickets} disabled={generating || !selectedExamID}>
+                  <Button className="w-full h-11 mt-2" onClick={handleGenerateTickets} disabled={generating || !selectedExamID}>
                     {generating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                    <Printer className="w-5 h-5 mr-2" />
+                    <Printer className="w-4 h-4 mr-2" />
                     Batch Generate Tickets
                   </Button>
                 </CardContent>
@@ -909,44 +919,44 @@ export default function AdminExamsPage() {
             </div>
 
             <div className="lg:col-span-2 space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold">Generated Hall Tickets</h2>
-                <Badge variant="outline" className="font-bold tracking-widest uppercase text-[10px] px-3">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold tracking-tight">Generated Hall Tickets</h2>
+                <Badge variant="secondary" className="font-mono">
                   {fetchingTickets ? "Syncing..." : `${hallTickets.length} Issued`}
                 </Badge>
               </div>
-              <div className="bg-white/80 rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
-                <table className="w-full text-left border-collapse">
+              <div className="bg-background rounded-xl border overflow-hidden shadow-sm">
+                <table className="w-full text-left text-sm border-collapse">
                   <thead>
-                    <tr className="bg-slate-50/50 border-b border-slate-100">
-                      <th className="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Student</th>
-                      <th className="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Roll Number</th>
-                      <th className="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Hall/Seat</th>
-                      <th className="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Actions</th>
+                    <tr className="bg-muted/50 border-b">
+                      <th className="p-4 font-semibold text-muted-foreground w-1/3">Student</th>
+                      <th className="p-4 font-semibold text-muted-foreground">Roll Number</th>
+                      <th className="p-4 font-semibold text-muted-foreground">Hall/Seat</th>
+                      <th className="p-4 font-semibold text-muted-foreground text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {hallTickets.length === 0 ? (
                       <tr>
                         <td colSpan={4} className="p-12 text-center">
-                          <Printer className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-                          <p className="text-sm text-slate-400 font-medium italic">No hall tickets issued yet for this exam.</p>
+                          <Printer className="w-10 h-10 text-muted-foreground/30 mx-auto mb-4" />
+                          <p className="text-sm text-muted-foreground font-medium">No hall tickets issued yet for this exam.</p>
                         </td>
                       </tr>
                     ) : (
                       hallTickets.map(ticket => (
-                        <tr key={ticket.student_id} className="border-b border-slate-50 hover:bg-indigo-50/30 transition-colors">
+                        <tr key={ticket.student_id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                           <td className="p-4">
-                            <div className="font-bold text-slate-900">{ticket.student_name}</div>
+                            <div className="font-semibold text-foreground">{ticket.student_name}</div>
                           </td>
                           <td className="p-4">
-                            <Badge className="font-mono bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-none">{ticket.roll_number}</Badge>
+                            <Badge variant="outline" className="font-mono text-muted-foreground">{ticket.roll_number}</Badge>
                           </td>
-                          <td className="p-4 text-sm font-medium text-slate-500">
-                            {ticket.hall_number} / {ticket.seat_number}
+                          <td className="p-4 font-medium text-muted-foreground">
+                            {ticket.hall_number} / <span className="text-foreground">{ticket.seat_number}</span>
                           </td>
                           <td className="p-4 text-right">
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-indigo-100 hover:text-indigo-600" onClick={() => handleDownloadPDF(ticket.student_id)}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary" onClick={() => handleDownloadPDF(ticket.student_id)}>
                               <Download className="w-4 h-4" />
                             </Button>
                           </td>

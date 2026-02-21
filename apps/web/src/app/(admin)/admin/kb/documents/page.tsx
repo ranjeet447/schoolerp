@@ -186,51 +186,51 @@ export default function KBDocumentsPage() {
       </div>
 
       {error && (
-        <Card>
-          <CardContent className="pt-6 text-sm text-red-600 dark:text-red-400">{error}</CardContent>
+        <Card className="border-none shadow-sm bg-destructive/10">
+          <CardContent className="pt-6 text-sm font-medium text-destructive">{error}</CardContent>
         </Card>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
+        <Card className="border-none shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Total documents</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total documents</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{docs.length}</p>
+            <p className="text-3xl font-black text-foreground">{docs.length}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-none shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Published</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Published</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{publishedCount}</p>
+            <p className="text-3xl font-black text-foreground">{publishedCount}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-none shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Draft / Archived</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Draft / Archived</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{docs.length - publishedCount}</p>
+            <p className="text-3xl font-black text-foreground">{docs.length - publishedCount}</p>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
+      <Card className="border-none shadow-sm overflow-hidden">
         <CardContent className="p-0">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Visibility</TableHead>
-                <TableHead>Updated</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-muted-foreground font-bold">Title</TableHead>
+                <TableHead className="text-muted-foreground font-bold">Status</TableHead>
+                <TableHead className="text-muted-foreground font-bold">Visibility</TableHead>
+                <TableHead className="text-muted-foreground font-bold">Updated</TableHead>
+                <TableHead className="text-right text-muted-foreground font-bold">Actions</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className="divide-y">
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-10">
@@ -245,27 +245,27 @@ export default function KBDocumentsPage() {
                 </TableRow>
               ) : (
                 docs.map((doc) => (
-                  <TableRow key={doc.id}>
+                  <TableRow key={doc.id} className="hover:bg-muted/30 transition-colors">
                     <TableCell>
-                      <div className="font-medium">{doc.title}</div>
-                      <div className="text-xs text-muted-foreground">{doc.category || "Uncategorized"}</div>
+                      <div className="font-semibold text-foreground">{doc.title}</div>
+                      <div className="text-xs text-muted-foreground font-medium mt-1">{doc.category || "Uncategorized"}</div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={doc.status === "published" ? "default" : "secondary"}>{doc.status}</Badge>
+                      <Badge variant={doc.status === "published" ? "default" : "secondary"} className={doc.status === "published" ? "bg-emerald-600 dark:bg-emerald-600/80 hover:bg-emerald-600" : ""}>{doc.status}</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{doc.visibility}</Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{new Date(doc.updated_at).toLocaleString()}</TableCell>
+                    <TableCell className="text-sm font-medium text-muted-foreground">{new Date(doc.updated_at).toLocaleString()}</TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button variant="outline" size="sm" onClick={() => togglePublish(doc)}>
                         {doc.status === "published" ? "Archive" : "Publish"}
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(doc)}>Edit</Button>
-                      <Button asChild variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" onClick={() => openEdit(doc)} className="text-primary hover:text-primary hover:bg-primary/10">Edit</Button>
+                      <Button asChild variant="ghost" size="sm" className="text-muted-foreground hover:bg-muted/50">
                         <Link href={`/admin/kb/documents/${doc.id}`}>Open</Link>
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-red-600" onClick={() => remove(doc.id)}>Delete</Button>
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => remove(doc.id)}>Delete</Button>
                     </TableCell>
                   </TableRow>
                 ))

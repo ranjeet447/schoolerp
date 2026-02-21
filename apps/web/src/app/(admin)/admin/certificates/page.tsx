@@ -213,104 +213,108 @@ export default function CertificatesPage() {
   const issuedCount = requests.filter((r) => r.status === "issued").length
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-start justify-between gap-4">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">TC & Certificates</h1>
-          <p className="text-sm text-muted-foreground">Manage transfer, bonafide, and character certificate workflows.</p>
+          <h1 className="text-3xl font-black tracking-tight text-foreground">TC & Certificates</h1>
+          <p className="text-sm font-medium text-muted-foreground">Manage transfer, bonafide, and character certificate workflows.</p>
         </div>
-        <Button variant="outline" onClick={() => fetchAll(true)} disabled={refreshing} className="gap-2">
+        <Button variant="outline" size="sm" onClick={() => fetchAll(true)} disabled={refreshing} className="gap-2 shrink-0">
           <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} /> Refresh
         </Button>
       </div>
 
       {error && (
-        <Card>
-          <CardContent className="pt-6 text-sm text-red-600 dark:text-red-400">{error}</CardContent>
+        <Card className="border-destructive/50 bg-destructive/10">
+          <CardContent className="p-4 text-sm font-medium text-destructive">{error}</CardContent>
         </Card>
       )}
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground">Pending Requests</div>
-            <div className="text-3xl font-bold">{pendingCount}</div>
+        <Card className="border-none shadow-sm">
+          <CardContent className="p-6">
+            <div className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Pending Requests</div>
+            <div className="text-3xl font-black mt-2 text-foreground">{pendingCount}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground">Issued Certificates</div>
-            <div className="text-3xl font-bold">{issuedCount}</div>
+        <Card className="border-none shadow-sm">
+          <CardContent className="p-6">
+            <div className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Issued Certificates</div>
+            <div className="text-3xl font-black mt-2 text-foreground">{issuedCount}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6 flex items-center gap-2 text-muted-foreground">
-            <FileCheck2 className="h-5 w-5" />
-            Certificate records are tenant-scoped.
+        <Card className="border-none shadow-sm">
+          <CardContent className="p-6 flex flex-col justify-center h-full text-muted-foreground">
+            <div className="flex items-center gap-2 font-medium">
+              <FileCheck2 className="h-5 w-5 text-primary" />
+              Certificate records are tenant-scoped.
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>New Certificate Request</CardTitle>
+      <Card className="border-none shadow-sm">
+        <CardHeader className="border-b pb-4">
+          <CardTitle className="text-lg">New Certificate Request</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-5">
-          <div className="space-y-2 md:col-span-2">
-            <Label>Student</Label>
-            <Select value={form.student_id} onValueChange={(value) => setForm((prev) => ({ ...prev, student_id: value }))}>
-              <SelectTrigger><SelectValue placeholder="Select student" /></SelectTrigger>
-              <SelectContent>
-                {students.map((student) => {
-                  const id = uuidValue(student.id)
-                  return (
-                    <SelectItem key={id} value={id}>
-                      {student.full_name} ({student.admission_number})
-                    </SelectItem>
-                  )
-                })}
-              </SelectContent>
-            </Select>
-          </div>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+            <div className="space-y-2 md:col-span-2">
+              <Label>Student</Label>
+              <Select value={form.student_id} onValueChange={(value) => setForm((prev) => ({ ...prev, student_id: value }))}>
+                <SelectTrigger><SelectValue placeholder="Select student" /></SelectTrigger>
+                <SelectContent>
+                  {students.map((student) => {
+                    const id = uuidValue(student.id)
+                    return (
+                      <SelectItem key={id} value={id}>
+                        {student.full_name} ({student.admission_number})
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="space-y-2">
-            <Label>Type</Label>
-            <Select value={form.type} onValueChange={(value) => setForm((prev) => ({ ...prev, type: value as CertificateType }))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="transfer_certificate">Transfer Certificate</SelectItem>
-                <SelectItem value="bonafide_certificate">Bonafide Certificate</SelectItem>
-                <SelectItem value="character_certificate">Character Certificate</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+            <div className="space-y-2">
+              <Label>Type</Label>
+              <Select value={form.type} onValueChange={(value) => setForm((prev) => ({ ...prev, type: value as CertificateType }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="transfer_certificate">Transfer Certificate</SelectItem>
+                  <SelectItem value="bonafide_certificate">Bonafide Certificate</SelectItem>
+                  <SelectItem value="character_certificate">Character Certificate</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="space-y-2">
-            <Label>Requested On</Label>
-            <Input type="date" value={form.requested_on} onChange={(e) => setForm((prev) => ({ ...prev, requested_on: e.target.value }))} />
-          </div>
+            <div className="space-y-2">
+              <Label>Requested On</Label>
+              <Input type="date" value={form.requested_on} onChange={(e) => setForm((prev) => ({ ...prev, requested_on: e.target.value }))} />
+            </div>
 
-          <div className="space-y-2">
-            <Label>Reason</Label>
-            <Input value={form.reason} onChange={(e) => setForm((prev) => ({ ...prev, reason: e.target.value }))} placeholder="Required for new admission" />
-          </div>
+            <div className="space-y-2">
+              <Label>Reason</Label>
+              <Input value={form.reason} onChange={(e) => setForm((prev) => ({ ...prev, reason: e.target.value }))} placeholder="Required for new admission" />
+            </div>
 
-          <div className="md:col-span-5">
-            <Button onClick={createRequest} disabled={saving || loading} className="gap-2">
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />} Create Request
-            </Button>
+            <div className="md:col-span-5 flex justify-end">
+              <Button onClick={createRequest} disabled={saving || loading} className="gap-2">
+                {saving && <Loader2 className="h-4 w-4 animate-spin" />} Create Request
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+      <Card className="border-none shadow-sm">
+        <CardHeader className="flex flex-col sm:flex-row items-center justify-between border-b pb-4 space-y-2 sm:space-y-0 text-lg">
           <CardTitle>Certificate Requests</CardTitle>
-          <div className="w-44">
+          <div className="w-full sm:w-44">
             <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as CertificateStatus | "all")}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="approved">Approved</SelectItem>
                 <SelectItem value="rejected">Rejected</SelectItem>
@@ -319,17 +323,12 @@ export default function CertificatesPage() {
             </Select>
           </div>
         </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="py-10 text-center text-muted-foreground">
-              <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />
-              Loading certificate requests...
-            </div>
-          ) : (
+        <CardContent className="p-0">
+          <div className="overflow-x-auto rounded-b-lg border-x border-b border-border">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Student</TableHead>
+              <TableHeader className="bg-muted/40">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-[200px]">Student</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Requested</TableHead>
                   <TableHead>Status</TableHead>
@@ -338,35 +337,45 @@ export default function CertificatesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRequests.length === 0 ? (
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                      <div className="flex items-center justify-center gap-2">
+                         <Loader2 className="h-4 w-4 animate-spin" />
+                         <span>Loading certificate requests...</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredRequests.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">No certificate requests found.</TableCell>
                   </TableRow>
                 ) : (
                   filteredRequests.map((row) => (
-                    <TableRow key={row.id}>
+                    <TableRow key={row.id} className="hover:bg-muted/50 transition-colors">
                       <TableCell>
-                        <div className="font-medium">{row.student_name}</div>
-                        <div className="text-xs text-muted-foreground">{row.admission_number}</div>
+                        <div className="font-semibold text-foreground">{row.student_name}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{row.admission_number}</div>
                       </TableCell>
-                      <TableCell>{typeLabel(row.type)}</TableCell>
-                      <TableCell>{row.requested_on}</TableCell>
+                      <TableCell className="text-muted-foreground">{typeLabel(row.type)}</TableCell>
+                      <TableCell className="text-muted-foreground">{row.requested_on}</TableCell>
                       <TableCell>
-                        <Badge variant={row.status === "issued" ? "default" : row.status === "rejected" ? "outline" : "secondary"}>
+                        <Badge variant={row.status === "issued" ? "default" : row.status === "rejected" ? "outline" : row.status === "approved" ? "secondary" : "default"} 
+                               className={row.status === "pending" ? "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border-none" : "capitalize"}>
                           {row.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-mono text-xs">{row.certificate_number || "-"}</TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">{row.certificate_number || "-"}</TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex items-center justify-end gap-2">
                           {row.status === "pending" && (
                             <>
-                              <Button size="sm" variant="outline" disabled={saving} onClick={() => updateStatus(row.id, "approved")}>Approve</Button>
-                              <Button size="sm" variant="outline" disabled={saving} onClick={() => updateStatus(row.id, "rejected")}>Reject</Button>
+                              <Button size="sm" variant="outline" className="h-8" disabled={saving} onClick={() => updateStatus(row.id, "approved")}>Approve</Button>
+                              <Button size="sm" variant="ghost" className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10" disabled={saving} onClick={() => updateStatus(row.id, "rejected")}>Reject</Button>
                             </>
                           )}
                           {(row.status === "approved" || row.status === "pending") && (
-                            <Button size="sm" disabled={saving} onClick={() => updateStatus(row.id, "issued")}>Issue</Button>
+                            <Button size="sm" className="h-8" disabled={saving} onClick={() => updateStatus(row.id, "issued")}>Issue</Button>
                           )}
                         </div>
                       </TableCell>
@@ -375,7 +384,7 @@ export default function CertificatesPage() {
                 )}
               </TableBody>
             </Table>
-          )}
+          </div>
         </CardContent>
       </Card>
     </div>

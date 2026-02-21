@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { apiClient } from "@/lib/api-client";
-import { Badge, Button, Card, CardContent, Input, Textarea } from "@schoolerp/ui";
-import { Plus, RefreshCcw, Search } from "lucide-react";
+import { Badge, Button, Card, CardContent, Input, Textarea, Tabs, TabsContent, TabsList, TabsTrigger } from "@schoolerp/ui";
+import { Plus, RefreshCcw, Search, ExternalLink, Receipt, LayoutGrid } from "lucide-react";
 
 type BillingControls = {
   subscription_status: string;
@@ -178,257 +178,286 @@ export default function AdminBillingPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-6 max-w-6xl mx-auto p-4 md:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">Platform Billing</h1>
-          <p className="text-sm text-muted-foreground">
-            Subscription controls and issued SaaS invoices for this tenant account.
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Billing & Plans</h1>
+          <p className="text-muted-foreground mt-1">
+            Manage your subscription, view invoices, and add powerful new features.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void load()} className="gap-2">
+        <Button variant="outline" size="sm" onClick={() => void load()} className="gap-2 shrink-0">
           <RefreshCcw className="h-4 w-4" />
-          Refresh
+          Refresh Data
         </Button>
       </div>
 
-      {error ? (
-        <Card className="border-destructive/20 bg-destructive/5">
+      {error && (
+        <Card className="border-destructive/50 bg-destructive/10">
           <CardContent className="p-4 text-sm font-medium text-destructive">{error}</CardContent>
         </Card>
-      ) : null}
+      )}
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-none shadow-sm">
-          <CardContent className="p-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Subscription</p>
-            <p className="mt-2 text-lg font-black capitalize text-foreground">{controls?.subscription_status || "unknown"}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-sm">
-          <CardContent className="p-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Billing lock</p>
-            <div className="mt-2">
-              <Badge variant={controls?.billing_locked ? "destructive" : "secondary"}>
-                {controls?.billing_locked ? "Locked" : "Unlocked"}
-              </Badge>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">{controls?.lock_reason || "-"}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-sm">
-          <CardContent className="p-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Billing freeze</p>
-            <div className="mt-2">
-              <Badge variant={controls?.billing_frozen ? "default" : "secondary"}>
-                {controls?.billing_frozen ? "Frozen" : "Active"}
-              </Badge>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">{controls?.freeze_reason || "-"}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-sm">
-          <CardContent className="p-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Grace period</p>
-            <p className="mt-2 text-sm font-semibold text-foreground">{formatDate(controls?.grace_period_ends_at)}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Updated: {formatDate(controls?.updated_at)}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3 max-w-md">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="addons">Add-ons</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
+        </TabsList>
 
-      <Card className="border-none shadow-sm">
-        <CardContent className="space-y-4 p-4 sm:p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-lg font-black text-foreground">Invoices</h2>
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-              <div className="relative w-full sm:w-[260px]">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  placeholder="Search invoice or reference"
-                  className="pl-9"
-                />
-              </div>
-              <select
-                className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="">All Statuses</option>
-                <option value="issued">Issued</option>
-                <option value="paid">Paid</option>
-                <option value="overdue">Overdue</option>
-                <option value="void">Void</option>
-              </select>
-            </div>
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardContent className="p-6">
+                <p className="text-sm font-medium text-muted-foreground">Subscription Plan</p>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold capitalize text-foreground">{controls?.subscription_status || "Unknown"}</span>
+                </div>
+                {controls?.subscription_status === "active" && (
+                   <Button variant="link" className="px-0 h-auto mt-2 text-indigo-600">Change Plan <ExternalLink className="h-3 w-3 ml-1" /></Button>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <p className="text-sm font-medium text-muted-foreground">Billing Lock</p>
+                <div className="mt-2 text-2xl font-bold text-foreground">
+                    {controls?.billing_locked ? (
+                      <span className="text-destructive">Locked</span>
+                    ) : (
+                      <span className="text-emerald-600">Unlocked</span>
+                    )}
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground truncate">{controls?.lock_reason || "Account is in good standing"}</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <p className="text-sm font-medium text-muted-foreground">Billing Freeze</p>
+                <div className="mt-2 text-2xl font-bold text-foreground">
+                    {controls?.billing_frozen ? (
+                      <span className="text-amber-600">Frozen</span>
+                    ) : (
+                      <span className="text-emerald-600">Active</span>
+                    )}
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground truncate">{controls?.freeze_reason || "Normal billing cycle"}</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+               <CardContent className="p-6">
+                <p className="text-sm font-medium text-muted-foreground">Next Invoice</p>
+                <div className="mt-2 text-2xl font-bold text-foreground">
+                    {formatDate(controls?.grace_period_ends_at)}
+                </div>
+                 <p className="mt-1 text-xs text-muted-foreground">Grace period end</p>
+              </CardContent>
+            </Card>
           </div>
+        </TabsContent>
 
-          <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="min-w-full divide-y divide-border text-sm">
-              <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 text-left">Invoice</th>
-                  <th className="px-3 py-2 text-left">Status</th>
-                  <th className="px-3 py-2 text-left">Due</th>
-                  <th className="px-3 py-2 text-left">Paid</th>
-                  <th className="px-3 py-2 text-right">Subtotal</th>
-                  <th className="px-3 py-2 text-right">Tax</th>
-                  <th className="px-3 py-2 text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border bg-card">
-                {loading ? (
-                  <tr>
-                    <td className="px-3 py-6 text-center text-muted-foreground" colSpan={7}>
-                      Loading invoices...
-                    </td>
-                  </tr>
-                ) : filteredInvoices.length === 0 ? (
-                  <tr>
-                    <td className="px-3 py-6 text-center text-muted-foreground" colSpan={7}>
-                      No invoices found.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredInvoices.map((invoice) => {
-                    const subtotal = Number(invoice.amount_total || 0);
-                    const tax = Number(invoice.tax_amount || 0);
-                    const total = subtotal + tax;
-                    return (
-                      <tr key={invoice.id}>
-                        <td className="px-3 py-2">
-                          <p className="font-semibold text-foreground">{invoice.invoice_number}</p>
-                          <p className="text-xs text-muted-foreground">{invoice.external_ref || "-"}</p>
-                        </td>
-                        <td className="px-3 py-2">
-                          <Badge variant={invoice.status === "paid" ? "default" : "secondary"} className="capitalize">
-                            {invoice.status || "unknown"}
-                          </Badge>
-                        </td>
-                        <td className="px-3 py-2 text-muted-foreground">{formatDate(invoice.due_date)}</td>
-                        <td className="px-3 py-2 text-muted-foreground">{formatDate(invoice.paid_at)}</td>
-                        <td className="px-3 py-2 text-right text-muted-foreground">
-                          {formatAmount(invoice.currency, subtotal)}
-                        </td>
-                        <td className="px-3 py-2 text-right text-muted-foreground">
-                          {formatAmount(invoice.currency, tax)}
-                        </td>
-                        <td className="px-3 py-2 text-right font-semibold text-foreground">
-                          {formatAmount(invoice.currency, total)}
+        <TabsContent value="addons" className="space-y-6">
+          <Card>
+             <CardContent className="p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg">
+                  <LayoutGrid className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold">Premium Add-ons</h2>
+                  <p className="text-sm text-muted-foreground mt-1">Enhance your SchoolERP with specialized features.</p>
+                </div>
+              </div>
+
+               <div className="grid gap-6 lg:grid-cols-2">
+                <div className="space-y-4">
+                  <h3 className="font-medium text-foreground border-b pb-2">Active</h3>
+                  {activeAddons.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-4 text-center border rounded-lg border-dashed">No active add-ons.</p>
+                  ) : (
+                    <div className="grid gap-3">
+                      {activeAddons.map((addon) => (
+                        <div key={addon.metadata.id} className="relative overflow-hidden rounded-xl border p-4 bg-muted/30">
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <p className="font-semibold">{addon.metadata.name}</p>
+                              <p className="text-sm text-muted-foreground mt-1">{addon.metadata.description || "No description provided."}</p>
+                            </div>
+                            <Badge variant="default" className="shrink-0">Active</Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="font-medium text-foreground border-b pb-2">Available</h3>
+                  {availableAddons.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-4 text-center border rounded-lg border-dashed">All add-ons are currently active!</p>
+                  ) : (
+                    <div className="grid gap-3">
+                      {availableAddons.map((addon) => {
+                        const req = latestRequestByAddon[addon.metadata.id];
+                        const reqStatus = (req?.status || "").toLowerCase();
+                        const requestLocked = reqStatus === "pending" || reqStatus === "approved";
+                        const isExpanded = requestingAddonID === addon.metadata.id;
+                        
+                        return (
+                          <div key={addon.metadata.id} className={`rounded-xl border transition-colors ${isExpanded ? 'border-primary ring-1 ring-primary/20' : 'bg-card hover:bg-muted/50'}`}>
+                            <div className="p-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold truncate">{addon.metadata.name}</p>
+                                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{addon.metadata.description || "No description provided."}</p>
+                                {req && (
+                                  <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 w-fit px-2 py-0.5 rounded">
+                                    Status: <span className="capitalize">{req.status}</span>
+                                    {req.payload?.review_notes ? ` • ${req.payload.review_notes}` : ""}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="shrink-0 flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => setRequestingAddonID(isExpanded ? "" : addon.metadata.id)}
+                                  disabled={requestLocked}
+                                  variant="secondary"
+                                >
+                                  {requestLocked ? "Requested" : "Request"}
+                                </Button>
+                              </div>
+                            </div>
+
+                            {isExpanded && !requestLocked && (
+                              <div className="px-4 pb-4 pt-2 border-t bg-muted/20">
+                                <Textarea
+                                  value={addonNote}
+                                  onChange={(e) => setAddonNote(e.target.value)}
+                                  rows={2}
+                                  className="mb-3 text-sm bg-background"
+                                  placeholder="Why do you need this add-on? (Optional)"
+                                />
+                                <div className="flex justify-end gap-2">
+                                  <Button size="sm" variant="ghost" onClick={() => setRequestingAddonID("")}>Cancel</Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => void requestAddon(addon.metadata.id)}
+                                    disabled={addonLoadingID === addon.metadata.id}
+                                  >
+                                    {addonLoadingID === addon.metadata.id ? "Submitting..." : "Submit Request"}
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+             </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="history" className="space-y-6">
+           <Card>
+            <CardContent className="p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg">
+                    <Receipt className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold">Billing History</h2>
+                    <p className="text-sm text-muted-foreground mt-1">Past invoices and receipts.</p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-2">
+                  <div className="relative w-full sm:w-64">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={searchText}
+                      onChange={(e) => setSearchText(e.target.value)}
+                      placeholder="Search invoices..."
+                      className="pl-9 bg-background"
+                    />
+                  </div>
+                  <select
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <option value="">All Statuses</option>
+                    <option value="issued">Issued</option>
+                    <option value="paid">Paid</option>
+                    <option value="overdue">Overdue</option>
+                    <option value="void">Void</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="rounded-xl border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted text-muted-foreground border-b uppercase text-xs tracking-wider">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-medium">Invoice</th>
+                      <th className="px-4 py-3 text-left font-medium">Status</th>
+                      <th className="px-4 py-3 text-left font-medium">Due Date</th>
+                      <th className="px-4 py-3 text-left font-medium">Paid On</th>
+                      <th className="px-4 py-3 text-right font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border bg-card">
+                    {loading ? (
+                      <tr>
+                        <td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>
+                          Loading history...
                         </td>
                       </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border-none shadow-sm">
-        <CardContent className="space-y-4 p-4 sm:p-5">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-lg font-black text-foreground">Add-on Billing</h2>
-            <p className="text-sm text-muted-foreground">
-              Manage active paid add-ons and request activation for new add-ons.
-            </p>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="space-y-3 rounded-lg border border-border p-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Active add-ons</p>
-              {activeAddons.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No active add-ons.</p>
-              ) : (
-                <div className="space-y-2">
-                  {activeAddons.map((addon) => (
-                    <div key={addon.metadata.id} className="rounded-md border border-border/70 bg-muted/20 p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <p className="font-semibold text-foreground">{addon.metadata.name}</p>
-                          <p className="text-xs text-muted-foreground">{addon.metadata.description || "No description"}</p>
-                        </div>
-                        <Badge>Active</Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-3 rounded-lg border border-border p-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Available add-ons</p>
-              {availableAddons.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No additional add-ons available.</p>
-              ) : (
-                <div className="space-y-2">
-                  {availableAddons.map((addon) => {
-                    const req = latestRequestByAddon[addon.metadata.id];
-                    const reqStatus = (req?.status || "").toLowerCase();
-                    const requestLocked = reqStatus === "pending" || reqStatus === "approved";
-                    const isExpanded = requestingAddonID === addon.metadata.id;
-                    return (
-                      <div key={addon.metadata.id} className="rounded-md border border-border/70 bg-muted/20 p-3">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <p className="font-semibold text-foreground">{addon.metadata.name}</p>
-                            <p className="text-xs text-muted-foreground">{addon.metadata.description || "No description"}</p>
-                            {req ? (
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                Latest request: <span className="font-medium capitalize">{req.status}</span>
-                                {req.payload?.review_notes ? ` • ${req.payload.review_notes}` : ""}
-                              </p>
-                            ) : null}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {reqStatus ? (
-                              <Badge variant="secondary" className="capitalize">
-                                {reqStatus}
-                              </Badge>
-                            ) : null}
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="gap-1"
-                              onClick={() => setRequestingAddonID(isExpanded ? "" : addon.metadata.id)}
-                              disabled={requestLocked}
-                            >
-                              <Plus className="h-3.5 w-3.5" />
-                              {requestLocked ? "Requested" : "Add"}
-                            </Button>
-                          </div>
-                        </div>
-
-                        {isExpanded && !requestLocked ? (
-                          <div className="mt-3 space-y-2">
-                            <Textarea
-                              value={addonNote}
-                              onChange={(e) => setAddonNote(e.target.value)}
-                              rows={3}
-                              placeholder="Reason for add-on request (optional)"
-                            />
-                            <div className="flex justify-end">
-                              <Button
-                                size="sm"
-                                onClick={() => void requestAddon(addon.metadata.id)}
-                                disabled={addonLoadingID === addon.metadata.id}
+                    ) : filteredInvoices.length === 0 ? (
+                      <tr>
+                        <td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>
+                          {searchText ? "No invoices found for this search." : "No invoices found."}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredInvoices.map((invoice) => {
+                        const total = Number(invoice.amount_total || 0) + Number(invoice.tax_amount || 0);
+                        return (
+                          <tr key={invoice.id} className="hover:bg-muted/50 transition-colors">
+                            <td className="px-4 py-3">
+                              <p className="font-semibold text-foreground">{invoice.invoice_number}</p>
+                              {invoice.external_ref && <p className="text-xs text-muted-foreground mt-0.5">{invoice.external_ref}</p>}
+                            </td>
+                            <td className="px-4 py-3">
+                              <Badge 
+                                variant={invoice.status === "paid" ? "default" : invoice.status === "overdue" ? "destructive" : "secondary"} 
+                                className="capitalize"
                               >
-                                {addonLoadingID === addon.metadata.id ? "Submitting..." : "Submit Request"}
-                              </Button>
-                            </div>
-                          </div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+                                {invoice.status || "unknown"}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground">{formatDate(invoice.due_date)}</td>
+                            <td className="px-4 py-3 text-muted-foreground">{formatDate(invoice.paid_at)}</td>
+                            <td className="px-4 py-3 text-right font-semibold">
+                              {formatAmount(invoice.currency, total)}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -192,16 +192,16 @@ export function KbSearchView({ heading, subheading, settingsPath, documentPathPr
       )}
 
       {error && (
-        <Card>
-          <CardContent className="pt-6 text-sm text-red-600 dark:text-red-400">{error}</CardContent>
+        <Card className="border-none shadow-sm bg-destructive/10">
+          <CardContent className="pt-6 text-sm font-medium text-destructive">{error}</CardContent>
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Search</CardTitle>
+      <Card className="border-none shadow-sm overflow-hidden">
+        <CardHeader className="border-b bg-muted/20">
+          <CardTitle className="text-lg">Search</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-6">
           <div className="flex gap-2">
             <Input
               placeholder="Search your school knowledgebase"
@@ -281,13 +281,13 @@ export function KbSearchView({ heading, subheading, settingsPath, documentPathPr
       </Card>
 
       {(summary || results.length > 0 || meta) && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Summary from Knowledgebase (auto-extracted)</CardTitle>
+        <Card className="border-none shadow-sm overflow-hidden border-primary/20 bg-primary/5">
+          <CardHeader className="border-b border-primary/10 bg-primary/10">
+            <CardTitle className="text-base text-primary font-semibold">Summary from Knowledgebase (auto-extracted)</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-sm">{summary || "Not found in KB"}</p>
-            {infoMeta && <p className="text-xs text-muted-foreground">{infoMeta}</p>}
+          <CardContent className="space-y-2 pt-6">
+            <p className="text-sm font-medium leading-relaxed">{summary || "Not found in KB"}</p>
+            {infoMeta && <p className="text-xs text-muted-foreground mt-4 font-medium">{infoMeta}</p>}
           </CardContent>
         </Card>
       )}
@@ -300,7 +300,7 @@ export function KbSearchView({ heading, subheading, settingsPath, documentPathPr
         )}
 
         {results.map((result) => (
-          <Card key={result.chunk_id}>
+          <Card key={result.chunk_id} className="border-none shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="pt-5 space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="space-y-1">

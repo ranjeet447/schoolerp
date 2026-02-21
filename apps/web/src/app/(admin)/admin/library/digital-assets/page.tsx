@@ -147,7 +147,7 @@ function DigitalAssetsPageContent() {
   if (!bookId) {
     return (
       <div className="p-6">
-        <Card className="max-w-md mx-auto mt-20 text-center p-12 space-y-4">
+        <Card className="max-w-md mx-auto mt-20 border-none shadow-sm text-center p-12 space-y-4">
           <Globe className="w-12 h-12 mx-auto text-muted-foreground opacity-20" />
           <h2 className="text-xl font-bold">No Book Selected</h2>
           <p className="text-muted-foreground">Please select a book from the catalog to manage its digital assets.</p>
@@ -240,7 +240,7 @@ function DigitalAssetsPageContent() {
         </Dialog>
       </div>
 
-      <Card>
+      <Card className="border-none shadow-sm overflow-hidden">
         <CardContent className="p-0">
           {loading ? (
             <div className="p-12 text-center text-muted-foreground italic">Fetching digital resources...</div>
@@ -251,19 +251,19 @@ function DigitalAssetsPageContent() {
             </div>
           ) : (
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-muted/50">
                 <TableRow>
-                  <TableHead>Resource</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Access</TableHead>
-                  <TableHead>Added On</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="font-bold text-muted-foreground">Resource</TableHead>
+                  <TableHead className="font-bold text-muted-foreground">Type</TableHead>
+                  <TableHead className="font-bold text-muted-foreground">Access</TableHead>
+                  <TableHead className="font-bold text-muted-foreground">Added On</TableHead>
+                  <TableHead className="text-right font-bold text-muted-foreground">Actions</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody className="divide-y">
                 {assets.map((asset) => (
-                  <TableRow key={asset.id}>
-                    <TableCell className="font-medium">
+                  <TableRow key={asset.id} className="hover:bg-muted/30 transition-colors">
+                    <TableCell className="font-semibold text-foreground">
                       <div className="flex items-center gap-3">
                         {getAssetIcon(asset.asset_type)}
                         <span>{asset.title}</span>
@@ -271,14 +271,14 @@ function DigitalAssetsPageContent() {
                     </TableCell>
                     <TableCell className="uppercase text-xs font-bold text-muted-foreground">{asset.asset_type}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="capitalize">{asset.access_level}</Badge>
+                      <Badge variant="outline" className="capitalize text-muted-foreground">{asset.access_level}</Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {format(new Date(asset.created_at), "MMM dd, yyyy")}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="sm" asChild>
+                        <Button variant="ghost" size="sm" asChild className="text-primary hover:text-primary hover:bg-primary/10">
                           <a href={asset.url} target="_blank" rel="noopener noreferrer">
                             <ExternalLink className="w-4 h-4" />
                           </a>
@@ -286,7 +286,7 @@ function DigitalAssetsPageContent() {
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={() => handleDelete(asset.id)}
                         >
                           <Trash2 className="w-4 h-4" />

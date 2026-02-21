@@ -105,20 +105,20 @@ export default function PayrollPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-6 space-y-6 max-w-7xl mx-auto pb-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-white tracking-tight">Payroll Management</h1>
-          <p className="text-slate-400 font-medium">Process monthly salaries and generate payslips.</p>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">Payroll Management</h1>
+          <p className="text-muted-foreground font-medium text-sm mt-1">Process monthly salaries and generate payslips.</p>
         </div>
         <div className="flex gap-2">
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-indigo-600 hover:bg-indigo-500">
+              <Button>
                 <Plus className="h-4 w-4 mr-2" /> Start New Cycle
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-slate-900 border-white/10 text-white">
+            <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
                 <DialogTitle>Start Payroll Cycle</DialogTitle>
               </DialogHeader>
@@ -145,7 +145,7 @@ export default function PayrollPage() {
                         onChange={e => setNewRun({...newRun, year: parseInt(e.target.value)})}
                     />
                 </div>
-                <Button onClick={handleCreateRun} className="w-full bg-indigo-600 hover:bg-indigo-500">
+                <Button onClick={handleCreateRun} className="w-full">
                     Create Draft
                 </Button>
               </div>
@@ -156,37 +156,38 @@ export default function PayrollPage() {
 
       <div className="grid gap-4">
         {loading ? (
-             <div className="text-center py-20 text-slate-500">Loading payroll history...</div>
+             <Card className="border-none shadow-sm p-12 text-center text-muted-foreground font-medium">Loading payroll history...</Card>
         ) : runs.length === 0 ? (
-             <div className="text-center py-20 text-slate-500 bg-slate-900/30 rounded-3xl border border-white/5 border-dashed">
-               <Banknote className="h-12 w-12 mx-auto mb-4 opacity-50 text-indigo-400" />
-               <p>No payroll runs found.</p>
-             </div>
+             <Card className="border-none shadow-sm p-12 text-center bg-muted/20 border-dashed flex flex-col items-center">
+               <Banknote className="h-12 w-12 mb-4 opacity-50 text-muted-foreground" />
+               <p className="font-semibold text-foreground">No payroll runs found.</p>
+             </Card>
         ) : (
-             <div className="bg-slate-900/50 rounded-2xl border border-white/5 overflow-hidden">
+             <Card className="border-none shadow-sm overflow-hidden">
+               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-white/5">
+                  <thead className="bg-muted/50 border-b">
                     <tr>
-                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Period</th>
-                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Created On</th>
-                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Status</th>
-                      <th className="px-6 py-4 text-right">Actions</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Period</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Created On</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Status</th>
+                      <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-muted-foreground">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
+                  <tbody className="divide-y">
                     {runs.map(run => (
-                      <tr key={run.id} className="hover:bg-white/5 transition-colors">
+                      <tr key={run.id} className="hover:bg-muted/30 transition-colors">
                         <td className="px-6 py-4">
-                            <span className="font-bold text-lg text-white">{getMonthName(run.month)} {run.year}</span>
+                            <span className="font-bold text-lg text-foreground">{getMonthName(run.month)} {run.year}</span>
                         </td>
-                        <td className="px-6 py-4 text-slate-400">
+                        <td className="px-6 py-4 text-muted-foreground font-medium">
                             {new Date(run.created_at).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4">
                             <Badge variant="outline" className={
-                                run.status === 'completed' ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10' :
-                                run.status === 'processing' ? 'text-amber-400 border-amber-500/20 bg-amber-500/10' :
-                                'text-slate-400 border-slate-500/20'
+                                run.status === 'completed' ? 'text-emerald-600 border-emerald-500/20 bg-emerald-500/10 dark:text-emerald-400' :
+                                run.status === 'processing' ? 'text-amber-600 border-amber-500/20 bg-amber-500/10 dark:text-amber-400' :
+                                'text-muted-foreground'
                             }>
                                 {run.status === 'processing' && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
                                 {run.status.toUpperCase()}
@@ -198,14 +199,13 @@ export default function PayrollPage() {
                                     size="sm" 
                                     onClick={() => handleExecute(run.id)}
                                     disabled={processingId === run.id}
-                                    className="bg-emerald-600 hover:bg-emerald-500"
                                 >
                                     {processingId === run.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
                                     Run Payroll
                                 </Button>
                             )}
                             {run.status === 'completed' && (
-                                <Button variant="ghost" size="sm" className="text-indigo-400 hover:text-white">
+                                <Button variant="ghost" size="sm" className="text-primary hover:text-primary hover:bg-primary/10">
                                     <FileText className="h-4 w-4 mr-2" /> View Payslips
                                 </Button>
                             )}
@@ -214,7 +214,8 @@ export default function PayrollPage() {
                     ))}
                   </tbody>
                 </table>
-             </div>
+               </div>
+             </Card>
         )}
       </div>
     </div>

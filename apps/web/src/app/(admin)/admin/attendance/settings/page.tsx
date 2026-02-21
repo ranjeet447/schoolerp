@@ -1,8 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label } from "@schoolerp/ui"
-import { Switch } from "@schoolerp/ui"
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label, Switch } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 

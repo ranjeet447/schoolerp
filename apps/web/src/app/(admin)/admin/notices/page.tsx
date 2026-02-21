@@ -167,9 +167,9 @@ export default function AdminNoticesPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1">
-          <Card className="shadow-lg border-blue-50">
-            <CardHeader>
-              <CardTitle>Create New Notice</CardTitle>
+          <Card className="border-none shadow-sm overflow-hidden">
+            <CardHeader className="bg-muted/20 border-b pb-4 mb-4">
+              <CardTitle className="text-lg">Create New Notice</CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleCreate} className="space-y-4">
@@ -230,7 +230,7 @@ export default function AdminNoticesPage() {
                   />
                   <p className="text-[10px] text-gray-400">Leave blank to publish immediately</p>
                 </div>
-                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>
+                <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Publishing..." : "Publish Notice"}
                 </Button>
               </form>
@@ -239,9 +239,9 @@ export default function AdminNoticesPage() {
         </div>
 
         <div className="lg:col-span-2 space-y-4">
-          <h2 className="text-xl font-bold">Recent Notices</h2>
+          <h2 className="text-xl font-bold tracking-tight">Recent Notices</h2>
           {notices.length === 0 ? (
-            <div className="text-center py-20 bg-gray-50 border-2 border-dashed rounded-xl text-gray-400">
+            <div className="text-center py-20 bg-muted/30 border-2 border-dashed rounded-xl text-muted-foreground font-medium">
               No notices published yet.
             </div>
           ) : (

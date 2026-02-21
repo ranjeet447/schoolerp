@@ -117,26 +117,26 @@ export default function PortfolioDashboard() {
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-700">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-8">
         <div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-            <LayoutDashboard className="w-10 h-10 text-indigo-600" />
+          <h1 className="text-4xl font-black text-foreground tracking-tight flex items-center gap-3">
+            <LayoutDashboard className="w-10 h-10 text-primary" />
             Portfolio Command
           </h1>
-          <p className="text-slate-500 mt-2 font-medium">Cross-campus intelligence and group performance metrics.</p>
+          <p className="text-muted-foreground mt-2 font-medium">Cross-campus intelligence and group performance metrics.</p>
         </div>
         
         <div className="flex items-center gap-3">
            <select 
              value={selectedGroup || ""} 
              onChange={(e) => setSelectedGroup(e.target.value)}
-             className="h-11 px-4 rounded-xl border-slate-200 bg-white shadow-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+             className="h-11 px-4 rounded-xl border-input bg-background shadow-sm font-bold text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
            >
              {groups.map(g => (
                <option key={g.id} value={g.id}>{g.name}</option>
              ))}
            </select>
-           <Button className="h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-100 font-bold">
+           <Button className="h-11 rounded-xl bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 font-bold">
              Management Consolidated
            </Button>
         </div>
@@ -144,65 +144,65 @@ export default function PortfolioDashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {kpis.map((kpi, i) => (
-          <Card key={i} className="border-none shadow-xl shadow-slate-100/50 hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-300 group overflow-hidden">
-             <div className={`h-1.5 w-full ${kpi.bg.replace('bg-', 'bg-')}`} />
+          <Card key={i} className="border-none shadow-sm hover:shadow-md transition-all duration-300 group overflow-hidden bg-card">
+             <div className={`h-1.5 w-full ${kpi.bg.replace('bg-', 'bg-')} dark:opacity-20`} />
              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600 transition-colors">
+                <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground group-hover:text-foreground transition-colors">
                   {kpi.title}
                 </CardTitle>
-                <div className={`p-2.5 rounded-xl ${kpi.bg} ${kpi.color} transition-transform group-hover:scale-110 duration-500`}>
+                <div className={`p-2.5 rounded-xl ${kpi.bg} ${kpi.color} dark:bg-opacity-10 transition-transform group-hover:scale-110 duration-500`}>
                   <kpi.icon className="w-5 h-5" />
                 </div>
              </CardHeader>
              <CardContent>
-                <div className="text-3xl font-black text-slate-900 tabular-nums">
+                <div className="text-3xl font-black text-foreground tabular-nums">
                   {i === 3 ? kpi.value : `₹${kpi.value.toLocaleString('en-IN')}`}
                 </div>
-                <p className="text-xs text-slate-400 mt-2 font-bold leading-relaxed">{kpi.description}</p>
+                <p className="text-xs text-muted-foreground mt-2 font-bold leading-relaxed">{kpi.description}</p>
              </CardContent>
           </Card>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2 border-none shadow-xl shadow-slate-100/50 overflow-hidden">
-          <CardHeader className="bg-slate-50/30 border-b border-slate-50">
+        <Card className="lg:col-span-2 border-none shadow-sm overflow-hidden bg-card">
+          <CardHeader className="bg-muted/30 border-b border-border">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-xl font-black text-slate-800">Campus Distribution</CardTitle>
-                <CardDescription className="font-medium">Direct performance mapping by institution.</CardDescription>
+                <CardTitle className="text-xl font-black text-foreground">Campus Distribution</CardTitle>
+                <CardDescription className="font-medium text-muted-foreground">Direct performance mapping by institution.</CardDescription>
               </div>
-              <Badge className="bg-white text-indigo-600 border-indigo-100 shadow-sm font-bold">Live Aggregation</Badge>
+              <Badge className="bg-background text-primary border-primary/20 shadow-sm font-bold">Live Aggregation</Badge>
             </div>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
-              <TableHeader className="bg-slate-50/50">
-                <TableRow className="border-slate-100 hover:bg-transparent">
-                  <TableHead className="font-black uppercase text-[10px] tracking-widest py-4 pl-8">Institution</TableHead>
-                  <TableHead className="font-black uppercase text-[10px] tracking-widest">Health</TableHead>
-                  <TableHead className="font-black uppercase text-[10px] tracking-widest text-right pr-8">Actions</TableHead>
+              <TableHeader className="bg-muted/50">
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="font-black uppercase text-[10px] tracking-widest text-muted-foreground py-4 pl-8">Institution</TableHead>
+                  <TableHead className="font-black uppercase text-[10px] tracking-widest text-muted-foreground">Health</TableHead>
+                  <TableHead className="font-black uppercase text-[10px] tracking-widest text-muted-foreground text-right pr-8">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {members.map((member) => (
-                  <TableRow key={member.tenant_id} className="border-slate-50 group transition-colors hover:bg-indigo-50/30">
-                    <TableCell className="font-bold py-6 pl-8 flex items-center gap-3">
-                       <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center font-black text-slate-400 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-all">
+                  <TableRow key={member.tenant_id} className="border-border group transition-colors hover:bg-primary/5">
+                    <TableCell className="font-bold text-foreground py-6 pl-8 flex items-center gap-3">
+                       <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center font-black text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-all">
                          {member.tenant_name[0]}
                        </div>
                        {member.tenant_name}
                     </TableCell>
                     <TableCell>
                        <div className="flex items-center gap-2">
-                         <div className="h-2 w-24 bg-slate-100 rounded-full overflow-hidden">
+                         <div className="h-2 w-24 bg-muted rounded-full overflow-hidden">
                            <div className="h-full bg-emerald-500 w-[85%]" />
                          </div>
-                         <span className="text-[10px] font-black text-emerald-600 uppercase tracking-tighter">Optimal</span>
+                         <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-tighter">Optimal</span>
                        </div>
                     </TableCell>
                     <TableCell className="text-right pr-8">
-                       <Button variant="ghost" size="sm" className="font-black text-xs uppercase tracking-widest text-indigo-600 hover:bg-indigo-50">
+                       <Button variant="ghost" size="sm" className="font-black text-xs uppercase tracking-widest text-primary hover:bg-primary/10">
                          Audit
                          <ArrowUpRight className="w-3.5 h-3.5 ml-2" />
                        </Button>
@@ -236,31 +236,31 @@ export default function PortfolioDashboard() {
               </CardContent>
            </Card>
 
-           <Card className="border-none shadow-xl shadow-slate-100/50">
+           <Card className="border-none shadow-sm bg-card">
               <CardHeader>
-                <CardTitle className="text-lg font-black text-slate-800">Portfolio Status</CardTitle>
+                <CardTitle className="text-lg font-black text-foreground">Portfolio Status</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                       <Users className="w-5 h-5 text-indigo-500" />
-                       <span className="text-sm font-bold text-slate-600">Student Capacity</span>
+                       <Users className="w-5 h-5 text-primary" />
+                       <span className="text-sm font-bold text-foreground/80">Student Capacity</span>
                     </div>
-                    <span className="text-sm font-black text-slate-900">82%</span>
+                    <span className="text-sm font-black text-foreground">82%</span>
                  </div>
-                 <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-indigo-500 w-[82%]" />
+                 <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-primary w-[82%]" />
                  </div>
 
                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                       <Building2 className="w-5 h-5 text-indigo-500" />
-                       <span className="text-sm font-bold text-slate-600">Infrastructure Health</span>
+                       <Building2 className="w-5 h-5 text-primary" />
+                       <span className="text-sm font-bold text-foreground/80">Infrastructure Health</span>
                     </div>
-                    <span className="text-sm font-black text-slate-900">95%</span>
+                    <span className="text-sm font-black text-foreground">95%</span>
                  </div>
-                 <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-indigo-500 w-[95%]" />
+                 <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-primary w-[95%]" />
                  </div>
               </CardContent>
            </Card>

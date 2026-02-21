@@ -73,8 +73,8 @@ export default function SchoolProfilePage() {
     <div className="space-y-6 max-w-4xl">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-white tracking-tight">School Profile</h1>
-          <p className="text-slate-400 font-medium">Configure school identity, contact details, and academic settings.</p>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">School Profile</h1>
+          <p className="text-muted-foreground font-medium">Configure school identity, contact details, and academic settings.</p>
         </div>
         <Button onClick={handleSave} disabled={saving}
           className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-xl px-6">
@@ -83,112 +83,112 @@ export default function SchoolProfilePage() {
       </div>
 
       {/* School Identity */}
-      <section className="bg-slate-900/50 border border-white/5 rounded-3xl p-6 space-y-4 backdrop-blur-sm">
+      <section className="bg-card border border-border/50 shadow-sm rounded-3xl p-6 space-y-4">
         <div className="flex items-center gap-3 mb-2">
           <Building className="h-5 w-5 text-indigo-400" />
-          <h2 className="text-lg font-bold text-white">School Identity</h2>
+          <h2 className="text-lg font-bold text-foreground">School Identity</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
-            <label className="text-sm font-bold text-slate-400 mb-1 block">School Name</label>
+            <label className="text-sm font-bold text-muted-foreground mb-1 block">School Name</label>
             <Input value={profile.school_name} onChange={e => update("school_name", e.target.value)}
-              placeholder="Delhi Public School" className="bg-slate-800/50 border-white/5 text-white rounded-xl" />
+              placeholder="Delhi Public School" className="bg-muted/50 border-border/50 text-foreground rounded-xl" />
           </div>
           <div>
-            <label className="text-sm font-bold text-slate-400 mb-1 block">Logo URL</label>
+            <label className="text-sm font-bold text-muted-foreground mb-1 block">Logo URL</label>
             <Input value={profile.logo_url} onChange={e => update("logo_url", e.target.value)}
-              placeholder="https://..." className="bg-slate-800/50 border-white/5 text-white rounded-xl" />
+              placeholder="https://..." className="bg-muted/50 border-border/50 text-foreground rounded-xl" />
           </div>
           <div>
-            <label className="text-sm font-bold text-slate-400 mb-1 block">Website</label>
+            <label className="text-sm font-bold text-muted-foreground mb-1 block">Website</label>
             <div className="relative">
-              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input value={profile.website} onChange={e => update("website", e.target.value)}
-                placeholder="www.school.edu.in" className="bg-slate-800/50 border-white/5 text-white rounded-xl pl-10" />
+                placeholder="www.school.edu.in" className="bg-muted/50 border-border/50 text-foreground rounded-xl pl-10" />
             </div>
           </div>
         </div>
       </section>
 
       {/* Contact Information */}
-      <section className="bg-slate-900/50 border border-white/5 rounded-3xl p-6 space-y-4 backdrop-blur-sm">
+      <section className="bg-card border border-border/50 shadow-sm rounded-3xl p-6 space-y-4">
         <div className="flex items-center gap-3 mb-2">
           <MapPin className="h-5 w-5 text-emerald-400" />
-          <h2 className="text-lg font-bold text-white">Contact & Address</h2>
+          <h2 className="text-lg font-bold text-foreground">Contact & Address</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
-            <label className="text-sm font-bold text-slate-400 mb-1 block">Address</label>
+            <label className="text-sm font-bold text-muted-foreground mb-1 block">Address</label>
             <Input value={profile.address} onChange={e => update("address", e.target.value)}
-              placeholder="123 School Road" className="bg-slate-800/50 border-white/5 text-white rounded-xl" />
+              placeholder="123 School Road" className="bg-muted/50 border-border/50 text-foreground rounded-xl" />
           </div>
           <div>
-            <label className="text-sm font-bold text-slate-400 mb-1 block">City</label>
+            <label className="text-sm font-bold text-muted-foreground mb-1 block">City</label>
             <Input value={profile.city} onChange={e => update("city", e.target.value)}
-              placeholder="New Delhi" className="bg-slate-800/50 border-white/5 text-white rounded-xl" />
+              placeholder="New Delhi" className="bg-muted/50 border-border/50 text-foreground rounded-xl" />
           </div>
           <div>
-            <label className="text-sm font-bold text-slate-400 mb-1 block">State</label>
+            <label className="text-sm font-bold text-muted-foreground mb-1 block">State</label>
             <Input value={profile.state} onChange={e => update("state", e.target.value)}
-              placeholder="Delhi" className="bg-slate-800/50 border-white/5 text-white rounded-xl" />
+              placeholder="Delhi" className="bg-muted/50 border-border/50 text-foreground rounded-xl" />
           </div>
           <div>
-            <label className="text-sm font-bold text-slate-400 mb-1 block">Pincode</label>
+            <label className="text-sm font-bold text-muted-foreground mb-1 block">Pincode</label>
             <Input value={profile.pincode} onChange={e => update("pincode", e.target.value)}
-              placeholder="110001" className="bg-slate-800/50 border-white/5 text-white rounded-xl" />
+              placeholder="110001" className="bg-muted/50 border-border/50 text-foreground rounded-xl" />
           </div>
           <div>
-            <label className="text-sm font-bold text-slate-400 mb-1 block">Phone</label>
+            <label className="text-sm font-bold text-muted-foreground mb-1 block">Phone</label>
             <div className="relative">
-              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input value={profile.phone} onChange={e => update("phone", e.target.value)}
-                placeholder="+91 11 23456789" className="bg-slate-800/50 border-white/5 text-white rounded-xl pl-10" />
+                placeholder="+91 11 23456789" className="bg-muted/50 border-border/50 text-foreground rounded-xl pl-10" />
             </div>
           </div>
           <div>
-            <label className="text-sm font-bold text-slate-400 mb-1 block">Email</label>
+            <label className="text-sm font-bold text-muted-foreground mb-1 block">Email</label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input value={profile.email} onChange={e => update("email", e.target.value)}
-                placeholder="info@school.edu.in" className="bg-slate-800/50 border-white/5 text-white rounded-xl pl-10" />
+                placeholder="info@school.edu.in" className="bg-muted/50 border-border/50 text-foreground rounded-xl pl-10" />
             </div>
           </div>
         </div>
       </section>
 
       {/* Academic Settings */}
-      <section className="bg-slate-900/50 border border-white/5 rounded-3xl p-6 space-y-4 backdrop-blur-sm">
+      <section className="bg-card border border-border/50 shadow-sm rounded-3xl p-6 space-y-4">
         <div className="flex items-center gap-3 mb-2">
           <GraduationCap className="h-5 w-5 text-amber-400" />
-          <h2 className="text-lg font-bold text-white">Academic Settings</h2>
+          <h2 className="text-lg font-bold text-foreground">Academic Settings</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-sm font-bold text-slate-400 mb-1 block">Affiliation Board</label>
+            <label className="text-sm font-bold text-muted-foreground mb-1 block">Affiliation Board</label>
             <select value={profile.affiliation_board} onChange={e => update("affiliation_board", e.target.value)}
-              className="w-full h-10 px-3 bg-slate-800/50 border border-white/5 text-white rounded-xl">
-              {BOARDS.map(b => <option key={b} value={b} className="bg-slate-900">{b}</option>)}
+              className="w-full h-10 px-3 bg-muted/50 border border-border/50 text-foreground rounded-xl">
+              {BOARDS.map(b => <option key={b} value={b} className="bg-background">{b}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-sm font-bold text-slate-400 mb-1 block">Affiliation Number</label>
+            <label className="text-sm font-bold text-muted-foreground mb-1 block">Affiliation Number</label>
             <Input value={profile.affiliation_number} onChange={e => update("affiliation_number", e.target.value)}
-              placeholder="2730XXX" className="bg-slate-800/50 border-white/5 text-white rounded-xl" />
+              placeholder="2730XXX" className="bg-muted/50 border-border/50 text-foreground rounded-xl" />
           </div>
           <div>
-            <label className="text-sm font-bold text-slate-400 mb-1 block">Grading System</label>
+            <label className="text-sm font-bold text-muted-foreground mb-1 block">Grading System</label>
             <select value={profile.grading_system} onChange={e => update("grading_system", e.target.value)}
-              className="w-full h-10 px-3 bg-slate-800/50 border border-white/5 text-white rounded-xl capitalize">
-              {GRADING_SYSTEMS.map(g => <option key={g} value={g} className="bg-slate-900 capitalize">{g}</option>)}
+              className="w-full h-10 px-3 bg-muted/50 border border-border/50 text-foreground rounded-xl capitalize">
+              {GRADING_SYSTEMS.map(g => <option key={g} value={g} className="bg-background capitalize">{g}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-sm font-bold text-slate-400 mb-1 block">Timezone</label>
+            <label className="text-sm font-bold text-muted-foreground mb-1 block">Timezone</label>
             <div className="relative">
-              <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <select value={profile.timezone} onChange={e => update("timezone", e.target.value)}
-                className="w-full h-10 pl-10 px-3 bg-slate-800/50 border border-white/5 text-white rounded-xl">
-                {TIMEZONES.map(t => <option key={t} value={t} className="bg-slate-900">{t}</option>)}
+                className="w-full h-10 pl-10 px-3 bg-muted/50 border border-border/50 text-foreground rounded-xl">
+                {TIMEZONES.map(t => <option key={t} value={t} className="bg-background">{t}</option>)}
               </select>
             </div>
           </div>

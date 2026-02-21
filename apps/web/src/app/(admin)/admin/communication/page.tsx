@@ -2,8 +2,29 @@
 
 import { useEffect, useState } from "react"
 import { apiClient } from "@/lib/api-client"
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Switch, Tabs, TabsContent, TabsList, TabsTrigger } from "@schoolerp/ui"
+import { 
+  Button, 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle, 
+  Input, 
+  Label, 
+  Switch, 
+  Tabs, 
+  TabsContent, 
+  TabsList, 
+  TabsTrigger,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Badge
+} from "@schoolerp/ui"
 import { toast } from "sonner"
+import { Loader2, RefreshCw } from "lucide-react"
 
 type PtmEventRow = {
   id: string
@@ -61,6 +82,7 @@ export default function AdminCommunicationPage() {
   const [events, setEvents] = useState<MessagingEventRow[]>([])
   const [ptmEvents, setPtmEvents] = useState<PtmEventRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [savingModeration, setSavingModeration] = useState(false)
   const [savingPtmSettings, setSavingPtmSettings] = useState(false)
 
@@ -83,12 +105,15 @@ export default function AdminCommunicationPage() {
     fetchAll()
   }, [])
 
-  const fetchAll = async () => {
-    setLoading(true)
+  const fetchAll = async (silent = false) => {
+    if (silent) setRefreshing(true)
+    else setLoading(true)
+    
     try {
       await Promise.all([fetchEvents(), fetchPTMEvents(), fetchModerationSettings(), fetchPTMSettings()])
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
@@ -209,118 +234,154 @@ export default function AdminCommunicationPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Communication Center</h1>
-          <p className="text-sm text-muted-foreground">Messaging events, PTM events, and chat moderation settings.</p>
+          <h1 className="text-3xl font-black tracking-tight text-foreground">Communication Center</h1>
+          <p className="text-sm font-medium text-muted-foreground">Messaging events, PTM events, and chat moderation settings.</p>
         </div>
-        <Button variant="outline" onClick={fetchAll}>Refresh</Button>
+        <Button variant="outline" size="sm" onClick={() => fetchAll(true)} disabled={refreshing} className="gap-2 shrink-0">
+          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} /> Refresh
+        </Button>
       </div>
 
-      <Tabs defaultValue="events" className="space-y-4">
-        <TabsList>
+      <Tabs defaultValue="events" className="space-y-6">
+        <TabsList className="bg-muted/50 p-1 border border-border">
           <TabsTrigger value="events">Messaging Events</TabsTrigger>
           <TabsTrigger value="ptm">PTM Events</TabsTrigger>
           <TabsTrigger value="moderation">Chat Moderation</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="events" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Event Filters</CardTitle>
+        <TabsContent value="events" className="space-y-6 mt-0">
+          <Card className="border-none shadow-sm">
+            <CardHeader className="border-b pb-4">
+              <CardTitle className="text-lg">Event Filters</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <Input placeholder="event type (e.g. attendance.absent)" value={eventTypeFilter} onChange={(e) => setEventTypeFilter(e.target.value)} />
-              <Input placeholder="status (pending/completed/failed)" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} />
-              <Button onClick={fetchEvents}>Apply Filters</Button>
+            <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label>Event Type</Label>
+                <Input placeholder="e.g. attendance.absent" value={eventTypeFilter} onChange={(e) => setEventTypeFilter(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Input placeholder="pending, completed, failed" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} />
+              </div>
+              <div className="flex items-end">
+                <Button onClick={fetchEvents} className="w-full">Apply Filters</Button>
+              </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Outbox Events</CardTitle>
+          <Card className="border-none shadow-sm">
+            <CardHeader className="border-b pb-4">
+              <CardTitle className="text-lg">Outbox Events</CardTitle>
             </CardHeader>
-            <CardContent>
-              {loading ? (
-                <p className="text-sm text-muted-foreground">Loading events...</p>
-              ) : events.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No events found.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
-                        <th className="px-3 py-2">Type</th>
-                        <th className="px-3 py-2">Status</th>
-                        <th className="px-3 py-2">Retries</th>
-                        <th className="px-3 py-2">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {events.map((event, index) => (
-                        <tr key={`${event.id}-${index}`} className="border-t">
-                          <td className="px-3 py-2 text-sm">{event.event_type || "-"}</td>
-                          <td className="px-3 py-2 text-sm">{event.status || "-"}</td>
-                          <td className="px-3 py-2 text-sm">{event.retry_count}</td>
-                          <td className="px-3 py-2 text-sm">{event.created_at || "-"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="ptm">
-          <Card>
-            <CardHeader>
-              <CardTitle>PTM Events</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <p className="text-sm text-muted-foreground">Loading PTM events...</p>
-              ) : ptmEvents.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No PTM events found.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
-                        <th className="px-3 py-2">Title</th>
-                        <th className="px-3 py-2">Event Date</th>
-                        <th className="px-3 py-2">Teacher</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ptmEvents.map((event) => (
-                        <tr key={event.id} className="border-t">
-                          <td className="px-3 py-2 text-sm">{event.title || "-"}</td>
-                          <td className="px-3 py-2 text-sm">{event.event_date || "-"}</td>
-                          <td className="px-3 py-2 text-sm">{event.teacher_name || "-"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+            <CardContent className="p-0">
+              <div className="overflow-x-auto rounded-b-lg border-x border-b border-border">
+                <Table>
+                  <TableHeader className="bg-muted/40">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>Type</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Retries</TableHead>
+                      <TableHead>Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
+                          <div className="flex items-center justify-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Loading events...</span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : events.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">No events found.</TableCell>
+                      </TableRow>
+                    ) : (
+                      events.map((event, index) => (
+                        <TableRow key={`${event.id}-${index}`} className="hover:bg-muted/50 transition-colors">
+                          <TableCell className="font-medium text-foreground">{event.event_type || "-"}</TableCell>
+                          <TableCell>
+                            <Badge variant={event.status === "completed" ? "default" : event.status === "failed" ? "destructive" : "secondary"} className="capitalize">
+                              {event.status || "-"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{event.retry_count}</TableCell>
+                          <TableCell className="text-muted-foreground">{event.created_at || "-"}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="moderation">
-          <Card>
-            <CardHeader>
-              <CardTitle>Chat Moderation</CardTitle>
+        <TabsContent value="ptm" className="mt-0">
+          <Card className="border-none shadow-sm">
+            <CardHeader className="border-b pb-4">
+              <CardTitle className="text-lg">PTM Events</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Enable moderation controls</Label>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto rounded-b-lg border-x border-b border-border">
+                <Table>
+                  <TableHeader className="bg-muted/40">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>Title</TableHead>
+                      <TableHead>Event Date</TableHead>
+                      <TableHead>Teacher</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="py-10 text-center text-muted-foreground">
+                          <div className="flex items-center justify-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Loading PTM events...</span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : ptmEvents.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="py-10 text-center text-muted-foreground">No PTM events found.</TableCell>
+                      </TableRow>
+                    ) : (
+                      ptmEvents.map((event) => (
+                        <TableRow key={event.id} className="hover:bg-muted/50 transition-colors">
+                          <TableCell className="font-medium text-foreground">{event.title || "-"}</TableCell>
+                          <TableCell className="text-muted-foreground">{event.event_date || "-"}</TableCell>
+                          <TableCell className="text-muted-foreground">{event.teacher_name || "-"}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="moderation" className="mt-0">
+          <Card className="border-none shadow-sm max-w-2xl">
+            <CardHeader className="border-b pb-4">
+              <CardTitle className="text-lg">Chat Moderation Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-6">
+              <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border border-border">
+                <div className="space-y-0.5">
+                  <Label className="text-base font-semibold">Enable moderation controls</Label>
+                  <p className="text-sm text-muted-foreground">Apply quiet hours and blocked keywords to chat.</p>
+                </div>
                 <Switch checked={moderation.is_enabled} onCheckedChange={(value) => setModeration((prev) => ({ ...prev, is_enabled: value }))} />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Quiet Hours Start</Label>
                   <Input type="time" value={moderation.quiet_hours_start} onChange={(e) => setModeration((prev) => ({ ...prev, quiet_hours_start: e.target.value }))} />
@@ -330,14 +391,18 @@ export default function AdminCommunicationPage() {
                   <Input type="time" value={moderation.quiet_hours_end} onChange={(e) => setModeration((prev) => ({ ...prev, quiet_hours_end: e.target.value }))} />
                 </div>
               </div>
+
               <div className="space-y-2">
                 <Label>Blocked Keywords (comma-separated)</Label>
                 <Input value={blockedKeywordsInput} onChange={(e) => setBlockedKeywordsInput(e.target.value)} placeholder="abuse, spam, forbidden word" />
               </div>
 
-              <Button onClick={saveModerationSettings} disabled={savingModeration}>
-                {savingModeration ? "Saving..." : "Save Moderation Settings"}
-              </Button>
+              <div className="pt-4 border-t border-border">
+                <Button onClick={saveModerationSettings} disabled={savingModeration} className="w-full sm:w-auto gap-2">
+                  {savingModeration && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {savingModeration ? "Saving..." : "Save Moderation Settings"}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

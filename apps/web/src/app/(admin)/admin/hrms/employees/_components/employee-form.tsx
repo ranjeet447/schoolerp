@@ -79,7 +79,7 @@ export function EmployeeForm({ onSuccess }: EmployeeFormProps) {
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Employee Code <span className="text-red-400">*</span></Label>
+          <Label>Employee Code <span className="text-destructive">*</span></Label>
           <Input 
             placeholder="EMP-001" 
             value={formData.employee_code}
@@ -88,7 +88,7 @@ export function EmployeeForm({ onSuccess }: EmployeeFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label>Full Name <span className="text-red-400">*</span></Label>
+          <Label>Full Name <span className="text-destructive">*</span></Label>
           <Input 
             placeholder="John Doe" 
             value={formData.full_name}
@@ -97,7 +97,7 @@ export function EmployeeForm({ onSuccess }: EmployeeFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label>Email <span className="text-red-400">*</span></Label>
+          <Label>Email <span className="text-destructive">*</span></Label>
           <Input 
             type="email"
             placeholder="john@school.com" 
@@ -165,7 +165,7 @@ export function EmployeeForm({ onSuccess }: EmployeeFormProps) {
         </div>
       </div>
 
-      <Button onClick={handleSubmit} disabled={loading} className="w-full bg-indigo-600 hover:bg-indigo-500">
+      <Button onClick={handleSubmit} disabled={loading} className="w-full">
         <Save className="h-4 w-4 mr-2" />
         {loading ? "Onboarding..." : "Onboard Employee"}
       </Button>

@@ -95,10 +95,10 @@ export default function LibraryReadingPage() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
+      <Card className="border-none shadow-sm overflow-hidden">
+        <CardHeader className="border-b bg-muted/20 pb-4">
            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-bold">Progress Dashboard</CardTitle>
+              <CardTitle className="text-lg">Progress Dashboard</CardTitle>
               <div className="flex items-center gap-2">
                  <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -115,32 +115,32 @@ export default function LibraryReadingPage() {
         </CardHeader>
         <CardContent className="p-0">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead>Student</TableHead>
-                <TableHead>Current Book</TableHead>
-                <TableHead>Progress</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Last Activity</TableHead>
-                <TableHead className="text-right">View</TableHead>
+                <TableHead className="font-bold text-muted-foreground">Student</TableHead>
+                <TableHead className="font-bold text-muted-foreground">Current Book</TableHead>
+                <TableHead className="font-bold text-muted-foreground">Progress</TableHead>
+                <TableHead className="font-bold text-muted-foreground">Status</TableHead>
+                <TableHead className="font-bold text-muted-foreground">Last Activity</TableHead>
+                <TableHead className="text-right font-bold text-muted-foreground">View</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className="divide-y">
               {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-24 text-center">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
                   </TableCell>
                 </TableRow>
               ) : filteredLogs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground font-medium">
                     No reading logs found matching search.
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredLogs.map((l) => (
-                  <TableRow key={l.id} className="group hover:bg-slate-50/50">
+                  <TableRow key={l.id} className="hover:bg-muted/30 transition-colors">
                     <TableCell>
                        <div className="flex items-center gap-2">
                           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center font-bold text-xs text-primary">
@@ -158,21 +158,21 @@ export default function LibraryReadingPage() {
                     <TableCell className="w-[200px]">
                        <div className="space-y-1">
                           <Progress value={(l.current_page / l.total_pages) * 100} className="h-1.5" />
-                          <p className="text-[9px] text-right font-medium text-muted-foreground">
+                          <p className="text-[9px] text-right font-bold text-muted-foreground">
                              {Math.round((l.current_page / l.total_pages) * 100)}%
                           </p>
                        </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={l.status === 'completed' ? 'outline' : 'secondary'} className={`text-[10px] uppercase ${l.status === 'completed' ? 'text-green-600 border-green-200 bg-green-50' : ''}`}>
+                      <Badge variant={l.status === 'completed' ? 'outline' : 'secondary'} className={`text-[10px] uppercase ${l.status === 'completed' ? 'text-emerald-600 border-emerald-600/20 bg-emerald-600/10 dark:text-emerald-400' : ''}`}>
                         {l.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
+                    <TableCell className="text-xs font-medium text-muted-foreground">
                        {new Date(l.updated_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right">
-                       <Button variant="ghost" size="icon"><ChevronRight className="h-4 w-4" /></Button>
+                       <Button variant="ghost" size="icon" className="text-muted-foreground"><ChevronRight className="h-4 w-4" /></Button>
                     </TableCell>
                   </TableRow>
                 ))
