@@ -41,6 +41,21 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	})
 }
 
+func (h *Handler) RegisterTeacherRoutes(r chi.Router) {
+	r.Route("/attendance", func(r chi.Router) {
+		r.Get("/sessions", h.GetSession)
+		r.Get("/class-sections", h.ListClassSections)
+		r.Get("/stats", h.GetDailyStats)
+		r.Get("/monthly-summary", h.GetMonthlySummary)
+		r.Post("/mark", h.MarkAttendance)
+	})
+	r.Route("/student-leaves", func(r chi.Router) {
+		r.Get("/", h.ListLeaves)
+		r.Post("/{id}/approve", h.ApproveLeave)
+		r.Post("/{id}/reject", h.RejectLeave)
+	})
+}
+
 func (h *Handler) RegisterParentRoutes(r chi.Router) {
 	r.Get("/leaves", h.ListParentLeaves)
 	r.Post("/leaves", h.CreateLeave)

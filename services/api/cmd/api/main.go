@@ -320,6 +320,8 @@ func main() {
 	hostelHandler := sis.NewHostelHandler(hostelService)
 	scheduleHandler := academic.NewScheduleHandler(scheduleService)
 	promotionHandler := sis.NewPromotionHandler(promotionService)
+	certService := sisservice.NewCertificateService(querier, auditLogger, fileService)
+	certHandler := sis.NewCertificateHandler(certService)
 	swaggerHandler := swagger.NewHandler("/docs/v1/openapi/openapi.yaml")
 
 	r := chi.NewRouter()
@@ -430,6 +432,7 @@ func main() {
 			hostelHandler.RegisterRoutes(r)
 			scheduleHandler.RegisterRoutes(r)
 			promotionHandler.RegisterRoutes(r)
+			certHandler.RegisterRoutes(r)
 			hrmsHandler.RegisterRoutes(r)
 			safetyHandler.RegisterRoutes(r)
 			commHandler.RegisterRoutes(r)
@@ -470,7 +473,7 @@ func main() {
 		// Teacher Routes
 		r.Route("/teacher", func(r chi.Router) {
 			r.Use(middleware.RoleGuard("teacher", "tenant_admin", "super_admin")) // Allow admins to view teacher routes too
-			attendanceHandler.RegisterRoutes(r)
+			attendanceHandler.RegisterTeacherRoutes(r)
 			staffAttendHandler.RegisterRoutes(r) // Expose period-attendance
 			noticeHandler.RegisterRoutes(r)
 			examHandler.RegisterRoutes(r)
