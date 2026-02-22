@@ -29,7 +29,8 @@ export default function LoginPage() {
   useEffect(() => {
     const user = RBACService.getCurrentUser();
     if (user && user.role) {
-      router.replace('/');
+      const redirect = RBACService.getDashboardPath(user.role);
+      router.replace(redirect);
     }
   }, [router]);
 
@@ -41,8 +42,8 @@ export default function LoginPage() {
       const result = await login(email, password);
       if (result.success) {
         toast.success('Sign in successful! Redirecting...');
-        // Redirection is handled by the root page or we can force it here
-        router.push('/');
+        const redirect = result.redirect || RBACService.getDashboardPath(result.role);
+        router.push(redirect);
       } else if (result.redirect) {
         router.push(result.redirect);
       } else {
