@@ -20,6 +20,8 @@ func NewHandler(svc *bioservice.BiometricService) *Handler {
 func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Route("/biometric", func(r chi.Router) {
 		r.Post("/ingest", h.IngestLog)
+		r.Get("/devices", h.ListDevices)
+		r.Get("/logs", h.ListRecentLogs)
 	})
 }
 
@@ -39,4 +41,26 @@ func (h *Handler) IngestLog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(map[string]string{"id": id, "status": "processed"})
+}
+
+func (h *Handler) ListDevices(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+
+	devices, err := h.svc.ListDevices(r.Context(), tenantID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(devices)
+}
+
+func (h *Handler) ListRecentLogs(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+
+	logs, err := h.svc.ListRecentLogs(r.Context(), tenantID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(logs)
 }

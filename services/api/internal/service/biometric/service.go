@@ -107,3 +107,92 @@ func ifString(cond bool, a, b interface{}) interface{} {
 	}
 	return b
 }
+
+type DeviceStatus struct {
+	DeviceID   string    `json:"device_id"`
+	LastSeen   time.Time `json:"last_seen"`
+	TotalToday int       `json:"total_today"`
+	Status     string    `json:"status"` // "online", "offline"
+}
+
+type LogRow struct {
+	ID            string    `json:"id"`
+	DeviceID      string    `json:"device_id"`
+	RawIdentifier string    `json:"raw_identifier"`
+	EntityType    string    `json:"entity_type"`
+	EntityName    string    `json:"entity_name"`
+	Direction     string    `json:"direction"`
+	LoggedAt      time.Time `json:"logged_at"`
+}
+
+func (s *BiometricService) ListDevices(ctx context.Context, tenantID string) ([]DeviceStatus, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT 
+			device_id,
+			MAX(logged_at) as last_seen,
+			COUNT(*) FILTER (WHERE logged_at::date = CURRENT_DATE) as total_today
+		FROM biometric_logs
+		WHERE tenant_id = $1
+		GROUP BY device_id
+		ORDER BY last_seen DESC
+	`, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list devices: %w", err)
+	}
+	defer rows.Close()
+
+	var devices []DeviceStatus
+	for rows.Next() {
+		var d DeviceStatus
+		if err := rows.Scan(&d.DeviceID, &d.LastSeen, &d.TotalToday); err != nil {
+			continue
+		}
+		if time.Since(d.LastSeen) < 10*time.Minute {
+			d.Status = "online"
+		} else {
+			d.Status = "offline"
+		}
+		devices = append(devices, d)
+	}
+	if devices == nil {
+		devices = []DeviceStatus{}
+	}
+	return devices, nil
+}
+
+func (s *BiometricService) ListRecentLogs(ctx context.Context, tenantID string) ([]LogRow, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT 
+			bl.id, bl.device_id, bl.raw_identifier,
+			COALESCE(bl.entity_type, 'unknown'),
+			COALESCE(
+				CASE WHEN bl.entity_type = 'student' THEN (SELECT full_name FROM students WHERE id = bl.entity_id::uuid)
+				     WHEN bl.entity_type = 'employee' THEN (SELECT full_name FROM employees WHERE id = bl.entity_id::uuid)
+				     ELSE bl.raw_identifier END,
+				bl.raw_identifier
+			),
+			COALESCE(bl.direction, 'in'),
+			bl.logged_at
+		FROM biometric_logs bl
+		WHERE bl.tenant_id = $1
+		ORDER BY bl.logged_at DESC
+		LIMIT 50
+	`, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list logs: %w", err)
+	}
+	defer rows.Close()
+
+	var logs []LogRow
+	for rows.Next() {
+		var l LogRow
+		if err := rows.Scan(&l.ID, &l.DeviceID, &l.RawIdentifier, &l.EntityType, &l.EntityName, &l.Direction, &l.LoggedAt); err != nil {
+			continue
+		}
+		logs = append(logs, l)
+	}
+	if logs == nil {
+		logs = []LogRow{}
+	}
+	return logs, nil
+}

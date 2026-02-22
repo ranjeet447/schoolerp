@@ -32,10 +32,7 @@ export default function AdminDashboardPage() {
     { class: "Class IX-B", amount: "₹38,000", students: 6 },
     { class: "Class VIII-A", amount: "₹32,500", students: 5 },
   ]
-  const certificates = [
-    { id: 1, type: "Transfer Certificate", name: "Arjun Kumar", status: "Pending" },
-    { id: 2, type: "Bonafide", name: "Sneha Gupta", status: "Pending" },
-  ]
+  const [certificates, setCertificates] = useState<any[]>([])
   const remarks = [
     { name: "Rahul Singh", desc: "Excellent project in Science.", teacher: "Mr. Sharma", time: "2h ago" },
     { name: "Priya Das", desc: "Incomplete Math homework.", teacher: "Mrs. Verma", time: "3h ago" },
@@ -46,9 +43,10 @@ export default function AdminDashboardPage() {
     else setLoading(true)
     
     try {
-      const [statsRes, approvalsRes] = await Promise.all([
+      const [statsRes, approvalsRes, certsRes] = await Promise.all([
         apiClient("/admin/dashboard/command-status"),
-        apiClient("/admin/approvals?status=pending&limit=3")
+        apiClient("/admin/approvals?status=pending&limit=3"),
+        apiClient("/admin/certificates/list?status=pending&limit=5")
       ])
 
       if (statsRes.ok) {
@@ -64,6 +62,12 @@ export default function AdminDashboardPage() {
       if (approvalsRes.ok) {
         const data = await approvalsRes.json()
         setApprovals(data)
+      }
+
+      if (certsRes.ok) {
+        const data = await certsRes.json()
+        const rows = Array.isArray(data) ? data : (data?.certificates || [])
+        setCertificates(rows.slice(0, 3))
       }
     } catch (error) {
       console.error("Dashboard load failed:", error)
@@ -289,21 +293,28 @@ export default function AdminDashboardPage() {
           <CardHeader className="pb-3 border-b mb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2 tracking-tight"><FileText className="w-5 h-5 text-indigo-500" /> Pending Certificates</CardTitle>
+              {certificates.length > 0 && <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 hover:bg-indigo-100 border-none">{certificates.length}</Badge>}
             </div>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col gap-3">
-            {certificates.map(cert => (
-              <div key={cert.id} className="flex items-center justify-between p-3 rounded-lg bg-indigo-50/50 border border-indigo-100">
-                <div className="flex items-center gap-3">
-                  <FileText className="w-4 h-4 text-indigo-400" />
-                  <div>
-                    <p className="text-sm font-bold text-foreground">{cert.name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{cert.type}</p>
-                  </div>
-                </div>
-                <Button size="sm" variant="outline" className="h-7 text-xs">Review</Button>
+            {certificates.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground py-8">
+                No pending certificate requests
               </div>
-            ))}
+            ) : (
+              certificates.map((cert: any) => (
+                <div key={cert.id} className="flex items-center justify-between p-3 rounded-lg bg-indigo-50/50 border border-indigo-100">
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-4 h-4 text-indigo-400" />
+                    <div>
+                      <p className="text-sm font-bold text-foreground">{cert.student_name || cert.name || "Student"}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{cert.certificate_type || cert.type || "Certificate"}</p>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="text-[10px]">{cert.status || "Pending"}</Badge>
+                </div>
+              ))
+            )}
             <div className="mt-auto pt-2">
               <Link href="/admin/certificates">
                 <Button variant="ghost" className="w-full text-xs text-indigo-600 hover:bg-indigo-50 h-8">Issue Certificates</Button>
