@@ -1,6 +1,6 @@
 "use client"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/v1"
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/v1"
 const TOKEN_EXPIRY_SKEW_MS = 15_000
 
 let authRedirectInProgress = false
