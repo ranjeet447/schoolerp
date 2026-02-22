@@ -101,14 +101,6 @@ export async function apiClient(path: string, options: RequestInit = {}) {
   const requestPath = path.startsWith("http") ? new URL(path).pathname : path
   const authRequest = isAuthPath(requestPath)
 
-  if (typeof window !== "undefined" && token && !authRequest && isAuthTokenExpired(token)) {
-    redirectToLogin("token_expired")
-    return new Response(JSON.stringify({ success: false, message: "Session expired" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    })
-  }
-
   // 3. Build Headers
   const baseHeaders: Record<string, string> = {}
   if (tenant) {
@@ -133,8 +125,10 @@ export async function apiClient(path: string, options: RequestInit = {}) {
     },
   })
 
-  if (response.status === 401) {
-    if (typeof window !== "undefined" && token && !authRequest) {
+  // Handle 401s specifically for non-auth requests
+  if (response.status === 401 && !authRequest && typeof window !== 'undefined') {
+    // Only redirect if we have a token that is supposedly expired or rejected
+    if (token) {
       redirectToLogin("unauthorized")
     }
   }
@@ -144,23 +138,21 @@ export async function apiClient(path: string, options: RequestInit = {}) {
   if (contentType?.includes("application/json")) {
     const data = await response.json()
 
-    // Add success flag if not present for consistency
-    const success = data.success !== undefined ? data.success : response.ok
-
-    // Return a proxy-like object that satisfies both Response-checkers and direct data accessors
-    return {
+    // Create a safe proxy that doesn't shadow Response methods but allows direct data access
+    const result = {
       ...data,
-      success,
       ok: response.ok,
       status: response.status,
       headers: response.headers,
+      success: data.success !== undefined ? data.success : response.ok,
       json: async () => data,
-      // For those who treat it as a raw response
       text: async () => JSON.stringify(data),
       blob: async () => response.blob(),
       formData: async () => response.formData(),
       arrayBuffer: async () => response.arrayBuffer(),
     }
+
+    return result
   }
 
   return response
