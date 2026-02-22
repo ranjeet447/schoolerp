@@ -14,6 +14,7 @@ import (
 	sentryhttp "github.com/getsentry/sentry-go/http"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
@@ -147,6 +148,17 @@ func main() {
 	}
 	if poolConfig.HealthCheckPeriod == 0 {
 		poolConfig.HealthCheckPeriod = 30 * time.Second
+	}
+
+	// Database Pooling compatibility (Neon, Supabase, PgBouncer):
+	// If using a transaction pooler, we MUST disable prepared statement caching.
+	// Neon pooled strings usually end with '-pooler' or use port 6543 (in Supabase case).
+	poolMode := strings.ToLower(os.Getenv("DB_POOL_MODE"))
+	if poolMode == "transaction" || strings.Contains(dbURL, "-pooler") {
+		poolConfig.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+		log.Info().Msg("Database pool: transaction/neon-pooler detected (Prepared Statements disabled for compatibility)")
+	} else {
+		log.Info().Msg("Database pool: default/session (Prepared Statements enabled)")
 	}
 
 	log.Info().
