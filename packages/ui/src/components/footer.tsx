@@ -11,6 +11,7 @@ const FOOTER_LINKS = [
       { label: 'Report Card Generator', href: '/features/report-card-software-for-schools' },
       { label: 'Parent Communication App', href: '/features/school-parent-communication-app' },
       { label: 'Admission Enquiry Pipeline', href: '/features/enquiry-follow-up-pipeline' },
+      { label: 'Integrations', href: '/integrations' },
     ],
   },
   {
@@ -20,6 +21,7 @@ const FOOTER_LINKS = [
       { label: 'Stop WhatsApp Chaos', href: '/use-cases/reduce-whatsapp-chaos' },
       { label: 'Inspection Ready Reports', href: '/use-cases/office-reports-for-inspection' },
       { label: 'Print Certificates in 1-Click', href: '/use-cases/certificates-in-one-click' },
+      { label: 'Roadmap & Future', href: '/roadmap' },
     ],
   },
   {
@@ -27,14 +29,16 @@ const FOOTER_LINKS = [
     links: [
       { label: 'Pricing', href: '/pricing' },
       { label: 'About Us', href: '/about' },
-      { label: 'Contact Sales', href: '/contact' },
       { label: 'Blog & Insights', href: '/blog' },
       { label: 'Templates Hub', href: '/resources' },
+      { label: 'Careers', href: '/careers' },
     ],
   },
   {
-    title: 'Legal',
+    title: 'Connect & Legal',
     links: [
+      { label: 'Partners', href: '/partners' },
+      { label: 'Client Reviews', href: '/reviews' },
       { label: 'Privacy Policy', href: '/legal/privacy' },
       { label: 'Terms of Service', href: '/legal/terms' },
       { label: 'Security Policy', href: '/legal/security' },

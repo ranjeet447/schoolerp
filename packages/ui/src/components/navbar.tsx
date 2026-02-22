@@ -12,10 +12,10 @@ import { cn } from '../lib/utils';
 const NAV_LINKS = [
   { label: 'Features', href: '/features' },
   { label: 'Use Cases', href: '/use-cases' },
+  { label: 'Blog', href: '/blog' },
   { label: 'Pricing', href: '/pricing' },
   { label: 'Integrations', href: '/integrations' },
   { label: 'Roadmap', href: '/roadmap' },
-  { label: 'Security', href: '/security' },
 ];
 
 export const Navbar = () => {
