@@ -31,7 +31,7 @@ CREATE TABLE timetable_entries (
     variant_id UUID NOT NULL REFERENCES timetable_variants(id) ON DELETE CASCADE,
     period_id UUID NOT NULL REFERENCES timetable_periods(id) ON DELETE CASCADE,
     day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6), -- 0=Sunday
-    class_section_id UUID NOT NULL REFERENCES class_sections(id) ON DELETE CASCADE,
+    class_section_id UUID NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
     subject_id UUID NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
     teacher_id UUID NOT NULL REFERENCES users(id),
     room_number TEXT,

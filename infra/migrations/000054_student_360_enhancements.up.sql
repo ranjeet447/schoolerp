@@ -1,3 +1,11 @@
+CREATE OR REPLACE FUNCTION update_modified_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
 -- Student Behavioral Logs
 CREATE TABLE student_behavioral_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

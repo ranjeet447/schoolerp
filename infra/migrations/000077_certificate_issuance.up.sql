@@ -21,8 +21,8 @@ CREATE TABLE IF NOT EXISTS certificates (
     UNIQUE(tenant_id, certificate_number)
 );
 
-CREATE INDEX idx_certificates_student ON certificates(student_id);
-CREATE INDEX idx_certificates_tenant_type ON certificates(tenant_id, type);
+CREATE INDEX IF NOT EXISTS idx_certificates_student ON certificates(student_id);
+CREATE INDEX IF NOT EXISTS idx_certificates_tenant_type ON certificates(tenant_id, type);
 
 -- Add permissions
 INSERT INTO permissions (code, module, description) VALUES

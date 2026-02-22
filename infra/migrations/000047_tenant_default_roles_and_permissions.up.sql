@@ -89,11 +89,10 @@ ON CONFLICT DO NOTHING;
 -- If any users were assigned to template roles, migrate those assignments to the tenant-scoped default roles.
 UPDATE role_assignments ra
 SET role_id = tr.id
-FROM roles tmpl
-JOIN roles tr
-  ON tr.tenant_id = ra.tenant_id
- AND tr.code = tmpl.code
-WHERE ra.role_id = tmpl.id
+FROM roles tmpl, roles tr
+WHERE tr.tenant_id = ra.tenant_id
+  AND tr.code = tmpl.code
+  AND ra.role_id = tmpl.id
   AND tmpl.tenant_id IS NULL
   AND tmpl.code IN ('tenant_admin','teacher','accountant','parent','student')
   AND tr.is_system = FALSE;

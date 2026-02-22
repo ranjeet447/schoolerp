@@ -8,7 +8,7 @@ BEGIN;
 -- 0. CLEANUP (Standard Table Reset)
 -- ============================================
 TRUNCATE 
-    tenants, users, roles, permissions, academic_years, classes, class_sections, subjects,
+    tenants, users, roles, permissions, academic_years, classes, sections, subjects,
     students, guardians, employees, salary_structures, fee_heads, fee_plans,
     exams, transport_vehicles, transport_routes, inventory_categories, 
     library_categories, admission_enquiries, chat_rooms, hostel_buildings,
@@ -451,8 +451,8 @@ INSERT INTO classes (id, tenant_id, name, level) VALUES
 ('019c4d42-c25e-7a73-a4a7-dd3fff4fab38', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', 'Grade 12', 12)
 ON CONFLICT DO NOTHING;
 
--- 2.3 class_sections (Including 2024 History)
-INSERT INTO class_sections (id, tenant_id, class_id, name, capacity) VALUES
+-- 2.3 sections (Including 2024 History)
+INSERT INTO sections (id, tenant_id, class_id, name, capacity) VALUES
 -- 2025 Sections
 ('019c4d42-49ca-71a1-bf87-9053f8107881', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', '019c4d42-49ca-7347-8508-f9d57d70bbf6', 'A', 40),
 ('019c4d42-49ca-7a68-9970-6880bbb05a78', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', '019c4d42-49ca-7347-8508-f9d57d70bbf6', 'B', 40),
@@ -1069,7 +1069,7 @@ BEGIN
         VALUES (v_class_id, r.tenant_id, 'Grade 8', 8)
         ON CONFLICT DO NOTHING;
 
-        INSERT INTO class_sections (id, tenant_id, class_id, name, capacity)
+        INSERT INTO sections (id, tenant_id, class_id, name, capacity)
         VALUES (v_section_id, r.tenant_id, v_class_id, 'A', 35)
         ON CONFLICT DO NOTHING;
 
@@ -1397,7 +1397,7 @@ SELECT
   (SELECT s.id FROM students s WHERE s.tenant_id = t.id ORDER BY s.created_at NULLS LAST, s.id LIMIT 1) AS student_id,
   (SELECT e.id FROM employees e WHERE e.tenant_id = t.id ORDER BY e.created_at NULLS LAST, e.id LIMIT 1) AS employee_id,
   (SELECT c.id FROM classes c WHERE c.tenant_id = t.id ORDER BY c.created_at NULLS LAST, c.id LIMIT 1) AS class_id,
-  (SELECT cs.id FROM class_sections cs WHERE cs.tenant_id = t.id ORDER BY cs.created_at NULLS LAST, cs.id LIMIT 1) AS section_id,
+  (SELECT cs.id FROM sections cs WHERE cs.tenant_id = t.id ORDER BY cs.created_at NULLS LAST, cs.id LIMIT 1) AS section_id,
   (SELECT s.id FROM subjects s WHERE s.tenant_id = t.id ORDER BY s.created_at NULLS LAST, s.id LIMIT 1) AS subject_id,
   (SELECT e.id FROM exams e WHERE e.tenant_id = t.id ORDER BY e.created_at NULLS LAST, e.id LIMIT 1) AS exam_id,
   (SELECT ay.id FROM academic_years ay WHERE ay.tenant_id = t.id ORDER BY ay.created_at NULLS LAST, ay.id LIMIT 1) AS academic_year_id,

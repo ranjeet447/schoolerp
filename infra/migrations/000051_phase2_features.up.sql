@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS learning_resources (
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     class_id UUID REFERENCES classes(id) ON DELETE SET NULL,
     section_id UUID REFERENCES sections(id) ON DELETE SET NULL,
-    subject_id UUID REFERENCES academic_subjects(id) ON DELETE SET NULL,
+    subject_id UUID REFERENCES subjects(id) ON DELETE SET NULL,
     title VARCHAR(255) NOT NULL,
     description TEXT,
     resource_type VARCHAR(20) NOT NULL, -- video_link, file, document_link

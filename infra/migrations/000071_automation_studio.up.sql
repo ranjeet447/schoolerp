@@ -16,6 +16,21 @@ CREATE TABLE automation_rules (
 -- Add indexes
 CREATE INDEX idx_automation_rules_tenant_trigger ON automation_rules(tenant_id, trigger_event) WHERE is_active = true;
 
+-- Library Progress Tracking (Missing in previous migrations)
+CREATE TABLE IF NOT EXISTS library_reading_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    book_id UUID NOT NULL REFERENCES library_books(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'reading', -- 'reading', 'completed'
+    current_page INTEGER DEFAULT 0,
+    total_pages INTEGER DEFAULT 0,
+    rating INTEGER,
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Update library_reading_logs to add student_name for faster global lookups if needed
 -- Actually, the join in the query is fine, but let's add a metadata column if we want more extensibility
 ALTER TABLE library_reading_logs ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;

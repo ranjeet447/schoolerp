@@ -1,5 +1,34 @@
 -- 000076_security_and_performance_audit.up.sql
 
+CREATE TABLE IF NOT EXISTS fee_late_waivers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    fee_plan_item_id UUID NOT NULL,
+    amount_waived BIGINT NOT NULL,
+    reason TEXT NOT NULL,
+    requested_by UUID REFERENCES users(id),
+    status TEXT DEFAULT 'pending',
+    decided_by UUID REFERENCES users(id),
+    decided_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS student_remarks (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    posted_by UUID REFERENCES users(id),
+    category TEXT NOT NULL,
+    remark_text TEXT NOT NULL,
+    requires_ack BOOLEAN DEFAULT FALSE,
+    is_acknowledged BOOLEAN DEFAULT FALSE,
+    ack_by_user_id UUID REFERENCES users(id),
+    ack_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- 1. Indexing Audit: Ensuring all tenant-scoped tables have efficient lookups
 -- payment_orders: missing status lookup
 CREATE INDEX IF NOT EXISTS idx_payment_orders_status ON payment_orders (tenant_id, status);
