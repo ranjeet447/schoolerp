@@ -10,7 +10,9 @@ import {
   LogOut,
   User,
   FileText,
-  BookOpen
+  BookOpen,
+  CalendarDays,
+  MessageSquare
 } from 'lucide-react';
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@schoolerp/ui';
 import { RBACService } from '@/lib/auth-service';
@@ -22,7 +24,9 @@ import { apiClient } from '@/lib/api-client';
 const NAV_ITEMS = [
   { href: '/teacher/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
   { href: '/teacher/attendance', label: 'Mark Attendance', icon: CalendarCheck, permission: 'attendance:write' },
+  { href: '/teacher/timetable', label: 'My Timetable', icon: CalendarDays, permission: 'academics:read' },
   { href: '/teacher/homework', label: 'Homework', icon: BookOpen, permission: 'sis:read' },
+  { href: '/teacher/remarks', label: 'Remarks', icon: MessageSquare, permission: 'sis:write' },
   { href: '/teacher/leaves', label: 'My Leaves', icon: FileText, permission: 'hrms:read' },
   { href: '/teacher/kb', label: 'Knowledgebase', icon: BookOpen, permission: 'sis:read' },
   { href: '/teacher/exams/marks', label: 'Enter Marks', icon: GraduationCap, permission: 'exams:write' },

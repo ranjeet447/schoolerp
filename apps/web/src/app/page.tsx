@@ -16,6 +16,10 @@ export default function Home() {
       const redirect = RBACService.getDashboardPath(user.role);
       if (redirect !== '/') {
         router.replace(redirect);
+      } else {
+        // If they have a role but no dashboard (like 'guest'), 
+        // redirect back to login with a message instead of hanging
+        router.replace('/auth/login?reason=no_dashboard');
       }
     }
   }, [router]);

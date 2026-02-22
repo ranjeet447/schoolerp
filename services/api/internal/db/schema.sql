@@ -2329,6 +2329,8 @@ INSERT INTO permissions (code, module, description) VALUES
   ('fees:read', 'fees', 'View fee structures and payments'),
   ('fees:collect', 'fees', 'Collect fee payments'),
   ('fees:manage', 'fees', 'Manage fee structures and concessions'),
+  ('fees:gateways.manage', 'fees', 'Manage payment gateway configurations'),
+  ('tenant:billing.read', 'tenant', 'View tenant billing and subscription status'),
   ('attendance:read', 'attendance', 'View attendance records'),
   ('attendance:write', 'attendance', 'Mark/Edit attendance'),
   ('finance:read', 'finance', 'View financial reports'),
@@ -2366,11 +2368,11 @@ INSERT INTO role_permissions (role_id, permission_id)
 SELECT rr.id, p.id
 FROM role_ref rr
 JOIN permissions p ON (
-  (rr.code = 'tenant_admin' AND p.code IN ('sis:read','sis:write','sis:delete','fees:read','fees:collect','fees:manage','attendance:read','attendance:write','finance:read','finance:write','tenant:manage','tenant:addons.read','tenant:addons.request','tenant:addons.configure'))
+  (rr.code = 'tenant_admin' AND p.code IN ('sis:read','sis:write','sis:delete','fees:read','fees:collect','fees:manage','fees:gateways.manage','attendance:read','attendance:write','finance:read','finance:write','tenant:manage','tenant:addons.read','tenant:addons.request','tenant:addons.configure','tenant:billing.read'))
   OR (rr.code = 'teacher' AND p.code IN ('sis:read','sis:write','attendance:read','attendance:write','fees:read'))
-  OR (rr.code = 'accountant' AND p.code IN ('fees:read','fees:collect','fees:manage','finance:read','finance:write','sis:read'))
-  OR (rr.code = 'parent' AND p.code IN ('attendance:read','fees:read','sis:read'))
-  OR (rr.code = 'student' AND p.code IN ('attendance:read','fees:read','sis:read'))
+  OR (rr.code = 'accountant' AND p.code IN ('fees:read','fees:collect','fees:manage','fees:gateways.manage','finance:read','finance:write','sis:read'))
+  OR (rr.code = 'parent' AND p.code IN ('dashboard:view','attendance:read','fees:read','sis:read'))
+  OR (rr.code = 'student' AND p.code IN ('dashboard:view','attendance:read','fees:read','sis:read'))
 )
 ON CONFLICT DO NOTHING;
 

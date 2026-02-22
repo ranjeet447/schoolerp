@@ -29,6 +29,7 @@ import (
 	"github.com/schoolerp/api/internal/foundation/outbox"
 	"github.com/schoolerp/api/internal/foundation/policy"
 	"github.com/schoolerp/api/internal/foundation/quota"
+	"github.com/schoolerp/api/internal/foundation/security"
 	"github.com/schoolerp/api/internal/foundation/sessionstore"
 	aihandler "github.com/schoolerp/api/internal/handler"
 	academic "github.com/schoolerp/api/internal/handler/academics"
@@ -221,6 +222,21 @@ func main() {
 	approvalSvc := approvals.NewService(querier)
 	quotaSvc := quota.NewService(querier)
 
+	encryptionKey := os.Getenv("TENANT_ENCRYPTION_KEY")
+	if len(encryptionKey) != 32 {
+		// Fallback for development: use first 32 bytes of JWT_SECRET if available
+		jwtSecret := os.Getenv("JWT_SECRET")
+		if len(jwtSecret) >= 32 {
+			encryptionKey = jwtSecret[:32]
+		} else {
+			encryptionKey = "default-32-byte-long-secret-key!!" // 32 chars
+		}
+	}
+	cryptoService, err := security.NewCrypto([]byte(encryptionKey))
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to initialize encryption service, some features may be limited")
+	}
+
 	// Initialize i18n
 	translator := i18n.GetTranslator()
 	if err := translator.LoadFromDir("internal/foundation/i18n"); err != nil {
@@ -248,7 +264,7 @@ func main() {
 	financeService := financeservice.NewService(querier, pool, auditLogger, policyEval, locksSvc, &financeservice.RazorpayProvider{
 		KeyID:     os.Getenv("RAZORPAY_KEY_ID"),
 		KeySecret: os.Getenv("RAZORPAY_KEY_SECRET"),
-	})
+	}, cryptoService)
 	noticeService := noticeservice.NewService(querier, auditLogger)
 	examService := examservice.NewService(querier, auditLogger)
 	transportService := transportservice.NewTransportService(querier, pool, auditLogger)
@@ -276,7 +292,7 @@ func main() {
 	scheduleService := academicservice.NewScheduleService(pool, auditLogger)
 	promotionService := sisservice.NewPromotionService(querier, auditLogger)
 
-	aiService, err := aiservice.NewService(querier)
+	aiService, err := aiservice.NewService(querier, tenantService)
 	if err != nil {
 		log.Warn().Err(err).Msg("AI Service failed to initialize (missing API key?)")
 	}
@@ -506,6 +522,14 @@ func main() {
 			noticeHandler.RegisterParentRoutes(r)
 			examHandler.RegisterParentRoutes(r)
 			academicHandler.RegisterStudentRoutes(r)
+		})
+
+		// Student Routes
+		r.Route("/student", func(r chi.Router) {
+			r.Use(middleware.RoleGuard("student"))
+			academicHandler.RegisterStudentRoutes(r)
+			noticeHandler.RegisterParentRoutes(r) // Notices/Exams typically shared
+			examHandler.RegisterParentRoutes(r)
 		})
 
 		// Accountant Routes

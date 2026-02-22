@@ -259,6 +259,7 @@ type ImpersonationResult struct {
 	Token            string    `json:"token"`
 	TargetUserID     string    `json:"target_user_id"`
 	TargetUserEmail  string    `json:"target_user_email"`
+	TargetUserRole   string    `json:"target_user_role"`
 	TargetTenantID   string    `json:"target_tenant_id"`
 	TargetTenantName string    `json:"target_tenant_name"`
 	ExpiresAt        time.Time `json:"expires_at"`

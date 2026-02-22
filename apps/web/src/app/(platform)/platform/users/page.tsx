@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api-client"
+import { RBACService } from "@/lib/auth-service"
 import {
   Button,
   Input,
@@ -107,8 +108,11 @@ export default function GlobalUserDirectoryPage() {
       if (data.token) localStorage.setItem("auth_token", data.token)
       if (data.target_tenant_id) localStorage.setItem("tenant_id", data.target_tenant_id)
       if (data.target_user_id) localStorage.setItem("user_id", data.target_user_id)
-      localStorage.setItem("user_role", "tenant_admin")
-      window.location.href = "/admin/dashboard"
+      
+      const impersonatedRole = data.target_user_role || "tenant_admin"
+      localStorage.setItem("user_role", impersonatedRole)
+      
+      window.location.href = RBACService.getDashboardPath(impersonatedRole)
     },
     onError: (err: any) => {
       toast.error("Impersonation failed", {

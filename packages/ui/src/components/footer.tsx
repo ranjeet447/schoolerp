@@ -7,9 +7,9 @@ const FOOTER_LINKS = [
     title: 'Product Features',
     links: [
       { label: 'Fee Management Software', href: '/features/school-fee-management-software' },
-      { label: 'Attendance Management', href: '/features/school-attendance-management-system' },
-      { label: 'Report Card Generator', href: '/features/report-card-software-for-schools' },
-      { label: 'Parent Communication App', href: '/features/school-parent-communication-app' },
+      { label: 'Attendance Management', href: '/features/school-attendance-management' },
+      { label: 'Report Card Generator', href: '/features/report-card-software' },
+      { label: 'Parent Communication App', href: '/features/parent-communication-app' },
       { label: 'Admission Enquiry Pipeline', href: '/features/enquiry-follow-up-pipeline' },
       { label: 'Integrations', href: '/integrations' },
     ],

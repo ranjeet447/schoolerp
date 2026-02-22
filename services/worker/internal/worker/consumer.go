@@ -11,20 +11,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/schoolerp/worker/internal/db"
 	"github.com/schoolerp/worker/internal/notification"
+	"github.com/schoolerp/worker/internal/service"
 )
 
 type Consumer struct {
 	q                    db.Querier
 	notif                notification.Adapter
+	billing              *service.BillingService
 	limit                int32
 	lastFeeReminderRunAt time.Time
 }
 
-func NewConsumer(q db.Querier, notif notification.Adapter) *Consumer {
+func NewConsumer(q db.Querier, notif notification.Adapter, billing *service.BillingService) *Consumer {
 	return &Consumer{
-		q:     q,
-		notif: notif,
-		limit: 10,
+		q:       q,
+		notif:   notif,
+		billing: billing,
+		limit:   10,
 	}
 }
 
@@ -254,7 +257,18 @@ func (c *Consumer) handleEvent(ctx context.Context, event db.Outbox) error {
 		if ta, ok := c.notif.(notification.TenantAwareAdapter); ok {
 			notif = ta.WithTenant(event.TenantID.String())
 		}
-		return notif.SendSMS(ctx, phone, message)
+
+		// Billing Gating
+		if err := c.checkAddon(ctx, event.TenantID, "communications_sms"); err != nil {
+			return err
+		}
+
+		if err := notif.SendSMS(ctx, phone, message); err != nil {
+			return err
+		}
+
+		// Debit credits
+		return c.debitCredits(ctx, event.TenantID, "sms", "SMS Alert", map[string]interface{}{"event_type": event.EventType})
 
 	case "fee.paid":
 		var payload map[string]interface{}
@@ -269,7 +283,18 @@ func (c *Consumer) handleEvent(ctx context.Context, event db.Outbox) error {
 		if ta, ok := c.notif.(notification.TenantAwareAdapter); ok {
 			notif = ta.WithTenant(event.TenantID.String())
 		}
-		return notif.SendWhatsApp(ctx, contact, "Fee payment received. Thank you!")
+
+		// Billing Gating
+		if err := c.checkAddon(ctx, event.TenantID, "communications_whatsapp"); err != nil {
+			return err
+		}
+
+		if err := notif.SendWhatsApp(ctx, contact, "Fee payment received. Thank you!"); err != nil {
+			return err
+		}
+
+		// Debit credits
+		return c.debitCredits(ctx, event.TenantID, "whatsapp", "WhatsApp Fee Receipt", map[string]interface{}{"event_type": event.EventType})
 
 	case "notice.published":
 		var payload map[string]interface{}
@@ -567,4 +592,32 @@ func (c *Consumer) resolveFeeReminderMessage(ctx context.Context, tenantID pgtyp
 	body = strings.ReplaceAll(body, "{{fee_head}}", feeHead)
 	body = strings.ReplaceAll(body, "{{due_date}}", dueDate)
 	return body, nil
+}
+// --- Billing Helpers ---
+
+func (c *Consumer) checkAddon(ctx context.Context, tenantID pgtype.UUID, addonCode string) error {
+	if c.billing == nil {
+		return nil
+	}
+	active, err := c.billing.HasAddon(ctx, tenantID.String(), addonCode)
+	if err != nil {
+		return err
+	}
+	if !active {
+		return fmt.Errorf("ADDON_REQUIRED: %s", addonCode)
+	}
+	return nil
+}
+
+func (c *Consumer) debitCredits(ctx context.Context, tenantID pgtype.UUID, featureCode, desc string, metadata map[string]interface{}) error {
+	if c.billing == nil {
+		return nil
+	}
+	rate, err := c.billing.GetEffectiveRate(ctx, tenantID.String(), featureCode)
+	if err != nil {
+		log.Printf("[Worker] rate not configured for %s: %v", featureCode, err)
+		return nil // Or return error to block? Assuming best effort if rate missing
+	}
+
+	return c.billing.DebitWallet(ctx, tenantID.String(), rate, nil, "usage", desc, "", metadata)
 }

@@ -63,6 +63,21 @@ const PHASES: Phase[] = [
     icon: Sparkles,
     color: "purple",
     active: true,
+  },
+  {
+    status: "Planned",
+    title: "Phase 4: Intelligence & Multi-tenant Scale",
+    description: "Advanced AI insights, multi-tenant billing, and enterprise-grade security.",
+    features: [
+      "Multi-tenant Payment Gateway Integration",
+      "Encrypted API Credential Management",
+      "Plan-based Feature Gating (Pro/Enterprise)",
+      "Financial Forecasting & Tally-ready Exports",
+      "Advanced Audit Logs & GDPR Compliance"
+    ],
+    icon: BrainCircuit,
+    color: "orange",
+    active: false,
   }
 ];
 

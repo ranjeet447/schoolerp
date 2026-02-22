@@ -12,11 +12,13 @@ import (
 	"github.com/schoolerp/api/internal/foundation/audit"
 	"github.com/schoolerp/api/internal/foundation/locks"
 	"github.com/schoolerp/api/internal/foundation/policy"
+	"github.com/schoolerp/api/internal/foundation/security"
 )
 
 type mockFinanceQuerier struct {
 	db.Querier
 	outboxCreated bool
+	gatewayConfig db.PaymentGatewayConfig
 }
 
 func (m *mockFinanceQuerier) CreatePaymentOrder(ctx context.Context, arg db.CreatePaymentOrderParams) (db.PaymentOrder, error) {
@@ -82,6 +84,14 @@ func (m *mockFinanceQuerier) CreateOutboxEvent(ctx context.Context, arg db.Creat
 	return db.Outbox{}, nil
 }
 
+func (m *mockFinanceQuerier) GetActiveGatewayConfig(ctx context.Context, arg db.GetActiveGatewayConfigParams) (db.PaymentGatewayConfig, error) {
+	return m.gatewayConfig, nil
+}
+
+func (m *mockFinanceQuerier) GetTenantActiveGateway(ctx context.Context, tenantID pgtype.UUID) (db.PaymentGatewayConfig, error) {
+	return m.gatewayConfig, nil
+}
+
 func TestVerifyWebhookSignature(t *testing.T) {
 	provider := &RazorpayProvider{}
 	secret := "test_secret"
@@ -98,14 +108,18 @@ func TestVerifyWebhookSignature(t *testing.T) {
 }
 
 func TestProcessPaymentWebhook(t *testing.T) {
-	mock := &mockFinanceQuerier{}
+	mock := &mockFinanceQuerier{
+		gatewayConfig: db.PaymentGatewayConfig{
+			Provider: "razorpay",
+		},
+	}
 	provider := &RazorpayProvider{}
 	
 	auditLogger := audit.NewLogger(mock)
 	policyEval := policy.NewEvaluator(mock)
 	locksSvc := locks.NewService(mock)
 
-	svc := NewService(mock, nil, auditLogger, policyEval, locksSvc, provider)
+	svc := NewService(mock, nil, auditLogger, policyEval, locksSvc, provider, nil)
 	
 	secret := "test_secret"
 	body := []byte(`{"event":"payment.captured","payload":{"payment":{"entity":{"id":"pay_123","order_id":"order_00000000-0000-0000-0000-000000000001","amount":1000}}}}`)
@@ -121,6 +135,64 @@ func TestProcessPaymentWebhook(t *testing.T) {
 	
 	if !mock.outboxCreated {
 		t.Errorf("Expected outbox event to be created for paid order")
+	}
+}
+
+func TestEncryptionDecryption(t *testing.T) {
+	key := []byte("01234567890123456789012345678901") // 32 bytes
+	crypto, _ := security.NewCrypto(key)
+	
+	mock := &mockFinanceQuerier{}
+	svc := &Service{q: mock, crypto: crypto}
+	
+	secret := "my-very-secret-key"
+	enc, err := crypto.Encrypt([]byte(secret))
+	if err != nil {
+		t.Fatalf("encryption failed: %v", err)
+	}
+	
+	val := "enc:" + hex.EncodeToString(enc)
+	dec := svc.decryptSecret(val)
+	
+	if dec != secret {
+		t.Errorf("Decryption failed. Expected %s, got %s", secret, dec)
+	}
+	
+	// Test non-encrypted value
+	if svc.decryptSecret("plain") != "plain" {
+		t.Errorf("Should return original value for non-encrypted input")
+	}
+}
+
+func TestGetTenantPaymentProvider(t *testing.T) {
+	key := []byte("01234567890123456789012345678901")
+	crypto, _ := security.NewCrypto(key)
+	
+	secret := "razor_secret_secret"
+	encSecret, _ := crypto.Encrypt([]byte(secret))
+	
+	mock := &mockFinanceQuerier{
+		gatewayConfig: db.PaymentGatewayConfig{
+			Provider:  "razorpay",
+			ApiKey:    pgtype.Text{String: "rzp_test_key", Valid: true},
+			ApiSecret: pgtype.Text{String: "enc:" + hex.EncodeToString(encSecret), Valid: true},
+		},
+	}
+	
+	svc := &Service{q: mock, crypto: crypto}
+	
+	provider, err := svc.getTenantPaymentProvider(context.Background(), "fcc75681-6967-4638-867c-9ef1c990fc7e")
+	if err != nil {
+		t.Fatalf("failed to get provider: %v", err)
+	}
+	
+	rzp, ok := provider.(*RazorpayProvider)
+	if !ok {
+		t.Fatalf("expected RazorpayProvider")
+	}
+	
+	if rzp.KeySecret != secret {
+		t.Errorf("Decryption in provider resolution failed. Expected %s, got %s", secret, rzp.KeySecret)
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/schoolerp/api/internal/foundation/audit"
 	"github.com/schoolerp/api/internal/foundation/locks"
 	"github.com/schoolerp/api/internal/foundation/policy"
+	"github.com/schoolerp/api/internal/foundation/security"
 )
 
 type Service struct {
@@ -20,10 +21,11 @@ type Service struct {
 	policy  *policy.Evaluator
 	locks   *locks.Service
 	payment PaymentProvider
+	crypto  *security.Crypto
 }
 
-func NewService(q db.Querier, db *pgxpool.Pool, audit *audit.Logger, poly *policy.Evaluator, lks *locks.Service, pay PaymentProvider) *Service {
-	return &Service{q: q, db: db, audit: audit, policy: poly, locks: lks, payment: pay}
+func NewService(q db.Querier, db *pgxpool.Pool, audit *audit.Logger, poly *policy.Evaluator, lks *locks.Service, pay PaymentProvider, crypto *security.Crypto) *Service {
+	return &Service{q: q, db: db, audit: audit, policy: poly, locks: lks, payment: pay, crypto: crypto}
 }
 
 func (s *Service) CreateFeeHead(ctx context.Context, tenantID, name, headType string) (db.FeeHead, error) {

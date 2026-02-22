@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -235,14 +236,16 @@ func (s *Service) ImpersonateGlobalUser(ctx context.Context, targetUserID, reaso
 	// We prefer a tenant they successfully logged into recently, or their primary assignment
 	var tenantID pgtype.UUID
 	var tenantName string
+	var roleCode string
 	err = s.db.QueryRow(ctx, `
-		SELECT t.id, t.name
+		SELECT t.id, t.name, r.code
 		FROM role_assignments ra
 		JOIN tenants t ON t.id = ra.tenant_id
+		JOIN roles r ON r.id = ra.role_id
 		WHERE ra.user_id = $1
 		ORDER BY ra.created_at DESC
 		LIMIT 1
-	`, uid).Scan(&tenantID, &tenantName)
+	`, uid).Scan(&tenantID, &tenantName, &roleCode)
 
 	if errors.Is(err, pgx.ErrNoRows) || !tenantID.Valid {
 		// User has no tenant? (Platform user or orphan).
@@ -258,12 +261,15 @@ func (s *Service) ImpersonateGlobalUser(ctx context.Context, targetUserID, reaso
 	tokenDuration := 60 * time.Minute
 	expiresAt := time.Now().UTC().Add(tokenDuration)
 
+	jti := uuid.Must(uuid.NewV7()).String()
 	claims := jwt.MapClaims{
 		"sub":   targetUserID,
 		"email": email,
 		"iss":   "schoolerp-platform",
 		"iat":   time.Now().Unix(),
 		"exp":   expiresAt.Unix(),
+		"jti":   jti,
+		"role":  roleCode,
 		"type":  "impersonation",
 		"act": map[string]string{
 			"sub": adminUserID,
@@ -271,7 +277,7 @@ func (s *Service) ImpersonateGlobalUser(ctx context.Context, targetUserID, reaso
 	}
 
 	if tenantID.Valid {
-		claims["tid"] = tenantID.String() // Primary tenant context
+		claims["tenant_id"] = tenantID.String() // Primary tenant context
 	}
 
 	token, err := s.MintImpersonationToken(ctx, claims)
@@ -283,6 +289,7 @@ func (s *Service) ImpersonateGlobalUser(ctx context.Context, targetUserID, reaso
 		Token:            token,
 		TargetUserID:     targetUserID,
 		TargetUserEmail:  email,
+		TargetUserRole:   roleCode,
 		TargetTenantID:   tenantID.String(),
 		TargetTenantName: tenantName,
 		ExpiresAt:        expiresAt,

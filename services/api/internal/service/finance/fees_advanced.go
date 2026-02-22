@@ -2,6 +2,7 @@ package finance
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -128,12 +129,37 @@ type GatewayConfigParams struct {
 }
 
 func (s *Service) UpsertGatewayConfig(ctx context.Context, p GatewayConfigParams) (db.PaymentGatewayConfig, error) {
+	apiKey := p.APIKey
+	apiSecret := p.APISecret
+	webhookSecret := p.WebhookSecret
+
+	if s.crypto != nil {
+		if apiKey != "" {
+			enc, err := s.crypto.Encrypt([]byte(apiKey))
+			if err == nil {
+				apiKey = fmt.Sprintf("enc:%s", hex.EncodeToString(enc))
+			}
+		}
+		if apiSecret != "" {
+			enc, err := s.crypto.Encrypt([]byte(apiSecret))
+			if err == nil {
+				apiSecret = fmt.Sprintf("enc:%s", hex.EncodeToString(enc))
+			}
+		}
+		if webhookSecret != "" {
+			enc, err := s.crypto.Encrypt([]byte(webhookSecret))
+			if err == nil {
+				webhookSecret = fmt.Sprintf("enc:%s", hex.EncodeToString(enc))
+			}
+		}
+	}
+
 	return s.q.UpsertGatewayConfig(ctx, db.UpsertGatewayConfigParams{
 		TenantID:      toPgUUID(p.TenantID),
 		Provider:      p.Provider,
-		ApiKey:        pgtype.Text{String: p.APIKey, Valid: p.APIKey != ""},
-		ApiSecret:     pgtype.Text{String: p.APISecret, Valid: p.APISecret != ""},
-		WebhookSecret: pgtype.Text{String: p.WebhookSecret, Valid: p.WebhookSecret != ""},
+		ApiKey:        pgtype.Text{String: apiKey, Valid: apiKey != ""},
+		ApiSecret:     pgtype.Text{String: apiSecret, Valid: apiSecret != ""},
+		WebhookSecret: pgtype.Text{String: webhookSecret, Valid: webhookSecret != ""},
 		IsActive:      pgtype.Bool{Bool: p.IsActive, Valid: true},
 		Settings:      p.Settings,
 	})

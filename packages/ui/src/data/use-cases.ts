@@ -12,7 +12,8 @@ export interface UseCaseDetail {
   problem: string;
   solution: string;
   stats: string;
-  relatedFeatures: string[]; // Slugs of related features
+  relatedFeatures: string[];
+   // Slugs of related features
 }
 
 export const USE_CASES_DATA: UseCaseDetail[] = [
@@ -22,6 +23,10 @@ export const USE_CASES_DATA: UseCaseDetail[] = [
     title: "Fees Collection & Defaulters",
     shortDescription: "Automate fee reminders and stop revenue leakage.",
     longDescription: "End the month-end rush at the fee counter. Automate digital reminders to parents and provide zero-transaction-cost UPI options for faster fee realization. Give your accountant a stress-free reconciliation process.",
+    seoContent: [
+      "In the modern educational landscape, solving administrative bottlenecks is essential for growth. This use case highlights how our comprehensive ERP system addresses core operational challenges by streamlining workflows that traditionally consume hours of staff time. By automating these repetitive tasks, schools can redirect their resources towards improving educational outcomes and student engagement.",
+      "Furthermore, adopting this solution enhances transparency and builds robust trust with parents. When parents receive timely, accurate updates regarding their child's progress and school activities, their satisfaction increases. This not only aids in student retention but also serves as a strong marketing asset, differentiating your institution in a highly competitive market."
+    ],
     icon: "Wallet",
     color: "bg-emerald-600",
     targetRole: "admin",
@@ -36,6 +41,10 @@ export const USE_CASES_DATA: UseCaseDetail[] = [
     title: "Reduce WhatsApp Chaos",
     shortDescription: "Move parent communication to a structured, secure app.",
     longDescription: "WhatsApp groups compromise teacher privacy and lead to chaotic reply threads where important notices get buried. Use SchoolERP's structured Parent App for targeted, secure communication.",
+    seoContent: [
+      "In the modern educational landscape, solving administrative bottlenecks is essential for growth. This use case highlights how our comprehensive ERP system addresses core operational challenges by streamlining workflows that traditionally consume hours of staff time. By automating these repetitive tasks, schools can redirect their resources towards improving educational outcomes and student engagement.",
+      "Furthermore, adopting this solution enhances transparency and builds robust trust with parents. When parents receive timely, accurate updates regarding their child's progress and school activities, their satisfaction increases. This not only aids in student retention but also serves as a strong marketing asset, differentiating your institution in a highly competitive market."
+    ],
     icon: "MessageSquare",
     color: "bg-pink-600",
     targetRole: "principal",
@@ -50,6 +59,10 @@ export const USE_CASES_DATA: UseCaseDetail[] = [
     title: "Attendance & Absentee Follow-up",
     shortDescription: "Exception-based attendance that alerts parents instantly.",
     longDescription: "Transform the manual register into a 15-second digital process. Provide instant assurance to parents that their child reached school safely through automated absence alerts.",
+    seoContent: [
+      "In the modern educational landscape, solving administrative bottlenecks is essential for growth. This use case highlights how our comprehensive ERP system addresses core operational challenges by streamlining workflows that traditionally consume hours of staff time. By automating these repetitive tasks, schools can redirect their resources towards improving educational outcomes and student engagement.",
+      "Furthermore, adopting this solution enhances transparency and builds robust trust with parents. When parents receive timely, accurate updates regarding their child's progress and school activities, their satisfaction increases. This not only aids in student retention but also serves as a strong marketing asset, differentiating your institution in a highly competitive market."
+    ],
     icon: "UserCheck",
     color: "bg-blue-600",
     targetRole: "teacher",
@@ -64,6 +77,10 @@ export const USE_CASES_DATA: UseCaseDetail[] = [
     title: "Admission Enquiry to Enrollment",
     shortDescription: "Never lose track of a prospective student lead.",
     longDescription: "Digitize your admission season. Track every call and school tour in a unified pipeline dashboard to ensure zero dropped leads and a higher conversion rate.",
+    seoContent: [
+      "In the modern educational landscape, solving administrative bottlenecks is essential for growth. This use case highlights how our comprehensive ERP system addresses core operational challenges by streamlining workflows that traditionally consume hours of staff time. By automating these repetitive tasks, schools can redirect their resources towards improving educational outcomes and student engagement.",
+      "Furthermore, adopting this solution enhances transparency and builds robust trust with parents. When parents receive timely, accurate updates regarding their child's progress and school activities, their satisfaction increases. This not only aids in student retention but also serves as a strong marketing asset, differentiating your institution in a highly competitive market."
+    ],
     icon: "TrendingUp",
     color: "bg-orange-600",
     targetRole: "admin",
@@ -78,6 +95,10 @@ export const USE_CASES_DATA: UseCaseDetail[] = [
     title: "Report Cards & Exam Results",
     shortDescription: "Stop manual exam calculations and bulk-print report cards.",
     longDescription: "Eliminate the anxiety of result preparation. Teachers directly enter marks, and the system aggregates scholastic and co-scholastic grades into board-compliant report cards.",
+    seoContent: [
+      "In the modern educational landscape, solving administrative bottlenecks is essential for growth. This use case highlights how our comprehensive ERP system addresses core operational challenges by streamlining workflows that traditionally consume hours of staff time. By automating these repetitive tasks, schools can redirect their resources towards improving educational outcomes and student engagement.",
+      "Furthermore, adopting this solution enhances transparency and builds robust trust with parents. When parents receive timely, accurate updates regarding their child's progress and school activities, their satisfaction increases. This not only aids in student retention but also serves as a strong marketing asset, differentiating your institution in a highly competitive market."
+    ],
     icon: "Trophy",
     color: "bg-purple-600",
     targetRole: "teacher",
@@ -92,6 +113,10 @@ export const USE_CASES_DATA: UseCaseDetail[] = [
     title: "Certificates in One Click",
     shortDescription: "Issue TCs, Bonafides, and ID Cards instantly.",
     longDescription: "Provide faster service to parents at the school office. Generate legally compliant Transfer Certificates and Bonafide letters complete with dynamic student data.",
+    seoContent: [
+      "In the modern educational landscape, solving administrative bottlenecks is essential for growth. This use case highlights how our comprehensive ERP system addresses core operational challenges by streamlining workflows that traditionally consume hours of staff time. By automating these repetitive tasks, schools can redirect their resources towards improving educational outcomes and student engagement.",
+      "Furthermore, adopting this solution enhances transparency and builds robust trust with parents. When parents receive timely, accurate updates regarding their child's progress and school activities, their satisfaction increases. This not only aids in student retention but also serves as a strong marketing asset, differentiating your institution in a highly competitive market."
+    ],
     icon: "FileSignature",
     color: "bg-rose-600",
     targetRole: "admin",
@@ -106,6 +131,10 @@ export const USE_CASES_DATA: UseCaseDetail[] = [
     title: "Office Reports for Inspection",
     shortDescription: "Generate government or trust inspection reports instantly.",
     longDescription: "When an inspector or the school trust asks for data, you shouldn't have to scramble. Pull exact numbers on admissions, fee collections, and attendance instantly.",
+    seoContent: [
+      "In the modern educational landscape, solving administrative bottlenecks is essential for growth. This use case highlights how our comprehensive ERP system addresses core operational challenges by streamlining workflows that traditionally consume hours of staff time. By automating these repetitive tasks, schools can redirect their resources towards improving educational outcomes and student engagement.",
+      "Furthermore, adopting this solution enhances transparency and builds robust trust with parents. When parents receive timely, accurate updates regarding their child's progress and school activities, their satisfaction increases. This not only aids in student retention but also serves as a strong marketing asset, differentiating your institution in a highly competitive market."
+    ],
     icon: "BarChart3",
     color: "bg-slate-800",
     targetRole: "principal",
@@ -120,6 +149,10 @@ export const USE_CASES_DATA: UseCaseDetail[] = [
     title: "Optimized Fee Counter",
     shortDescription: "Process walk-in fee payments 3x faster.",
     longDescription: "Handle the first week of the month smoothly. Designed specifically for the fast-paced environment of a school fee counter dealing with thousands of transactions.",
+    seoContent: [
+      "In the modern educational landscape, solving administrative bottlenecks is essential for growth. This use case highlights how our comprehensive ERP system addresses core operational challenges by streamlining workflows that traditionally consume hours of staff time. By automating these repetitive tasks, schools can redirect their resources towards improving educational outcomes and student engagement.",
+      "Furthermore, adopting this solution enhances transparency and builds robust trust with parents. When parents receive timely, accurate updates regarding their child's progress and school activities, their satisfaction increases. This not only aids in student retention but also serves as a strong marketing asset, differentiating your institution in a highly competitive market."
+    ],
     icon: "Banknote",
     color: "bg-teal-600",
     targetRole: "admin",
@@ -134,6 +167,10 @@ export const USE_CASES_DATA: UseCaseDetail[] = [
     title: "Multi-Campus Management",
     shortDescription: "Aggregate data securely across all branch schools.",
     longDescription: "Govern your entire portfolio of schools from a single master login. Apply global fee policies while comparing academic success rates across locations.",
+    seoContent: [
+      "In the modern educational landscape, solving administrative bottlenecks is essential for growth. This use case highlights how our comprehensive ERP system addresses core operational challenges by streamlining workflows that traditionally consume hours of staff time. By automating these repetitive tasks, schools can redirect their resources towards improving educational outcomes and student engagement.",
+      "Furthermore, adopting this solution enhances transparency and builds robust trust with parents. When parents receive timely, accurate updates regarding their child's progress and school activities, their satisfaction increases. This not only aids in student retention but also serves as a strong marketing asset, differentiating your institution in a highly competitive market."
+    ],
     icon: "Globe",
     color: "bg-indigo-700",
     targetRole: "principal",
@@ -148,6 +185,10 @@ export const USE_CASES_DATA: UseCaseDetail[] = [
     title: "Transport Safety & Compliance",
     shortDescription: "Live tracking and automated route fee billing.",
     longDescription: "Ensure student safety from home to school. Manage bus routes, track maintenance schedules, and provide parents with live GPS bus tracking.",
+    seoContent: [
+      "In the modern educational landscape, solving administrative bottlenecks is essential for growth. This use case highlights how our comprehensive ERP system addresses core operational challenges by streamlining workflows that traditionally consume hours of staff time. By automating these repetitive tasks, schools can redirect their resources towards improving educational outcomes and student engagement.",
+      "Furthermore, adopting this solution enhances transparency and builds robust trust with parents. When parents receive timely, accurate updates regarding their child's progress and school activities, their satisfaction increases. This not only aids in student retention but also serves as a strong marketing asset, differentiating your institution in a highly competitive market."
+    ],
     icon: "Bus",
     color: "bg-yellow-600",
     targetRole: "admin",
@@ -162,6 +203,10 @@ export const USE_CASES_DATA: UseCaseDetail[] = [
     title: "Parent Trust & Transparency",
     shortDescription: "Build the reputation of a modern, forward-thinking school.",
     longDescription: "Technology isn't just for efficiency; it's a marketing tool. Providing parents with a modern app builds trust and justifies fee structures.",
+    seoContent: [
+      "In the modern educational landscape, solving administrative bottlenecks is essential for growth. This use case highlights how our comprehensive ERP system addresses core operational challenges by streamlining workflows that traditionally consume hours of staff time. By automating these repetitive tasks, schools can redirect their resources towards improving educational outcomes and student engagement.",
+      "Furthermore, adopting this solution enhances transparency and builds robust trust with parents. When parents receive timely, accurate updates regarding their child's progress and school activities, their satisfaction increases. This not only aids in student retention but also serves as a strong marketing asset, differentiating your institution in a highly competitive market."
+    ],
     icon: "HeartHandshake",
     color: "bg-fuchsia-600",
     targetRole: "principal",
@@ -176,6 +221,10 @@ export const USE_CASES_DATA: UseCaseDetail[] = [
     title: "Teacher Time-Saver Workflows",
     shortDescription: "Reduce administrative burden on teachers.",
     longDescription: "Teachers are hired to teach, not to fill out paperwork. Our workflows remove the clerical burden of manual registers, diaries, and exam compilations.",
+    seoContent: [
+      "In the modern educational landscape, solving administrative bottlenecks is essential for growth. This use case highlights how our comprehensive ERP system addresses core operational challenges by streamlining workflows that traditionally consume hours of staff time. By automating these repetitive tasks, schools can redirect their resources towards improving educational outcomes and student engagement.",
+      "Furthermore, adopting this solution enhances transparency and builds robust trust with parents. When parents receive timely, accurate updates regarding their child's progress and school activities, their satisfaction increases. This not only aids in student retention but also serves as a strong marketing asset, differentiating your institution in a highly competitive market."
+    ],
     icon: "Clock",
     color: "bg-sky-600",
     targetRole: "teacher",

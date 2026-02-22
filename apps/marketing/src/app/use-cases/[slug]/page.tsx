@@ -115,6 +115,17 @@ export default async function UseCaseDetailPage({ params }: UseCasePageProps) {
             </div>
           </div>
 
+          {data.seoContent && (
+            <div className="max-w-3xl mx-auto mb-24 prose prose-slate lg:prose-lg dark:prose-invert">
+              <h2 className="text-3xl font-bold tracking-tight mb-6">In-Depth Look</h2>
+              {data.seoContent.map((paragraph, idx) => (
+                <p key={idx} className="text-muted-foreground leading-relaxed mb-4">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+          )}
+
           <RelatedContent items={relatedItems} />
         </Container>
       </Section>

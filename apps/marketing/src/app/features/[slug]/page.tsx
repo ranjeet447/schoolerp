@@ -165,6 +165,17 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
             </div>
           </div>
           
+          {feature.seoContent && (
+            <div className="mt-16 max-w-3xl prose prose-slate lg:prose-lg dark:prose-invert">
+              <h2 className="text-3xl font-bold tracking-tight mb-6">Detailed Overview</h2>
+              {feature.seoContent.map((paragraph, idx) => (
+                <p key={idx} className="text-muted-foreground leading-relaxed mb-4">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+          )}
+          
           <RelatedContent items={relatedItems} />
         </Container>
       </Section>

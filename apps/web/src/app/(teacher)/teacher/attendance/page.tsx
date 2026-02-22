@@ -154,12 +154,12 @@ function AttendanceContent() {
       const res = await apiClient(`/teacher/attendance/sessions?class_section_id=${classSectionID}&date=${date}`)
       if (res.ok) {
         const data = await res.json()
-        const entries = data.entries.map((e: any) => ({
-          id: e.student_id,
-          name: e.student_name,
-          rollNumber: e.roll_number,
-          status: e.status || "present",
-          remarks: e.remarks || ""
+        const entries = (data?.entries || []).map((e: any) => ({
+          id: e?.student_id || "",
+          name: e?.student_name || "Unknown",
+          rollNumber: e?.roll_number || "",
+          status: e?.status || "present",
+          remarks: e?.remarks || ""
         }))
         setStudents(entries)
       }
@@ -178,26 +178,27 @@ function AttendanceContent() {
       const res = await apiClient(`/teacher/period-attendance?class_section_id=${selectedPeriod.class_section_id}&date=${date}&period=${periodNum}`)
       if (res.ok) {
         const data = await res.json()
-        if (data) {
+        if (data && data.entries) {
            const mapped = data.entries.map((e: any) => ({
-             id: e.student_id,
-             name: e.student_name || "Student",
+             id: e?.student_id || "",
+             name: e?.student_name || "Student",
              rollNumber: "",
-             status: e.status,
-             remarks: e.remarks
+             status: e?.status || "present",
+             remarks: e?.remarks || ""
            }))
            setStudents(mapped)
         } else {
            const sRes = await apiClient(`/teacher/attendance/sessions?class_section_id=${selectedPeriod.class_section_id}&date=${date}`)
            if (sRes.ok) {
              const sData = await sRes.json()
-             setStudents(sData.entries.map((e: any) => ({
-               id: e.student_id,
-               name: e.student_name,
-               rollNumber: e.roll_number,
+             const fallbackEntries = (sData?.entries || []).map((e: any) => ({
+               id: e?.student_id || "",
+               name: e?.student_name || "Unknown",
+               rollNumber: e?.roll_number || "",
                status: "present",
                remarks: ""
-             })))
+             }))
+             setStudents(fallbackEntries)
            }
         }
       }

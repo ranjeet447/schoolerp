@@ -85,6 +85,7 @@ INSERT INTO permissions (id, code, module, description) VALUES
 ('019c4d42-49ca-7115-b3f3-23aa625928b0', 'exams:write', 'exams', 'Legacy write access for exams module'),
 ('019c4d42-7db1-7002-9293-000000000005', 'fees:approve', 'fees', 'Approve concessions/waivers'),
 (uuid_generate_v7(), 'fees:collect', 'fees', 'Collect fee payments'),
+(uuid_generate_v7(), 'fees:gateways.manage', 'fees', 'Manage payment gateway configurations'),
 ('019c4d42-7db1-7002-9293-000000000002', 'fees:create', 'fees', 'Generate fee invoices/heads'),
 ('019c4d42-7db1-7002-9293-000000000004', 'fees:delete', 'fees', 'Void/Delete fee records'),
 ('019c4d42-7db1-7002-9293-000000000003', 'fees:edit', 'fees', 'Modify fee structures'),
@@ -166,6 +167,7 @@ INSERT INTO permissions (id, code, module, description) VALUES
 (uuid_generate_v7(), 'platform:user.password_reset', 'users', 'Reset passwords for any user'),
 (uuid_generate_v7(), 'platform:user.read', 'platform', 'View internal platform users and role assignments'),
 (uuid_generate_v7(), 'platform:user.write', 'platform', 'Create/update internal platform users and role assignments'),
+(uuid_generate_v7(), 'tenant:billing.read', 'tenant', 'View tenant billing and subscription status'),
 (uuid_generate_v7(), 'portal:accountant', 'core', 'Access accountant portal'),
 (uuid_generate_v7(), 'portal:parent', 'core', 'Access parent portal'),
 (uuid_generate_v7(), 'portal:teacher', 'core', 'Access teacher portal'),
@@ -898,9 +900,9 @@ ON CONFLICT DO NOTHING;
 -- ============================================
 
 INSERT INTO platform_plans (id, code, name, description, price_monthly, price_yearly, modules, limits, feature_flags, is_active) VALUES
-('019c4d42-49ca-7e0a-b047-86336ebac7ae', 'basic', 'Basic Plan', 'Essential suite for small schools', 2900, 29000, '{"sis": true, "attendance": true, "fees": true}', '{"students": 300, "staff": 30, "storage_gb": 10}', '{"ai_suite_v1": false}', TRUE),
-('019c4d42-49ca-7e0a-b047-86336ebac7af', 'pro', 'Pro Plan', 'Advanced suite for growing schools', 5900, 59000, '{"sis": true, "attendance": true, "fees": true, "exams": true, "transport": true, "library": true, "inventory": true}', '{"students": 1500, "staff": 150, "storage_gb": 100}', '{"ai_suite_v1": true}', TRUE),
-('019c4d42-49ca-7e0a-b047-86336ebac7b0', 'enterprise', 'Enterprise Plan', 'Full suite for large groups', 12900, 129000, '{"sis": true, "attendance": true, "fees": true, "exams": true, "transport": true, "library": true, "inventory": true, "hrms": true, "safety": true}', '{"students": 5000, "staff": 500, "storage_gb": 500}', '{"ai_suite_v1": true, "priority_support": true}', TRUE)
+('019c4d42-49ca-7e0a-b047-86336ebac7ae', 'basic', 'Basic Plan', 'Essential suite for small schools', 2900, 29000, '{"sis": true, "attendance": true, "fees": true}', '{"students": 300, "staff": 30, "storage_gb": 10}', '{"ai_suite_v1": false, "custom_gateways": false}', TRUE),
+('019c4d42-49ca-7e0a-b047-86336ebac7af', 'pro', 'Pro Plan', 'Advanced suite for growing schools', 5900, 59000, '{"sis": true, "attendance": true, "fees": true, "exams": true, "transport": true, "library": true, "inventory": true}', '{"students": 1500, "staff": 150, "storage_gb": 100}', '{"ai_suite_v1": true, "custom_gateways": true}', TRUE),
+('019c4d42-49ca-7e0a-b047-86336ebac7b0', 'enterprise', 'Enterprise Plan', 'Full suite for large groups', 12900, 129000, '{"sis": true, "attendance": true, "fees": true, "exams": true, "transport": true, "library": true, "inventory": true, "hrms": true, "safety": true}', '{"students": 5000, "staff": 500, "storage_gb": 500}', '{"ai_suite_v1": true, "custom_gateways": true, "priority_support": true}', TRUE)
 ON CONFLICT (code) DO UPDATE SET
     name = EXCLUDED.name,
     description = EXCLUDED.description,

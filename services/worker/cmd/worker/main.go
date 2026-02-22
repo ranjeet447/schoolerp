@@ -14,6 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/schoolerp/worker/internal/db"
 	"github.com/schoolerp/worker/internal/notification"
+	"github.com/schoolerp/worker/internal/service"
 	"github.com/schoolerp/worker/internal/service/pdf"
 	"github.com/schoolerp/worker/internal/worker"
 )
@@ -42,6 +43,7 @@ func main() {
 
 	querier := db.New(pool)
 	pdfSvc := pdf.NewProcessor(querier)
+	billingSvc := service.NewBillingService(pool)
 	
 	var fallbackSvc notification.Adapter
 	notifWebhookURL := os.Getenv("NOTIFICATION_WEBHOOK_URL")
@@ -54,7 +56,7 @@ func main() {
 	}
 
 	notifSvc := notification.NewMultiTenantAdapter(querier, fallbackSvc)
-	notifConsumer := worker.NewConsumer(querier, notifSvc)
+	notifConsumer := worker.NewConsumer(querier, notifSvc, billingSvc)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

@@ -119,6 +119,16 @@ func (q *Queries) GetUserRoleAssignmentWithPermissions(ctx context.Context, user
 	var result GetUserRoleAssignmentWithPermissionsRow
 	err := row.Scan(&result.RoleCode, &result.TenantID, &result.Permissions)
 	if err == pgx.ErrNoRows {
+		// Fallback: Check if user is a guardian
+		const guardianQuery = `SELECT tenant_id FROM guardians WHERE user_id = $1 LIMIT 1`
+		var tenantID pgtype.UUID
+		if gErr := q.db.QueryRow(ctx, guardianQuery, userID).Scan(&tenantID); gErr == nil {
+			return GetUserRoleAssignmentWithPermissionsRow{
+				RoleCode:    "parent",
+				TenantID:    tenantID,
+				Permissions: []string{},
+			}, nil
+		}
 		return GetUserRoleAssignmentWithPermissionsRow{RoleCode: "guest", Permissions: []string{}}, nil
 	}
 	return result, err

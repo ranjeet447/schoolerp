@@ -42,7 +42,8 @@ export default function LoginPage() {
       const result = await login(email, password);
       if (result.success) {
         toast.success('Sign in successful! Redirecting...');
-        const redirect = result.redirect || RBACService.getDashboardPath(result.role);
+        const currentUser = RBACService.getCurrentUser();
+        const redirect = result.redirect || RBACService.getDashboardPath(currentUser?.role || '');
         router.push(redirect);
       } else if (result.redirect) {
         router.push(result.redirect);

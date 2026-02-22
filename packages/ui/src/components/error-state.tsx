@@ -63,7 +63,7 @@ const ErrorState = React.forwardRef<HTMLDivElement, ErrorStateProps>(
           {title || config.defaultTitle}
         </h2>
         
-        <p className="mb-8 max-w-[400px] text-muted-foreground">
+        <p className="mb-8 max-w-xl text-muted-foreground">
           {description || config.defaultDescription}
         </p>
 

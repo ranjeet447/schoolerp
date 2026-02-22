@@ -139,16 +139,19 @@ func (s *Service) getTenantPaymentProvider(ctx context.Context, tenantID string)
 		return nil, fmt.Errorf("no active payment gateway configured for tenant: %w", err)
 	}
 
+	apiKey := s.decryptSecret(cfg.ApiKey.String)
+	apiSecret := s.decryptSecret(cfg.ApiSecret.String)
+
 	switch cfg.Provider {
 	case "razorpay":
 		return &RazorpayProvider{
-			KeyID:     cfg.ApiKey.String,
-			KeySecret: cfg.ApiSecret.String,
+			KeyID:     apiKey,
+			KeySecret: apiSecret,
 		}, nil
 	case "payu":
 		return &PayUProvider{
-			Key:  cfg.ApiKey.String,
-			Salt: cfg.ApiSecret.String, // Assuming Salt is stored in ApiSecret field
+			Key:  apiKey,
+			Salt: apiSecret,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported payment provider: %s", cfg.Provider)
@@ -359,3 +362,20 @@ func (s *Service) ProcessPaymentWebhook(ctx context.Context, tenantID, eventID s
 	return nil
 }
 
+func (s *Service) decryptSecret(val string) string {
+	if !strings.HasPrefix(val, "enc:") {
+		return val
+	}
+	if s.crypto == nil {
+		return val
+	}
+	raw, err := hex.DecodeString(strings.TrimPrefix(val, "enc:"))
+	if err != nil {
+		return val
+	}
+	dec, err := s.crypto.Decrypt(raw)
+	if err != nil {
+		return val
+	}
+	return string(dec)
+}
