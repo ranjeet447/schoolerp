@@ -37,7 +37,9 @@ class AuthServiceClass {
       case 'student':
         return '/student/dashboard';
       default:
-        return '/auth/login';
+        // If we have a role but it's unknown, don't redirect to login as that causes a loop
+        // if the login page also redirects back to the root when a user exists.
+        return '/';
     }
   }
 
@@ -141,15 +143,14 @@ class AuthServiceClass {
   isAuthenticated(): boolean {
     if (typeof window === 'undefined') return false;
     const token = localStorage.getItem('auth_token');
-    if (!token) return false;
-    return !isAuthTokenExpired(token);
+    return !!token;
   }
 
   // Get current user info
   getCurrentUser() {
     if (typeof window === 'undefined') return null;
     const token = localStorage.getItem('auth_token');
-    if (!token || isAuthTokenExpired(token)) return null;
+    if (!token) return null;
     return {
       id: localStorage.getItem('user_id') || '',
       email: localStorage.getItem('user_email') || '',

@@ -14,7 +14,9 @@ export default function Home() {
       router.replace('/auth/login');
     } else {
       const redirect = RBACService.getDashboardPath(user.role);
-      router.replace(redirect);
+      if (redirect !== '/') {
+        router.replace(redirect);
+      }
     }
   }, [router]);
 
