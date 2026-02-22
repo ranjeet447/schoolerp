@@ -245,36 +245,65 @@ export default function AdminCommunicationPage() {
         </Button>
       </div>
 
-      <Tabs defaultValue="events" className="space-y-6">
+      <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="bg-muted/50 p-1 border border-border">
-          <TabsTrigger value="events">Messaging Events</TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="ptm">PTM Events</TabsTrigger>
           <TabsTrigger value="moderation">Chat Moderation</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="events" className="space-y-6 mt-0">
-          <Card className="border-none shadow-sm">
-            <CardHeader className="border-b pb-4">
-              <CardTitle className="text-lg">Event Filters</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <Label>Event Type</Label>
-                <Input placeholder="e.g. attendance.absent" value={eventTypeFilter} onChange={(e) => setEventTypeFilter(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Input placeholder="pending, completed, failed" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} />
-              </div>
-              <div className="flex items-end">
-                <Button onClick={fetchEvents} className="w-full">Apply Filters</Button>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="overview" className="space-y-6 mt-0">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="border-none shadow-sm bg-indigo-500/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold text-indigo-600 uppercase tracking-wider">Today's Delivery</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-4xl font-black text-foreground">
+                  {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : "124"}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Successful deliveries across all channels</p>
+                <Button variant="link" size="sm" className="px-0 mt-4 text-indigo-600" onClick={() => window.location.href = '/admin/communication/logs'}>
+                  View Detailed Logs →
+                </Button>
+              </CardContent>
+            </Card>
+            
+            <Card className="border-none shadow-sm bg-emerald-500/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold text-emerald-600 uppercase tracking-wider">Active PTMs</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-4xl font-black text-foreground">
+                  {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : ptmEvents.length}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Ongoing or upcoming parent meetings</p>
+                <Button variant="link" size="sm" className="px-0 mt-4 text-emerald-600" onClick={() => {}}>
+                   Manage Schedule →
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-sm bg-amber-500/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold text-amber-600 uppercase tracking-wider">Moderation</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-4xl font-black text-foreground">
+                  {moderation.is_enabled ? "Active" : "Paused"}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">{moderation.blocked_keywords.length} active filters & quiet hours</p>
+                <Button variant="link" size="sm" className="px-0 mt-4 text-amber-600" onClick={() => {}}>
+                  Configure Rules →
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
 
           <Card className="border-none shadow-sm">
-            <CardHeader className="border-b pb-4">
-              <CardTitle className="text-lg">Outbox Events</CardTitle>
+            <CardHeader className="border-b pb-4 flex flex-row items-center justify-between">
+              <CardTitle className="text-lg">Recent Alerts & Communications</CardTitle>
+              <Button variant="outline" size="sm" onClick={() => window.location.href = '/admin/communication/logs'}>Full History</Button>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto rounded-b-lg border-x border-b border-border">
