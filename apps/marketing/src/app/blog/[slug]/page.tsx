@@ -256,8 +256,8 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
        <FinalCTA />
        
-       <Script id="reading-progress-script" strategy="afterInteractive">
-         {\`
+       <Script id="reading-progress-script" strategy="afterInteractive" dangerouslySetInnerHTML={{
+         __html: `
            window.addEventListener('scroll', () => {
              const progress = document.getElementById('reading-progress');
              if (progress) {
@@ -267,8 +267,8 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                progress.style.width = scrolled + "%";
              }
            });
-         \`}
-       </Script>
+         `
+       }} />
     </main>
   );
 }
