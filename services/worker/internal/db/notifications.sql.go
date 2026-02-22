@@ -143,6 +143,40 @@ func (q *Queries) GetNotificationTemplate(ctx context.Context, arg GetNotificati
 	return i, err
 }
 
+const getOutboxStatusStats = `-- name: GetOutboxStatusStats :one
+SELECT 
+    COUNT(*)::bigint as total_count,
+    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END)::bigint as completed_count,
+    SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END)::bigint as failed_count,
+    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END)::bigint as pending_count
+FROM outbox
+WHERE tenant_id = $1 AND created_at >= $2
+`
+
+type GetOutboxStatusStatsParams struct {
+	TenantID pgtype.UUID        `json:"tenant_id"`
+	Since    pgtype.Timestamptz `json:"since"`
+}
+
+type GetOutboxStatusStatsRow struct {
+	TotalCount     int64 `json:"total_count"`
+	CompletedCount int64 `json:"completed_count"`
+	FailedCount    int64 `json:"failed_count"`
+	PendingCount   int64 `json:"pending_count"`
+}
+
+func (q *Queries) GetOutboxStatusStats(ctx context.Context, arg GetOutboxStatusStatsParams) (GetOutboxStatusStatsRow, error) {
+	row := q.db.QueryRow(ctx, getOutboxStatusStats, arg.TenantID, arg.Since)
+	var i GetOutboxStatusStatsRow
+	err := row.Scan(
+		&i.TotalCount,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.PendingCount,
+	)
+	return i, err
+}
+
 const getSmsBillingSummary = `-- name: GetSmsBillingSummary :many
 SELECT 
     provider,
@@ -183,6 +217,40 @@ func (q *Queries) GetSmsBillingSummary(ctx context.Context, arg GetSmsBillingSum
 		return nil, err
 	}
 	return items, nil
+}
+
+const getSmsUsageStats = `-- name: GetSmsUsageStats :one
+SELECT 
+    COUNT(*)::bigint as total_count,
+    SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END)::bigint as delivered_count,
+    SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END)::bigint as failed_count,
+    COALESCE(SUM(cost), 0)::numeric as total_cost
+FROM sms_usage_logs
+WHERE tenant_id = $1 AND created_at >= $2
+`
+
+type GetSmsUsageStatsParams struct {
+	TenantID pgtype.UUID        `json:"tenant_id"`
+	Since    pgtype.Timestamptz `json:"since"`
+}
+
+type GetSmsUsageStatsRow struct {
+	TotalCount     int64          `json:"total_count"`
+	DeliveredCount int64          `json:"delivered_count"`
+	FailedCount    int64          `json:"failed_count"`
+	TotalCost      pgtype.Numeric `json:"total_cost"`
+}
+
+func (q *Queries) GetSmsUsageStats(ctx context.Context, arg GetSmsUsageStatsParams) (GetSmsUsageStatsRow, error) {
+	row := q.db.QueryRow(ctx, getSmsUsageStats, arg.TenantID, arg.Since)
+	var i GetSmsUsageStatsRow
+	err := row.Scan(
+		&i.TotalCount,
+		&i.DeliveredCount,
+		&i.FailedCount,
+		&i.TotalCost,
+	)
+	return i, err
 }
 
 const getTenantActiveNotificationGateway = `-- name: GetTenantActiveNotificationGateway :one
@@ -269,6 +337,67 @@ func (q *Queries) ListNotificationTemplates(ctx context.Context, tenantID pgtype
 			&i.Locale,
 			&i.Subject,
 			&i.Body,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSmsUsageLogsWithFilters = `-- name: ListSmsUsageLogsWithFilters :many
+SELECT id, tenant_id, provider, recipient, message_content, message_count, cost, status, external_id, error_message, created_at FROM sms_usage_logs
+WHERE tenant_id = $1
+  AND (provider = $2 OR $2 = '')
+  AND (status = $3 OR $3 = '')
+  AND (created_at >= $4 OR $4 IS NULL)
+  AND (created_at <= $5 OR $5 IS NULL)
+ORDER BY created_at DESC
+LIMIT $7 OFFSET $6
+`
+
+type ListSmsUsageLogsWithFiltersParams struct {
+	TenantID  pgtype.UUID        `json:"tenant_id"`
+	Provider  string             `json:"provider"`
+	Status    pgtype.Text        `json:"status"`
+	FromDate  pgtype.Timestamptz `json:"from_date"`
+	ToDate    pgtype.Timestamptz `json:"to_date"`
+	OffsetVal int32              `json:"offset_val"`
+	LimitVal  int32              `json:"limit_val"`
+}
+
+func (q *Queries) ListSmsUsageLogsWithFilters(ctx context.Context, arg ListSmsUsageLogsWithFiltersParams) ([]SmsUsageLog, error) {
+	rows, err := q.db.Query(ctx, listSmsUsageLogsWithFilters,
+		arg.TenantID,
+		arg.Provider,
+		arg.Status,
+		arg.FromDate,
+		arg.ToDate,
+		arg.OffsetVal,
+		arg.LimitVal,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SmsUsageLog
+	for rows.Next() {
+		var i SmsUsageLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Provider,
+			&i.Recipient,
+			&i.MessageContent,
+			&i.MessageCount,
+			&i.Cost,
+			&i.Status,
+			&i.ExternalID,
+			&i.ErrorMessage,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

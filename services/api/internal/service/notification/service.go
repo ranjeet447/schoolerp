@@ -173,7 +173,7 @@ func (s *Service) GetUsageStats(ctx context.Context, tenantID string, since time
 
 	return s.q.GetSmsUsageStats(ctx, db.GetSmsUsageStatsParams{
 		TenantID:  tID,
-		CreatedAt: pgtype.Timestamptz{Time: since, Valid: !since.IsZero()},
+		Since:     pgtype.Timestamptz{Time: since, Valid: !since.IsZero()},
 	})
 }
 
@@ -183,6 +183,6 @@ func (s *Service) GetOutboxStats(ctx context.Context, tenantID string, since tim
 
 	return s.q.GetOutboxStatusStats(ctx, db.GetOutboxStatusStatsParams{
 		TenantID:  tID,
-		CreatedAt: pgtype.Timestamptz{Time: since, Valid: !since.IsZero()},
+		Since:     pgtype.Timestamptz{Time: since, Valid: !since.IsZero()},
 	})
 }

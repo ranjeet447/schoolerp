@@ -531,6 +531,67 @@ paths:
                   logo_url: { type: string, format: uri }
                   modules: { type: array, items: { type: string } }
                   feature_flags: { type: object, additionalProperties: { type: boolean } }
+  
+  /auth/me:
+    get:
+      operationId: authGetMe
+      tags: [Auth]
+      summary: Get consolidated user profile
+      description: |
+        Returns a unified user profile combining data from `users`, `employees`,
+        and `guardians` tables based on the authenticated user's role.
+      responses:
+        '200':
+          description: Consolidated profile data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      user_id: { type: string, format: uuid }
+                      email: { type: string, format: email }
+                      full_name: { type: string }
+                      role: { type: string }
+                      tenant_id: { type: string, format: uuid }
+                      phone: { type: string }
+                      employee_details: { type: object, description: "Present for staff roles" }
+                      guardian_details: { type: object, description: "Present for parents" }
+        '401':
+          description: Not authenticated
+    patch:
+      operationId: authUpdateMe
+      tags: [Auth]
+      summary: Update user profile
+      description: |
+        Updates basic profile information (Full Name, Phone, Address).
+        Changes are synchronized across `users`, `employees`, and `guardians` tables.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                full_name: { type: string, example: "Ranjeet Kumar" }
+                phone: { type: string, example: "+91 9876543210" }
+                address: { type: string, example: "New Delhi, India" }
+                avatar_url: { type: string, format: uri, example: "https://example.com/avatar.jpg" }
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string, example: "Profile updated successfully" }
+        '401':
+          description: Not authenticated
 
   # from paths/public.yaml
   # Public / Marketing API Paths
@@ -1892,6 +1953,163 @@ paths:
                   promoted: { type: integer }
                   failed: { type: integer }
                   skipped: { type: integer }
+  
+  # ─── Student Remarks ────────────────────────────────
+  /admin/remarks:
+    post:
+      operationId: createStudentRemark
+      tags: [Student Remarks]
+      summary: Create a new student remark
+      description: Adds a behavioral or academic remark for a student.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [student_id, category, remark_text]
+              properties:
+                student_id: { type: string, format: uuid }
+                category: { type: string, enum: [academic, behavior, attendance, other] }
+                remark_text: { type: string }
+                requires_ack: { type: boolean, default: false }
+      responses:
+        '201':
+          description: Remark created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+  
+  /admin/students/{studentID}/remarks:
+    get:
+      operationId: listStudentRemarks
+      tags: [Student Remarks]
+      summary: List remarks for a specific student
+      parameters:
+        - name: studentID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: List of remarks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string, format: uuid }
+                    category: { type: string }
+                    remark_text: { type: string }
+                    posted_by_name: { type: string }
+                    created_at: { type: string, format: date-time }
+                    is_acknowledged: { type: boolean }
+  
+  /admin/remarks/{id}/acknowledge:
+    post:
+      operationId: acknowledgeStudentRemark
+      tags: [Student Remarks]
+      summary: Acknowledge a student remark
+      description: Marks a remark as acknowledged by the parent or admin.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          description: Remark ID
+      responses:
+        '200':
+          description: Remark acknowledged
+  
+  # ─── Student Remarks ────────────────────────────────
+  /admin/remarks:
+    post:
+      operationId: createAdminStudentRemark
+      tags: [Student Remarks]
+      summary: Post a remark for a student (Admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [student_id, category, remark_text]
+              properties:
+                student_id: { type: string, format: uuid }
+                category: { type: string, enum: [academic, behavioral, general, achievement] }
+                remark_text: { type: string }
+                requires_ack: { type: boolean, default: false }
+      responses:
+        '201':
+          description: Remark created
+  
+  /admin/students/{studentID}/remarks:
+    get:
+      operationId: listAdminStudentRemarks
+      tags: [Student Remarks]
+      summary: List all remarks for a specific student
+      parameters:
+        - in: path
+          name: studentID
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: List of student remarks
+  
+  /admin/remarks/{id}/acknowledge:
+    post:
+      operationId: acknowledgeAdminStudentRemark
+      tags: [Student Remarks]
+      summary: Acknowledge a student remark
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Remark acknowledged
+  
+  /teacher/remarks:
+    post:
+      operationId: createTeacherStudentRemark
+      tags: [Student Remarks - Teacher]
+      summary: Post a remark for a student (Teacher)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [student_id, category, remark_text]
+              properties:
+                student_id: { type: string, format: uuid }
+                category: { type: string, enum: [academic, behavioral, general, achievement] }
+                remark_text: { type: string }
+                requires_ack: { type: boolean, default: false }
+      responses:
+        '201':
+          description: Remark created
+  
+  /teacher/students/{studentID}/remarks:
+    get:
+      operationId: listTeacherStudentRemarks
+      tags: [Student Remarks - Teacher]
+      summary: List remarks given by teacher or for teacher's class
+      parameters:
+        - in: path
+          name: studentID
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: List of student remarks
 
   # from paths/dashboard.yaml
   # Dashboard & Biometric API Paths
@@ -3005,6 +3223,68 @@ paths:
               schema:
                 type: string
                 format: binary
+  
+  # Parent Portal Routes
+  /parent/children/{id}/fees/summary:
+    get:
+      operationId: getChildFeeSummary
+      tags: [Finance]
+      summary: Get fee summary for a child (Parent view)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Fee summary
+  
+  /parent/children/{id}/fees/receipts:
+    get:
+      operationId: listChildReceipts
+      tags: [Finance]
+      summary: List payment receipts for a child
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Receipt list
+  
+  /parent/payments/online:
+    post:
+      operationId: createParentOnlinePaymentOrder
+      tags: [Finance]
+      summary: Create an online payment order as a parent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [student_id, amount]
+              properties:
+                student_id: { type: string, format: uuid }
+                amount: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: Order created
+  
+  /parent/fees/gateways:
+    get:
+      operationId: getParentGatewayKey
+      tags: [Finance]
+      summary: Get public gateway key for parent payment
+      parameters:
+        - name: provider
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Public gateway key
 
   # from paths/exams.yaml
   # Exam API Paths
@@ -3608,125 +3888,6 @@ paths:
       responses:
         '200':
           description: Notice published
-  
-  /admin/notifications/send:
-    post:
-      operationId: sendNotification
-      tags: [Notifications]
-      summary: Send a notification to users
-      description: |
-        Sends a notification via push, SMS, email, or WhatsApp to specified
-        recipients or target groups.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [title, body, channel]
-              properties:
-                title: { type: string }
-                body: { type: string }
-                channel: { type: string, enum: [push, sms, email, whatsapp] }
-                recipients:
-                  type: array
-                  items: { type: string, format: uuid }
-                  description: Specific user IDs (optional if target_group is set)
-                target_group:
-                  type: string
-                  enum: [all_parents, all_teachers, all_staff, class]
-      responses:
-        '200':
-          description: Notification sent
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  sent_count: { type: integer }
-                  failed_count: { type: integer }
-  
-  /admin/notifications/logs:
-    get:
-      operationId: listNotificationLogs
-      tags: [Notifications]
-      summary: List notification delivery logs
-      parameters:
-        - name: channel
-          in: query
-          schema: { type: string, enum: [push, sms, email, whatsapp] }
-        - name: from
-          in: query
-          schema: { type: string, format: date }
-        - name: to
-          in: query
-          schema: { type: string, format: date }
-      responses:
-        '200':
-          description: Delivery logs
-  
-  /admin/notifications/templates:
-    get:
-      operationId: listNotificationTemplates
-      tags: [Notifications]
-      summary: List notification templates
-      responses:
-        '200':
-          description: Template list
-    post:
-      operationId: createNotificationTemplate
-      tags: [Notifications]
-      summary: Create a notification template
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [name, channel, body]
-              properties:
-                name: { type: string, example: "fee_reminder" }
-                channel: { type: string, enum: [push, sms, email, whatsapp] }
-                subject: { type: string, description: "For email templates" }
-                body: { type: string, description: "Template body with {{variables}}" }
-      responses:
-        '201':
-          description: Template created
-  
-  /admin/notifications/templates/{id}:
-    put:
-      operationId: updateNotificationTemplate
-      tags: [Notifications]
-      summary: Update a notification template
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                name: { type: string }
-                body: { type: string }
-      responses:
-        '200':
-          description: Template updated
-    delete:
-      operationId: deleteNotificationTemplate
-      tags: [Notifications]
-      summary: Delete a notification template
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Template deleted
 
   # from paths/communication.yaml
   # Communication & CRM API Paths — WhatsApp, Email, SMS configurations and logs
@@ -5947,6 +6108,43 @@ paths:
       responses:
         '201':
           description: Task created
+  
+  /teacher/leaves:
+    get:
+      operationId: listTeacherLeaves
+      tags: [HRMS - Teacher]
+      summary: List own leave requests
+      responses:
+        '200':
+          description: List of leave requests
+    post:
+      operationId: applyTeacherLeave
+      tags: [HRMS - Teacher]
+      summary: Submit a new leave request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [leave_type_id, start_date, end_date, reason]
+              properties:
+                leave_type_id: { type: string, format: uuid }
+                start_date: { type: string, format: date-time }
+                end_date: { type: string, format: date-time }
+                reason: { type: string }
+      responses:
+        '201':
+          description: Leave request submitted
+  
+  /teacher/leaves/types:
+    get:
+      operationId: listTeacherLeaveTypes
+      tags: [HRMS - Teacher]
+      summary: List available leave types for teachers
+      responses:
+        '200':
+          description: List of leave types
 
   # from paths/safety.yaml
   # Safety & Security API Paths — Incident logs, Visitor logs, Security alerts, Gate passes
@@ -6898,6 +7096,161 @@ paths:
       responses:
         '200':
           description: Request activated and add-on enabled for tenant
+  
+  
+  /admin/platform/summary:
+    get:
+      operationId: getPlatformSummary
+      tags: [Platform Admin]
+      summary: Get platform-wide summary statistics
+      responses:
+        '200':
+          description: Platform summary overview
+  
+  /admin/platform/tenants:
+    get:
+      operationId: listPlatformTenants
+      tags: [Platform Admin]
+      summary: List all tenants on the platform
+      responses:
+        '200':
+          description: Tenant list
+  
+  /admin/platform/tenants/{tenant_id}:
+    get:
+      operationId: getPlatformTenant
+      tags: [Platform Admin]
+      summary: Get details for a specific tenant
+      parameters:
+        - in: path
+          name: tenant_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Tenant details
+    patch:
+      operationId: updatePlatformTenant
+      tags: [Platform Admin]
+      summary: Update tenant configuration or profile
+      parameters:
+        - in: path
+          name: tenant_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [active, suspended] }
+      responses:
+        '200':
+          description: Tenant updated
+  
+  /admin/platform/tenants/{tenant_id}/lifecycle:
+    post:
+      operationId: updateTenantLifecycle
+      tags: [Platform Admin]
+      summary: Update tenant lifecycle status (Suspend/Activate)
+      parameters:
+        - in: path
+          name: tenant_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [active, suspended] }
+                reason: { type: string }
+      responses:
+        '200':
+          description: Lifecycle status updated
+  
+  /admin/platform/tenants/{tenant_id}/impersonate:
+    post:
+      operationId: impersonateTenantAdmin
+      tags: [Platform Admin]
+      summary: Impersonate a tenant administrator
+      parameters:
+        - in: path
+          name: tenant_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Impersonation started, returns session token
+  
+  /admin/platform/monitoring/queue:
+    get:
+      operationId: getQueueHealth
+      tags: [Platform Monitoring]
+      summary: Get real-time health and throughput stats for the outbox queue
+      responses:
+        '200':
+          description: Queue monitoring stats
+  
+  /admin/platform/incidents:
+    get:
+      operationId: listPlatformIncidents
+      tags: [Platform Incidents]
+      summary: List platform incidents
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: Incident list
+    post:
+      operationId: createPlatformIncident
+      tags: [Platform Incidents]
+      summary: Report a platform-wide incident
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, severity, description]
+              properties:
+                title: { type: string }
+                severity: { type: string, enum: [minor, major, critical, maintenance] }
+                description: { type: string }
+                status: { type: string, default: investigations }
+      responses:
+        '201':
+          description: Incident reported
+  
+  /admin/platform/incidents/{incident_id}:
+    patch:
+      operationId: updatePlatformIncident
+      tags: [Platform Incidents]
+      summary: Update platform incident status or severity
+      parameters:
+        - in: path
+          name: incident_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [investigating, identified, monitoring, resolved] }
+                severity: { type: string }
+      responses:
+        '200':
+          description: Incident updated
 
   # from paths/parent-accountant.yaml
   # Parent & Accountant Specific API Paths
@@ -6933,4 +7286,254 @@ paths:
       responses:
         '200':
           description: Transaction summary for the day
+
+  # from paths/approvals.yaml
+  # Approvals API Paths — Managed Approval Workflow
+  /admin/approvals:
+    get:
+      operationId: listApprovals
+      tags: [Approvals]
+      summary: List all approval requests
+      description: Returns a list of pending or processed approval requests for the school.
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, processed], default: pending }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        '200':
+          description: List of approval requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApprovalRequest'
+  
+  /admin/approvals/{id}/{action}:
+    post:
+      operationId: processApproval
+      tags: [Approvals]
+      summary: Process (Approve/Reject) an approval request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: action
+          in: path
+          required: true
+          schema: { type: string, enum: [approve, reject] }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                remark: { type: string }
+      responses:
+        '200':
+          description: Request processed successfully
+
+  # from paths/biometric.yaml
+  # Biometric Integration API Paths
+  /admin/biometric/ingest:
+    post:
+      operationId: ingestBiometricLog
+      tags: [Biometric]
+      summary: Ingest logs from biometric attendance devices
+      description: |
+        Endpoints for hardware devices or integration scripts to post attendance logs.
+        Requires tenant-specific authentication.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [device_id, log_time, identifier]
+              properties:
+                device_id: { type: string, example: "DEVICE_001" }
+                log_time: { type: string, format: date-time }
+                identifier: { type: string, description: "Card ID or Biometric ID" }
+                direction: { type: string, enum: [in, out] }
+      responses:
+        '200':
+          description: Log processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  status: { type: string }
+
+  # from paths/files.yaml
+  # Files API Paths — System-wide asset management
+  /v1/files/upload:
+    post:
+      operationId: uploadFile
+      tags: [Files]
+      summary: Upload a file
+      description: Uploads an asset (image, document, etc.) and returns a persistent URL.
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+                purpose: { type: string, enum: [student_photo, staff_photo, document, attachment], default: document }
+      responses:
+        '201':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  url: { type: string, format: uri }
+                  name: { type: string }
+                  size: { type: integer }
+  
+  /v1/files/{id}:
+    get:
+      operationId: getFileMetadata
+      tags: [Files]
+      summary: Get file metadata
+      responses:
+        '200':
+          description: File info
+    delete:
+      operationId: deleteFile
+      tags: [Files]
+      summary: Permanently delete a file
+      responses:
+        '204':
+          description: Deleted
+
+  # from paths/notification.yaml
+  # Notifications API Paths — Service-level alerts, logs, and templates
+  
+  /admin/notifications/send:
+    post:
+      operationId: sendNotification
+      tags: [Notifications]
+      summary: Send a notification to users
+      description: |
+        Sends a notification via push, SMS, email, or WhatsApp to specified
+        recipients or target groups.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, body, channel]
+              properties:
+                title: { type: string }
+                body: { type: string }
+                channel: { type: string, enum: [push, sms, email, whatsapp] }
+                recipients:
+                  type: array
+                  items: { type: string, format: uuid }
+                  description: Specific user IDs (optional if target_group is set)
+                target_group:
+                  type: string
+                  enum: [all_parents, all_teachers, all_staff, class]
+      responses:
+        '200':
+          description: Notification sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sent_count: { type: integer }
+                  failed_count: { type: integer }
+  
+  /admin/notifications/logs:
+    get:
+      operationId: listNotificationLogs
+      tags: [Notifications]
+      summary: List notification delivery logs
+      parameters:
+        - name: channel
+          in: query
+          schema: { type: string, enum: [push, sms, email, whatsapp] }
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Delivery logs
+  
+  /admin/notifications/templates:
+    get:
+      operationId: listNotificationTemplates
+      tags: [Notifications]
+      summary: List notification templates
+      responses:
+        '200':
+          description: Template list
+    post:
+      operationId: createNotificationTemplate
+      tags: [Notifications]
+      summary: Create a notification template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, channel, body]
+              properties:
+                name: { type: string, example: "fee_reminder" }
+                channel: { type: string, enum: [push, sms, email, whatsapp] }
+                subject: { type: string, description: "For email templates" }
+                body: { type: string, description: "Template body with {{variables}}" }
+      responses:
+        '201':
+          description: Template created
+  
+  /admin/notifications/templates/{id}:
+    put:
+      operationId: updateNotificationTemplate
+      tags: [Notifications]
+      summary: Update a notification template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                body: { type: string }
+      responses:
+        '200':
+          description: Template updated
+    delete:
+      operationId: deleteNotificationTemplate
+      tags: [Notifications]
+      summary: Delete a notification template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Template deleted
 

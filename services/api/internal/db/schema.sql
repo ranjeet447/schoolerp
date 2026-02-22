@@ -3705,3 +3705,22 @@ CREATE TABLE sms_usage_logs (
 );
 
 CREATE INDEX idx_sms_usage_logs_tenant_date ON sms_usage_logs(tenant_id, created_at DESC);
+
+-- 000077_certificate_issuance.up.sql
+CREATE TABLE IF NOT EXISTS certificates (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    template_id UUID REFERENCES platform_document_templates(id),
+    certificate_type TEXT NOT NULL, -- 'bonafide', 'tc', 'custom'
+    certificate_number TEXT NOT NULL,
+    issuance_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    issued_by UUID NOT NULL REFERENCES users(id),
+    status TEXT NOT NULL DEFAULT 'issued', -- 'issued', 'revoked'
+    reason TEXT,
+    metadata JSONB DEFAULT '{}', -- store dynamic fields (reason for bonafide, etc)
+    file_id UUID REFERENCES files(id), -- generated PDF file reference
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(tenant_id, certificate_number)
+);

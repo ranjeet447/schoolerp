@@ -258,6 +258,23 @@ type CalendarConnection struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
+type Certificate struct {
+	ID                pgtype.UUID        `json:"id"`
+	TenantID          pgtype.UUID        `json:"tenant_id"`
+	StudentID         pgtype.UUID        `json:"student_id"`
+	TemplateID        pgtype.UUID        `json:"template_id"`
+	CertificateType   string             `json:"certificate_type"`
+	CertificateNumber string             `json:"certificate_number"`
+	IssuanceDate      pgtype.Date        `json:"issuance_date"`
+	IssuedBy          pgtype.UUID        `json:"issued_by"`
+	Status            string             `json:"status"`
+	Reason            pgtype.Text        `json:"reason"`
+	Metadata          []byte             `json:"metadata"`
+	FileID            pgtype.UUID        `json:"file_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ChatMessage struct {
 	ID               pgtype.UUID        `json:"id"`
 	RoomID           pgtype.UUID        `json:"room_id"`
