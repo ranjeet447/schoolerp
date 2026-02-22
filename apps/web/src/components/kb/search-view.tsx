@@ -17,8 +17,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Switch,
 } from "@schoolerp/ui"
-import { Search, Info, Loader2 } from "lucide-react"
+import { Search, Info, Loader2, Sparkles, Zap } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 
 interface SearchResult {
@@ -43,6 +44,7 @@ interface SearchResponse {
   results: SearchResult[]
   meta: {
     used_trgm: boolean
+    used_vectors: boolean
     total: number
     latency_ms: number
   }
@@ -66,6 +68,7 @@ export function KbSearchView({ heading, subheading, settingsPath, documentPathPr
   const [visibility, setVisibility] = useState("")
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [topK, setTopK] = useState(10)
+  const [useVectorSearch, setUseVectorSearch] = useState(false)
 
   const [facets, setFacets] = useState<FacetsResponse>({ categories: [], tags: [] })
   const [facetsLoading, setFacetsLoading] = useState(true)
@@ -114,7 +117,8 @@ export function KbSearchView({ heading, subheading, settingsPath, documentPathPr
 
   const infoMeta = useMemo(() => {
     if (!meta) return ""
-    return `${meta.total} result(s) · ${meta.latency_ms}ms · ${meta.used_trgm ? "FTS + trigram" : "FTS"}`
+    const mode = meta.used_vectors ? "Vector (semantic)" : (meta.used_trgm ? "FTS + trigram" : "FTS")
+    return `${meta.total} result(s) · ${meta.latency_ms}ms · ${mode}`
   }, [meta])
 
   const onSearch = async () => {
@@ -126,6 +130,7 @@ export function KbSearchView({ heading, subheading, settingsPath, documentPathPr
         body: JSON.stringify({
           q: query,
           top_k: topK,
+          use_vectors: useVectorSearch,
           filters: {
             category,
             tags: selectedTags,
@@ -172,9 +177,17 @@ export function KbSearchView({ heading, subheading, settingsPath, documentPathPr
       </div>
 
       <Card className="border-blue-200 bg-blue-50/40">
-        <CardContent className="pt-5 text-sm text-blue-800 flex items-center gap-2">
-          <Info className="h-4 w-4" />
-          <span>Knowledgebase Search (AI assistant coming soon).</span>
+        <CardContent className="pt-5 text-sm text-blue-800 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Info className="h-4 w-4" />
+            <span>Knowledgebase Search {useVectorSearch ? "— Semantic (Vector) Mode" : "— Full-Text Mode"}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Zap className="h-3.5 w-3.5" />
+            <span className="text-xs font-medium">Vector Search</span>
+            <Switch checked={useVectorSearch} onCheckedChange={setUseVectorSearch} />
+            {useVectorSearch && <Sparkles className="h-3.5 w-3.5 text-amber-500" />}
+          </div>
         </CardContent>
       </Card>
 
@@ -309,7 +322,9 @@ export function KbSearchView({ heading, subheading, settingsPath, documentPathPr
                     {result.category && <Badge variant="outline">{result.category}</Badge>}
                     <Badge variant="secondary">{result.visibility}</Badge>
                     <Badge variant="outline">{result.status}</Badge>
-                    <Badge variant="outline">score {result.score.toFixed(2)}</Badge>
+                    <Badge variant="outline" className={result.score > 0.8 ? 'border-emerald-300 text-emerald-700' : result.score > 0.5 ? 'border-amber-300 text-amber-700' : ''}>
+                      {useVectorSearch ? '⚡ sim' : 'score'} {result.score.toFixed(2)}
+                    </Badge>
                     {result.tags?.map((tag) => (
                       <Badge key={`${result.chunk_id}-${tag}`} variant="outline">#{tag}</Badge>
                     ))}
