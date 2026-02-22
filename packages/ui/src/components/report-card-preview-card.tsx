@@ -20,8 +20,8 @@ export function ReportCardPreviewCard({
   results,
   onDownload,
 }: ReportCardPreviewCardProps) {
-  const totalObtained = results.reduce((acc, r) => acc + r.marks, 0)
-  const totalMax = results.reduce((acc, r) => acc + r.maxMarks, 0)
+  const totalObtained = (results || []).reduce((acc, r) => acc + r.marks, 0)
+  const totalMax = (results || []).reduce((acc, r) => acc + r.maxMarks, 0)
   const percentage = totalMax > 0 ? (totalObtained / totalMax) * 100 : 0
 
   const getGrade = (p: number) => {

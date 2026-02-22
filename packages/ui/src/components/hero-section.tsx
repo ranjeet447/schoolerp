@@ -138,7 +138,7 @@ export const HeroSection = () => {
               {/* Screen Content */}
               <div className="absolute inset-[3%] rounded-[2rem] overflow-hidden bg-black">
                  <img 
-                  src="/mockups/teacher-mobile.png" 
+                  src="/mockups/attendance-live.png" 
                   alt="SchoolERP Teacher App" 
                   className="w-full h-full object-cover"
                 />
@@ -164,7 +164,7 @@ export const HeroSection = () => {
               {/* Screen Content */}
               <div className="absolute inset-[3%] rounded-[2rem] overflow-hidden bg-black">
                  <img 
-                  src="/mockups/parent-mobile.png" 
+                  src="/mockups/notice-mobile-live.png" 
                   alt="SchoolERP Parent Portal" 
                   className="w-full h-full object-cover"
                 />

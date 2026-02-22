@@ -57,6 +57,7 @@ export const BLOG_POSTS_DATA: BlogPost[] = [
       <p>A dedicated Teacher Diary or Notice Board module solves all of this. You can send an update, and instead of a messy group chat, it functions like an inbox for parents. They see only what's relevant to their child.</p>
 
       <h3>Enforce Digital Acknowledgments</h3>
+      <p><img src="/mockups/notice-mobile-live.png" alt="Parent App Interface" className="w-full max-w-sm mx-auto rounded-3xl shadow-xl my-8 border border-border/50" /></p>
       <p>Crucially, you can enforce "Parent Acknowledgement Required" on critical circulars. This lets you track exactly who has signed the digital notice, allowing your office staff to follow up only with those who haven't responded.</p>
     `,
     date: 'Feb 02, 2026',
@@ -76,6 +77,7 @@ export const BLOG_POSTS_DATA: BlogPost[] = [
       <p>Modern School ERP systems use "Exception-Based" marking. The system assumes everyone is present. The teacher only taps the names of the 2 or 3 students who are absent. Attendance is done in 10 seconds, and the class begins immediately.</p>
 
       <h3>Instant Absentee Follow-ups</h3>
+      <p><img src="/mockups/attendance-live.png" alt="Attendance Grid Mockup" className="w-full rounded-[2rem] shadow-2xl my-8 border border-border/50" /></p>
       <p>With an integrated system, the moment attendance is submitted, an automated SMS or App Notification can be fired to the parents: "Dear Parent, your child Arav is marked absent today." This builds immense trust and ensures student safety.</p>
 
       <h3>Automatic Register Generation</h3>
@@ -176,6 +178,7 @@ export const BLOG_POSTS_DATA: BlogPost[] = [
       <p>Manual writing leads to mistakes—wrong amounts, illegible handwriting, or receipts not matching the ledger. Thermal receipts are generated directly from the database, ensuring that what the parent receives is exactly what is recorded in your accounts.</p>
 
       <h3>Professionalism and Branding</h3>
+      <p><img src="/mockups/receipt-live.png" alt="Digital Fee Receipt" className="w-full max-w-sm mx-auto rounded-3xl shadow-xl my-8 border border-border/50" /></p>
       <p>A printed thermal receipt with your school logo, a unique barcode, and clear fee breakups (Tuition, Transport, Late Fee) builds immediate trust with parents. It signals that your school is modern and organized.</p>
 
       <h3>Audit-Grade Records</h3>

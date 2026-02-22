@@ -40,9 +40,9 @@ export const FEATURES_DATA: FeatureItem[] = [
       "Bulk SMS/WhatsApp Reminders"
     ],
     mockUI: {
-      title: "Fee Collection Dashboard",
+      title: "Fee Plan Builder",
       type: "chart",
-      screenshot: "/mockups/admin-web.png"
+      screenshot: "/mockups/fee-builder-live.png"
     }
   },
   {
@@ -62,7 +62,7 @@ export const FEATURES_DATA: FeatureItem[] = [
       "End-of-Day Cashier Book",
       "Tally-ready format Exports"
     ],
-    mockUI: { title: "Point of Sale View", type: "list" }
+    mockUI: { title: "Point of Sale View", type: "list", screenshot: "/mockups/receipt-live.png" }
   },
   {
     id: "defaulter",
@@ -81,7 +81,7 @@ export const FEATURES_DATA: FeatureItem[] = [
       "Concession & Scholarship Adjustments",
       "Report Card Blocking (Optional)"
     ],
-    mockUI: { title: "Defaulter Action Tracking", type: "table" }
+    mockUI: { title: "Defaulter Action Tracking", type: "table", screenshot: "/mockups/finance-charts.png" }
   },
   {
     id: "late-fee",
@@ -122,7 +122,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     mockUI: {
       title: "Daily Attendance Grid",
       type: "table",
-      screenshot: "/mockups/teacher-mobile.png"
+      screenshot: "/mockups/attendance-live.png"
     }
   },
   {
@@ -164,7 +164,7 @@ export const FEATURES_DATA: FeatureItem[] = [
     mockUI: {
       title: "Parent App Engagement",
       type: "chart",
-      screenshot: "/mockups/parent-mobile.png"
+      screenshot: "/mockups/notice-mobile-live.png"
     }
   },
   {
@@ -184,7 +184,7 @@ export const FEATURES_DATA: FeatureItem[] = [
       "PDF/Image Attachments",
       "Read Receipt Analytics"
     ],
-    mockUI: { title: "Broadcaster Stats", type: "selection" }
+    mockUI: { title: "Parent Notice Board", type: "selection", screenshot: "/mockups/notice-live.png" }
   },
   {
     id: "homework",
@@ -222,7 +222,7 @@ export const FEATURES_DATA: FeatureItem[] = [
       "Interview Scheduling",
       "1-Click Lead to Student Conversion"
     ],
-    mockUI: { title: "Admission Funnel", type: "chart" }
+    mockUI: { title: "Admission Funnel", type: "chart", screenshot: "/mockups/admission-pipeline.png" }
   },
   {
     id: "enquiry",
@@ -260,7 +260,7 @@ export const FEATURES_DATA: FeatureItem[] = [
       "Digital Document Vault",
       "Historical Data Retention"
     ],
-    mockUI: { title: "Student 360 View", type: "selection" }
+    mockUI: { title: "Student 360 View", type: "selection", screenshot: "/mockups/students-live.png" }
   },
   {
     id: "report-card",
@@ -317,7 +317,7 @@ export const FEATURES_DATA: FeatureItem[] = [
       "Issuance History Tracking",
       "Multiple Template Support"
     ],
-    mockUI: { title: "Certificate Preview", type: "list" }
+    mockUI: { title: "Certificate Preview", type: "list", screenshot: "/mockups/certificates-live.png" }
   },
   {
     id: "tc",
@@ -355,7 +355,7 @@ export const FEATURES_DATA: FeatureItem[] = [
       "Custom Date Range Filtering",
       "Cross-Module Analytics"
     ],
-    mockUI: { title: "Report Center Library", type: "list" }
+    mockUI: { title: "Report Center Library", type: "list", screenshot: "/mockups/reports-live.png" }
   },
   {
     id: "roles",
@@ -393,7 +393,7 @@ export const FEATURES_DATA: FeatureItem[] = [
       "Driver and Helper Directory",
       "Vehicle Maintenance Reminders"
     ],
-    mockUI: { title: "Live Route Map", type: "map" }
+    mockUI: { title: "Live Route Map", type: "map", screenshot: "/mockups/transport-live.png" }
   },
   {
     id: "library",
@@ -412,7 +412,7 @@ export const FEATURES_DATA: FeatureItem[] = [
       "Fine Ledger Sync",
       "Digital Resource Cataloging"
     ],
-    mockUI: { title: "Library Circulation", type: "table" }
+    mockUI: { title: "Library Circulation", type: "table", screenshot: "/mockups/library-live.png" }
   },
   {
     id: "whatsapp",

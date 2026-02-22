@@ -33,7 +33,7 @@ export function FeePlanBuilder({ onSave }: FeePlanBuilderProps) {
     setItems(items.filter(item => item.id !== id))
   }
 
-  const total = items.reduce((acc, item) => acc + item.amount, 0)
+  const total = (items || []).reduce((acc, item) => acc + item.amount, 0)
 
   return (
     <div className="space-y-6">

@@ -15,7 +15,7 @@ import {
 export default function MockupStagePage() {
   return (
     <main className="bg-slate-50 min-h-screen py-20 px-10">
-      <Section id="attendance-mockup" className="mb-20">
+      <div id="attendance-mockup" className="mb-20">
         <h2 className="text-2xl font-bold mb-6">Attendance Grid (Teacher UI)</h2>
         <div className="bg-white p-8 rounded-3xl shadow-xl border max-w-4xl">
           <AttendanceGrid 
@@ -29,16 +29,16 @@ export default function MockupStagePage() {
             readOnly
           />
         </div>
-      </Section>
+      </div>
 
-      <Section id="fee-mockup" className="mb-20">
+      <div id="fee-mockup" className="mb-20">
         <h2 className="text-2xl font-bold mb-6">Fee Plan Builder (Admin UI)</h2>
         <div className="bg-white p-8 rounded-3xl shadow-xl border max-w-2xl">
           <FeePlanBuilder onSave={() => {}} />
         </div>
-      </Section>
+      </div>
 
-      <Section id="notice-mockup" className="mb-20">
+      <div id="notice-mockup" className="mb-20">
         <h2 className="text-2xl font-bold mb-6">Notice Card (Parent App)</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl">
           <NoticeCard 
@@ -58,9 +58,9 @@ export default function MockupStagePage() {
             isRead={true}
           />
         </div>
-      </Section>
+      </div>
 
-      <Section id="student-mockup" className="mb-20">
+      <div id="student-mockup" className="mb-20">
         <h2 className="text-2xl font-bold mb-6">Student Profile & Report Card</h2>
         <div className="flex flex-wrap gap-8">
           <StudentProfileCard 
@@ -74,15 +74,18 @@ export default function MockupStagePage() {
             }}
           />
           <ReportCardPreviewCard 
-             studentName="Aryan Sharma"
-             grade="Term 1 Final"
-             percentage={94.5}
-             rank={3}
+             examName="Term 1 Final"
+             results={[
+               { name: "Mathematics", marks: 95, maxMarks: 100 },
+               { name: "Science", marks: 92, maxMarks: 100 },
+               { name: "English", marks: 88, maxMarks: 100 },
+               { name: "History", marks: 90, maxMarks: 100 }
+             ]}
           />
         </div>
-      </Section>
+      </div>
 
-      <Section id="receipt-mockup" className="mb-20">
+      <div id="receipt-mockup" className="mb-20">
         <h2 className="text-2xl font-bold mb-6">Fee Receipt (Finance)</h2>
         <div className="max-w-md">
            <ReceiptCard 
@@ -94,7 +97,7 @@ export default function MockupStagePage() {
               status="Success"
            />
         </div>
-      </Section>
+      </div>
     </main>
   );
 }

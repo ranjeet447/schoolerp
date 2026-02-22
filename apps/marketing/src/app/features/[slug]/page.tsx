@@ -131,7 +131,17 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
                   
                   <div className="w-full h-px bg-gradient-to-r from-transparent via-muted-foreground/20 to-transparent" />
                   
-                  <FeatureMockup type={feature.mockUI.type} color={feature.color} />
+                  {feature.mockUI.screenshot ? (
+                    <div className="w-full h-48 sm:h-64 relative rounded-xl overflow-hidden border border-border/50 shadow-inner bg-background group-hover:shadow-xl transition-all duration-300">
+                      <img 
+                        src={feature.mockUI.screenshot} 
+                        alt={feature.mockUI.title} 
+                        className="absolute inset-0 w-full h-full object-cover object-top hover:scale-[1.02] transition-transform duration-500"
+                      />
+                    </div>
+                  ) : (
+                    <FeatureMockup type={feature.mockUI.type} color={feature.color} />
+                  )}
                 </div>
               </div>
             </div>

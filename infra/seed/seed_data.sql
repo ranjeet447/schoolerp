@@ -205,7 +205,9 @@ INSERT INTO roles (id, name, code, description, is_system) VALUES
 ('019c4d42-49ca-7442-b328-d20c9de8a543', 'Support L2', 'support_l2', 'Tier-2 technical support', TRUE),
 ('019c4d42-49ca-744e-8547-8071d51aef0d', 'Platform Finance', 'finance', 'Platform billing and finance operations', TRUE),
 ('019c4d42-49ca-7487-add7-2b540152adc1', 'Platform Operations', 'ops', 'Platform operations and incident response', TRUE),
-('019c4d42-49ca-74c5-9df6-f06433ec0235', 'Platform Developer', 'developer', 'Platform engineering and integration maintenance', TRUE)
+('019c4d42-49ca-74c5-9df6-f06433ec0235', 'Platform Developer', 'developer', 'Platform engineering and integration maintenance', TRUE),
+('019c4d42-c25e-7014-9988-bbccddeeff00', 'Parent', 'parent', 'Parent/Guardian access', TRUE),
+('019c4d42-c25e-7014-9988-bbccddeeff01', 'Student', 'student', 'Student access', TRUE)
 ON CONFLICT (tenant_id, code) DO NOTHING;
 
 -- 1.5 Role-Permission Mapping
@@ -365,7 +367,7 @@ INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r
 JOIN permissions p ON TRUE
-WHERE r.code IN ('super_admin', 'tenant_admin', 'teacher', 'accountant', 'librarian', 'transport_manager')
+WHERE r.code IN ('super_admin', 'tenant_admin', 'teacher', 'accountant', 'librarian', 'transport_manager', 'parent', 'student')
 ON CONFLICT DO NOTHING;
 
 -- 1.6 SaaS Admin Assignment
@@ -429,7 +431,9 @@ INSERT INTO role_assignments (id, tenant_id, user_id, role_id, scope_type) VALUE
 ('019c4d42-c25e-70d8-b3ff-96f706bf7530', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', '019c4d42-c25e-71c0-b844-a502ab4e9681', '019c4d42-49ca-761c-aaf8-24e6628c030a', 'tenant'), -- Teacher
 ('019c4d42-c25e-709c-913b-30f2d361c4a4', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', '019c4d42-c25e-7418-a639-ee18da899f0b', '019c4d42-49ca-7f83-b4a1-7408a5b65f0e', 'tenant'), -- Accountant
 ('019c4d42-c25e-70ad-b110-d47a40176bb2', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', '019c4d42-c25e-7181-a523-7d89c9f07801', '019c4d42-c25e-7044-904d-b227be5c819c', 'tenant'), -- Librarian
-('019c4d42-c25e-76c9-935f-8559b9863e73', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', '019c4d42-c25e-7153-8190-8a86cb77a3c2', '019c4d42-c25e-7740-9510-d5d3df33368a', 'tenant')  -- Transport Manager
+('019c4d42-c25e-76c9-935f-8559b9863e73', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', '019c4d42-c25e-7153-8190-8a86cb77a3c2', '019c4d42-c25e-7740-9510-d5d3df33368a', 'tenant'), -- Transport Manager
+('019c4d42-c25e-76c9-935f-8559b9863e74', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', '019c4d42-c25e-7b45-9ad9-840d567925ba', '019c4d42-c25e-7014-9988-bbccddeeff00', 'tenant'), -- Parent
+('019c4d42-c25e-76c9-935f-8559b9863e75', '019c4d42-49ca-7efe-b28e-6feeebc4cd13', '019c4d42-c25e-7c7e-b9db-49efdd887bbd', '019c4d42-c25e-7014-9988-bbccddeeff01', 'tenant')  -- Student
 ON CONFLICT DO NOTHING;
 
 -- ============================================
