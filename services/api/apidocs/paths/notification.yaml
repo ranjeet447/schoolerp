@@ -1,30 +1,120 @@
-# Notifications API Paths — Service-level alerts and logs
+# Notifications API Paths — Service-level alerts, logs, and templates
+
 /admin/notifications/send:
   post:
     operationId: sendNotification
     tags: [Notifications]
-    summary: Send a targeted notification
+    summary: Send a notification to users
+    description: |
+      Sends a notification via push, SMS, email, or WhatsApp to specified
+      recipients or target groups.
     requestBody:
       required: true
       content:
         application/json:
           schema:
             type: object
-            required: [type, body, targets]
+            required: [title, body, channel]
             properties:
-              type: { type: string, enum: [email, sms, push, whatsapp] }
-              subject: { type: string }
+              title: { type: string }
               body: { type: string }
-              targets: { type: object, description: "Filter for recipients (e.g., class_id, role)" }
+              channel: { type: string, enum: [push, sms, email, whatsapp] }
+              recipients:
+                type: array
+                items: { type: string, format: uuid }
+                description: Specific user IDs (optional if target_group is set)
+              target_group:
+                type: string
+                enum: [all_parents, all_teachers, all_staff, class]
     responses:
       '200':
-        description: Notification queued
+        description: Notification sent
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sent_count: { type: integer }
+                failed_count: { type: integer }
 
 /admin/notifications/logs:
   get:
     operationId: listNotificationLogs
     tags: [Notifications]
-    summary: View delivery logs and status
+    summary: List notification delivery logs
+    parameters:
+      - name: channel
+        in: query
+        schema: { type: string, enum: [push, sms, email, whatsapp] }
+      - name: from
+        in: query
+        schema: { type: string, format: date }
+      - name: to
+        in: query
+        schema: { type: string, format: date }
     responses:
       '200':
-        description: Log list
+        description: Delivery logs
+
+/admin/notifications/templates:
+  get:
+    operationId: listNotificationTemplates
+    tags: [Notifications]
+    summary: List notification templates
+    responses:
+      '200':
+        description: Template list
+  post:
+    operationId: createNotificationTemplate
+    tags: [Notifications]
+    summary: Create a notification template
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, channel, body]
+            properties:
+              name: { type: string, example: "fee_reminder" }
+              channel: { type: string, enum: [push, sms, email, whatsapp] }
+              subject: { type: string, description: "For email templates" }
+              body: { type: string, description: "Template body with {{variables}}" }
+    responses:
+      '201':
+        description: Template created
+
+/admin/notifications/templates/{id}:
+  put:
+    operationId: updateNotificationTemplate
+    tags: [Notifications]
+    summary: Update a notification template
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name: { type: string }
+              body: { type: string }
+    responses:
+      '200':
+        description: Template updated
+  delete:
+    operationId: deleteNotificationTemplate
+    tags: [Notifications]
+    summary: Delete a notification template
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Template deleted
