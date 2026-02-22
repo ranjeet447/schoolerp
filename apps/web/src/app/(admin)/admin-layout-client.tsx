@@ -369,6 +369,50 @@ export default function AdminLayoutClient({
         </main>
       </div>
 
+      {/* Mobile Bottom Navigation Bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border flex items-center justify-around px-2 z-40">
+        <Link 
+          href="/admin/dashboard" 
+          className={`flex flex-col items-center gap-1 min-w-[64px] ${pathname === '/admin/dashboard' ? 'text-[var(--primary-color)]' : 'text-muted-foreground'}`}
+          style={pathname === '/admin/dashboard' ? { color: config?.branding?.primary_color } : {}}
+        >
+          <LayoutDashboard className="h-5 w-5" />
+          <span className="text-[10px] font-bold uppercase tracking-tighter">Home</span>
+        </Link>
+        <Link 
+          href="/admin/admissions/enquiries" 
+          className={`flex flex-col items-center gap-1 min-w-[64px] ${pathname.startsWith('/admin/admissions') ? 'text-[var(--primary-color)]' : 'text-muted-foreground'}`}
+          style={pathname.startsWith('/admin/admissions') ? { color: config?.branding?.primary_color } : {}}
+        >
+          <ClipboardList className="h-5 w-5" />
+          <span className="text-[10px] font-bold uppercase tracking-tighter">Admit</span>
+        </Link>
+        <Link 
+          href="/admin/finance/counter" 
+          className={`flex flex-col items-center gap-1 min-w-[64px] ${pathname.startsWith('/admin/finance') ? 'text-[var(--primary-color)]' : 'text-muted-foreground'}`}
+          style={pathname.startsWith('/admin/finance') ? { color: config?.branding?.primary_color } : {}}
+        >
+          <Banknote className="h-5 w-5" />
+          <span className="text-[10px] font-bold uppercase tracking-tighter">Fees</span>
+        </Link>
+        <Link 
+          href="/admin/communication" 
+          className={`flex flex-col items-center gap-1 min-w-[64px] ${pathname.startsWith('/admin/communication') ? 'text-[var(--primary-color)]' : 'text-muted-foreground'}`}
+          style={pathname.startsWith('/admin/communication') ? { color: config?.branding?.primary_color } : {}}
+        >
+          <MessageSquare className="h-5 w-5" />
+          <span className="text-[10px] font-bold uppercase tracking-tighter">Comms</span>
+        </Link>
+        <button 
+          onClick={() => setMobileMenuOpen(true)}
+          className={`flex flex-col items-center gap-1 min-w-[64px] ${mobileMenuOpen ? 'text-[var(--primary-color)]' : 'text-muted-foreground'}`}
+          style={mobileMenuOpen ? { color: config?.branding?.primary_color } : {}}
+        >
+          <Menu className="h-5 w-5" />
+          <span className="text-[10px] font-bold uppercase tracking-tighter">More</span>
+        </button>
+      </div>
+
       <Dialog open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <DialogContent className="w-[92vw] max-w-sm p-0">
           <DialogHeader className="border-b border-border p-4">

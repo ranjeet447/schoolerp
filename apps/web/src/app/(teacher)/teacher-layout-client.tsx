@@ -12,7 +12,7 @@ import {
   FileText,
   BookOpen
 } from 'lucide-react';
-import { Button } from '@schoolerp/ui';
+import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@schoolerp/ui';
 import { RBACService } from '@/lib/auth-service';
 import { usePathname } from 'next/navigation';
 import { TenantConfig } from '@/lib/tenant-utils';
@@ -40,6 +40,7 @@ export default function TeacherLayoutClient({
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const [kbVisible, setKbVisible] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -60,6 +61,10 @@ export default function TeacherLayoutClient({
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   const filteredNavItems = NAV_ITEMS.filter(item => {
     if (item.href === "/teacher/kb" && !kbVisible) {
@@ -140,17 +145,111 @@ export default function TeacherLayoutClient({
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-16 items-center justify-between border-b border-emerald-100 bg-white px-6">
-          <Button variant="ghost" size="icon" className="md:hidden text-slate-600">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="md:hidden text-slate-600"
+            onClick={() => setMobileMenuOpen(true)}
+          >
             <Menu className="h-5 w-5" />
           </Button>
           <div className="ml-auto flex items-center gap-4">
             <span className="text-sm text-slate-400 font-medium">{schoolName}</span>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-6 bg-white">
+        <main className="flex-1 overflow-y-auto p-6 bg-white pb-24 md:pb-6">
           {children}
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation Bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-emerald-100 flex items-center justify-around px-2 z-40">
+        <Link 
+          href="/teacher/dashboard" 
+          className={`flex flex-col items-center gap-1 min-w-[64px] ${pathname === '/teacher/dashboard' ? 'text-emerald-600' : 'text-slate-400'}`}
+          style={pathname === '/teacher/dashboard' ? { color: primaryColor } : {}}
+        >
+          <LayoutDashboard className="h-5 w-5" />
+          <span className="text-[10px] font-bold uppercase tracking-tighter">Home</span>
+        </Link>
+        <Link 
+          href="/teacher/attendance" 
+          className={`flex flex-col items-center gap-1 min-w-[64px] ${pathname.startsWith('/teacher/attendance') ? 'text-emerald-600' : 'text-slate-400'}`}
+          style={pathname.startsWith('/teacher/attendance') ? { color: primaryColor } : {}}
+        >
+          <CalendarCheck className="h-5 w-5" />
+          <span className="text-[10px] font-bold uppercase tracking-tighter">Attend</span>
+        </Link>
+        <Link 
+          href="/teacher/homework" 
+          className={`flex flex-col items-center gap-1 min-w-[64px] ${pathname.startsWith('/teacher/homework') ? 'text-emerald-600' : 'text-slate-400'}`}
+          style={pathname.startsWith('/teacher/homework') ? { color: primaryColor } : {}}
+        >
+          <BookOpen className="h-5 w-5" />
+          <span className="text-[10px] font-bold uppercase tracking-tighter">Works</span>
+        </Link>
+        <Link 
+          href="/teacher/notices" 
+          className={`flex flex-col items-center gap-1 min-w-[64px] ${pathname.startsWith('/teacher/notices') ? 'text-emerald-600' : 'text-slate-400'}`}
+          style={pathname.startsWith('/teacher/notices') ? { color: primaryColor } : {}}
+        >
+          <FileText className="h-5 w-5" />
+          <span className="text-[10px] font-bold uppercase tracking-tighter">Notices</span>
+        </Link>
+        <button 
+          onClick={() => setMobileMenuOpen(true)}
+          className={`flex flex-col items-center gap-1 min-w-[64px] ${mobileMenuOpen ? 'text-emerald-600' : 'text-slate-400'}`}
+          style={mobileMenuOpen ? { color: primaryColor } : {}}
+        >
+          <Menu className="h-5 w-5" />
+          <span className="text-[10px] font-bold uppercase tracking-tighter">More</span>
+        </button>
+      </div>
+
+      <Dialog open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <DialogContent className="w-[92vw] max-w-sm p-0">
+          <DialogHeader className="border-b border-slate-100 p-4">
+            <DialogTitle className="text-base">Teacher Navigation</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[72vh] overflow-y-auto p-4">
+            <ul className="space-y-1">
+              {filteredNavItems.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <li key={`mobile-${item.href}`}>
+                    <Link
+                      href={item.href}
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${
+                        isActive
+                          ? 'bg-emerald-50 text-emerald-600'
+                          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                      onClick={() => setMobileMenuOpen(false)}
+                      style={isActive ? { color: primaryColor, backgroundColor: `${primaryColor}10` } : {}}
+                    >
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="mt-6 border-t border-slate-100 pt-4">
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  logout();
+                }}
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

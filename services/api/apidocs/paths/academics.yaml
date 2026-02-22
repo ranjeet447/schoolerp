@@ -259,6 +259,83 @@
       '200':
         description: Calendar with events and holidays
 
+/admin/certificates:
+  get:
+    operationId: listIssuedCertificates
+    tags: [Academics]
+    summary: List all issued certificates
+    responses:
+      '200':
+        description: List of certificates
+
+/admin/certificates/bonafide:
+  post:
+    operationId: generateBonafideCertificate
+    tags: [Academics]
+    summary: Generate a Bonafide Certificate
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [student_id]
+            properties:
+              student_id: { type: string, format: uuid }
+              reason: { type: string }
+    responses:
+      '201':
+        description: Certificate generated
+
+/admin/certificates/tc:
+  post:
+    operationId: generateTCCertificate
+    tags: [Academics]
+    summary: Generate a Transfer Certificate (TC)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [student_id]
+            properties:
+              student_id: { type: string, format: uuid }
+              reason: { type: string }
+              conduct: { type: string }
+              remarks: { type: string }
+    responses:
+      '201':
+        description: TC generated
+
+/admin/students/{id}/certificates:
+  get:
+    operationId: listStudentCertificates
+    tags: [Students]
+    summary: List certificates issued to a specific student
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: List of student certificates
+  get:
+    operationId: getAcademicCalendar
+    tags: [Academics]
+    summary: Get academic calendar (combined events and holidays)
+    parameters:
+      - name: month
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 12 }
+      - name: year
+        in: query
+        schema: { type: integer }
+    responses:
+      '200':
+        description: Calendar with events and holidays
+
 /admin/calendar/events:
   get:
     operationId: listCalendarEvents

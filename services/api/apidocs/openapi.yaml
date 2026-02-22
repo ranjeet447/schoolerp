@@ -2291,14 +2291,14 @@ paths:
         '200':
           description: Device updated
   
-  /admin/biometric/attendance-logs:
+  /admin/biometric/logs:
     get:
-      operationId: listBiometricAttendanceLogs
-      tags: [Biometric]
-      summary: List raw biometric attendance logs
-      description: |
-        Returns raw punch-in/punch-out logs from biometric devices.
-        Can be filtered by date and device ID.
+      operationId: listBiometricLogs
+      tags: [Attendance]
+      summary: List recent biometric attendance logs
+      responses:
+        '200':
+          description: List of logs
       parameters:
         - name: date
           in: query
@@ -4241,6 +4241,69 @@ paths:
         '200':
           description: Calendar with events and holidays
   
+  /admin/certificates:
+    get:
+      operationId: listIssuedCertificates
+      tags: [Academics]
+      summary: List all issued certificates
+      responses:
+        '200':
+          description: List of certificates
+  
+  /admin/certificates/bonafide:
+    post:
+      operationId: generateBonafideCertificate
+      tags: [Academics]
+      summary: Generate a Bonafide Certificate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [student_id]
+              properties:
+                student_id: { type: string, format: uuid }
+                reason: { type: string }
+      responses:
+        '201':
+          description: Certificate generated
+  
+  /admin/certificates/tc:
+    post:
+      operationId: generateTCCertificate
+      tags: [Academics]
+      summary: Generate a Transfer Certificate (TC)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [student_id]
+              properties:
+                student_id: { type: string, format: uuid }
+                reason: { type: string }
+                conduct: { type: string }
+                remarks: { type: string }
+      responses:
+        '201':
+          description: TC generated
+
+  /admin/students/{id}/certificates:
+    get:
+      operationId: listStudentCertificates
+      tags: [Students]
+      summary: List certificates issued to a specific student
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: List of student certificates
+
   /admin/calendar/events:
     get:
       operationId: listCalendarEvents
@@ -6264,6 +6327,95 @@ paths:
   # from paths/portfolio.yaml
   # Portfolio & Analytics API Paths — Cross-campus analytics, Student portfolios
   
+  /admin/portfolio/groups:
+    get:
+      operationId: listPortfolioGroups
+      tags: [Portfolio]
+      summary: List trust/group entities
+      responses:
+        '200':
+          description: List of groups
+    post:
+      operationId: createPortfolioGroup
+      tags: [Portfolio]
+      summary: Create a new multi-school group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                description: { type: string }
+      responses:
+        '201':
+          description: Group created
+
+  /admin/portfolio/groups/{id}/members:
+    get:
+      operationId: listGroupMembers
+      tags: [Portfolio]
+      summary: List schools in a portfolio group
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: List of member tenants
+    post:
+      operationId: addGroupMember
+      tags: [Portfolio]
+      summary: Add a school (tenant) to a group
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_id]
+              properties:
+                tenant_id: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Member added
+
+  /admin/portfolio/groups/{id}/analytics:
+    get:
+      operationId: getGroupAnalytics
+      tags: [Portfolio]
+      summary: Get aggregated group analytics
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Group analytics data
+
+  /admin/portfolio/groups/{id}/financial-analytics:
+    get:
+      operationId: getGroupFinancialAnalytics
+      tags: [Portfolio]
+      summary: Get aggregated group financial performance
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Group financial data
+
   /admin/portfolio/analytics:
     get:
       operationId: getCampusAnalytics

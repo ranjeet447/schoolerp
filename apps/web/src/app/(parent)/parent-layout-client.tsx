@@ -14,7 +14,7 @@ import {
   FileText,
   BookOpen
 } from 'lucide-react';
-import { Button } from '@schoolerp/ui';
+import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@schoolerp/ui';
 import { RBACService } from '@/lib/auth-service';
 import { usePathname } from 'next/navigation';
 import { TenantConfig } from '@/lib/tenant-utils';
@@ -44,6 +44,7 @@ export default function ParentLayoutClient({
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const [kbVisible, setKbVisible] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -64,6 +65,10 @@ export default function ParentLayoutClient({
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   const filteredNavItems = NAV_ITEMS.filter(item => {
     if (item.href === "/parent/kb" && !kbVisible) {
@@ -144,7 +149,12 @@ export default function ParentLayoutClient({
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-16 items-center justify-between border-b border-rose-100 bg-white px-6">
-          <Button variant="ghost" size="icon" className="md:hidden text-slate-600">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="md:hidden text-slate-600"
+            onClick={() => setMobileMenuOpen(true)}
+          >
             <Menu className="h-5 w-5" />
           </Button>
           <div className="ml-auto flex items-center gap-4">
@@ -156,29 +166,94 @@ export default function ParentLayoutClient({
         </main>
         
         {/* Mobile Bottom Navigation */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-rose-100 flex items-center justify-around px-2 z-50">
-          <Link href="/parent/dashboard" className={`flex flex-col items-center gap-1 ${pathname === '/parent/dashboard' ? 'text-rose-600' : 'text-slate-400'}`}>
+        <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-rose-100 flex items-center justify-around px-2 z-40">
+          <Link 
+            href="/parent/dashboard" 
+            className={`flex flex-col items-center gap-1 min-w-[64px] ${pathname === '/parent/dashboard' ? 'text-rose-600' : 'text-slate-400'}`}
+            style={pathname === '/parent/dashboard' ? { color: primaryColor } : {}}
+          >
             <Home className="h-5 w-5" />
             <span className="text-[10px] font-bold uppercase tracking-tighter">Home</span>
           </Link>
-          <Link href="/parent/homework" className={`flex flex-col items-center gap-1 ${pathname === '/parent/homework' ? 'text-rose-600' : 'text-slate-400'}`}>
+          <Link 
+            href="/parent/homework" 
+            className={`flex flex-col items-center gap-1 min-w-[64px] ${pathname.startsWith('/parent/homework') ? 'text-rose-600' : 'text-slate-400'}`}
+            style={pathname.startsWith('/parent/homework') ? { color: primaryColor } : {}}
+          >
             <BookIcon className="h-5 w-5" />
             <span className="text-[10px] font-bold uppercase tracking-tighter">Works</span>
           </Link>
-          <Link href="/parent/fees" className={`flex flex-col items-center gap-1 ${pathname === '/parent/fees' ? 'text-rose-600' : 'text-slate-400'}`}>
+          <Link 
+            href="/parent/fees" 
+            className={`flex flex-col items-center gap-1 min-w-[64px] ${pathname.startsWith('/parent/fees') ? 'text-rose-600' : 'text-slate-400'}`}
+            style={pathname.startsWith('/parent/fees') ? { color: primaryColor } : {}}
+          >
             <BanknoteIcon className="h-5 w-5" />
             <span className="text-[10px] font-bold uppercase tracking-tighter">Fees</span>
           </Link>
-          <Link href="/parent/results" className={`flex flex-col items-center gap-1 ${pathname === '/parent/results' ? 'text-rose-600' : 'text-slate-400'}`}>
-            <ResultsIcon className="h-5 w-5" />
-            <span className="text-[10px] font-bold uppercase tracking-tighter">Results</span>
-          </Link>
-          <Link href="/parent/notices" className={`flex flex-col items-center gap-1 ${pathname === '/parent/notices' ? 'text-rose-600' : 'text-slate-400'}`}>
+          <Link 
+            href="/parent/notices" 
+            className={`flex flex-col items-center gap-1 min-w-[64px] ${pathname.startsWith('/parent/notices') ? 'text-rose-600' : 'text-slate-400'}`}
+            style={pathname.startsWith('/parent/notices') ? { color: primaryColor } : {}}
+          >
             <NoticesIcon className="h-5 w-5" />
             <span className="text-[10px] font-bold uppercase tracking-tighter">Notices</span>
           </Link>
+          <button 
+            onClick={() => setMobileMenuOpen(true)}
+            className={`flex flex-col items-center gap-1 min-w-[64px] ${mobileMenuOpen ? 'text-rose-600' : 'text-slate-400'}`}
+            style={mobileMenuOpen ? { color: primaryColor } : {}}
+          >
+            <Menu className="h-5 w-5" />
+            <span className="text-[10px] font-bold uppercase tracking-tighter">More</span>
+          </button>
         </div>
       </div>
+
+      <Dialog open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <DialogContent className="w-[92vw] max-w-sm p-0">
+          <DialogHeader className="border-b border-rose-100 p-4">
+            <DialogTitle className="text-base">Parent Navigation</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[72vh] overflow-y-auto p-4">
+            <ul className="space-y-1">
+              {filteredNavItems.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <li key={`mobile-${item.href}`}>
+                    <Link
+                      href={item.href}
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${
+                        isActive
+                          ? 'bg-rose-50 text-rose-600'
+                          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                      onClick={() => setMobileMenuOpen(false)}
+                      style={isActive ? { color: primaryColor, backgroundColor: `${primaryColor}10` } : {}}
+                    >
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="mt-6 border-t border-rose-100 pt-4">
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  logout();
+                }}
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -73,6 +73,13 @@ function isAuthPath(path: string): boolean {
   return path.startsWith("/auth/") || path.includes("/auth/")
 }
 
+/**
+ * Enhanced fetch wrapper that handles:
+ * 1. Automatic Tenant ID injection from hostname or localStorage
+ * 2. Automatic Authorization header injection
+ * 3. Session expiry detection and redirection
+ * 4. Automatic JSON parsing (returns the data object instead of Response if JSON)
+ */
 export async function apiClient(path: string, options: RequestInit = {}) {
   // 1. Resolve Tenant from Hostname or LocalStorage
   let tenant = process.env.NEXT_PUBLIC_DEFAULT_TENANT_ID || ""

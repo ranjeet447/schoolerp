@@ -44,14 +44,13 @@ class AuthServiceClass {
   // Real login via backend API
   async login(email: string, password: string): Promise<{ success: boolean; role?: string; redirect?: string; error?: string }> {
     try {
-      const response = await apiClient('/auth/login', {
+      // apiClient returns parsed JSON data if the response is application/json
+      const data = await apiClient('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
-      });
+      }) as LoginResponse;
 
-      const data: LoginResponse = await response.json();
-
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         if (data.code === 'legal_acceptance_required' && data.meta?.preauth_token) {
           try {
             localStorage.setItem('legal_preauth_token', String(data.meta.preauth_token));
@@ -67,7 +66,7 @@ class AuthServiceClass {
         }
         return {
           success: false,
-          error: data.message || 'Invalid credentials'
+          error: data.message || 'Invalid credentials. Please check your email and password.'
         };
       }
 
@@ -94,12 +93,21 @@ class AuthServiceClass {
         };
       }
 
-      return { success: false, error: 'Unexpected error' };
-    } catch (error) {
+      return { success: false, error: 'Authentication failed: No user data received.' };
+    } catch (error: any) {
       console.error('Login error:', error);
+
+      // Provide more specific error messages if possible
+      if (error?.message?.includes('fetch')) {
+        return {
+          success: false,
+          error: 'Connection failed. Please check your internet or if the API is offline.'
+        };
+      }
+
       return {
         success: false,
-        error: 'Network error. Please check if the API is running.'
+        error: error?.message || 'An unexpected error occurred during login.'
       };
     }
   }

@@ -466,19 +466,41 @@ JWT tokens are issued via the `/auth/login` endpoint and contain: `user_id`, `te
 ```
 
 #### `GET /admin/academics/subjects`
-#### `GET /admin/academics/certificates/requests`
-#### `POST /admin/academics/certificates/requests`
-```json
-// Request
-{ "student_id": "uuid", "certificate_type": "bonafide", "purpose": "Passport application" }
-```
-
 #### `POST /admin/academics/certificates/requests/{id}/status`
 ```json
 // Request
 { "status": "approved" }
 ```
 > Status values: `approved`, `rejected`
+
+### Certificates (Issuance)
+
+#### `GET /admin/certificates`
+```json
+// Response 200
+[{ "id": "uuid", "student_id": "uuid", "certificate_type": "bonafide", "certificate_number": "CERT-2026-001", "issued_at": "..." }]
+```
+
+#### `POST /admin/certificates/bonafide`
+```json
+// Request
+{ "student_id": "uuid", "reason": "Passport application" }
+// Response 201
+{ "id": "uuid", "certificate_url": "https://storage/cert.pdf" }
+```
+
+#### `POST /admin/certificates/tc`
+```json
+// Request
+{ "student_id": "uuid", "reason": "Relocation", "conduct": "Excellent", "remarks": "Regular student" }
+// Response 201
+{ "id": "uuid", "certificate_url": "https://storage/tc.pdf" }
+```
+
+#### `GET /admin/students/{id}/certificates`
+> Returns list of certificates issued to a specific student
+
+---
 
 ---
 
@@ -645,6 +667,32 @@ JWT tokens are issued via the `/auth/login` endpoint and contain: `user_id`, `te
 { "issue_id": "uuid", "fine_amount": 0 }
 ```
 
+### Library Reading Progress
+
+#### `GET /admin/library/reading-progress/recent`
+> Returns list of most recent reading updates across the school
+
+#### `GET /admin/library/reading-progress/{student_id}`
+> Returns list of books and reading logs for a specific student
+
+#### `POST /admin/library/reading-progress` — Upsert Log
+```json
+// Request
+{ "student_id": "uuid", "book_id": "uuid", "status": "reading", "current_page": 45, "total_pages": 300 }
+```
+
+#### `POST /admin/library/reading-progress/update`
+```json
+// Request
+{ "student_id": "uuid", "book_id": "uuid", "pages_read": 10 }
+```
+
+#### `GET /admin/library/reading-progress/velocity/{student_id}/{book_id}`
+```json
+// Response 200
+{ "avg_pages_per_day": 15.5, "estimated_completion": "2026-03-25" }
+```
+
 ---
 
 ### Inventory
@@ -784,9 +832,41 @@ JWT tokens are issued via the `/auth/login` endpoint and contain: `user_id`, `te
 ```
 > Status values: `applied`, `shortlisted`, `interviewed`, `selected`, `rejected`
 
+### Automation Studio
+
+#### `GET /admin/automation/rules`
+#### `POST /admin/automation/rules`
+```json
+// Request
+{ "name": "Absent Alert", "trigger_event": "attendance.absent", "actions": [{"type": "sms", "recipient": "parent"}], "is_enabled": true }
+```
+
+#### `PUT /admin/automation/rules/{id}`
+#### `DELETE /admin/automation/rules/{id}`
+
+### Biometric Bridge
+
+#### `POST /admin/biometric/ingest`
+```json
+// Request
+{ "device_id": "uuid", "log_time": "...", "punch_id": "...", "type": "check_in" }
+```
+
+#### `GET /admin/biometric/devices`
+#### `GET /admin/biometric/logs`
+
+### ID Cards
+
+#### `GET /admin/id-cards/templates`
+#### `POST /admin/id-cards/templates`
+```json
+// Request
+{ "name": "Student ID 2026", "fields": ["name", "class", "admission_no"], "primary_color": "#4A90E2" }
+```
+
 ---
 
-### Portfolio (Multi-School Groups)
+### Portfolio Intelligence (Multi-School Groups)
 
 #### `GET /admin/portfolio/groups`
 #### `POST /admin/portfolio/groups`
@@ -808,17 +888,35 @@ JWT tokens are issued via the `/auth/login` endpoint and contain: `user_id`, `te
 { "total_students": 5000, "total_schools": 5, "average_attendance": 92.5 }
 ```
 
+#### `GET /admin/portfolio/groups/{id}/financial-analytics`
+> Returns aggregated collection vs pending data across group
+
 ---
 
 ### AI Endpoints
 
-#### `POST /admin/ai/lesson-plan`
+#### `POST /v1/ai/helpdesk` — Parent AI Assistant
+> **Feature flag:** `enable_parent_helpdesk` must be enabled in tenant config
+```json
+// Request
+{ "query": "What is the fee due for Ananya?", "context_info": "parent" }
+// Response 200
+{ "answer": "Ananya's pending fee for Term 2 is ₹25,000. The due date is March 31, 2026." }
+```
+
+#### `POST /v1/ai/lesson-plan` — Teacher Copilot
 > **Feature flag:** `enable_teacher_copilot` must be enabled in tenant config
 ```json
 // Request
 { "subject": "Mathematics", "topic": "Quadratic Equations", "grade": "10" }
 // Response 200
 { "lesson_plan": "## Lesson Plan: Quadratic Equations\n\n### Objectives:\n..." }
+```
+
+#### `POST /v1/ai/exams/rubrics/generate`
+```json
+// Request
+{ "subject": "English", "title": "Report Writing", "grade": "8", "max_marks": 20 }
 ```
 
 ---
@@ -844,14 +942,8 @@ JWT tokens are issued via the `/auth/login` endpoint and contain: `user_id`, `te
 
 #### `GET /parent/results/{child_id}`
 
-#### `POST /parent/ai/query`
-> **Feature flag:** `enable_parent_helpdesk` must be enabled
-```json
-// Request
-{ "query": "What is the fee due for Ananya?", "context_info": "parent" }
-// Response 200
-{ "answer": "Ananya's pending fee for Term 2 is ₹25,000. The due date is March 31, 2026." }
-```
+#### `POST /parent/ai/query` — **DEPRECATED**
+> See `/v1/ai/helpdesk`
 
 ---
 
