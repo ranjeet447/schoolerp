@@ -57,14 +57,14 @@ export default function ParentNoticesPage() {
       }
 
       const payload = await res.json()
-      const data = Array.isArray(payload) ? payload : payload?.data || []
+      const data = Array.isArray(payload) ? payload : (payload?.data || [])
       const normalized = data.map((item: any) => ({
         id: uuidValue(item?.id),
         title: textValue(item?.title),
         body: textValue(item?.body),
         author: textValue(item?.author || item?.created_by_name),
         created_at: tsValue(item?.created_at),
-        isRead: ackedValue(item?.ack_at) || Boolean(item?.isRead || item?.acknowledged || item?.read),
+        isRead: Boolean(item?.ack_at || item?.isRead || item?.acknowledged || item?.read),
       }))
       setNotices(normalized)
     } catch (err) {

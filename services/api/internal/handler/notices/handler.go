@@ -23,6 +23,8 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Route("/notices", func(r chi.Router) {
 		r.Post("/", h.Create)
 		r.Get("/", h.List)
+		r.Get("/{id}/acks/stats", h.GetAckStats)
+		r.Get("/{id}/acks", h.ListAcks)
 	})
 }
 
@@ -99,6 +101,30 @@ func (h *Handler) Acknowledge(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) GetAckStats(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	tenantID := middleware.GetTenantID(r.Context())
+
+	stats, err := h.svc.GetNoticeAckStats(r.Context(), id, tenantID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(stats)
+}
+
+func (h *Handler) ListAcks(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	tenantID := middleware.GetTenantID(r.Context())
+
+	acks, err := h.svc.ListNoticeAcks(r.Context(), id, tenantID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(acks)
 }
 
 func normalizeScopePayload(scope any) map[string]any {

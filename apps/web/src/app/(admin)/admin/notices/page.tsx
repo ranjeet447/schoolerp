@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { NoticeCard, TargetSelector, Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Textarea, Badge } from "@schoolerp/ui"
+import { NoticeCard, TargetSelector, Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Textarea, Badge, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
+import { Users, CheckCircle2, Clock } from "lucide-react"
 
 type ScopeTarget = { value: string; label: string }
 
@@ -39,6 +40,12 @@ export default function AdminNoticesPage() {
   const [scopeTargets, setScopeTargets] = useState<ScopeTarget[]>(DEFAULT_SCOPES)
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
+  
+  // Acks Drawer State
+  const [selectedNotice, setSelectedNotice] = useState<any | null>(null)
+  const [ackStats, setAckStats] = useState<any>(null)
+  const [acks, setAcks] = useState<any[]>([])
+  const [loadingAcks, setLoadingAcks] = useState(false)
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -66,6 +73,28 @@ export default function AdminNoticesPage() {
 
   const removeAttachment = (idx: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  const openAcksDrawer = async (notice: any) => {
+    setSelectedNotice(notice)
+    setLoadingAcks(true)
+    try {
+      const [statsRes, listRes] = await Promise.all([
+        apiClient(`/admin/notices/${notice.id}/acks/stats`),
+        apiClient(`/admin/notices/${notice.id}/acks`)
+      ])
+      
+      if (statsRes.ok) {
+        setAckStats(await statsRes.json())
+      }
+      if (listRes.ok) {
+        setAcks(await listRes.json())
+      }
+    } catch (err) {
+      toast.error("Failed to load notice acknowledgements")
+    } finally {
+      setLoadingAcks(false)
+    }
   }
 
   useEffect(() => {
@@ -247,12 +276,115 @@ export default function AdminNoticesPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {notices.map(n => (
-                <NoticeCard key={n.id} {...n} />
+                <div key={n.id} className="cursor-pointer transition-transform hover:scale-[1.01]" onClick={() => openAcksDrawer(n)}>
+                  <NoticeCard {...n} />
+                </div>
               ))}
             </div>
           )}
         </div>
       </div>
+
+      <Dialog open={!!selectedNotice} onOpenChange={(open) => !open && setSelectedNotice(null)}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <div className="mx-auto w-full p-6">
+            <DialogHeader className="px-0">
+              <DialogTitle className="text-2xl">{selectedNotice?.title}</DialogTitle>
+              <DialogDescription>View parent acknowledgements and audience reach</DialogDescription>
+            </DialogHeader>
+
+            {loadingAcks ? (
+              <div className="py-12 text-center text-muted-foreground">Loading statistics...</div>
+            ) : (
+              <div className="space-y-6">
+                {ackStats && (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <Card>
+                      <CardContent className="p-4 flex items-center gap-4">
+                        <div className="p-3 bg-blue-100 text-blue-600 rounded-xl dark:bg-blue-900/30 dark:text-blue-400">
+                          <Users className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground font-medium">Total Audience</p>
+                          <p className="text-2xl font-bold">{ackStats.total_audience}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4 flex items-center gap-4">
+                        <div className="p-3 bg-green-100 text-green-600 rounded-xl dark:bg-green-900/30 dark:text-green-400">
+                          <CheckCircle2 className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground font-medium">Acknowledged</p>
+                          <p className="text-2xl font-bold">{ackStats.acknowledged_count}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4 flex items-center gap-4">
+                        <div className="p-3 bg-orange-100 text-orange-600 rounded-xl dark:bg-orange-900/30 dark:text-orange-400">
+                          <Clock className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground font-medium">Pending</p>
+                          <p className="text-2xl font-bold">{ackStats.pending_count}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                <div className="rounded-xl border bg-card overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Parent Name</TableHead>
+                        <TableHead>Student</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Acknowledged At</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {acks.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                            No audience found for this notice.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        acks.map((ack) => (
+                          <TableRow key={ack.guardian_id}>
+                            <TableCell className="font-medium">{ack.guardian_name}</TableCell>
+                            <TableCell>
+                              {ack.student_name}
+                              <span className="text-xs text-muted-foreground ml-2">({ack.admission_number})</span>
+                            </TableCell>
+                            <TableCell>
+                              {ack.is_acknowledged ? (
+                                <Badge variant="default" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-200">
+                                  Acknowledged
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 border-orange-200">
+                                  Pending
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground">
+                              {ack.is_acknowledged && ack.ack_at ? new Date(ack.ack_at).toLocaleDateString() : "-"}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -26,6 +26,35 @@ FROM notice_acks na
 JOIN users u ON na.user_id = u.id
 WHERE na.notice_id = $1;
 
+-- name: GetNoticeAckStats :one
+SELECT 
+    COUNT(DISTINCT sg.guardian_id) as total_audience,
+    COUNT(DISTINCT na.user_id) as acknowledged_count,
+    (COUNT(DISTINCT sg.guardian_id) - COUNT(DISTINCT na.user_id)) as pending_count
+FROM notices n
+JOIN students s ON s.tenant_id = n.tenant_id AND s.status = 'active'
+JOIN student_guardians sg ON sg.student_id = s.id AND sg.is_primary = TRUE
+JOIN guardians g ON g.id = sg.guardian_id
+LEFT JOIN notice_acks na ON na.notice_id = n.id AND na.user_id = g.user_id
+WHERE n.id = $1 AND n.tenant_id = $2;
+
+-- name: ListNoticeAcksWithStatus :many
+SELECT 
+    g.id as guardian_id,
+    g.full_name as guardian_name,
+    g.user_id as user_id,
+    s.full_name as student_name,
+    s.admission_number,
+    na.ack_at IS NOT NULL as is_acknowledged,
+    na.ack_at
+FROM notices n
+JOIN students s ON s.tenant_id = n.tenant_id AND s.status = 'active'
+JOIN student_guardians sg ON sg.student_id = s.id AND sg.is_primary = TRUE
+JOIN guardians g ON g.id = sg.guardian_id
+LEFT JOIN notice_acks na ON na.notice_id = n.id AND na.user_id = g.user_id
+WHERE n.id = $1 AND n.tenant_id = $2
+ORDER BY is_acknowledged DESC, g.full_name ASC;
+
 -- name: ListNoticesForParent :many
 -- Fetch notices that are published (publish_at <= NOW())
 SELECT n.*, na.ack_at

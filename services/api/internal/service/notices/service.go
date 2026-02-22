@@ -107,6 +107,28 @@ func (s *Service) ListNotices(ctx context.Context, tenantID string) ([]db.ListNo
 	return s.q.ListNotices(ctx, tUUID)
 }
 
+func (s *Service) GetNoticeAckStats(ctx context.Context, noticeID, tenantID string) (db.GetNoticeAckStatsRow, error) {
+	nUUID := pgtype.UUID{}
+	nUUID.Scan(noticeID)
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	return s.q.GetNoticeAckStats(ctx, db.GetNoticeAckStatsParams{
+		ID:       nUUID,
+		TenantID: tUUID,
+	})
+}
+
+func (s *Service) ListNoticeAcks(ctx context.Context, noticeID, tenantID string) ([]db.ListNoticeAcksWithStatusRow, error) {
+	nUUID := pgtype.UUID{}
+	nUUID.Scan(noticeID)
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	return s.q.ListNoticeAcksWithStatus(ctx, db.ListNoticeAcksWithStatusParams{
+		ID:       nUUID,
+		TenantID: tUUID,
+	})
+}
+
 func (s *Service) AcknowledgeNotice(ctx context.Context, noticeID, userID string) error {
 	nUUID := pgtype.UUID{}
 	nUUID.Scan(noticeID)

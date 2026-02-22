@@ -115,6 +115,37 @@ func (q *Queries) GetNotice(ctx context.Context, arg GetNoticeParams) (Notice, e
 	return i, err
 }
 
+const getNoticeAckStats = `-- name: GetNoticeAckStats :one
+SELECT 
+    COUNT(DISTINCT sg.guardian_id) as total_audience,
+    COUNT(DISTINCT na.user_id) as acknowledged_count,
+    (COUNT(DISTINCT sg.guardian_id) - COUNT(DISTINCT na.user_id)) as pending_count
+FROM notices n
+JOIN students s ON s.tenant_id = n.tenant_id AND s.status = 'active'
+JOIN student_guardians sg ON sg.student_id = s.id AND sg.is_primary = TRUE
+JOIN guardians g ON g.id = sg.guardian_id
+LEFT JOIN notice_acks na ON na.notice_id = n.id AND na.user_id = g.user_id
+WHERE n.id = $1 AND n.tenant_id = $2
+`
+
+type GetNoticeAckStatsParams struct {
+	ID       pgtype.UUID `json:"id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+}
+
+type GetNoticeAckStatsRow struct {
+	TotalAudience     int64 `json:"total_audience"`
+	AcknowledgedCount int64 `json:"acknowledged_count"`
+	PendingCount      int32 `json:"pending_count"`
+}
+
+func (q *Queries) GetNoticeAckStats(ctx context.Context, arg GetNoticeAckStatsParams) (GetNoticeAckStatsRow, error) {
+	row := q.db.QueryRow(ctx, getNoticeAckStats, arg.ID, arg.TenantID)
+	var i GetNoticeAckStatsRow
+	err := row.Scan(&i.TotalAudience, &i.AcknowledgedCount, &i.PendingCount)
+	return i, err
+}
+
 const getNoticeAcks = `-- name: GetNoticeAcks :many
 SELECT na.notice_id, na.user_id, na.ack_at, u.full_name as user_name
 FROM notice_acks na
@@ -143,6 +174,67 @@ func (q *Queries) GetNoticeAcks(ctx context.Context, noticeID pgtype.UUID) ([]Ge
 			&i.UserID,
 			&i.AckAt,
 			&i.UserName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listNoticeAcksWithStatus = `-- name: ListNoticeAcksWithStatus :many
+SELECT 
+    g.id as guardian_id,
+    g.full_name as guardian_name,
+    g.user_id as user_id,
+    s.full_name as student_name,
+    s.admission_number,
+    na.ack_at IS NOT NULL as is_acknowledged,
+    na.ack_at
+FROM notices n
+JOIN students s ON s.tenant_id = n.tenant_id AND s.status = 'active'
+JOIN student_guardians sg ON sg.student_id = s.id AND sg.is_primary = TRUE
+JOIN guardians g ON g.id = sg.guardian_id
+LEFT JOIN notice_acks na ON na.notice_id = n.id AND na.user_id = g.user_id
+WHERE n.id = $1 AND n.tenant_id = $2
+ORDER BY is_acknowledged DESC, g.full_name ASC
+`
+
+type ListNoticeAcksWithStatusParams struct {
+	ID       pgtype.UUID `json:"id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+}
+
+type ListNoticeAcksWithStatusRow struct {
+	GuardianID      pgtype.UUID        `json:"guardian_id"`
+	GuardianName    string             `json:"guardian_name"`
+	UserID          pgtype.UUID        `json:"user_id"`
+	StudentName     string             `json:"student_name"`
+	AdmissionNumber string             `json:"admission_number"`
+	IsAcknowledged  interface{}        `json:"is_acknowledged"`
+	AckAt           pgtype.Timestamptz `json:"ack_at"`
+}
+
+func (q *Queries) ListNoticeAcksWithStatus(ctx context.Context, arg ListNoticeAcksWithStatusParams) ([]ListNoticeAcksWithStatusRow, error) {
+	rows, err := q.db.Query(ctx, listNoticeAcksWithStatus, arg.ID, arg.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListNoticeAcksWithStatusRow
+	for rows.Next() {
+		var i ListNoticeAcksWithStatusRow
+		if err := rows.Scan(
+			&i.GuardianID,
+			&i.GuardianName,
+			&i.UserID,
+			&i.StudentName,
+			&i.AdmissionNumber,
+			&i.IsAcknowledged,
+			&i.AckAt,
 		); err != nil {
 			return nil, err
 		}
