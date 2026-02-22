@@ -98,50 +98,89 @@ export const HeroSection = () => {
           </div>
         </motion.div>
 
-        {/* Abstract UI Mockup */}
+        {/* Realistic Product Mockup Composite */}
         <motion.div 
-          initial={{ opacity: 0, y: 60, rotateX: 20, scale: 0.8 }}
-          animate={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
+          initial={{ opacity: 0, y: 60, rotateX: 10 }}
+          whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
+          viewport={{ once: true }}
           transition={{ duration: 1.2, delay: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          className="mt-24 w-full max-w-5xl overflow-hidden rounded-[2.5rem] border border-primary/20 bg-card/30 backdrop-blur-3xl shadow-[0_32px_128px_-16px_rgba(139,92,246,0.3)] relative group transform-gpu perspective-1000"
+          className="mt-24 w-full max-w-6xl relative perspective-1000"
         >
-          <div className="flex items-center gap-3 border-b border-white/10 bg-white/5 px-6 py-4">
-            <div className="flex gap-2">
-              <div className="h-3 w-3 rounded-full bg-red-500/50" />
-              <div className="h-3 w-3 rounded-full bg-yellow-500/50" />
-              <div className="h-3 w-3 rounded-full bg-green-500/50" />
+          {/* Main Web Dashboard Mockup */}
+          <div className="relative z-10 overflow-hidden rounded-[2.5rem] border border-primary/20 bg-card/30 backdrop-blur-3xl shadow-[0_32px_128px_-16px_rgba(139,92,246,0.2)]">
+            <div className="flex items-center gap-3 border-b border-white/10 bg-white/5 px-6 py-4">
+              <div className="flex gap-2">
+                <div className="h-3 w-3 rounded-full bg-red-400/30" />
+                <div className="h-3 w-3 rounded-full bg-amber-400/30" />
+                <div className="h-3 w-3 rounded-full bg-emerald-400/30" />
+              </div>
+              <div className="h-4 w-64 rounded-full bg-white/5 mx-auto" />
+            </div>
+            <div className="aspect-[16/10] relative group">
+              <img 
+                src="/mockups/admin-web.png" 
+                alt="SchoolERP Admin Dashboard" 
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-background/40 to-transparent pointer-events-none" />
             </div>
           </div>
-          <div className="p-6 sm:p-8 md:p-12">
-            <div className="grid grid-cols-1 gap-6 sm:gap-8 sm:grid-cols-3">
-              <div className="space-y-4 rounded-3xl border border-white/5 bg-white/5 p-4 sm:p-6 shadow-2xl">
-                <div className="h-4 w-24 rounded-full bg-primary/20" />
-                <div className="flex items-end gap-2 pt-2">
-                  <div className="text-3xl sm:text-4xl font-black text-primary italic">₹72.4L</div>
-                </div>
-                <div className="h-32 w-full rounded-2xl bg-gradient-to-br from-primary/20 to-transparent border border-white/10" />
+
+          {/* Floating Mobile App Mockup - Teacher/Admin App */}
+          <motion.div
+            initial={{ opacity: 0, x: 100, y: -40, rotate: 5 }}
+            whileInView={{ opacity: 1, x: 0, y: 0, rotate: -5 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1, delay: 1.4, type: 'spring' }}
+            className="absolute -right-8 -bottom-12 z-20 w-[280px] hidden lg:block"
+          >
+            <div className="relative aspect-[9/19.5] drop-shadow-[0_24px_48px_rgba(0,0,0,0.4)]">
+              {/* Screen Content */}
+              <div className="absolute inset-[3%] rounded-[2rem] overflow-hidden bg-black">
+                 <img 
+                  src="/mockups/teacher-mobile.png" 
+                  alt="SchoolERP Teacher App" 
+                  className="w-full h-full object-cover"
+                />
               </div>
-              <div className="col-span-1 sm:col-span-2 space-y-4 rounded-3xl border border-white/5 bg-white/5 p-4 sm:p-6 shadow-2xl">
-                <div className="flex justify-between items-center px-1 sm:px-2">
-                  <div className="h-4 w-32 sm:w-48 rounded-full bg-white/10" />
-                  <div className="h-4 w-12 sm:w-16 rounded-full bg-white/10" />
-                </div>
-                <div className="grid grid-cols-4 gap-2 sm:gap-4 pt-4">
-                  {[...Array(4)].map((_, i) => (
-                    <div key={i} className="space-y-2">
-                      <motion.div 
-                        initial={{ height: 0 }}
-                        animate={{ height: `${[60, 90, 40, 75][i]}%` }}
-                        transition={{ duration: 1, delay: 1.2 + i * 0.1 }}
-                        className="w-full rounded-t-xl bg-gradient-to-t from-primary/40 to-primary/10" 
-                      />
-                      <div className="h-2 w-full rounded-full bg-white/5" />
-                    </div>
-                  ))}
-                </div>
-              </div>
+              {/* Device Frame */}
+              <img 
+                src="/mockups/mobile-frame.jpg" 
+                alt="Mobile Frame" 
+                className="absolute inset-0 w-full h-full object-contain pointer-events-none mix-blend-screen brightness-150"
+              />
             </div>
-          </div>
+          </motion.div>
+
+          {/* Floating Mobile App Mockup - Parent Portal */}
+          <motion.div
+            initial={{ opacity: 0, x: -100, y: 40, rotate: -10 }}
+            whileInView={{ opacity: 1, x: 0, y: 0, rotate: 5 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1, delay: 1.6, type: 'spring' }}
+            className="absolute -left-12 bottom-12 z-20 w-[240px] hidden lg:block"
+          >
+            <div className="relative aspect-[9/19.5] drop-shadow-[0_24px_48px_rgba(139,92,246,0.2)] scale-90">
+              {/* Screen Content */}
+              <div className="absolute inset-[3%] rounded-[2rem] overflow-hidden bg-black">
+                 <img 
+                  src="/mockups/parent-mobile.png" 
+                  alt="SchoolERP Parent Portal" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              {/* Device Frame */}
+              <img 
+                src="/mockups/mobile-frame.jpg" 
+                alt="Mobile Frame" 
+                className="absolute inset-0 w-full h-full object-contain pointer-events-none mix-blend-screen brightness-150"
+              />
+            </div>
+          </motion.div>
+
+          {/* Ambient Glows */}
+          <div className="absolute -top-12 -right-12 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none" />
+          <div className="absolute -bottom-12 -left-12 w-64 h-64 bg-fuchsia-500/10 blur-[100px] rounded-full pointer-events-none" />
         </motion.div>
       </Container>
     </Section>

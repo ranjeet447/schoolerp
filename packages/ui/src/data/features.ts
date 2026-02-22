@@ -17,6 +17,7 @@ export interface FeatureItem {
   mockUI: {
     title: string;
     type: 'table' | 'chart' | 'list' | 'nodes' | 'selection' | 'map';
+    screenshot?: string;
   };
 }
 
@@ -38,7 +39,11 @@ export const FEATURES_DATA: FeatureItem[] = [
       "Daily Defaulter Target Setting",
       "Bulk SMS/WhatsApp Reminders"
     ],
-    mockUI: { title: "Fee Collection Dashboard", type: "chart" }
+    mockUI: {
+      title: "Fee Collection Dashboard",
+      type: "chart",
+      screenshot: "/mockups/admin-web.png"
+    }
   },
   {
     id: "fee-receipt",
@@ -114,7 +119,11 @@ export const FEATURES_DATA: FeatureItem[] = [
       "Holiday & Weekend Aware",
       "Subject-wise or Daily marking"
     ],
-    mockUI: { title: "Daily Attendance Grid", type: "table" }
+    mockUI: {
+      title: "Daily Attendance Grid",
+      type: "table",
+      screenshot: "/mockups/teacher-mobile.png"
+    }
   },
   {
     id: "absentee",
@@ -152,7 +161,11 @@ export const FEATURES_DATA: FeatureItem[] = [
       "Secure Digital Notice Board",
       "Multilingual UI Support"
     ],
-    mockUI: { title: "Parent App Engagement", type: "chart" }
+    mockUI: {
+      title: "Parent App Engagement",
+      type: "chart",
+      screenshot: "/mockups/parent-mobile.png"
+    }
   },
   {
     id: "circulars",
