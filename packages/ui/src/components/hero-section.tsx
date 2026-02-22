@@ -126,57 +126,7 @@ export const HeroSection = () => {
             </div>
           </div>
 
-          {/* Floating Mobile App Mockup - Teacher/Admin App */}
-          <motion.div
-            initial={{ opacity: 0, x: 100, y: -40, rotate: 5 }}
-            whileInView={{ opacity: 1, x: 0, y: 0, rotate: -5 }}
-            viewport={{ once: true }}
-            transition={{ duration: 1, delay: 1.4, type: 'spring' }}
-            className="absolute -right-8 -bottom-12 z-20 w-[280px] hidden lg:block"
-          >
-            <div className="relative aspect-[9/19.5] drop-shadow-[0_24px_48px_rgba(0,0,0,0.4)]">
-              {/* Screen Content */}
-              <div className="absolute inset-[3%] rounded-[2rem] overflow-hidden bg-black">
-                 <img 
-                  src="/mockups/attendance-live.png" 
-                  alt="SchoolERP Teacher App" 
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              {/* Device Frame */}
-              <img 
-                src="/mockups/mobile-frame.jpg" 
-                alt="Mobile Frame" 
-                className="absolute inset-0 w-full h-full object-contain pointer-events-none mix-blend-screen brightness-150"
-              />
-            </div>
-          </motion.div>
-
-          {/* Floating Mobile App Mockup - Parent Portal */}
-          <motion.div
-            initial={{ opacity: 0, x: -100, y: 40, rotate: -10 }}
-            whileInView={{ opacity: 1, x: 0, y: 0, rotate: 5 }}
-            viewport={{ once: true }}
-            transition={{ duration: 1, delay: 1.6, type: 'spring' }}
-            className="absolute -left-12 bottom-12 z-20 w-[240px] hidden lg:block"
-          >
-            <div className="relative aspect-[9/19.5] drop-shadow-[0_24px_48px_rgba(139,92,246,0.2)] scale-90">
-              {/* Screen Content */}
-              <div className="absolute inset-[3%] rounded-[2rem] overflow-hidden bg-black">
-                 <img 
-                  src="/mockups/notice-mobile-live.png" 
-                  alt="SchoolERP Parent Portal" 
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              {/* Device Frame */}
-              <img 
-                src="/mockups/mobile-frame.jpg" 
-                alt="Mobile Frame" 
-                className="absolute inset-0 w-full h-full object-contain pointer-events-none mix-blend-screen brightness-150"
-              />
-            </div>
-          </motion.div>
+          </div>
 
           {/* Ambient Glows */}
           <div className="absolute -top-12 -right-12 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none" />

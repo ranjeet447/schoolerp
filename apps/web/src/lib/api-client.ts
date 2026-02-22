@@ -143,11 +143,24 @@ export async function apiClient(path: string, options: RequestInit = {}) {
   const contentType = response.headers.get("content-type")
   if (contentType?.includes("application/json")) {
     const data = await response.json()
+
     // Add success flag if not present for consistency
-    if (typeof data === 'object' && data !== null && data.success === undefined) {
-      data.success = response.ok
+    const success = data.success !== undefined ? data.success : response.ok
+
+    // Return a proxy-like object that satisfies both Response-checkers and direct data accessors
+    return {
+      ...data,
+      success,
+      ok: response.ok,
+      status: response.status,
+      headers: response.headers,
+      json: async () => data,
+      // For those who treat it as a raw response
+      text: async () => JSON.stringify(data),
+      blob: async () => response.blob(),
+      formData: async () => response.formData(),
+      arrayBuffer: async () => response.arrayBuffer(),
     }
-    return data
   }
 
   return response
