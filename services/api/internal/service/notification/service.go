@@ -2,6 +2,7 @@ package notification
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/schoolerp/api/internal/db"
@@ -23,6 +24,34 @@ func (s *Service) ListLogs(ctx context.Context, tenantID string, limit, offset i
 		TenantID: tUUID,
 		Limit:    limit,
 		Offset:   offset,
+	})
+}
+
+type ListLogsParams struct {
+	TenantID  string
+	Status    string
+	EventType string
+	From      time.Time
+	To        time.Time
+	Limit     int32
+	Offset    int32
+}
+
+func (s *Service) ListFilteredLogs(ctx context.Context, p ListLogsParams) ([]db.Outbox, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(p.TenantID)
+
+	from := pgtype.Timestamptz{Time: p.From, Valid: !p.From.IsZero()}
+	to := pgtype.Timestamptz{Time: p.To, Valid: !p.To.IsZero()}
+
+	return s.q.ListOutboxEventsWithFilters(ctx, db.ListOutboxEventsWithFiltersParams{
+		TenantID:  tID,
+		Status:    p.Status,
+		EventType: p.EventType,
+		FromDate:  from,
+		ToDate:    to,
+		LimitVal:  p.Limit,
+		OffsetVal: p.Offset,
 	})
 }
 
@@ -136,4 +165,24 @@ func (s *Service) GetActiveGatewayConfig(ctx context.Context, tenantID string) (
 	tID.Scan(tenantID)
 
 	return s.q.GetTenantActiveNotificationGateway(ctx, tID)
+}
+
+func (s *Service) GetUsageStats(ctx context.Context, tenantID string, since time.Time) (db.GetSmsUsageStatsRow, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+
+	return s.q.GetSmsUsageStats(ctx, db.GetSmsUsageStatsParams{
+		TenantID:  tID,
+		CreatedAt: pgtype.Timestamptz{Time: since, Valid: !since.IsZero()},
+	})
+}
+
+func (s *Service) GetOutboxStats(ctx context.Context, tenantID string, since time.Time) (db.GetOutboxStatusStatsRow, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+
+	return s.q.GetOutboxStatusStats(ctx, db.GetOutboxStatusStatsParams{
+		TenantID:  tID,
+		CreatedAt: pgtype.Timestamptz{Time: since, Valid: !since.IsZero()},
+	})
 }

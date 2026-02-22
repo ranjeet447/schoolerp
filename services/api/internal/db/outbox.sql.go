@@ -130,6 +130,66 @@ func (q *Queries) ListOutboxEvents(ctx context.Context, arg ListOutboxEventsPara
 	return items, nil
 }
 
+const listOutboxEventsWithFilters = `-- name: ListOutboxEventsWithFilters :many
+SELECT id, tenant_id, event_type, payload, status, retry_count, error_message, process_after, created_at, processed_at FROM outbox
+WHERE tenant_id = $1
+  AND ($2::text = '' OR status = $2)
+  AND ($3::text = '' OR event_type ILIKE '%' || $3 || '%')
+  AND (created_at >= $4 OR $4 IS NULL)
+  AND (created_at <= $5 OR $5 IS NULL)
+ORDER BY created_at DESC
+LIMIT $7 OFFSET $6
+`
+
+type ListOutboxEventsWithFiltersParams struct {
+	TenantID  pgtype.UUID        `json:"tenant_id"`
+	Status    string             `json:"status"`
+	EventType string             `json:"event_type"`
+	FromDate  pgtype.Timestamptz `json:"from_date"`
+	ToDate    pgtype.Timestamptz `json:"to_date"`
+	OffsetVal int32              `json:"offset_val"`
+	LimitVal  int32              `json:"limit_val"`
+}
+
+func (q *Queries) ListOutboxEventsWithFilters(ctx context.Context, arg ListOutboxEventsWithFiltersParams) ([]Outbox, error) {
+	rows, err := q.db.Query(ctx, listOutboxEventsWithFilters,
+		arg.TenantID,
+		arg.Status,
+		arg.EventType,
+		arg.FromDate,
+		arg.ToDate,
+		arg.OffsetVal,
+		arg.LimitVal,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Outbox
+	for rows.Next() {
+		var i Outbox
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.EventType,
+			&i.Payload,
+			&i.Status,
+			&i.RetryCount,
+			&i.ErrorMessage,
+			&i.ProcessAfter,
+			&i.CreatedAt,
+			&i.ProcessedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateOutboxEventStatus = `-- name: UpdateOutboxEventStatus :exec
 UPDATE outbox
 SET status = $1,

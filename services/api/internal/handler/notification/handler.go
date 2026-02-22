@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/schoolerp/api/internal/middleware"
@@ -20,6 +21,7 @@ func NewHandler(svc *notifsvc.Service) *Handler {
 
 func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Get("/notifications/logs", h.ListLogs)
+	r.Get("/notifications/stats", h.GetStats)
 
 	// Templates
 	r.Post("/notifications/templates", h.CreateTemplate)
@@ -35,14 +37,29 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 }
 
 func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	q := r.URL.Query()
+	limit, _ := strconv.Atoi(q.Get("limit"))
 	if limit == 0 {
 		limit = 50
 	}
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	offset, _ := strconv.Atoi(q.Get("offset"))
 
-	tenantID := middleware.GetTenantID(r.Context())
-	logs, err := h.svc.ListLogs(r.Context(), tenantID, int32(limit), int32(offset))
+	params := notifsvc.ListLogsParams{
+		TenantID:  middleware.GetTenantID(r.Context()),
+		Status:    q.Get("status"),
+		EventType: q.Get("type"),
+		Limit:     int32(limit),
+		Offset:    int32(offset),
+	}
+
+	if from := q.Get("from"); from != "" {
+		params.From, _ = time.Parse(time.RFC3339, from)
+	}
+	if to := q.Get("to"); to != "" {
+		params.To, _ = time.Parse(time.RFC3339, to)
+	}
+
+	logs, err := h.svc.ListFilteredLogs(r.Context(), params)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -50,6 +67,22 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(logs)
+}
+
+func (h *Handler) GetStats(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	
+	// Default to last 24h for "today" stats
+	since := time.Now().Add(-24 * time.Hour)
+	
+	usage, _ := h.svc.GetUsageStats(r.Context(), tenantID, since)
+	outbox, _ := h.svc.GetOutboxStats(r.Context(), tenantID, since)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"usage":  usage,
+		"outbox": outbox,
+	})
 }
 
 func (h *Handler) CreateTemplate(w http.ResponseWriter, r *http.Request) {

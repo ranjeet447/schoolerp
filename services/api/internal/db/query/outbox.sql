@@ -24,3 +24,13 @@ SELECT * FROM outbox
 WHERE tenant_id = $1
 ORDER BY created_at DESC
 LIMIT $3 OFFSET $2;
+
+-- name: ListOutboxEventsWithFilters :many
+SELECT * FROM outbox
+WHERE tenant_id = @tenant_id
+  AND (@status::text = '' OR status = @status)
+  AND (@event_type::text = '' OR event_type ILIKE '%' || @event_type || '%')
+  AND (created_at >= @from_date OR @from_date IS NULL)
+  AND (created_at <= @to_date OR @to_date IS NULL)
+ORDER BY created_at DESC
+LIMIT @limit_val OFFSET @offset_val;

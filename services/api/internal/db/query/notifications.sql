@@ -74,3 +74,31 @@ SELECT
 FROM sms_usage_logs
 WHERE tenant_id = $1 AND created_at >= $2 AND created_at <= $3
 GROUP BY provider;
+
+-- name: ListSmsUsageLogsWithFilters :many
+SELECT * FROM sms_usage_logs
+WHERE tenant_id = @tenant_id
+  AND (provider = @provider OR @provider = '')
+  AND (status = @status OR @status = '')
+  AND (created_at >= @from_date OR @from_date IS NULL)
+  AND (created_at <= @to_date OR @to_date IS NULL)
+ORDER BY created_at DESC
+LIMIT @limit_val OFFSET @offset_val;
+
+-- name: GetSmsUsageStats :one
+SELECT 
+    COUNT(*)::bigint as total_count,
+    SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END)::bigint as delivered_count,
+    SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END)::bigint as failed_count,
+    COALESCE(SUM(cost), 0)::numeric as total_cost
+FROM sms_usage_logs
+WHERE tenant_id = @tenant_id AND created_at >= @since;
+
+-- name: GetOutboxStatusStats :one
+SELECT 
+    COUNT(*)::bigint as total_count,
+    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END)::bigint as completed_count,
+    SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END)::bigint as failed_count,
+    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END)::bigint as pending_count
+FROM outbox
+WHERE tenant_id = @tenant_id AND created_at >= @since;
