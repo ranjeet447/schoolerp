@@ -23,9 +23,11 @@ const NAV_ITEMS = [
   { href: '/teacher/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
   { href: '/teacher/attendance', label: 'Mark Attendance', icon: CalendarCheck, permission: 'attendance:write' },
   { href: '/teacher/homework', label: 'Homework', icon: BookOpen, permission: 'sis:read' },
+  { href: '/teacher/leaves', label: 'My Leaves', icon: FileText, permission: 'hrms:read' },
   { href: '/teacher/kb', label: 'Knowledgebase', icon: BookOpen, permission: 'sis:read' },
   { href: '/teacher/exams/marks', label: 'Enter Marks', icon: GraduationCap, permission: 'exams:write' },
   { href: '/teacher/notices', label: 'Notices', icon: FileText, permission: 'notices:read' },
+  { href: '/teacher/profile', label: 'My Profile', icon: User },
 ];
 
 export default function TeacherLayoutClient({
@@ -114,7 +116,7 @@ export default function TeacherLayoutClient({
         
         <div className="border-t border-emerald-100 p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <Link href="/teacher/profile" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
               <div className="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center text-xs font-bold text-emerald-600 border border-emerald-200" style={{ color: primaryColor, backgroundColor: `${primaryColor}20`, borderColor: `${primaryColor}30` }}>
                 {user?.name?.[0] || <User className="h-4 w-4" />}
               </div>
@@ -122,7 +124,7 @@ export default function TeacherLayoutClient({
                 <p className="text-sm font-medium text-slate-900 truncate">{user?.name || 'Loading...'}</p>
                 <p className="text-xs text-slate-400 truncate capitalize">{user?.role?.replace('_', ' ') || ''}</p>
               </div>
-            </div>
+            </Link>
             <Button
               variant="ghost"
               size="icon"

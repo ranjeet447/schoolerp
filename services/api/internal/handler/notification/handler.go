@@ -27,6 +27,11 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Get("/notifications/templates/{id}", h.GetTemplate)
 	r.Put("/notifications/templates/{id}", h.UpdateTemplate)
 	r.Delete("/notifications/templates/{id}", h.DeleteTemplate)
+
+	// Gateways
+	r.Get("/notifications/gateways", h.ListGatewayConfigs)
+	r.Get("/notifications/gateways/active", h.GetActiveGatewayConfig)
+	r.Post("/notifications/gateways", h.UpdateGatewayConfig)
 }
 
 func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
@@ -129,3 +134,53 @@ func (h *Handler) DeleteTemplate(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *Handler) ListGatewayConfigs(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	configs, err := h.svc.ListGatewayConfigs(r.Context(), tenantID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(configs)
+}
+
+func (h *Handler) GetActiveGatewayConfig(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	config, err := h.svc.GetActiveGatewayConfig(r.Context(), tenantID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(config)
+}
+
+type updateGatewayReq struct {
+	Provider  string          `json:"provider"`
+	ApiKey    string          `json:"api_key"`
+	ApiSecret string          `json:"api_secret"`
+	SenderID  string          `json:"sender_id"`
+	IsActive  bool            `json:"is_active"`
+	Settings  json.RawMessage `json:"settings"`
+}
+
+func (h *Handler) UpdateGatewayConfig(w http.ResponseWriter, r *http.Request) {
+	var req updateGatewayReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	tenantID := middleware.GetTenantID(r.Context())
+	config, err := h.svc.CreateOrUpdateGatewayConfig(r.Context(), tenantID, req.Provider, req.ApiKey, req.ApiSecret, req.SenderID, req.IsActive, []byte(req.Settings))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(config)
+}

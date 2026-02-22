@@ -8,6 +8,7 @@ import { Label } from "@schoolerp/ui"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@schoolerp/ui"
 import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
+import { StudentSelect } from "@/components/students/student-select"
 
 export default function AccountantPaymentsPage() {
   const [loading, setLoading] = useState(false)
@@ -34,6 +35,23 @@ export default function AccountantPaymentsPage() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to load receipts")
       setReceipts([])
+    }
+  }
+
+  const handleDownload = async (receiptID: string) => {
+    try {
+      const res = await apiClient(`/accountant/receipts/${receiptID}/pdf`)
+      if (!res.ok) throw new Error("Failed to download PDF")
+      
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `receipt_${receiptID}.pdf`
+      a.click()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      toast.error("Failed to download receipt")
     }
   }
 
@@ -84,15 +102,15 @@ export default function AccountantPaymentsPage() {
           <CardContent>
             <form onSubmit={handleCollect} className="space-y-4">
               <div className="space-y-2">
-                <Label>Student ID</Label>
-                <Input
-                  placeholder="Paste student UUID"
+                <Label>Search Student</Label>
+                <StudentSelect
+                  baseUrl="/accountant"
                   value={studentID}
-                  onChange={(e) => setStudentID(e.target.value)}
+                  onValueChange={(val) => {
+                    setStudentID(val)
+                    if (val) fetchReceipts(val)
+                  }}
                 />
-                <Button type="button" variant="outline" className="w-full" onClick={() => fetchReceipts(studentID)} disabled={!studentID || loading}>
-                  Load Student Receipts
-                </Button>
               </div>
               <div className="space-y-2">
                 <Label>Amount (₹)</Label>
@@ -142,7 +160,7 @@ export default function AccountantPaymentsPage() {
                   date={String(r.created_at || r.date || "")}
                   mode={String(r.payment_mode || r.mode || "offline")}
                   status={status}
-                  onDownload={() => toast.info("PDF download integration pending")}
+                  onDownload={() => handleDownload(String(r.id))}
                 />
               )
             })}

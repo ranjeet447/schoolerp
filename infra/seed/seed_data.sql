@@ -45,134 +45,153 @@ ON CONFLICT (id) DO NOTHING;
 
 -- 1.3 RBAC: Permissions
 -- 1.3 RBAC: Permissions (Standardized 8-action matrix per module)
+-- 1.3 RBAC: Permissions (Standardized comprehensive set)
 INSERT INTO permissions (id, code, module, description) VALUES
--- SIS (Student Information System)
-('019c4d42-7db1-7001-9293-000000000001', 'sis:view', 'sis', 'View student profiles and records'),
-('019c4d42-7db1-7001-9293-000000000002', 'sis:create', 'sis', 'Register new students'),
-('019c4d42-7db1-7001-9293-000000000003', 'sis:edit', 'sis', 'Modify student details'),
-('019c4d42-7db1-7001-9293-000000000004', 'sis:delete', 'sis', 'Remove student records'),
-('019c4d42-7db1-7001-9293-000000000005', 'sis:approve', 'sis', 'Approve student registrations/changes'),
-('019c4d42-7db1-7001-9293-000000000006', 'sis:export', 'sis', 'Export student data to CSV/Excel'),
-('019c4d42-7db1-7001-9293-000000000007', 'sis:print', 'sis', 'Print ID cards and profiles'),
-('019c4d42-7db1-7001-9293-000000000008', 'sis:override', 'sis', 'Override student status/constraints'),
-
--- FEES (Finance & Fee Management)
-('019c4d42-7db1-7002-9293-000000000001', 'fees:view', 'fees', 'View fee structures and payments'),
-('019c4d42-7db1-7002-9293-000000000002', 'fees:create', 'fees', 'Generate fee invoices/heads'),
-('019c4d42-7db1-7002-9293-000000000003', 'fees:edit', 'fees', 'Modify fee structures'),
-('019c4d42-7db1-7002-9293-000000000004', 'fees:delete', 'fees', 'Void/Delete fee records'),
-('019c4d42-7db1-7002-9293-000000000005', 'fees:approve', 'fees', 'Approve concessions/waivers'),
-('019c4d42-7db1-7002-9293-000000000006', 'fees:export', 'fees', 'Export collection reports'),
-('019c4d42-7db1-7002-9293-000000000007', 'fees:print', 'fees', 'Print fee receipts'),
-('019c4d42-7db1-7002-9293-000000000008', 'fees:override', 'fees', 'Override late fees/dues'),
-
--- ATTENDANCE (Student & Staff)
-('019c4d42-7db1-7003-9293-000000000001', 'attendance:view', 'attendance', 'View attendance reports'),
-('019c4d42-7db1-7003-9293-000000000002', 'attendance:create', 'attendance', 'Mark daily/period attendance'),
-('019c4d42-7db1-7003-9293-000000000003', 'attendance:edit', 'attendance', 'Modify attendance entries'),
-('019c4d42-7db1-7003-9293-000000000004', 'attendance:delete', 'attendance', 'Remove attendance records'),
-('019c4d42-7db1-7003-9293-000000000005', 'attendance:approve', 'attendance', 'Approve leave requests'),
-('019c4d42-7db1-7003-9293-000000000006', 'attendance:export', 'attendance', 'Export attendance registers'),
-('019c4d42-7db1-7003-9293-000000000007', 'attendance:print', 'attendance', 'Print attendance sheets'),
-('019c4d42-7db1-7003-9293-000000000008', 'attendance:override', 'attendance', 'Override attendance status'),
-
--- ACADEMICS (Timetable & Homework)
-('019c4d42-7db1-7004-9293-000000000001', 'academics:view', 'academics', 'View timetable and homework'),
-('019c4d42-7db1-7004-9293-000000000002', 'academics:create', 'academics', 'Assign homework/create timetable'),
-('019c4d42-7db1-7004-9293-000000000003', 'academics:edit', 'academics', 'Modify academic schedules'),
-('019c4d42-7db1-7004-9293-000000000004', 'academics:delete', 'academics', 'Delete academic records'),
 ('019c4d42-7db1-7004-9293-000000000005', 'academics:approve', 'academics', 'Approve timetable changes'),
+('019c4d42-7db1-7004-9293-000000000002', 'academics:create', 'academics', 'Assign homework/create timetable'),
+('019c4d42-7db1-7004-9293-000000000004', 'academics:delete', 'academics', 'Delete academic records'),
+('019c4d42-7db1-7004-9293-000000000003', 'academics:edit', 'academics', 'Modify academic schedules'),
 ('019c4d42-7db1-7004-9293-000000000006', 'academics:export', 'academics', 'Export academic data'),
-('019c4d42-7db1-7004-9293-000000000007', 'academics:print', 'academics', 'Print timetables'),
 ('019c4d42-7db1-7004-9293-000000000008', 'academics:override', 'academics', 'Override class assignments'),
-
--- EXAMS (Examinations & Marks)
-('019c4d42-7db1-7005-9293-000000000001', 'exams:view', 'exams', 'View exam schedules and results'),
-('019c4d42-7db1-7005-9293-000000000002', 'exams:create', 'exams', 'Create exams and enter marks'),
-('019c4d42-7db1-7005-9293-000000000003', 'exams:edit', 'exams', 'Modify exam details/marks'),
-('019c4d42-7db1-7005-9293-000000000004', 'exams:delete', 'exams', 'Remove exam records'),
-('019c4d42-7db1-7005-9293-000000000005', 'exams:approve', 'exams', 'Approve/Publish results'),
-('019c4d42-7db1-7005-9293-000000000006', 'exams:export', 'exams', 'Export marksheets'),
-('019c4d42-7db1-7005-9293-000000000007', 'exams:print', 'exams', 'Print report cards'),
-('019c4d42-7db1-7005-9293-000000000008', 'exams:override', 'exams', 'Override marks/grading'),
-
--- HRMS (Employees & Payroll)
-('019c4d42-7db1-7006-9293-000000000001', 'hrms:view', 'hrms', 'View employee records'),
-('019c4d42-7db1-7006-9293-000000000002', 'hrms:create', 'hrms', 'Hire/Register employees'),
-('019c4d42-7db1-7006-9293-000000000003', 'hrms:edit', 'hrms', 'Modify employee details'),
-('019c4d42-7db1-7006-9293-000000000004', 'hrms:delete', 'hrms', 'Terminate/Remove employees'),
-('019c4d42-7db1-7006-9293-000000000005', 'hrms:approve', 'hrms', 'Approve payroll/salaries'),
-('019c4d42-7db1-7006-9293-000000000006', 'hrms:export', 'hrms', 'Export employee data'),
-('019c4d42-7db1-7006-9293-000000000007', 'hrms:print', 'hrms', 'Print payslips'),
-('019c4d42-7db1-7006-9293-000000000008', 'hrms:override', 'hrms', 'Override salary structures'),
-
--- OPERATIONS (Inventory, Transport, Library, Admissions)
-('019c4d42-7db1-7007-9293-000000000001', 'ops:view', 'ops', 'View operational dashboards'),
-('019c4d42-7db1-7007-9293-000000000002', 'ops:create', 'ops', 'Create operational records'),
-('019c4d42-7db1-7007-9293-000000000003', 'ops:edit', 'ops', 'Modify operational logs'),
-('019c4d42-7db1-7007-9293-000000000004', 'ops:delete', 'ops', 'Delete operational data'),
-('019c4d42-7db1-7007-9293-000000000005', 'ops:approve', 'ops', 'Approve requisitions/applications'),
-('019c4d42-7db1-7007-9293-000000000006', 'ops:export', 'ops', 'Export system logs'),
-('019c4d42-7db1-7007-9293-000000000007', 'ops:print', 'ops', 'Print manifestos/forms'),
-('019c4d42-7db1-7007-9293-000000000008', 'ops:override', 'ops', 'Override operational status'),
-
--- API Guard Permissions (tenant + platform routes)
-('019c4d42-49ca-7014-aa9e-8bfa1146bf92', 'tenant:roles:manage', 'tenant', 'Manage tenant role templates and role assignments'),
-('019c4d42-49ca-702a-a320-8adfcc2c17b5', 'tenant:users:manage', 'tenant', 'Manage tenant users and user role assignments'),
-('019c4d42-49ca-7039-b94f-6bf746a217b7', 'platform:tenant.read', 'platform', 'View platform tenant directory and tenant profiles'),
-('019c4d42-49ca-7045-bb74-ae7506f32297', 'platform:tenant.write', 'platform', 'Create and update platform tenant records'),
-('019c4d42-49ca-7049-a63d-bdeb942bed3f', 'platform:user.read', 'platform', 'View platform internal and global users'),
-('019c4d42-49ca-704e-bcb1-225b46efa565', 'platform:user.write', 'platform', 'Create and update platform internal and global users'),
-('019c4d42-49ca-7060-918f-bf3a0d9c6fa0', 'platform:settings.write', 'platform', 'Manage platform settings and policy configuration'),
-('019c4d42-49ca-72e7-b058-79b23fd17845', 'platform:settings.read', 'platform', 'View platform settings and policy configuration'),
-('019c4d42-49ca-7063-a0e4-74582561e0f4', 'platform:ops.manage', 'platform', 'Run platform operational actions and workflows'),
-('019c4d42-49ca-706b-ac25-131606823164', 'platform:audit.read', 'platform', 'View platform audit logs'),
-('019c4d42-49ca-7098-a841-37ec6fbd5839', 'platform:billing.read', 'platform', 'View platform billing and invoicing data'),
-('019c4d42-49ca-70a7-994c-fc86e052d584', 'platform:billing.write', 'platform', 'Manage platform billing, invoice states, and adjustments'),
-('019c4d42-49ca-70b0-a772-e58913e13446', 'platform:marketing.write', 'platform', 'Manage platform announcements and marketing assets'),
-('019c4d42-49ca-70c3-ba09-5e3eb6628bf9', 'platform:analytics.read', 'platform', 'View platform analytics and KPI dashboards'),
-('019c4d42-49ca-70c4-bf13-9b0b0f95aa10', 'platform:addons.read', 'platform', 'View tenant add-ons and activation requests'),
-('019c4d42-49ca-70c4-bf13-9b0b0f95aa11', 'platform:addons.write', 'platform', 'Configure tenant add-ons and process activation requests'),
-('019c4d42-49ca-7319-9ad6-e9491c672bd3', 'platform:support.write', 'platform', 'Manage platform support tickets and assignments'),
-('019c4d42-49ca-7351-a604-7d7bc4b46f54', 'platform:incidents.write', 'platform', 'Create and update platform incidents'),
-('019c4d42-49ca-737c-afbc-d2876c90dbe0', 'platform:integrations.manage', 'platform', 'Manage platform integrations and webhook settings'),
-('019c4d42-49ca-73a0-b215-438eecc42a9c', 'platform:dev.manage', 'platform', 'Manage developer and engineering platform controls'),
-('019c4d42-49ca-741e-b5c1-4f62864d5098', 'platform:data.export', 'platform', 'Export platform-wide operational and billing data'),
-
--- Legacy Compatibility Permissions (existing web/app codepaths)
-('019c4d42-49ca-70c5-942f-3e1e78b62a71', 'attendance:read', 'attendance', 'Legacy read access for attendance module'),
-('019c4d42-49ca-70c7-8ca1-7e791d34e329', 'attendance:write', 'attendance', 'Legacy write access for attendance module'),
+('019c4d42-7db1-7004-9293-000000000007', 'academics:print', 'academics', 'Print timetables'),
+('019c4d42-7db1-7004-9293-000000000001', 'academics:view', 'academics', 'View timetable and homework'),
+(uuid_generate_v7(), 'approvals:process', 'approvals', 'Approve or Reject requests'),
+(uuid_generate_v7(), 'approvals:view', 'approvals', 'View pending and processed approvals'),
+('019c4d42-7db1-7003-9293-000000000005', 'attendance:approve', 'attendance', 'Approve leave requests'),
+('019c4d42-7db1-7003-9293-000000000002', 'attendance:create', 'attendance', 'Mark daily/period attendance'),
+('019c4d42-7db1-7003-9293-000000000004', 'attendance:delete', 'attendance', 'Remove attendance records'),
+('019c4d42-7db1-7003-9293-000000000003', 'attendance:edit', 'attendance', 'Modify attendance entries'),
+('019c4d42-7db1-7003-9293-000000000006', 'attendance:export', 'attendance', 'Export attendance registers'),
+('019c4d42-7db1-7003-9293-000000000008', 'attendance:override', 'attendance', 'Override attendance status'),
+('019c4d42-7db1-7003-9293-000000000007', 'attendance:print', 'attendance', 'Print attendance sheets'),
+(uuid_generate_v7(), 'attendance:read', 'attendance', 'View attendance records'),
+('019c4d42-7db1-7003-9293-000000000001', 'attendance:view', 'attendance', 'View attendance reports'),
+(uuid_generate_v7(), 'attendance:write', 'attendance', 'Mark/Edit attendance'),
+(uuid_generate_v7(), 'automation:create', 'automation', 'Create automation rules'),
+(uuid_generate_v7(), 'automation:delete', 'automation', 'Delete automation rules'),
+(uuid_generate_v7(), 'automation:edit', 'automation', 'Edit automation rules'),
+(uuid_generate_v7(), 'automation:view', 'automation', 'View automation rules'),
+(uuid_generate_v7(), 'biometric:ingest', 'biometric', 'Ingest logs from biometric devices'),
 ('019c4d42-49ca-710f-beb2-e5b54252bef3', 'dashboard:view', 'dashboard', 'View operational dashboard widgets'),
+('019c4d42-7db1-7005-9293-000000000005', 'exams:approve', 'exams', 'Approve/Publish results'),
+('019c4d42-7db1-7005-9293-000000000002', 'exams:create', 'exams', 'Create exams and enter marks'),
+('019c4d42-7db1-7005-9293-000000000004', 'exams:delete', 'exams', 'Remove exam records'),
+('019c4d42-7db1-7005-9293-000000000003', 'exams:edit', 'exams', 'Modify exam details/marks'),
+('019c4d42-7db1-7005-9293-000000000006', 'exams:export', 'exams', 'Export marksheets'),
+('019c4d42-7db1-7005-9293-000000000008', 'exams:override', 'exams', 'Override marks/grading'),
+('019c4d42-7db1-7005-9293-000000000007', 'exams:print', 'exams', 'Print report cards'),
 ('019c4d42-49ca-7114-8749-9c4dc7454336', 'exams:read', 'exams', 'Legacy read access for exams module'),
+('019c4d42-7db1-7005-9293-000000000001', 'exams:view', 'exams', 'View exam schedules and results'),
 ('019c4d42-49ca-7115-b3f3-23aa625928b0', 'exams:write', 'exams', 'Legacy write access for exams module'),
-('019c4d42-49ca-713d-bee9-7b37cdaf5080', 'fees:collect', 'fees', 'Collect and post fee payments'),
-('019c4d42-49ca-7146-ac8c-252b07a062a7', 'fees:read', 'fees', 'Legacy read access for fees module'),
+('019c4d42-7db1-7002-9293-000000000005', 'fees:approve', 'fees', 'Approve concessions/waivers'),
+(uuid_generate_v7(), 'fees:collect', 'fees', 'Collect fee payments'),
+('019c4d42-7db1-7002-9293-000000000002', 'fees:create', 'fees', 'Generate fee invoices/heads'),
+('019c4d42-7db1-7002-9293-000000000004', 'fees:delete', 'fees', 'Void/Delete fee records'),
+('019c4d42-7db1-7002-9293-000000000003', 'fees:edit', 'fees', 'Modify fee structures'),
+('019c4d42-7db1-7002-9293-000000000006', 'fees:export', 'fees', 'Export collection reports'),
+(uuid_generate_v7(), 'fees:manage', 'fees', 'Manage fee structures and concessions'),
+('019c4d42-7db1-7002-9293-000000000008', 'fees:override', 'fees', 'Override late fees/dues'),
+('019c4d42-7db1-7002-9293-000000000007', 'fees:print', 'fees', 'Print fee receipts'),
+(uuid_generate_v7(), 'fees:read', 'fees', 'View fee structures and payments'),
+('019c4d42-7db1-7002-9293-000000000001', 'fees:view', 'fees', 'View fee structures and payments'),
 ('019c4d42-49ca-7178-b027-e1b10b586738', 'fees:write', 'fees', 'Legacy write access for fees module'),
-('019c4d42-49ca-7198-929d-c7e6604e25b1', 'finance:read', 'finance', 'Legacy read access for finance module'),
-('019c4d42-49ca-719c-b00e-16f67bd33099', 'finance:write', 'finance', 'Legacy write access for finance module'),
+(uuid_generate_v7(), 'files:delete', 'files', 'Delete system files'),
+(uuid_generate_v7(), 'files:read', 'files', 'Read/Download system files'),
+(uuid_generate_v7(), 'files:upload', 'files', 'Upload system files'),
+(uuid_generate_v7(), 'finance:read', 'finance', 'View financial reports'),
+(uuid_generate_v7(), 'finance:write', 'finance', 'Manage expenses and accounting'),
+('019c4d42-7db1-7006-9293-000000000005', 'hrms:approve', 'hrms', 'Approve payroll/salaries'),
+('019c4d42-7db1-7006-9293-000000000002', 'hrms:create', 'hrms', 'Hire/Register employees'),
+('019c4d42-7db1-7006-9293-000000000004', 'hrms:delete', 'hrms', 'Terminate/Remove employees'),
+('019c4d42-7db1-7006-9293-000000000003', 'hrms:edit', 'hrms', 'Modify employee details'),
+('019c4d42-7db1-7006-9293-000000000006', 'hrms:export', 'hrms', 'Export employee data'),
+('019c4d42-7db1-7006-9293-000000000008', 'hrms:override', 'hrms', 'Override salary structures'),
+('019c4d42-7db1-7006-9293-000000000007', 'hrms:print', 'hrms', 'Print payslips'),
+('019c4d42-7db1-7006-9293-000000000001', 'hrms:view', 'hrms', 'View employee records'),
+(uuid_generate_v7(), 'kb:delete', 'kb', 'Delete knowledge base articles'),
+(uuid_generate_v7(), 'kb:search', 'kb', 'Search knowledge base'),
+(uuid_generate_v7(), 'kb:view', 'kb', 'View knowledge base articles'),
+(uuid_generate_v7(), 'kb:write', 'kb', 'Create/Edit knowledge base articles'),
 ('019c4d42-49ca-71b6-a4a7-2981fea25b77', 'notices:read', 'notices', 'Legacy read access for notices module'),
+('019c4d42-7db1-7007-9293-000000000005', 'ops:approve', 'ops', 'Approve requisitions/applications'),
+('019c4d42-7db1-7007-9293-000000000002', 'ops:create', 'ops', 'Create operational records'),
+('019c4d42-7db1-7007-9293-000000000004', 'ops:delete', 'ops', 'Delete operational data'),
+('019c4d42-7db1-7007-9293-000000000003', 'ops:edit', 'ops', 'Modify operational logs'),
+('019c4d42-7db1-7007-9293-000000000006', 'ops:export', 'ops', 'Export system logs'),
+('019c4d42-7db1-7007-9293-000000000008', 'ops:override', 'ops', 'Override operational status'),
+('019c4d42-7db1-7007-9293-000000000007', 'ops:print', 'ops', 'Print manifestos/forms'),
+('019c4d42-7db1-7007-9293-000000000001', 'ops:view', 'ops', 'View operational dashboards'),
+(uuid_generate_v7(), 'platform:addons.read', 'platform', 'View tenant add-ons and activation requests'),
+(uuid_generate_v7(), 'platform:addons.write', 'platform', 'Configure tenant add-ons and process activation requests'),
+(uuid_generate_v7(), 'platform:analytics.read', 'platform', 'View business and platform analytics dashboard'),
+(uuid_generate_v7(), 'platform:audit.export', 'audit', 'Export audit logs'),
+(uuid_generate_v7(), 'platform:audit.read', 'platform', 'View platform audit logs and security trails'),
+(uuid_generate_v7(), 'platform:billing.read', 'platform', 'View subscriptions, invoices, and collections'),
+(uuid_generate_v7(), 'platform:billing.write', 'platform', 'Mutate subscriptions, invoices, and lockout controls'),
+(uuid_generate_v7(), 'platform:data.export', 'platform', 'Run tenant/platform exports'),
+(uuid_generate_v7(), 'platform:data.restore', 'platform', 'Run restore and destructive data workflows'),
+(uuid_generate_v7(), 'platform:dev.manage', 'platform', 'Access developer-only tooling and controls'),
+(uuid_generate_v7(), 'platform:impersonation.use', 'platform', 'Use login-as tenant admin controls'),
 ('019c4d42-49ca-71ea-b9d2-65468799f363', 'platform:incidents.read', 'incidents', 'View platform incidents'),
+('019c4d42-49ca-7351-a604-7d7bc4b46f54', 'platform:incidents.write', 'platform', 'Create and update platform incidents'),
+(uuid_generate_v7(), 'platform:integrations.manage', 'platform', 'Manage API keys, webhooks, and integrations'),
 ('019c4d42-49ca-7209-ab73-83436b90eca6', 'platform:integrations.read', 'integrations', 'View integration status and logs'),
-('019c4d42-49ca-720a-944a-67279de40fb5', 'platform:monitoring.read', 'monitoring', 'View runtime health and monitoring metrics'),
+(uuid_generate_v7(), 'platform:integrations.write', 'integrations', 'Manage webhooks, API keys, and configs'),
+(uuid_generate_v7(), 'platform:legal.read', 'legal', 'View legal documents and policies'),
+(uuid_generate_v7(), 'platform:legal.write', 'legal', 'Publish and manage legal document versions'),
+('019c4d42-7db1-7999-9293-000000000001', 'platform:manage', 'platform', 'Full platform administrative control'),
+(uuid_generate_v7(), 'platform:marketing.read', 'marketing', 'View announcements and changelogs'),
+(uuid_generate_v7(), 'platform:marketing.write', 'platform', 'Manage platform announcements and changelogs'),
+(uuid_generate_v7(), 'platform:monitoring.read', 'platform', 'View monitoring and system health dashboards'),
+(uuid_generate_v7(), 'platform:monitoring.write', 'monitoring', 'Manage queue operations and system actions'),
+(uuid_generate_v7(), 'platform:ops.manage', 'platform', 'Manage incident, queue, and reliability operations'),
 ('019c4d42-49ca-7219-accb-fa8499f18482', 'platform:plans.read', 'plans', 'View platform plans'),
+(uuid_generate_v7(), 'platform:plans.write', 'plans', 'Create and modify platform plans'),
+(uuid_generate_v7(), 'platform:secrets.read', 'secrets', 'View platform secrets inventory'),
+(uuid_generate_v7(), 'platform:secrets.write', 'secrets', 'Create, rotate, and revoke secrets'),
 ('019c4d42-49ca-721b-b78d-c5c57ae318a3', 'platform:security.read', 'security', 'View platform security events'),
 ('019c4d42-49ca-7238-a669-4f57c4bb51ee', 'platform:security.write', 'security', 'Manage platform security controls'),
+('019c4d42-49ca-72e7-b058-79b23fd17845', 'platform:settings.read', 'platform', 'View platform settings and policy configuration'),
+(uuid_generate_v7(), 'platform:settings.write', 'platform', 'Manage platform-wide settings and templates'),
+(uuid_generate_v7(), 'platform:signup.read', 'signup', 'View tenant signup/onboarding requests'),
+(uuid_generate_v7(), 'platform:signup.write', 'signup', 'Approve or reject signup requests'),
 ('019c4d42-49ca-723c-b274-f345b99eb12a', 'platform:support.read', 'support', 'View support tickets'),
+('019c4d42-49ca-7319-9ad6-e9491c672bd3', 'platform:support.write', 'platform', 'Manage platform support tickets and assignments'),
+(uuid_generate_v7(), 'platform:tenant.read', 'platform', 'View tenant directory and tenant profile'),
+(uuid_generate_v7(), 'platform:tenant.write', 'platform', 'Update tenant settings and lifecycle state'),
+(uuid_generate_v7(), 'platform:tenants.delete', 'tenants', 'Request and execute tenant deletion'),
 ('019c4d42-49ca-7265-b0fd-d47021531970', 'platform:tenants.read', 'tenants', 'Legacy read access for platform tenant listing'),
 ('019c4d42-49ca-7279-8903-5dd40619d787', 'platform:tenants.write', 'tenants', 'Legacy write access for platform tenant management'),
-('019c4d42-49ca-7279-8a35-f9cc8b166be8', 'sis:read', 'sis', 'Legacy read access for SIS module'),
-('019c4d42-49ca-7286-960f-28249030388a', 'sis:write', 'sis', 'Legacy write access for SIS module'),
-('019c4d42-49ca-72b7-a1d6-779b799bb55b', 'tenant:settings:view', 'tenant', 'View tenant-level settings'),
-('019c4d42-49ca-72b7-a1d6-779b799bb55c', 'tenant:addons.read', 'tenant', 'View tenant add-ons and activation status'),
-('019c4d42-49ca-72b7-a1d6-779b799bb55d', 'tenant:addons.request', 'tenant', 'Create tenant add-on activation requests'),
-('019c4d42-49ca-72b7-a1d6-779b799bb55e', 'tenant:addons.configure', 'tenant', 'Configure active tenant add-ons'),
-('019c4d42-7db1-7001-9293-000000000009', 'sis:remarks:view', 'sis', 'View student remarks and observations'),
-('019c4d42-7db1-7001-9293-000000000010', 'sis:remarks:create', 'sis', 'Add new student remarks'),
+(uuid_generate_v7(), 'platform:user.impersonate', 'users', 'Impersonate tenant admin accounts'),
+(uuid_generate_v7(), 'platform:user.password_reset', 'users', 'Reset passwords for any user'),
+(uuid_generate_v7(), 'platform:user.read', 'platform', 'View internal platform users and role assignments'),
+(uuid_generate_v7(), 'platform:user.write', 'platform', 'Create/update internal platform users and role assignments'),
+(uuid_generate_v7(), 'portal:accountant', 'core', 'Access accountant portal'),
+(uuid_generate_v7(), 'portal:parent', 'core', 'Access parent portal'),
+(uuid_generate_v7(), 'portal:teacher', 'core', 'Access teacher portal'),
+('019c4d42-7db1-7001-9293-000000000005', 'sis:approve', 'sis', 'Approve student registrations/changes'),
+('019c4d42-7db1-7001-9293-000000000002', 'sis:create', 'sis', 'Register new students'),
+(uuid_generate_v7(), 'sis:delete', 'sis', 'Delete student profiles'),
+('019c4d42-7db1-7001-9293-000000000003', 'sis:edit', 'sis', 'Modify student details'),
+('019c4d42-7db1-7001-9293-000000000006', 'sis:export', 'sis', 'Export student data to CSV/Excel'),
+('019c4d42-7db1-7001-9293-000000000008', 'sis:override', 'sis', 'Override student status/constraints'),
+('019c4d42-7db1-7001-9293-000000000007', 'sis:print', 'sis', 'Print ID cards and profiles'),
+(uuid_generate_v7(), 'sis:read', 'sis', 'View student profiles'),
 ('019c4d42-7db1-7001-9293-000000000011', 'sis:remarks:acknowledge', 'sis', 'Acknowledge student remarks as parent/admin'),
-
--- PLATFORM
-('019c4d42-7db1-7999-9293-000000000001', 'platform:manage', 'platform', 'Full platform administrative control')
-ON CONFLICT (code) DO UPDATE SET description = EXCLUDED.description;
+('019c4d42-7db1-7001-9293-000000000010', 'sis:remarks:create', 'sis', 'Add new student remarks'),
+('019c4d42-7db1-7001-9293-000000000009', 'sis:remarks:view', 'sis', 'View student remarks and observations'),
+('019c4d42-7db1-7001-9293-000000000001', 'sis:view', 'sis', 'View student profiles and records'),
+(uuid_generate_v7(), 'sis:write', 'sis', 'Create/Edit student profiles'),
+(uuid_generate_v7(), 'tenant:addons.configure', 'tenant', 'Configure active tenant add-ons'),
+(uuid_generate_v7(), 'tenant:addons.read', 'tenant', 'View tenant add-ons and activation status'),
+(uuid_generate_v7(), 'tenant:addons.request', 'tenant', 'Create tenant add-on activation requests'),
+(uuid_generate_v7(), 'tenant:manage', 'tenant', 'Manage tenant settings and users'),
+('019c4d42-49ca-7014-aa9e-8bfa1146bf92', 'tenant:roles:manage', 'tenant', 'Manage tenant role templates and role assignments'),
+('019c4d42-49ca-72b7-a1d6-779b799bb55b', 'tenant:settings:view', 'tenant', 'View tenant-level settings'),
+('019c4d42-49ca-702a-a320-8adfcc2c17b5', 'tenant:users:manage', 'tenant', 'Manage tenant users and user role assignments')
+ON CONFLICT (code) DO UPDATE SET 
+  module = EXCLUDED.module,
+  description = EXCLUDED.description;
 
 -- 1.4 RBAC: System Roles
 INSERT INTO roles (id, name, code, description, is_system) VALUES
@@ -2046,5 +2065,147 @@ VALUES
   (uuid_generate_v7(), 'grade_system', 'Default CBSE Grade Bands', '{"A1":"91-100","A2":"81-90","B1":"71-80"}'::jsonb, TRUE),
   (uuid_generate_v7(), 'subjects', 'STEM Starter Pack', '{"subjects":["Mathematics","Physics","Chemistry","Biology"]}'::jsonb, TRUE)
 ON CONFLICT DO NOTHING;
+
+
+-- ============================================
+-- 20. CONSOLIDATED PLATFORM RBAC & EXTRAS
+-- ============================================
+
+INSERT INTO permissions (code, module, description) VALUES
+  -- Tenant Management
+  ('platform:tenants.read',        'tenants',       'View tenant directory and profiles'),
+  ('platform:tenants.write',       'tenants',       'Create, update, and manage tenant lifecycle'),
+  ('platform:tenants.delete',      'tenants',       'Request and execute tenant deletion'),
+  -- Billing & Plans
+  ('platform:billing.read',        'billing',       'View subscriptions, invoices, and collections'),
+  ('platform:billing.write',       'billing',       'Manage subscriptions, dunning, locks, and freezes'),
+  ('platform:plans.read',          'plans',         'View platform plans'),
+  ('platform:plans.write',         'plans',         'Create and modify platform plans'),
+  -- User Management
+  ('platform:user.read',           'users',         'View internal and global user directory'),
+  ('platform:user.write',          'users',         'Create, update, and manage user accounts'),
+  ('platform:user.impersonate',    'users',         'Impersonate tenant admin accounts'),
+  ('platform:user.password_reset', 'users',         'Reset passwords for any user'),
+  -- Support & Incidents
+  ('platform:support.read',        'support',       'View support tickets'),
+  ('platform:support.write',       'support',       'Create, assign, and resolve support tickets'),
+  ('platform:incidents.read',      'incidents',     'View service incidents'),
+  ('platform:incidents.write',     'incidents',     'Create, update, and resolve incidents'),
+  -- Marketing & Communications
+  ('platform:marketing.read',      'marketing',     'View announcements and changelogs'),
+  ('platform:marketing.write',     'marketing',     'Create and publish announcements and changelogs'),
+  -- Analytics & Monitoring
+  ('platform:analytics.read',      'analytics',     'View revenue and business analytics'),
+  ('platform:monitoring.read',     'monitoring',    'View system health and queue telemetry'),
+  ('platform:monitoring.write',    'monitoring',    'Manage queue operations and system actions'),
+  -- Security & Audit
+  ('platform:security.read',       'security',      'View security events and threat data'),
+  ('platform:security.write',      'security',      'Manage security blocks and risk actions'),
+  ('platform:audit.read',          'audit',         'View platform audit trails'),
+  ('platform:audit.export',        'audit',         'Export audit logs'),
+  -- Integrations & Infrastructure
+  ('platform:integrations.read',   'integrations',  'View integration health and logs'),
+  ('platform:integrations.write',  'integrations',  'Manage webhooks, API keys, and configs'),
+  ('platform:addons.read',         'addons',        'View tenant add-ons and activation requests'),
+  ('platform:addons.write',        'addons',        'Configure tenant add-ons and process activation requests'),
+  -- Global Config & Settings
+  ('platform:settings.read',       'settings',      'View platform settings and templates'),
+  ('platform:settings.write',      'settings',      'Modify platform settings, password policies, and templates'),
+  -- Data Operations
+  ('platform:data.export',         'data_ops',      'Run tenant and platform data exports'),
+  ('platform:data.restore',        'data_ops',      'Execute restore and destructive data workflows'),
+  -- Legal & Compliance
+  ('platform:legal.read',          'legal',         'View legal documents and policies'),
+  ('platform:legal.write',         'legal',         'Publish and manage legal document versions'),
+  -- Platform Secrets
+  ('platform:secrets.read',        'secrets',       'View platform secrets inventory'),
+  ('platform:secrets.write',       'secrets',       'Create, rotate, and revoke secrets'),
+  -- Signup Requests
+  ('platform:signup.read',         'signup',        'View tenant signup/onboarding requests'),
+  ('platform:signup.write',        'signup',        'Approve or reject signup requests')
+ON CONFLICT (code) DO NOTHING;
+
+-- Assign platform roles to internal team
+WITH role_support_l1 AS (SELECT id FROM roles WHERE tenant_id IS NULL AND code = 'support_l1' LIMIT 1),
+     role_support_l2 AS (SELECT id FROM roles WHERE tenant_id IS NULL AND code = 'support_l2' LIMIT 1),
+     role_ops AS (SELECT id FROM roles WHERE tenant_id IS NULL AND code = 'ops' LIMIT 1),
+     role_dev AS (SELECT id FROM roles WHERE tenant_id IS NULL AND code = 'developer' LIMIT 1)
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT role_support_l1.id, p.id FROM role_support_l1 CROSS JOIN permissions p WHERE p.code IN ('platform:tenants.read', 'platform:billing.read', 'platform:support.read')
+UNION ALL
+SELECT role_support_l2.id, p.id FROM role_support_l2 CROSS JOIN permissions p WHERE p.code LIKE 'platform:support.%'
+UNION ALL
+SELECT role_operations.id, p.id FROM (SELECT id FROM roles WHERE tenant_id IS NULL AND code = 'ops' LIMIT 1) role_operations CROSS JOIN permissions p WHERE p.code LIKE 'platform:%'
+ON CONFLICT DO NOTHING;
+
+-- Notification Templates
+INSERT INTO platform_notification_templates (name, code, type, subject_template, body_template, is_active) VALUES
+('Welcome Email', 'welcome_email', 'email', 'Welcome to {{school_name}}', 'Hello {{user_name}}, welcome to our platform.', TRUE),
+('Payment Received', 'payment_received', 'email', 'Payment Success - {{invoice_id}}', 'We have received your payment of {{amount}}.', TRUE),
+('Low Balance Alert', 'sms_low_balance', 'sms', NULL, 'Your account balance is low. Please recharge.', TRUE)
+ON CONFLICT (code) DO NOTHING;
+
+-- Analytics Snapshots
+INSERT INTO platform_analytics_snapshots (metric_name, metric_value, dimensions, snapshot_date) VALUES
+('revenue', 1250000.00, '{"region": "Maharashtra"}', CURRENT_DATE - INTERVAL '2 days'),
+('revenue', 1320000.00, '{"region": "Maharashtra"}', CURRENT_DATE - INTERVAL '1 day'),
+('revenue', 1482500.00, '{"region": "Maharashtra"}', CURRENT_DATE),
+('active_schools', 115, '{}', CURRENT_DATE - INTERVAL '2 days'),
+('active_schools', 120, '{}', CURRENT_DATE - INTERVAL '1 day'),
+('active_schools', 124, '{}', CURRENT_DATE)
+ON CONFLICT DO NOTHING;
+
+-- ============================================
+-- 21. NEW FEATURE TEST DATA (PLATFORM, TEACHER, PARENT)
+-- ============================================
+
+-- Platform Incidents
+DO $$
+DECLARE
+    v_inc_1 UUID := uuid_generate_v4();
+    v_inc_2 UUID := uuid_generate_v4();
+    v_admin_id UUID := '019c4d42-49ca-767c-b3bd-b1a7faf5ad04';
+BEGIN
+    INSERT INTO platform_incidents (id, title, severity, status, created_at) VALUES
+    (v_inc_1, 'Database High Latency', 'major', 'resolved', NOW() - INTERVAL '2 days'),
+    (v_inc_2, 'Queue Backlog', 'minor', 'investigating', NOW() - INTERVAL '1 hour');
+
+    INSERT INTO platform_incident_events (incident_id, event_type, message, created_by, created_at) VALUES
+    (v_inc_1, 'update', 'Observed increased latency in US-East regions.', v_admin_id, NOW() - INTERVAL '2 days'),
+    (v_inc_2, 'update', 'Outbox worker processing delayed by 15 minutes.', v_admin_id, NOW() - INTERVAL '1 hour');
+END $$;
+
+INSERT INTO security_events (tenant_id, user_id, event_type, severity, method, path, status_code, ip_address, created_at) VALUES
+('019c4d42-49ca-7efe-b28e-6feeebc4cd13', '019c4d42-c25e-7705-9656-3ef7b9b095fb', 'auth.failed', 'warning', 'POST', '/v1/auth/login', 401, '192.168.1.55', NOW() - INTERVAL '5 minutes');
+
+-- Teacher Activities: Leaves & Remarks
+DO $$
+DECLARE
+    v_leave_type_id UUID;
+    v_tenant_id UUID := '019c4d42-49ca-7efe-b28e-6feeebc4cd13';
+    v_employee_id UUID := '019c4d42-c25e-71c0-b844-a502ab4e9681';
+    v_student_id UUID := '019c4d42-49ca-794f-b77f-68b3b291152c';
+BEGIN
+    SELECT id INTO v_leave_type_id FROM staff_leave_types WHERE tenant_id = v_tenant_id LIMIT 1;
+    
+    IF v_leave_type_id IS NOT NULL THEN
+        INSERT INTO staff_leave_requests (id, tenant_id, employee_id, leave_type_id, start_date, end_date, reason, status) VALUES
+        (uuid_generate_v4(), v_tenant_id, v_employee_id, v_leave_type_id, CURRENT_DATE + INTERVAL '5 days', CURRENT_DATE + INTERVAL '7 days', 'Family wedding', 'pending');
+    END IF;
+
+    -- Student Remarks for Arjun
+    INSERT INTO student_remarks (id, tenant_id, student_id, posted_by, category, remark_text, requires_ack, is_acknowledged) VALUES
+    (uuid_generate_v4(), v_tenant_id, v_student_id, v_employee_id, 'discipline', 'Talkative during lab sessions.', TRUE, FALSE);
+END $$;
+
+-- Parent Activities: Payment Orders
+INSERT INTO payment_orders (id, tenant_id, student_id, amount, mode, status, external_ref) VALUES
+(uuid_generate_v4(), '019c4d42-49ca-7efe-b28e-6feeebc4cd13', '019c4d42-49ca-794f-b77f-68b3b291152c', 500000, 'online', 'pending', 'order_demo_123');
+
+-- Custom Field Definitions
+INSERT INTO custom_field_definitions (id, tenant_id, entity_type, field_name, field_label, field_type, is_required) VALUES
+(uuid_generate_v4(), '019c4d42-49ca-7efe-b28e-6feeebc4cd13', 'student', 'blood_group', 'Blood Group', 'text', FALSE),
+(uuid_generate_v4(), '019c4d42-49ca-7efe-b28e-6feeebc4cd13', 'student', 'aadhar_number', 'Aadhar Number', 'text', TRUE)
+ON CONFLICT (tenant_id, entity_type, field_name) DO NOTHING;
 
 COMMIT;

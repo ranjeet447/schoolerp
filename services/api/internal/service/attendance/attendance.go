@@ -412,3 +412,17 @@ func (s *Service) EnableEmergencyLock(ctx context.Context, tenantID, userID, rea
 func (s *Service) DisableEmergencyLock(ctx context.Context, tenantID string) error {
 	return s.locks.Unlock(ctx, tenantID, "attendance", nil)
 }
+
+func (s *Service) GetMonthlyAttendanceSummary(ctx context.Context, tenantID, classSectionID, month string) ([]db.GetMonthlyAttendanceSummaryRow, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+
+	csUUID := pgtype.UUID{}
+	csUUID.Scan(classSectionID)
+
+	return s.q.GetMonthlyAttendanceSummary(ctx, db.GetMonthlyAttendanceSummaryParams{
+		TenantID:       tUUID,
+		ClassSectionID: csUUID,
+		Month:          month,
+	})
+}

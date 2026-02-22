@@ -507,7 +507,7 @@ CREATE TABLE students (
     
     -- Current Status
     section_id UUID REFERENCES sections(id),
-    status TEXT DEFAULT 'active', -- "active", "graduated", "left"
+    status TEXT DEFAULT 'active', -- "active", "graduated", "left", "pending_review"
     
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -3672,3 +3672,36 @@ CREATE INDEX IF NOT EXISTS kb_documents_tenant_status_visibility
 
 CREATE INDEX IF NOT EXISTS kb_chunks_tenant_doc
     ON kb_chunks (tenant_id, document_id);
+-- 000062_notification_gateways.up.sql
+CREATE TABLE notification_gateway_configs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    provider TEXT NOT NULL CHECK (provider IN ('smshorizon', 'twilio', 'gupshup', 'aws_sns', 'msg91')),
+    api_key TEXT,
+    api_secret TEXT, -- Can be username or secret
+    sender_id TEXT,
+    is_active BOOLEAN DEFAULT false,
+    settings JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(tenant_id, provider)
+);
+
+CREATE INDEX idx_notification_gateway_config ON notification_gateway_configs(tenant_id, is_active);
+
+-- SMS Billing & Usage Tracking
+CREATE TABLE sms_usage_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    provider TEXT NOT NULL,
+    recipient TEXT NOT NULL,
+    message_content TEXT,
+    message_count INTEGER NOT NULL DEFAULT 1,
+    cost DECIMAL(10, 4) NOT NULL DEFAULT 0,
+    status TEXT DEFAULT 'sent', -- 'sent', 'failed', 'delivered'
+    external_id TEXT, -- message id from provider
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_sms_usage_logs_tenant_date ON sms_usage_logs(tenant_id, created_at DESC);

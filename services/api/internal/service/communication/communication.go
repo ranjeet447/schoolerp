@@ -292,9 +292,9 @@ func (s *Service) ListMessagingEvents(ctx context.Context, tenantID, eventTypeFi
 	tID.Scan(tenantID)
 
 	events, err := s.q.ListOutboxEvents(ctx, db.ListOutboxEventsParams{
-		TenantID:    tID,
-		OffsetCount: offset,
-		LimitCount:  limit,
+		TenantID: tID,
+		Offset:   offset,
+		Limit:    limit,
 	})
 	if err != nil {
 		return nil, err

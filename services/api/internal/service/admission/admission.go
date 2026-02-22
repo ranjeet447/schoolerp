@@ -778,12 +778,15 @@ func (s *AdmissionService) AcceptApplication(ctx context.Context, tenantID, id, 
 		return fmt.Errorf("student name missing in application")
 	}
 
-	_, err = s.student.CreateStudent(ctx, sisservice.CreateStudentParams{
+	// Generate a proper admission number if needed (e.g., ADM- prefixed)
+	admissionNo := "ADM-" + app.ApplicationNumber
+
+	student, err := s.student.CreateStudent(ctx, sisservice.CreateStudentParams{
 		TenantID:        tenantID,
-		AdmissionNumber: app.ApplicationNumber,
+		AdmissionNumber: admissionNo,
 		FullName:        studentName,
 		SectionID:       sectionID,
-		Status:          "active",
+		Status:          "pending_review",
 		UserID:          userID,
 		IP:              ip,
 	})
@@ -791,7 +794,20 @@ func (s *AdmissionService) AcceptApplication(ctx context.Context, tenantID, id, 
 		return fmt.Errorf("failed to create student: %w", err)
 	}
 
+	// 1.5 Transfer Documents
+	if len(app.Documents) > 0 && string(app.Documents) != "[]" {
+		var docs []struct {
+			FileID string `json:"file_id"`
+			Type   string `json:"type"`
+			Note   string `json:"note"`
+		}
+		if err := json.Unmarshal(app.Documents, &docs); err == nil {
+			for _, d := range docs {
+				_, _ = s.student.AddStudentDocument(ctx, tenantID, student.ID.String(), d.FileID, d.Type, d.Note)
+			}
+		}
+	}
+
 	// 2. Update Application Status
 	return s.UpdateApplicationStatus(ctx, tenantID, id, "admitted", userID, ip)
 }
-

@@ -201,6 +201,34 @@ func (s *Service) CreateOnlineOrder(ctx context.Context, tenantID, studentID str
 	return order, nil
 }
 
+func (s *Service) CreateOnlineOrderParent(ctx context.Context, tenantID, userID, studentID string, amount int64) (db.PaymentOrder, error) {
+	tUUID := toPgUUID(tenantID)
+	uUUID := toPgUUID(userID)
+
+	// Verify Relationship
+	children, err := s.q.GetChildrenByParentUser(ctx, db.GetChildrenByParentUserParams{
+		UserID:   uUUID,
+		TenantID: tUUID,
+	})
+	if err != nil {
+		return db.PaymentOrder{}, fmt.Errorf("failed to verify relationship: %w", err)
+	}
+
+	isChild := false
+	for _, child := range children {
+		if fmtUUID(child.ID) == studentID {
+			isChild = true
+			break
+		}
+	}
+
+	if !isChild {
+		return db.PaymentOrder{}, fmt.Errorf("student does not belong to the user")
+	}
+
+	return s.CreateOnlineOrder(ctx, tenantID, studentID, amount)
+}
+
 func (s *Service) ProcessPaymentWebhook(ctx context.Context, tenantID, eventID string, body []byte, signature string, secret string) error {
 	provider, err := s.getTenantPaymentProvider(ctx, tenantID)
 	if err != nil {

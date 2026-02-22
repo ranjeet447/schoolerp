@@ -25,12 +25,14 @@ func NewHandler(svc *auth.Service) *Handler {
 
 func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/auth/login", h.Login)
-	r.Post("/auth/forgot-password", h.ForgotPassword)
+	r.With(middleware.RateLimitByKey("forgot_password", 3, 0, nil)).Post("/auth/forgot-password", h.ForgotPassword)
 	r.Post("/auth/mfa/setup", h.SetupMFA)
 	r.Post("/auth/mfa/enable", h.EnableMFA)
 	r.Post("/auth/mfa/validate", h.ValidateMFA)
 	r.Get("/auth/legal/docs", h.ListLegalDocs)
 	r.Post("/auth/legal/accept", h.AcceptLegalDocs)
+	r.Get("/auth/me", h.GetMe)
+	r.Patch("/auth/me", h.UpdateMe)
 }
 
 // ... Login ...

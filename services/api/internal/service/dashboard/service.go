@@ -43,6 +43,9 @@ type RealTimeStatus struct {
 		ActiveVisitors int `json:"active_visitors"`
 		RecentAlerts   int `json:"recent_alerts"`
 	} `json:"security"`
+	Admissions struct {
+		WalkinsToday int `json:"walkins_today"`
+	} `json:"admissions"`
 }
 
 type StrategicAnalytics struct {
@@ -107,6 +110,13 @@ func (s *DashboardService) GetDailyCommandStatus(ctx context.Context, tenantID s
 		) AND ta.absence_date = ts.substitution_date
 		WHERE ta.tenant_id = $1 AND ta.absence_date = CURRENT_DATE
 	`, tenantID).Scan(&status.Academics.PendingAbsences, &status.Academics.ActiveSubstitutions)
+
+	// 5. Admissions (Walk-ins)
+	err = s.pool.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM admission_applications
+		WHERE tenant_id = $1 AND created_at >= CURRENT_DATE
+	`, tenantID).Scan(&status.Admissions.WalkinsToday)
 
 	return status, nil
 }

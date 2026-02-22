@@ -937,6 +937,55 @@ func (q *Queries) ListQuestionPapers(ctx context.Context, arg ListQuestionPapers
 	return items, nil
 }
 
+const listTeacherExamSubjects = `-- name: ListTeacherExamSubjects :many
+SELECT DISTINCT es.exam_id, es.subject_id, es.max_marks, es.exam_date, es.metadata, s.name as subject_name
+FROM exam_subjects es
+JOIN subjects s ON es.subject_id = s.id
+JOIN timetable_entries te ON s.id = te.subject_id
+WHERE es.exam_id = $1 AND te.teacher_id = $2
+`
+
+type ListTeacherExamSubjectsParams struct {
+	ExamID    pgtype.UUID `json:"exam_id"`
+	TeacherID pgtype.UUID `json:"teacher_id"`
+}
+
+type ListTeacherExamSubjectsRow struct {
+	ExamID      pgtype.UUID `json:"exam_id"`
+	SubjectID   pgtype.UUID `json:"subject_id"`
+	MaxMarks    int32       `json:"max_marks"`
+	ExamDate    pgtype.Date `json:"exam_date"`
+	Metadata    []byte      `json:"metadata"`
+	SubjectName string      `json:"subject_name"`
+}
+
+func (q *Queries) ListTeacherExamSubjects(ctx context.Context, arg ListTeacherExamSubjectsParams) ([]ListTeacherExamSubjectsRow, error) {
+	rows, err := q.db.Query(ctx, listTeacherExamSubjects, arg.ExamID, arg.TeacherID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTeacherExamSubjectsRow
+	for rows.Next() {
+		var i ListTeacherExamSubjectsRow
+		if err := rows.Scan(
+			&i.ExamID,
+			&i.SubjectID,
+			&i.MaxMarks,
+			&i.ExamDate,
+			&i.Metadata,
+			&i.SubjectName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWeightageConfigs = `-- name: ListWeightageConfigs :many
 SELECT id, tenant_id, academic_year_id, exam_type, weight_percentage, created_at FROM exam_weightage_config WHERE tenant_id = $1 AND academic_year_id = $2
 `

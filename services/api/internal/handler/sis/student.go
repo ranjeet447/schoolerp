@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -20,6 +21,16 @@ func NewHandler(svc *sis.StudentService) *Handler {
 	return &Handler{svc: svc}
 }
 
+func (h *Handler) RegisterTeacherRoutes(r chi.Router) {
+	r.Post("/remarks", h.CreateRemark)
+	r.Get("/students/{studentID}/remarks", h.ListRemarks)
+	r.Post("/remarks/{id}/acknowledge", h.AcknowledgeRemark)
+}
+
+func (h *Handler) RegisterAccountantRoutes(r chi.Router) {
+	r.Get("/students", h.List)
+}
+
 func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Get("/students", h.List)
 	r.Post("/students", h.Create)
@@ -27,6 +38,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Get("/students/{id}/guardians", h.ListGuardians)
 	r.Post("/students/{id}/guardians", h.AddGuardian)
 	r.Put("/students/{id}", h.Update)
+	r.Put("/students/{id}/status", h.UpdateStatus)
 	r.Delete("/students/{id}", h.Delete)
 
 	// Academic Structure
@@ -40,7 +52,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/academic-structure/subjects", h.CreateSubject)
 
 	// CSV Import
-	r.Post("/students/import", h.Import)
+	r.With(middleware.RateLimitByKey("student_import", 5, time.Hour, nil)).Post("/students/import", h.Import)
 
 	// Student Remarks
 	r.Post("/remarks", h.CreateRemark)
@@ -138,6 +150,36 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	studentID := chi.URLParam(r, "id")
+	tenantID := middleware.GetTenantID(ctx)
+
+	var req struct {
+		Status string `json:"status"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Status == "" {
+		http.Error(w, "status is required", http.StatusBadRequest)
+		return
+	}
+
+	err := h.svc.UpdateStudentStatus(ctx, tenantID, studentID, req.Status,
+		middleware.GetUserID(ctx), middleware.GetReqID(ctx), r.RemoteAddr)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 }
 
 func (h *Handler) ListClasses(w http.ResponseWriter, r *http.Request) {

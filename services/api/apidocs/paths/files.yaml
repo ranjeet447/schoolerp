@@ -1,0 +1,43 @@
+# Files API Paths — System-wide asset management
+/v1/files/upload:
+  post:
+    operationId: uploadFile
+    tags: [Files]
+    summary: Upload a file
+    description: Uploads an asset (image, document, etc.) and returns a persistent URL.
+    requestBody:
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              file: { type: string, format: binary }
+              purpose: { type: string, enum: [student_photo, staff_photo, document, attachment], default: document }
+    responses:
+      '201':
+        description: File uploaded successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string, format: uuid }
+                url: { type: string, format: uri }
+                name: { type: string }
+                size: { type: integer }
+
+/v1/files/{id}:
+  get:
+    operationId: getFileMetadata
+    tags: [Files]
+    summary: Get file metadata
+    responses:
+      '200':
+        description: File info
+  delete:
+    operationId: deleteFile
+    tags: [Files]
+    summary: Permanently delete a file
+    responses:
+      '204':
+        description: Deleted

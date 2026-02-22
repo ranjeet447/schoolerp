@@ -143,6 +143,7 @@ class AuthServiceClass {
     const token = localStorage.getItem('auth_token');
     if (!token || isAuthTokenExpired(token)) return null;
     return {
+      id: localStorage.getItem('user_id') || '',
       email: localStorage.getItem('user_email') || '',
       name: localStorage.getItem('user_name') || '',
       role: localStorage.getItem('user_role') || '',

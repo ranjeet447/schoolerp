@@ -248,7 +248,13 @@ func (c *Consumer) handleEvent(ctx context.Context, event db.Outbox) error {
 		if message == "" {
 			return nil
 		}
-		return c.notif.SendSMS(ctx, phone, message)
+
+		// Use tenant-specific adapter
+		notif := c.notif
+		if ta, ok := c.notif.(notification.TenantAwareAdapter); ok {
+			notif = ta.WithTenant(event.TenantID.String())
+		}
+		return notif.SendSMS(ctx, phone, message)
 
 	case "fee.paid":
 		var payload map[string]interface{}
@@ -258,7 +264,12 @@ func (c *Consumer) handleEvent(ctx context.Context, event db.Outbox) error {
 			log.Printf("[Worker] fee.paid event missing contact, skipping delivery for event %s", event.ID)
 			return nil
 		}
-		return c.notif.SendWhatsApp(ctx, contact, "Fee payment received. Thank you!")
+
+		notif := c.notif
+		if ta, ok := c.notif.(notification.TenantAwareAdapter); ok {
+			notif = ta.WithTenant(event.TenantID.String())
+		}
+		return notif.SendWhatsApp(ctx, contact, "Fee payment received. Thank you!")
 
 	case "notice.published":
 		var payload map[string]interface{}

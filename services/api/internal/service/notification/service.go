@@ -20,9 +20,9 @@ func (s *Service) ListLogs(ctx context.Context, tenantID string, limit, offset i
 	tUUID.Scan(tenantID)
 
 	return s.q.ListOutboxEvents(ctx, db.ListOutboxEventsParams{
-		TenantID:    tUUID,
-		LimitCount:  limit,
-		OffsetCount: offset,
+		TenantID: tUUID,
+		Limit:    limit,
+		Offset:   offset,
 	})
 }
 
@@ -105,4 +105,35 @@ func (s *Service) ResolveTemplate(ctx context.Context, tenantID, code, channel, 
 		Channel:  channel,
 		Locale:   locale,
 	})
+}
+
+// Gateway Configuration Management
+
+func (s *Service) CreateOrUpdateGatewayConfig(ctx context.Context, tenantID, provider, apiKey, apiSecret, senderID string, isActive bool, settings []byte) (db.NotificationGatewayConfig, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+
+	return s.q.CreateNotificationGatewayConfig(ctx, db.CreateNotificationGatewayConfigParams{
+		TenantID: tID,
+		Provider: provider,
+		ApiKey:   pgtype.Text{String: apiKey, Valid: apiKey != ""},
+		ApiSecret: pgtype.Text{String: apiSecret, Valid: apiSecret != ""},
+		SenderID: pgtype.Text{String: senderID, Valid: senderID != ""},
+		IsActive: pgtype.Bool{Bool: isActive, Valid: true},
+		Settings: settings,
+	})
+}
+
+func (s *Service) ListGatewayConfigs(ctx context.Context, tenantID string) ([]db.NotificationGatewayConfig, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+
+	return s.q.ListNotificationGatewayConfigs(ctx, tID)
+}
+
+func (s *Service) GetActiveGatewayConfig(ctx context.Context, tenantID string) (db.NotificationGatewayConfig, error) {
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
+
+	return s.q.GetTenantActiveNotificationGateway(ctx, tID)
 }

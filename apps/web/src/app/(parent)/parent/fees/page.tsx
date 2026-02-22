@@ -104,13 +104,31 @@ export default function ParentFeesPage() {
     }
   }
 
+  const downloadReceipt = async (receiptId: string) => {
+    try {
+      const res = await apiClient(`/v1/admin/receipts/${receiptId}/pdf`) // This might need parent specific route too if /admin is blocked
+      if (!res.ok) throw new Error("Download failed")
+      
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `receipt_${receiptId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+    } catch (err) {
+      toast.error("Failed to download receipt")
+    }
+  }
+
   const handlePayNow = async () => {
       if (!summary || summary.balance <= 0 || !selectedChild) return
       setProcessing(true)
 
       try {
           // 1. Create Order
-          const orderRes = await apiClient("/admin/payments/online", {
+          const orderRes = await apiClient("/v1/parent/payments/online", {
               method: "POST",
               body: JSON.stringify({
                   student_id: selectedChild,
@@ -121,7 +139,7 @@ export default function ParentFeesPage() {
           if (!orderRes.ok) throw new Error("Failed to create order")
           const order = await orderRes.json()
 
-          const keyRes = await apiClient("/admin/fees/gateways?provider=razorpay")
+          const keyRes = await apiClient("/v1/parent/fees/gateways?provider=razorpay")
           if (!keyRes.ok) {
               throw new Error("Payment gateway is not available for this account")
           }
@@ -139,13 +157,16 @@ export default function ParentFeesPage() {
               currency: order.currency,
               name: "School ERP",
               description: "Fee Payment",
-              order_id: order.id,
+              order_id: order.external_ref, // Use external_ref (rzp_order_id)
               handler: async function (response: any) {
-                  toast.success("Payment Successful! Verifying...")
-                  setTimeout(() => fetchData(selectedChild), 2000)
+                  toast.success("Payment Received! It will take a few minutes to verify.")
+                  setTimeout(() => fetchData(selectedChild), 3000)
               },
               prefill: {
                   name: selectedChildInfo?.full_name || ""
+              },
+              theme: {
+                  color: "#4f46e5"
               }
           }
 
@@ -287,7 +308,12 @@ export default function ParentFeesPage() {
                             </div>
                             <div className="text-right">
                                 <p className="font-black text-slate-800 dark:text-white">{formatCurrency(rec.amount)}</p>
-                                <Button variant="ghost" size="sm" className="h-6 text-xs text-indigo-600 hover:text-indigo-700 px-0">
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => downloadReceipt(rec.id)}
+                                    className="h-6 text-xs text-indigo-600 hover:text-indigo-700 px-0"
+                                >
                                     <Download className="h-3 w-3 mr-1" /> Download
                                 </Button>
                             </div>

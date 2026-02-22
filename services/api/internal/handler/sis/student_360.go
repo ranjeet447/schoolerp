@@ -28,7 +28,7 @@ func (h *Student360Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/health", h.UpsertHealthRecord)
 		r.Get("/documents", h.ListDocuments)
 		r.Post("/documents", h.UploadDocument)
-		r.Get("/export", h.ExportPortfolioPDF)
+		r.With(middleware.RateLimitByKey("student_360_export", 10, time.Hour, nil)).Get("/export", h.ExportPortfolioPDF)
 	})
 }
 

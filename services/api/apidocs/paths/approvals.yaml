@@ -1,0 +1,48 @@
+# Approvals API Paths — Managed Approval Workflow
+/admin/approvals:
+  get:
+    operationId: listApprovals
+    tags: [Approvals]
+    summary: List all approval requests
+    description: Returns a list of pending or processed approval requests for the school.
+    parameters:
+      - name: status
+        in: query
+        schema: { type: string, enum: [pending, processed], default: pending }
+      - name: limit
+        in: query
+        schema: { type: integer, default: 50 }
+    responses:
+      '200':
+        description: List of approval requests
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/ApprovalRequest'
+
+/admin/approvals/{id}/{action}:
+  post:
+    operationId: processApproval
+    tags: [Approvals]
+    summary: Process (Approve/Reject) an approval request
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: action
+        in: path
+        required: true
+        schema: { type: string, enum: [approve, reject] }
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              remark: { type: string }
+    responses:
+      '200':
+        description: Request processed successfully

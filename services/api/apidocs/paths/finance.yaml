@@ -621,3 +621,65 @@
             schema:
               type: string
               format: binary
+
+# Parent Portal Routes
+/parent/children/{id}/fees/summary:
+  get:
+    operationId: getChildFeeSummary
+    tags: [Finance]
+    summary: Get fee summary for a child (Parent view)
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Fee summary
+
+/parent/children/{id}/fees/receipts:
+  get:
+    operationId: listChildReceipts
+    tags: [Finance]
+    summary: List payment receipts for a child
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Receipt list
+
+/parent/payments/online:
+  post:
+    operationId: createParentOnlinePaymentOrder
+    tags: [Finance]
+    summary: Create an online payment order as a parent
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [student_id, amount]
+            properties:
+              student_id: { type: string, format: uuid }
+              amount: { type: integer, format: int64 }
+    responses:
+      '200':
+        description: Order created
+
+/parent/fees/gateways:
+  get:
+    operationId: getParentGatewayKey
+    tags: [Finance]
+    summary: Get public gateway key for parent payment
+    parameters:
+      - name: provider
+        in: query
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Public gateway key

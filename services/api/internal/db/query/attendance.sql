@@ -55,3 +55,23 @@ RETURNING *;
 -- name: DeleteAttendanceEntries :exec
 DELETE FROM attendance_entries
 WHERE session_id = $1;
+
+-- name: GetMonthlyAttendanceSummary :many
+SELECT 
+    s.id as student_id,
+    s.full_name,
+    s.admission_number,
+    COUNT(CASE WHEN ae.status = 'present' THEN 1 END) as present_count,
+    COUNT(CASE WHEN ae.status = 'absent' THEN 1 END) as absent_count,
+    COUNT(CASE WHEN ae.status = 'late' THEN 1 END) as late_count,
+    COUNT(CASE WHEN ae.status = 'excused' THEN 1 END) as excused_count
+FROM students s
+LEFT JOIN attendance_sessions ssn ON ssn.class_section_id = s.section_id 
+    AND ssn.tenant_id = s.tenant_id
+    AND to_char(ssn.date, 'YYYY-MM') = @month::text
+LEFT JOIN attendance_entries ae ON ae.session_id = ssn.id AND ae.student_id = s.id
+WHERE s.tenant_id = @tenant_id 
+  AND s.section_id = @class_section_id
+  AND s.status = 'active'
+GROUP BY s.id, s.full_name, s.admission_number
+ORDER BY s.full_name ASC;

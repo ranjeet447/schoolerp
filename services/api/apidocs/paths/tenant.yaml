@@ -210,3 +210,157 @@
       '200':
         description: Request activated and add-on enabled for tenant
 
+
+/admin/platform/summary:
+  get:
+    operationId: getPlatformSummary
+    tags: [Platform Admin]
+    summary: Get platform-wide summary statistics
+    responses:
+      '200':
+        description: Platform summary overview
+
+/admin/platform/tenants:
+  get:
+    operationId: listPlatformTenants
+    tags: [Platform Admin]
+    summary: List all tenants on the platform
+    responses:
+      '200':
+        description: Tenant list
+
+/admin/platform/tenants/{tenant_id}:
+  get:
+    operationId: getPlatformTenant
+    tags: [Platform Admin]
+    summary: Get details for a specific tenant
+    parameters:
+      - in: path
+        name: tenant_id
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Tenant details
+  patch:
+    operationId: updatePlatformTenant
+    tags: [Platform Admin]
+    summary: Update tenant configuration or profile
+    parameters:
+      - in: path
+        name: tenant_id
+        required: true
+        schema: { type: string }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status: { type: string, enum: [active, suspended] }
+    responses:
+      '200':
+        description: Tenant updated
+
+/admin/platform/tenants/{tenant_id}/lifecycle:
+  post:
+    operationId: updateTenantLifecycle
+    tags: [Platform Admin]
+    summary: Update tenant lifecycle status (Suspend/Activate)
+    parameters:
+      - in: path
+        name: tenant_id
+        required: true
+        schema: { type: string }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status]
+            properties:
+              status: { type: string, enum: [active, suspended] }
+              reason: { type: string }
+    responses:
+      '200':
+        description: Lifecycle status updated
+
+/admin/platform/tenants/{tenant_id}/impersonate:
+  post:
+    operationId: impersonateTenantAdmin
+    tags: [Platform Admin]
+    summary: Impersonate a tenant administrator
+    parameters:
+      - in: path
+        name: tenant_id
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Impersonation started, returns session token
+
+/admin/platform/monitoring/queue:
+  get:
+    operationId: getQueueHealth
+    tags: [Platform Monitoring]
+    summary: Get real-time health and throughput stats for the outbox queue
+    responses:
+      '200':
+        description: Queue monitoring stats
+
+/admin/platform/incidents:
+  get:
+    operationId: listPlatformIncidents
+    tags: [Platform Incidents]
+    summary: List platform incidents
+    parameters:
+      - in: query
+        name: limit
+        schema: { type: integer, default: 20 }
+    responses:
+      '200':
+        description: Incident list
+  post:
+    operationId: createPlatformIncident
+    tags: [Platform Incidents]
+    summary: Report a platform-wide incident
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, severity, description]
+            properties:
+              title: { type: string }
+              severity: { type: string, enum: [minor, major, critical, maintenance] }
+              description: { type: string }
+              status: { type: string, default: investigations }
+    responses:
+      '201':
+        description: Incident reported
+
+/admin/platform/incidents/{incident_id}:
+  patch:
+    operationId: updatePlatformIncident
+    tags: [Platform Incidents]
+    summary: Update platform incident status or severity
+    parameters:
+      - in: path
+        name: incident_id
+        required: true
+        schema: { type: string }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status: { type: string, enum: [investigating, identified, monitoring, resolved] }
+              severity: { type: string }
+    responses:
+      '200':
+        description: Incident updated

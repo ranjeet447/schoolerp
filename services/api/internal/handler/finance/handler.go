@@ -49,6 +49,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/fee-reminders", h.UpsertFeeReminderConfig)
 	})
 	r.Post("/student-concessions", h.ApplyStudentConcession)
+	r.Get("/reports/daily-summary", h.GetDailyFinancialSummary)
+	r.Get("/reports/day-book", h.GetFeeDayBookPDF)
+	r.Get("/reports/defaulters", h.GetDefaultersPDF)
 	r.Route("/payments", func(r chi.Router) {
 		r.Post("/offline", h.IssueReceipt)
 		r.Get("/receipts", h.ListReceiptsByStudent)
@@ -72,6 +75,8 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 func (h *Handler) RegisterParentRoutes(r chi.Router) {
 	r.Get("/children/{id}/fees/summary", h.GetFeeSummary)
 	r.Get("/children/{id}/fees/receipts", h.ListReceipts)
+	r.Post("/payments/online", h.CreateOnlineOrderParent)
+	r.Get("/fees/gateways", h.GetGatewayKeyParent)
 }
 
 func (h *Handler) CreateFeeHead(w http.ResponseWriter, r *http.Request) {
@@ -445,6 +450,51 @@ func (h *Handler) CreateOnlineOrder(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(order)
 }
 
+func (h *Handler) CreateOnlineOrderParent(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		StudentID string `json:"student_id"`
+		Amount    int64  `json:"amount"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	// For parents, we need to pass the UserID to verify the student is their child
+	order, err := h.svc.CreateOnlineOrderParent(r.Context(), 
+		middleware.GetTenantID(r.Context()), 
+		middleware.GetUserID(r.Context()),
+		req.StudentID, 
+		req.Amount,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+
+	json.NewEncoder(w).Encode(order)
+}
+
+func (h *Handler) GetGatewayKeyParent(w http.ResponseWriter, r *http.Request) {
+	provider := r.URL.Query().Get("provider")
+	if provider == "" {
+		http.Error(w, "provider is required", http.StatusBadRequest)
+		return
+	}
+
+	cfg, err := h.svc.GetActiveGatewayConfig(r.Context(), middleware.GetTenantID(r.Context()), provider)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	// Only return public info
+	json.NewEncoder(w).Encode(map[string]string{
+		"provider": cfg.Provider,
+		"api_key":  cfg.ApiKey.String,
+	})
+}
+
 func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	// 1. Get Signature & Event ID
 	signature := r.Header.Get("X-Razorpay-Signature")
@@ -729,4 +779,50 @@ func (h *Handler) UpsertFeeReminderConfig(w http.ResponseWriter, r *http.Request
 		return
 	}
 	json.NewEncoder(w).Encode(cfg)
+}
+
+func (h *Handler) GetDailyFinancialSummary(w http.ResponseWriter, r *http.Request) {
+	date := r.URL.Query().Get("date")
+	
+	summary, err := h.svc.GetDailyFinancialSummary(r.Context(), middleware.GetTenantID(r.Context()), date)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(summary)
+}
+
+func (h *Handler) GetFeeDayBookPDF(w http.ResponseWriter, r *http.Request) {
+	fromStr := r.URL.Query().Get("from")
+	toStr := r.URL.Query().Get("to")
+
+	from, _ := time.Parse("2006-01-02", fromStr)
+	to, _ := time.Parse("2006-01-02", toStr)
+	if to.IsZero() {
+		to = time.Now()
+	}
+	
+	pdf, err := h.svc.GetFeeDayBookPDF(r.Context(), middleware.GetTenantID(r.Context()), from, to)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=fee_day_book_%s.pdf", time.Now().Format("20060102")))
+	w.Write(pdf)
+}
+
+func (h *Handler) GetDefaultersPDF(w http.ResponseWriter, r *http.Request) {
+	pdf, err := h.svc.GetDefaultersPDF(r.Context(), middleware.GetTenantID(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=defaulters_%s.pdf", time.Now().Format("20060102")))
+	w.Write(pdf)
 }

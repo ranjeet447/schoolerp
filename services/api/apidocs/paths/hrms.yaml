@@ -186,3 +186,40 @@
     responses:
       '201':
         description: Task created
+
+/teacher/leaves:
+  get:
+    operationId: listTeacherLeaves
+    tags: [HRMS - Teacher]
+    summary: List own leave requests
+    responses:
+      '200':
+        description: List of leave requests
+  post:
+    operationId: applyTeacherLeave
+    tags: [HRMS - Teacher]
+    summary: Submit a new leave request
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [leave_type_id, start_date, end_date, reason]
+            properties:
+              leave_type_id: { type: string, format: uuid }
+              start_date: { type: string, format: date-time }
+              end_date: { type: string, format: date-time }
+              reason: { type: string }
+    responses:
+      '201':
+        description: Leave request submitted
+
+/teacher/leaves/types:
+  get:
+    operationId: listTeacherLeaveTypes
+    tags: [HRMS - Teacher]
+    summary: List available leave types for teachers
+    responses:
+      '200':
+        description: List of leave types

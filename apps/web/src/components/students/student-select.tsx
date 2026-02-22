@@ -20,9 +20,10 @@ interface StudentSelectProps {
   value: string;
   onValueChange: (value: string) => void;
   placeholder?: string;
+  baseUrl?: string;
 }
 
-export function StudentSelect({ value, onValueChange, placeholder = "Search student by name or admission no..." }: StudentSelectProps) {
+export function StudentSelect({ value, onValueChange, placeholder = "Search student by name or admission no...", baseUrl = "/admin" }: StudentSelectProps) {
   const [students, setStudents] = useState<Student[]>([]);
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -34,7 +35,7 @@ export function StudentSelect({ value, onValueChange, placeholder = "Search stud
       const timer = setTimeout(async () => {
         setIsLoading(true);
         try {
-          const res = await apiClient(`/admin/students?query=${encodeURIComponent(search)}&limit=10`);
+          const res = await apiClient(`${baseUrl}/students?q=${encodeURIComponent(search)}&limit=10`);
           if (res.ok) {
             const data = await res.json();
             setStudents(Array.isArray(data) ? data : []);

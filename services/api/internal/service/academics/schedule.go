@@ -391,6 +391,57 @@ func (s *ScheduleService) GetTeacherDailyTimetable(ctx context.Context, tenantID
 	return entries, nil
 }
 
+func (s *ScheduleService) GetTeacherWeeklyTimetable(ctx context.Context, tenantID, teacherID string) ([]map[string]interface{}, error) {
+	// 1. Get current active variant for the tenant
+	var variantID string
+	err := s.pool.QueryRow(ctx, `SELECT id FROM timetable_variants WHERE tenant_id = $1 AND is_active = true LIMIT 1`, tenantID).Scan(&variantID)
+	if err != nil {
+		return nil, fmt.Errorf("no active timetable variant found: %w", err)
+	}
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT 
+			te.id, te.day_of_week, tp.period_name, tp.start_time::text, tp.end_time::text,
+			sub.name as subject_name, c.name as class_name, sec.name as section_name, te.room_number,
+			te.class_section_id, te.subject_id
+		FROM timetable_entries te
+		JOIN timetable_periods tp ON te.period_id = tp.id
+		JOIN subjects sub ON te.subject_id = sub.id
+		JOIN sections sec ON te.class_section_id = sec.id
+		JOIN classes c ON sec.class_id = c.id
+		WHERE te.tenant_id = $1 AND te.teacher_id = $2 AND te.variant_id = $3
+		ORDER BY te.day_of_week, tp.start_time
+	`, tenantID, teacherID, variantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var entries []map[string]interface{}
+	for rows.Next() {
+		var id, pName, start, end, sName, cName, secName, room, sectionID, subjectID string
+		var dow int
+		err := rows.Scan(&id, &dow, &pName, &start, &end, &sName, &cName, &secName, &room, &sectionID, &subjectID)
+		if err != nil {
+			return nil, err
+		}
+		
+		entries = append(entries, map[string]interface{}{
+			"id":                id,
+			"day_of_week":       dow,
+			"period_name":       pName,
+			"start_time":        start,
+			"end_time":          end,
+			"subject":           sName,
+			"class_section":     cName + " " + secName,
+			"class_section_id":  sectionID,
+			"room":              room,
+			"subject_id":        subjectID,
+		})
+	}
+	return entries, nil
+}
+
 // --- Teacher Specializations & Assignments ---
 
 func (s *ScheduleService) SetTeacherSubjectSpecializations(ctx context.Context, tenantID, teacherID string, subjectIDs []string) error {

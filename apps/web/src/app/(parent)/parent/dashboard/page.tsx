@@ -8,9 +8,17 @@ import {
   Bell,
   ShieldCheck,
   Loader2,
+  Calendar,
+  BookOpen,
+  MessageSquare,
+  ArrowRight,
+  TrendingUp,
+  CreditCard,
+  FileText
 } from "lucide-react"
-import { Card, CardHeader, CardTitle, CardContent, Button } from "@schoolerp/ui"
+import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
+import { format } from "date-fns"
 
 const asArray = (payload: any) => (Array.isArray(payload) ? payload : payload?.data || [])
 
@@ -19,7 +27,7 @@ const parseAmount = (value: unknown) => {
   return Number.isFinite(n) ? n : 0
 }
 
-export default function ParentDashboardPage() {
+export default function ParentActivityFeedPage() {
   const [children, setChildren] = useState<any[]>([])
   const [notices, setNotices] = useState<any[]>([])
   const [outstandingTotal, setOutstandingTotal] = useState(0)
@@ -69,9 +77,6 @@ export default function ParentDashboardPage() {
       setOutstandingTotal(outstanding)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard")
-      setChildren([])
-      setNotices([])
-      setOutstandingTotal(0)
     } finally {
       setLoading(false)
     }
@@ -81,123 +86,132 @@ export default function ParentDashboardPage() {
     fetchDashboard()
   }, [])
 
-  const recentNotices = useMemo(() => notices.slice(0, 3), [notices])
+  // Create a unified activity feed (currently just notices, but structured for expansion)
+  const activityFeed = useMemo(() => {
+    return notices.map(n => ({
+      id: n.id,
+      type: 'notice',
+      title: n.title,
+      content: n.body,
+      date: n.created_at,
+      icon: <Bell className="h-4 w-4 text-rose-500" />,
+      color: 'bg-rose-500/10'
+    })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [notices]);
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-8 rounded-[2.5rem] border border-rose-100 shadow-sm">
+    <div className="max-w-2xl mx-auto space-y-8 pb-20">
+      {/* Dynamic Header */}
+      <div className="flex items-center justify-between px-2 pt-4">
         <div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight">Parent Portal</h1>
-          <p className="text-slate-500">Stay updated with your children's progress and school communications.</p>
+          <h1 className="text-3xl font-black text-slate-900 italic uppercase italic tracking-tighter">Day <span className="text-rose-600">Feed</span></h1>
+          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">{format(new Date(), 'EEEE, MMMM do')}</p>
         </div>
         <div className="flex -space-x-3">
-          {children.slice(0, 2).map((child) => (
-            <div key={String(child.id)} className="h-12 w-12 rounded-full border-4 border-white bg-rose-100 flex items-center justify-center text-rose-600 font-bold">
-              {String(child.full_name || "?").slice(0, 1).toUpperCase()}
+          {children.map((child) => (
+            <div key={child.id} className="h-10 w-10 rounded-2xl border-2 border-white bg-rose-100 flex items-center justify-center text-rose-600 font-bold shadow-sm">
+              {child.full_name?.[0]}
             </div>
           ))}
         </div>
       </div>
 
-      {error && (
-        <Card>
-          <CardContent className="pt-6 text-sm text-red-600 dark:text-red-400">{error}</CardContent>
+      {/* Quick Actions Carousel */}
+      <div className="overflow-x-auto pb-4 no-scrollbar">
+        <div className="flex gap-4 px-2">
+          <Link href="/parent/fees" className="flex-shrink-0">
+            <Button className="h-24 w-28 rounded-[2rem] bg-rose-600 hover:bg-rose-700 flex-col gap-2 shadow-lg shadow-rose-200 border-none transition-transform active:scale-95">
+              <CreditCard className="h-6 w-6" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Pay Fees</span>
+            </Button>
+          </Link>
+          <Link href="/parent/leaves" className="flex-shrink-0">
+            <Button variant="outline" className="h-24 w-28 rounded-[2rem] flex-col gap-2 border-rose-100 bg-white hover:bg-rose-50 transition-transform active:scale-95">
+              <Calendar className="h-6 w-6 text-rose-500" />
+              <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Leave</span>
+            </Button>
+          </Link>
+          <Link href="/parent/homework" className="flex-shrink-0">
+            <Button variant="outline" className="h-24 w-28 rounded-[2rem] flex-col gap-2 border-rose-100 bg-white hover:bg-rose-50 transition-transform active:scale-95">
+              <BookOpen className="h-6 w-6 text-rose-500" />
+              <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Diary</span>
+            </Button>
+          </Link>
+          <Link href="/parent/results" className="flex-shrink-0">
+            <Button variant="outline" className="h-24 w-28 rounded-[2rem] flex-col gap-2 border-rose-100 bg-white hover:bg-rose-50 transition-transform active:scale-95">
+              <TrendingUp className="h-6 w-6 text-rose-500" />
+              <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Results</span>
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Fee Alert Card (Pinned) */}
+      {outstandingTotal > 0 && (
+        <Card className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-xl shadow-slate-900/20 border-none mx-2">
+          <div className="relative z-10 flex flex-col items-center text-center">
+            <div className="h-12 w-12 bg-white/10 rounded-2xl flex items-center justify-center mb-4 text-white">
+              <Banknote className="h-6 w-6" />
+            </div>
+            <h3 className="text-lg font-black uppercase tracking-widest mb-1 text-white/70">Payment Due</h3>
+            <div className="text-4xl font-black mb-4">₹{outstandingTotal.toLocaleString()}</div>
+            <Link href="/parent/fees" className="w-full">
+              <Button className="w-full h-12 bg-white text-slate-900 font-bold uppercase text-xs tracking-widest rounded-2xl hover:bg-rose-50">
+                Clear Outstanding
+              </Button>
+            </Link>
+          </div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/20 rounded-full blur-3xl -mr-16 -mt-16" />
         </Card>
       )}
 
-      {loading && (
-        <div className="text-sm text-muted-foreground flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading dashboard...
-        </div>
-      )}
+      {/* Activity Feed */}
+      <div className="space-y-6 px-2">
+        <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2 mb-4">
+          <TrendingUp className="h-3 w-3" /> Latest Activities
+        </h2>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-          <h2 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
-            <Users className="h-5 w-5 text-rose-500" /> My Children
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {children.map((child) => (
-              <div key={String(child.id)} className="bg-white border border-rose-100 rounded-3xl p-6 shadow-sm">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="h-12 w-12 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500 font-bold">
-                    {String(child.full_name || "?").slice(0, 1).toUpperCase()}
-                  </div>
-                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Roll: {String(child.roll_number || "-")}</span>
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-1">{String(child.full_name || "Student")}</h3>
-                <p className="text-sm font-medium text-slate-500 mb-2">
-                  {String(child.class_name || "Class")} - {String(child.section_name || "Section")}
-                </p>
-                <div className="text-xs text-slate-500">Admission No: {String(child.admission_number || "-")}</div>
-                <div className="mt-6">
-                  <Link href={`/parent/children/${child.id}`} className="text-rose-600 font-bold text-xs uppercase tracking-widest hover:underline">
-                    View Full Profile
-                  </Link>
-                </div>
+        {loading ? (
+          <div className="py-20 flex flex-col items-center justify-center text-slate-400">
+            <Loader2 className="h-8 w-8 animate-spin mb-4" />
+            <p className="text-[10px] font-black uppercase tracking-widest">Syncing Feed...</p>
+          </div>
+        ) : activityFeed.length === 0 ? (
+          <div className="py-20 text-center text-slate-400 italic font-medium">
+             No updates for your children today.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {activityFeed.map((activity) => (
+              <div key={activity.id} className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-50 relative group hover:border-rose-100 transition-colors">
+                 <div className="flex items-start gap-4">
+                    <div className={`h-10 w-10 rounded-xl ${activity.color} flex items-center justify-center shrink-0`}>
+                      {activity.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                       <div className="flex justify-between items-start mb-1">
+                          <h4 className="text-sm font-black text-slate-900 truncate pr-4">{activity.title}</h4>
+                          <span className="text-[9px] font-black text-slate-300 uppercase shrink-0">
+                            {format(new Date(activity.date), 'p')}
+                          </span>
+                       </div>
+                       <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed mb-4">{activity.content}</p>
+                       <div className="flex items-center justify-between">
+                          <Link href="/parent/notices" className="text-[10px] font-black text-rose-600 uppercase tracking-widest flex items-center gap-1 hover:underline">
+                            Read More <ArrowRight className="h-2 w-2" />
+                          </Link>
+                          <Badge variant="outline" className="bg-slate-50 border-none text-[8px] font-black text-slate-400 uppercase tracking-tighter">Official Notice</Badge>
+                       </div>
+                    </div>
+                 </div>
               </div>
             ))}
           </div>
-
-          {!loading && children.length === 0 && (
-            <div className="text-center py-12 bg-gray-50 border-2 border-dashed rounded-xl text-gray-400">No children linked to this account.</div>
-          )}
-
-          <Card className="bg-white border-rose-100 rounded-[2rem] shadow-sm overflow-hidden">
-            <CardHeader className="p-6 border-b border-rose-50 flex flex-row items-center justify-between">
-              <CardTitle className="text-slate-900 font-bold">Recent Updates</CardTitle>
-              <Bell className="h-5 w-5 text-rose-400" />
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y divide-rose-50">
-                {recentNotices.map((item: any) => (
-                  <div key={String(item.id)} className="p-5 hover:bg-slate-50 transition-colors">
-                    <div className="flex justify-between items-start mb-1">
-                      <p className="text-sm font-bold text-slate-900">{String(item.title || "Notice")}</p>
-                      <span className="text-[10px] text-slate-400 uppercase font-black">{String(item.created_at || "")}</span>
-                    </div>
-                    <p className="text-xs text-slate-500">{String(item.body || "")}</p>
-                  </div>
-                ))}
-                {!loading && recentNotices.length === 0 && (
-                  <div className="p-5 text-xs text-slate-500">No recent updates.</div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-6">
-          <div className="bg-slate-900 rounded-[2rem] p-8 text-white relative overflow-hidden shadow-xl shadow-slate-900/20">
-            <div className="relative z-10">
-              <div className="h-12 w-12 bg-white/10 rounded-2xl flex items-center justify-center mb-6 text-white">
-                <Banknote className="h-6 w-6" />
-              </div>
-              <h3 className="text-2xl font-black mb-2 tracking-tight">Fee Balance</h3>
-              <p className="text-slate-400 text-sm mb-6">
-                Total outstanding for your children is <span className="text-white font-bold">₹{outstandingTotal.toLocaleString()}</span>.
-              </p>
-              <Link href="/parent/fees">
-                <Button className="w-full h-12 bg-white text-slate-900 font-black uppercase text-xs tracking-widest rounded-xl hover:bg-rose-50 transition-colors">
-                  Pay Fees Now
-                </Button>
-              </Link>
-            </div>
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16" />
-          </div>
-
-          <div className="bg-rose-50/50 border border-rose-100 rounded-[2rem] p-6">
-            <div className="flex items-center gap-3 text-rose-600 mb-2">
-              <ShieldCheck className="h-5 w-5" />
-              <span className="font-bold text-sm uppercase tracking-widest">Support</span>
-            </div>
-            <p className="text-slate-600 text-xs mb-4">Need help with the portal or have an inquiry? </p>
-            <Link href="/parent/notices" className="text-rose-600 font-bold text-xs uppercase tracking-widest hover:underline underline-offset-4">
-              Contact School Office
-            </Link>
-          </div>
-        </div>
+        )}
       </div>
+
+      {/* Bottom Padding for Nav */}
+      <div className="h-8" />
     </div>
   )
 }

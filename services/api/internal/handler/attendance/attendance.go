@@ -2,6 +2,7 @@ package attendance
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sort"
 	"strings"
@@ -25,6 +26,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Get("/sessions", h.GetSession)
 		r.Get("/class-sections", h.ListClassSections)
 		r.Get("/stats", h.GetDailyStats)
+		r.Get("/monthly-summary", h.GetMonthlySummary)
 		r.Post("/mark", h.MarkAttendance)
 		r.Get("/policies", h.ListPolicies)
 		r.Post("/policies", h.UpdatePolicy)
@@ -334,4 +336,43 @@ func (h *Handler) GetDailyStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(stats)
+}
+
+func (h *Handler) GetMonthlySummary(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	classSectionID := r.URL.Query().Get("class_section_id")
+	month := r.URL.Query().Get("month") // Expected format YYYY-MM
+
+	if strings.TrimSpace(classSectionID) == "" {
+		http.Error(w, "class_section_id is required", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(month) == "" {
+		http.Error(w, "month is required (format YYYY-MM)", http.StatusBadRequest)
+		return
+	}
+
+	summary, err := h.svc.GetMonthlyAttendanceSummary(r.Context(), tenantID, classSectionID, month)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", "attachment;filename=attendance_summary_"+month+".csv")
+	
+	// Write CSV headers
+	w.Write([]byte("Admission Number,Student Name,Present,Absent,Late,Excused\n"))
+	
+	for _, row := range summary {
+		line := fmt.Sprintf("%s,%s,%d,%d,%d,%d\n",
+			row.AdmissionNumber,
+			strings.ReplaceAll(row.FullName, ",", " "), // Escape commas
+			row.PresentCount,
+			row.AbsentCount,
+			row.LateCount,
+			row.ExcusedCount,
+		)
+		w.Write([]byte(line))
+	}
 }

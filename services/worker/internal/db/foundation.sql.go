@@ -321,6 +321,51 @@ func (q *Queries) ListPolicies(ctx context.Context, tenantID pgtype.UUID) ([]Pol
 	return items, nil
 }
 
+const listProcessedApprovals = `-- name: ListProcessedApprovals :many
+SELECT id, tenant_id, requester_id, module, action, resource_id, payload, status, reason, created_at, updated_at FROM approval_requests
+WHERE tenant_id = $1 AND status != 'pending'
+ORDER BY updated_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListProcessedApprovalsParams struct {
+	TenantID pgtype.UUID `json:"tenant_id"`
+	Limit    int32       `json:"limit"`
+	Offset   int32       `json:"offset"`
+}
+
+func (q *Queries) ListProcessedApprovals(ctx context.Context, arg ListProcessedApprovalsParams) ([]ApprovalRequest, error) {
+	rows, err := q.db.Query(ctx, listProcessedApprovals, arg.TenantID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ApprovalRequest
+	for rows.Next() {
+		var i ApprovalRequest
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.RequesterID,
+			&i.Module,
+			&i.Action,
+			&i.ResourceID,
+			&i.Payload,
+			&i.Status,
+			&i.Reason,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateApprovalStatus = `-- name: UpdateApprovalStatus :one
 UPDATE approval_requests
 SET status = $2, reason = $3, updated_at = NOW()

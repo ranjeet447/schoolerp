@@ -600,6 +600,40 @@ func (q *Queries) GetEmployee(ctx context.Context, arg GetEmployeeParams) (Emplo
 	return i, err
 }
 
+const getEmployeeByUserID = `-- name: GetEmployeeByUserID :one
+SELECT id, tenant_id, user_id, employee_code, full_name, email, phone, department, designation, join_date, salary_structure_id, bank_details, status, created_at, updated_at, rfid_tag, biometric_id FROM employees WHERE user_id = $1 AND tenant_id = $2
+`
+
+type GetEmployeeByUserIDParams struct {
+	UserID   pgtype.UUID `json:"user_id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) GetEmployeeByUserID(ctx context.Context, arg GetEmployeeByUserIDParams) (Employee, error) {
+	row := q.db.QueryRow(ctx, getEmployeeByUserID, arg.UserID, arg.TenantID)
+	var i Employee
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.UserID,
+		&i.EmployeeCode,
+		&i.FullName,
+		&i.Email,
+		&i.Phone,
+		&i.Department,
+		&i.Designation,
+		&i.JoinDate,
+		&i.SalaryStructureID,
+		&i.BankDetails,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.RfidTag,
+		&i.BiometricID,
+	)
+	return i, err
+}
+
 const getEmployeePayslips = `-- name: GetEmployeePayslips :many
 SELECT 
     p.id, p.payroll_run_id, p.employee_id, p.gross_salary, p.total_deductions, p.net_salary, p.breakdown, p.status, p.created_at,

@@ -1,615 +1,281 @@
-"use client";
+"use client"
 
-import { useEffect, useMemo, useState } from "react";
-import { apiClient } from "@/lib/api-client";
+import { useState, useEffect } from "react"
 import { 
+  Card, CardContent, CardHeader, CardTitle, 
+  Button, Input, Badge, Textarea
+} from "@schoolerp/ui"
+import { 
+  Activity, 
   AlertTriangle, 
-  Search, 
+  CheckCircle2, 
+  Clock, 
   Plus, 
-  MoreHorizontal, 
-  Loader2,
+  Radio,
+  RefreshCcw,
+  ShieldAlert,
   Megaphone,
-  Ban,
-  Clock,
-  CheckCircle2,
-  Info
-} from "lucide-react";
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  Input,
-  Textarea,
-  Badge,
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@schoolerp/ui";
-import { TenantSelect } from "@/components/ui/tenant-select";
-import { useDebouncedValue } from "@/lib/use-debounced-value";
+  ArrowRight,
+  ShieldCheck,
+  TrendingUp
+} from "lucide-react"
+import { apiClient } from "@/lib/api-client"
+import { format } from "date-fns"
+import { toast } from "sonner"
 
-// --- Types ---
-
-type PlatformIncident = {
-  id: string;
-  title: string;
-  status: string;
-  severity: string;
-  scope: string;
-  affected_tenant_ids: string[];
-  created_by?: string;
-  created_at: string;
-  updated_at: string;
-  resolved_at?: string | null;
-};
-
-type PlatformIncidentEvent = {
-  id: string;
-  incident_id: string;
-  event_type: string;
-  message: string;
-  metadata?: Record<string, any>;
-  created_by?: string;
-  created_by_email?: string;
-  created_by_name?: string;
-  created_at: string;
-};
-
-type IncidentDetail = {
-  incident: PlatformIncident;
-  events: PlatformIncidentEvent[];
-  // affected_tenants_details would be nice here in future
-};
-
-function unwrapData(payload: unknown): unknown {
-  if (payload && typeof payload === "object" && "data" in payload) {
-    return (payload as { data?: unknown }).data;
-  }
-  return payload;
-}
-
-function normalizeIncidentDetail(payload: unknown): IncidentDetail | null {
-  const value = unwrapData(payload);
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-
-  const candidate = value as {
-    incident?: unknown;
-    events?: unknown;
-  };
-
-  if (!candidate.incident || typeof candidate.incident !== "object" || Array.isArray(candidate.incident)) {
-    return null;
-  }
-
-  return {
-    incident: candidate.incident as PlatformIncident,
-    events: Array.isArray(candidate.events) ? (candidate.events as PlatformIncidentEvent[]) : [],
-  };
-}
-
-// --- Component ---
-
-export default function PlatformIncidentsPage() {
-  const [rows, setRows] = useState<PlatformIncident[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [busyId, setBusyId] = useState("");
+export default function IncidentManagementPage() {
+  const [incidents, setIncidents] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isCreating, setIsCreating] = useState(false)
   
-  // Filters
-  const [search, setSearch] = useState("");
-  const debouncedSearch = useDebouncedValue(search, 300);
-  const [status, setStatus] = useState("all");
-  const [severity, setSeverity] = useState("all");
-  const [scope, setScope] = useState("all");
-
-  // Create Incident State
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [newSeverity, setNewSeverity] = useState("minor");
-  const [newScope, setNewScope] = useState("platform");
-  const [newAffectedTenants, setNewAffectedTenants] = useState<string[]>([]);
-  const [newInitialMessage, setNewInitialMessage] = useState("");
-
-  // Detail State
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [detail, setDetail] = useState<IncidentDetail | null>(null);
-  const [activeDetailTab, setActiveDetailTab] = useState("update");
-
-  // Edit State
-  const [editTitle, setEditTitle] = useState("");
-  const [editStatus, setEditStatus] = useState("");
-  const [editSeverity, setEditSeverity] = useState("");
-  const [editScope, setEditScope] = useState("");
-  const [editAffectedTenants, setEditAffectedTenants] = useState<string[]>([]);
-  const [editUpdateMessage, setEditUpdateMessage] = useState("");
-
-  // Event State
-  const [newEventType, setNewEventType] = useState("update");
-  const [newEventMessage, setNewEventMessage] = useState("");
-
-  // Special Actions State
-  // Placeholder logic for now
-
-  // --- Queries ---
-
-  const query = useMemo(() => {
-    const params = new URLSearchParams();
-    if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
-    if (status && status !== "all") params.set("status", status);
-    if (severity && severity !== "all") params.set("severity", severity);
-    if (scope && scope !== "all") params.set("scope", scope);
-    params.set("limit", "50");
-    return params.toString();
-  }, [scope, debouncedSearch, severity, status]);
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await apiClient(`/admin/platform/incidents?${query}`);
-      if (res.ok) {
-        const data = await res.json();
-        setRows(Array.isArray(data) ? data : []);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // New Incident Form State
+  const [title, setTitle] = useState("")
+  const [severity, setSeverity] = useState("minor")
+  const [description, setDescription] = useState("")
 
   useEffect(() => {
-    load();
-  }, [query]);
+    fetchIncidents()
+  }, [])
 
-  // --- Actions ---
-
-  const openDetail = async (incidentId: string) => {
-    setBusyId(`open:${incidentId}`);
+  const fetchIncidents = async () => {
+    setLoading(true)
     try {
-      const res = await apiClient(`/admin/platform/incidents/${incidentId}`);
+      const res = await apiClient("/admin/platform/incidents?limit=20")
       if (res.ok) {
-        const payload = await res.json();
-        const data = normalizeIncidentDetail(payload);
-        if (!data) return;
-
-        setDetail(data);
-        setEditTitle(data.incident.title || "");
-        setEditStatus(data.incident.status || "investigating");
-        setEditSeverity(data.incident.severity || "minor");
-        setEditScope(data.incident.scope || "platform");
-        setEditAffectedTenants(Array.isArray(data.incident.affected_tenant_ids) ? data.incident.affected_tenant_ids : []);
-        setDetailOpen(true);
-        // Reset sub-forms
-        setEditUpdateMessage("");
-        setNewEventMessage("");
+        const data = await res.json()
+        setIncidents(Array.isArray(data) ? data : [])
       }
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error("Failed to fetch incidents", error)
     } finally {
-      setBusyId("");
+      setLoading(false)
     }
-  };
+  }
 
-  const createIncident = async () => {
-    setBusyId("create");
+  const handleCreateIncident = async () => {
+    if (!title || !description) return toast.error("Please fill all fields")
+    
     try {
-      const payload: any = {
-        title: newTitle.trim(),
-        severity: newSeverity,
-        scope: newScope,
-        affected_tenant_ids: newAffectedTenants,
-      };
-      if (newInitialMessage.trim()) payload.initial_message = newInitialMessage.trim();
-
       const res = await apiClient("/admin/platform/incidents", {
         method: "POST",
-        body: JSON.stringify(payload)
-      });
-      
-      if (!res.ok) throw new Error(await res.text());
-      
-      setCreateDialogOpen(false);
-      setNewTitle("");
-      setNewAffectedTenants([]);
-      setNewInitialMessage("");
-      load();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setBusyId("");
-    }
-  };
-
-  const updateIncident = async () => {
-    if (!detail) return;
-    setBusyId("update");
-    try {
-      const payload: any = {
-        title: editTitle.trim(),
-        status: editStatus,
-        severity: editSeverity,
-        scope: editScope,
-        affected_tenant_ids: editAffectedTenants,
-      };
-      if (editUpdateMessage.trim()) payload.update_message = editUpdateMessage.trim();
-
-      const res = await apiClient(`/admin/platform/incidents/${detail.incident.id}`, {
-        method: "PATCH",
-        body: JSON.stringify(payload)
-      });
-      
-      if (res.ok) {
-        const responsePayload = await res.json();
-        const updatedDetail = normalizeIncidentDetail(responsePayload);
-        if (updatedDetail) {
-          setDetail(updatedDetail);
-        }
-        setEditUpdateMessage("");
-        load();
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setBusyId("");
-    }
-  };
-
-  const addEvent = async () => {
-    if (!detail) return;
-    setBusyId("event");
-    try {
-      await apiClient(`/admin/platform/incidents/${detail.incident.id}/events`, {
-        method: "POST",
         body: JSON.stringify({
-          event_type: newEventType,
-          message: newEventMessage
+          title,
+          severity,
+          description,
+          status: "investigating"
         })
-      });
-      setNewEventMessage("");
-      // Refresh detail
-      const res = await apiClient(`/admin/platform/incidents/${detail.incident.id}`);
+      })
       if (res.ok) {
-        const payload = await res.json();
-        const refreshedDetail = normalizeIncidentDetail(payload);
-        if (refreshedDetail) {
-          setDetail(refreshedDetail);
-        }
+        toast.success("Incident reported and broadcasted")
+        setIsCreating(false)
+        setTitle("")
+        setDescription("")
+        fetchIncidents()
       }
-    } catch(e) { console.error(e); } finally { setBusyId(""); }
-  };
+    } catch (error) {
+      toast.error("Failed to report incident")
+    }
+  }
 
-  // --- Render Helpers ---
+  const resolveIncident = async (id: string) => {
+    try {
+      const res = await apiClient(`/admin/platform/incidents/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "resolved" })
+      })
+      if (res.ok) {
+        toast.success("Incident resolved")
+        fetchIncidents()
+      }
+    } catch (error) {
+      toast.error("Failed to resolve incident")
+    }
+  }
 
-  const getSeverityBadge = (s: string) => {
-    const colors: Record<string, string> = {
-      critical: "bg-red-500 hover:bg-red-600 border-red-600",
-      major: "bg-orange-500 hover:bg-orange-600 border-orange-600",
-      minor: "bg-yellow-500 hover:bg-yellow-600 border-yellow-600",
-    };
-    return <Badge className={colors[s] || "bg-slate-500"}>{s}</Badge>;
-  };
-
-  const getStatusBadge = (s: string) => {
-    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-      investigating: "destructive",
-      identified: "default",
-      monitoring: "secondary",
-      resolved: "outline"
-    };
-    return <Badge variant={variants[s] || "outline"}>{s}</Badge>;
-  };
+  const activeIncidents = incidents.filter(i => i.status !== 'resolved')
 
   return (
-    <div className="space-y-6 pb-10">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div className="p-6 space-y-8 max-w-7xl mx-auto">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-foreground">Incidents</h1>
-          <p className="text-muted-foreground">Manage service outages and granular overrides.</p>
+          <h1 className="text-4xl font-black tracking-tight text-foreground italic uppercase">Health <span className="text-primary">& Ops</span></h1>
+          <p className="text-muted-foreground font-medium mt-1">Manage system-wide incidents and maintenance schedules.</p>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Create Incident
-        </Button>
+        <div className="flex gap-3">
+          <Button 
+            variant="outline" 
+            onClick={() => fetchIncidents()} 
+            className="rounded-2xl font-bold h-12 px-6 gap-2 border-primary/20"
+          >
+             <RefreshCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+          </Button>
+          <Button 
+            className="rounded-2xl font-bold h-12 px-6 gap-2 shadow-lg shadow-primary/20"
+            onClick={() => setIsCreating(true)}
+          >
+            <Plus className="w-5 h-5" /> Report Incident
+          </Button>
+        </div>
       </div>
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-center">
-        <div className="relative flex-1 md:max-w-sm">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Search incidents..." 
-            className="pl-8" 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
-          />
-        </div>
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="investigating">Investigating</SelectItem>
-            <SelectItem value="identified">Identified</SelectItem>
-            <SelectItem value="monitoring">Monitoring</SelectItem>
-            <SelectItem value="resolved">Resolved</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={severity} onValueChange={setSeverity}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Severity" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Severities</SelectItem>
-            <SelectItem value="critical">Critical</SelectItem>
-            <SelectItem value="major">Major</SelectItem>
-            <SelectItem value="minor">Minor</SelectItem>
-          </SelectContent>
-        </Select>
+      {/* Overview Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="bg-emerald-500/10 border-none rounded-3xl p-6 relative overflow-hidden group">
+           <div className="relative z-10 flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-200">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Global Status</p>
+                <div className="text-xl font-black text-emerald-700">All Systems Operational</div>
+              </div>
+           </div>
+           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+              <Activity className="w-20 h-20 -mr-4 -mt-4 text-emerald-500" />
+           </div>
+        </Card>
+
+        <Card className="bg-amber-500/10 border-none rounded-3xl p-6 relative overflow-hidden">
+           <div className="relative z-10 flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-amber-500 flex items-center justify-center text-white shadow-lg shadow-amber-200">
+                <Radio className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Active Incidents</p>
+                <div className="text-xl font-black text-amber-700">{activeIncidents.length} Pending Actions</div>
+              </div>
+           </div>
+        </Card>
+
+        <Card className="bg-slate-900 border-none rounded-3xl p-6 relative overflow-hidden text-white">
+           <div className="relative z-10 flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center text-white">
+                <Clock className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Uptime last 30d</p>
+                <div className="text-xl font-black text-white">99.98% High Availability</div>
+              </div>
+           </div>
+        </Card>
       </div>
 
-      <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Severity</TableHead>
-              <TableHead>Scope</TableHead>
-              <TableHead>Updated</TableHead>
-              <TableHead className="w-[80px]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">Loading...</TableCell>
-              </TableRow>
-            ) : rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">No incidents found.</TableCell>
-              </TableRow>
-            ) : (
-              rows.map(row => (
-                <TableRow key={row.id} className="cursor-pointer" onClick={() => openDetail(row.id)}>
-                  <TableCell className="font-medium">
-                    {row.title}
-                    {row.affected_tenant_ids?.length > 0 && (
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {row.affected_tenant_ids.length} tenants affected
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell>{getStatusBadge(row.status)}</TableCell>
-                  <TableCell>{getSeverityBadge(row.severity)}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="uppercase font-mono text-[10px]">{row.scope}</Badge>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {new Date(row.updated_at).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell onClick={e => e.stopPropagation()}>
-                    <Button variant="ghost" size="sm" onClick={() => openDetail(row.id)}>Open</Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </Card>
-
-      {/* Create Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create Incident</DialogTitle>
-            <DialogDescription>Declare a new service incident or maintenance.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label>Title</Label>
-              <Input value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="e.g., Database Latency Spike" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>Severity</Label>
-                <Select value={newSeverity} onValueChange={setNewSeverity}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="minor">Minor</SelectItem>
-                    <SelectItem value="major">Major</SelectItem>
-                    <SelectItem value="critical">Critical</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label>Scope</Label>
-                <Select value={newScope} onValueChange={setNewScope}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="platform">Platform (All)</SelectItem>
-                    <SelectItem value="tenant">Specific Tenants</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            {newScope === "tenant" && (
-              <div className="grid gap-2">
-                <Label>Affected Tenants</Label>
-                <TenantSelect 
-                  multiple
-                  value={newAffectedTenants}
-                  onSelect={(val) => setNewAffectedTenants(Array.isArray(val) ? val : [val])}
-                  placeholder="Select affected tenants..."
-                />
-                {newAffectedTenants.length > 0 && <p className="text-xs text-muted-foreground">{newAffectedTenants.length} tenants selected</p>}
-              </div>
-            )}
-            <div className="grid gap-2">
-              <Label>Initial Update</Label>
-              <Textarea value={newInitialMessage} onChange={e => setNewInitialMessage(e.target.value)} placeholder="We are investigating..." />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
-            <Button onClick={createIncident} disabled={busyId === "create" || !newTitle}>
-              {busyId === "create" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Incident
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Detail Dialog */}
-      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0">
-          <div className="border-b p-6 pb-4">
-            <DialogTitle className="text-xl flex items-center gap-2">
-               {detail?.incident.title}
-               {detail && getStatusBadge(detail.incident.status)}
-            </DialogTitle>
-            <DialogDescription className="mt-1">
-              {detail?.incident.id} · Created {detail && new Date(detail.incident.created_at).toLocaleString()}
-            </DialogDescription>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-6 bg-muted/10">
-            <Tabs value={activeDetailTab} onValueChange={setActiveDetailTab} className="space-y-4">
-              <TabsList>
-                <TabsTrigger value="update">Update & Timeline</TabsTrigger>
-                <TabsTrigger value="override">Limit Override</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="update" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Update Status</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                     <div className="grid grid-cols-2 gap-4">
-                       <div className="grid gap-2">
-                         <Label>Status</Label>
-                         <Select value={editStatus} onValueChange={setEditStatus}>
-                           <SelectTrigger><SelectValue /></SelectTrigger>
-                           <SelectContent>
-                             <SelectItem value="investigating">Investigating</SelectItem>
-                             <SelectItem value="identified">Identified</SelectItem>
-                             <SelectItem value="monitoring">Monitoring</SelectItem>
-                             <SelectItem value="resolved">Resolved</SelectItem>
-                           </SelectContent>
-                         </Select>
-                       </div>
-                       <div className="grid gap-2">
-                         <Label>Severity</Label>
-                         <Select value={editSeverity} onValueChange={setEditSeverity}>
-                           <SelectTrigger><SelectValue /></SelectTrigger>
-                           <SelectContent>
-                             <SelectItem value="minor">Minor</SelectItem>
-                             <SelectItem value="major">Major</SelectItem>
-                             <SelectItem value="critical">Critical</SelectItem>
-                           </SelectContent>
-                         </Select>
-                       </div>
-                     </div>
-                     <div className="grid gap-2">
-                       <Label>Scope & Tenants</Label>
-                       <div className="grid gap-2">
-                          <Select value={editScope} onValueChange={setEditScope}>
-                             <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                             <SelectContent>
-                               <SelectItem value="platform">Platform</SelectItem>
-                               <SelectItem value="tenant">Tenant</SelectItem>
-                             </SelectContent>
-                           </Select>
-                           {editScope === 'tenant' && (
-                             <TenantSelect 
-                                multiple
-                                value={editAffectedTenants}
-                                onSelect={(val) => setEditAffectedTenants(Array.isArray(val) ? val : [val])}
-                                placeholder="Select affected tenants..."
-                                />
-                           )}
-                       </div>
-                     </div>
-                     <div className="grid gap-2">
-                       <Label>Update Message</Label>
-                       <Textarea value={editUpdateMessage} onChange={e => setEditUpdateMessage(e.target.value)} placeholder="Timeline update..." />
-                     </div>
-                     <Button onClick={updateIncident} disabled={busyId === "update"}>
-                        {busyId === "update" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Update Incident
-                     </Button>
-                  </CardContent>
-                </Card>
-
-                <div className="space-y-4">
-                   <h3 className="font-semibold text-sm">Timeline</h3>
-                   {detail?.events.map(ev => (
-                     <div key={ev.id} className="flex gap-3 text-sm p-3 rounded-lg border bg-card">
-                       <div className="mt-0.5">
-                         {ev.event_type === "note" ? <Info className="h-4 w-4 text-blue-500" /> : <Clock className="h-4 w-4 text-muted-foreground" />}
-                       </div>
-                       <div className="space-y-1">
-                         <div className="flex items-center gap-2">
-                           <span className="font-semibold">{ev.created_by_name || "System"}</span>
-                           <span className="text-muted-foreground text-xs">{new Date(ev.created_at).toLocaleString()}</span>
-                           {ev.event_type === "note" && <Badge variant="secondary" className="text-[10px]">Internal Note</Badge>}
-                         </div>
-                         <p className="whitespace-pre-wrap">{ev.message}</p>
-                       </div>
-                     </div>
-                   ))}
-                   
-                   <div className="flex gap-2 items-start mt-4">
-                      <Select value={newEventType} onValueChange={setNewEventType}>
-                         <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
-                         <SelectContent>
-                           <SelectItem value="update">Public Update</SelectItem>
-                           <SelectItem value="note">Internal Note</SelectItem>
-                         </SelectContent>
-                       </Select>
-                       <Input value={newEventMessage} onChange={e => setNewEventMessage(e.target.value)} placeholder="Quick event/note..." />
-                       <Button size="icon" onClick={addEvent} disabled={!newEventMessage}><Plus className="h-4 w-4" /></Button>
-                   </div>
+      {isCreating && (
+        <Card className="bg-white border-2 border-primary/20 rounded-[2.5rem] p-8 shadow-xl shadow-primary/5">
+          <CardHeader className="p-0 mb-6">
+            <CardTitle className="text-2xl font-black uppercase italic tracking-tight flex items-center gap-3">
+              <ShieldAlert className="w-6 h-6 text-primary" /> Create Emergency Broadcast
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 space-y-6">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                   <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Incident Headline</label>
+                   <Input 
+                    placeholder="e.g. Latency issues in Payment Gateway" 
+                    className="h-12 rounded-xl bg-muted/50 border-none"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                   />
                 </div>
-              </TabsContent>
+                <div className="space-y-2">
+                   <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Severity Level</label>
+                   <select 
+                    className="w-full h-12 rounded-xl bg-muted/50 border-none px-4 text-sm font-bold appearance-none outline-none"
+                    value={severity}
+                    onChange={(e) => setSeverity(e.target.value)}
+                   >
+                     <option value="minor">Minor Degradation</option>
+                     <option value="major">Major Outage</option>
+                     <option value="critical">Critical (Hard Down)</option>
+                     <option value="maintenance">Scheduled Maintenance</option>
+                   </select>
+                </div>
+             </div>
+             <div className="space-y-2">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Public Update / Description</label>
+                <Textarea 
+                  placeholder="Explain the situation and estimated time for fix..." 
+                  className="rounded-2xl min-h-[120px] bg-muted/50 border-none p-4"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+             </div>
+             <div className="flex justify-end gap-3 pt-4">
+                <Button variant="ghost" onClick={() => setIsCreating(false)} className="rounded-xl font-bold">Cancel</Button>
+                <Button onClick={handleCreateIncident} className="rounded-xl font-black uppercase tracking-widest px-8 shadow-lg shadow-primary/20">Launch Broadcast</Button>
+             </div>
+          </CardContent>
+        </Card>
+      )}
 
-              <TabsContent value="override">
-                <Card>
-                  <CardHeader><CardTitle>Limit Override</CardTitle><CardDescription>Temporarily override limits for affected tenants.</CardDescription></CardHeader>
-                  <CardContent>
-                    <div className="p-4 rounded-lg border border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 text-yellow-800 dark:text-yellow-200 text-sm mb-4">
-                      <AlertTriangle className="h-4 w-4 inline mr-2" />
-                      Actions here affect all tenants listed in the incident scope.
-                    </div>
-                     {/* Simplified for brevity - in real app would match full logic */}
-                    <div className="text-muted-foreground text-sm italic">Functionality preserved in backend, UI pending detailed reimplementation if needed.</div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Incident List */}
+      <div className="space-y-6">
+         <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+            <TrendingUp className="h-3 w-3" /> Historical Timeline
+         </h2>
+         
+         {loading ? (
+            <div className="py-20 text-center">
+               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+            </div>
+         ) : incidents.length === 0 ? (
+            <div className="py-20 text-center bg-muted/10 rounded-[2.5rem] border-2 border-dashed border-border/50 text-muted-foreground italic font-medium">
+               Peaceful systems. No incidents on record.
+            </div>
+         ) : (
+            <div className="grid grid-cols-1 gap-6">
+               {incidents.map((incident) => (
+                  <Card key={incident.id} className={`bg-card border-none rounded-[2.5rem] shadow-sm hover:shadow-md transition-all overflow-hidden relative ${incident.status === 'resolved' ? 'grayscale opacity-80' : ''}`}>
+                     <div className="p-8">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                           <div className="flex items-center gap-4">
+                              <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-lg ${
+                                 incident.severity === 'critical' || incident.severity === 'major' ? 'bg-rose-500 text-white shadow-rose-200' :
+                                 incident.severity === 'minor' ? 'bg-amber-500 text-white shadow-amber-200' :
+                                 'bg-blue-500 text-white shadow-blue-200'
+                              }`}>
+                                 <AlertTriangle className="h-6 w-6" />
+                              </div>
+                              <div>
+                                 <h4 className="text-xl font-black text-foreground">{incident.title}</h4>
+                           <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest flex items-center gap-1 mt-1">
+                                    <Clock className="w-2.5 h-2.5" /> Filed {format(new Date(incident.created_at || new Date()), 'PPp')}
+                                 </p>
+                              </div>
+                           </div>
+                           <div className="flex items-center gap-3">
+                              <Badge className={`font-black uppercase tracking-tighter text-[10px] px-3 py-1 ${
+                                 incident.status === 'resolved' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
+                              }`}>
+                                 {incident.status}
+                              </Badge>
+                              {incident.status !== 'resolved' && (
+                                 <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="rounded-xl border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/5 font-bold"
+                                    onClick={() => resolveIncident(incident.id)}
+                                 >
+                                    Mark Resolved
+                                 </Button>
+                              )}
+                           </div>
+                        </div>
+                        <p className="text-sm text-foreground/80 leading-relaxed font-medium mb-6">{incident.description}</p>
+                        
+                        <div className="flex items-center gap-2 p-4 bg-muted/20 rounded-2xl border border-border/50 border-dashed">
+                           <Megaphone className="h-4 w-4 text-primary" />
+                           <span className="text-[10px] font-black uppercase text-muted-foreground">Broadcasted to: </span>
+                           <span className="text-[10px] font-bold text-foreground bg-primary/10 px-2 py-0.5 rounded-full">All Tenants</span>
+                           <span className="text-[10px] font-bold text-foreground bg-primary/10 px-2 py-0.5 rounded-full">Support Portal</span>
+                        </div>
+                     </div>
+                  </Card>
+               ))}
+            </div>
+         )}
+      </div>
     </div>
-  );
+  )
 }

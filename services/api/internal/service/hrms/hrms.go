@@ -667,3 +667,14 @@ func (s *Service) CreateStaffBonus(ctx context.Context, tenantID, employeeID str
 		Remarks:      pgtype.Text{String: remarks, Valid: remarks != ""},
 	})
 }
+func (s *Service) GetEmployeeByUserID(ctx context.Context, tenantID, userID string) (db.Employee, error) {
+	tUID := pgtype.UUID{}
+	tUID.Scan(tenantID)
+	uUID := pgtype.UUID{}
+	uUID.Scan(userID)
+
+	return s.q.GetEmployeeByUserID(ctx, db.GetEmployeeByUserIDParams{
+		UserID:   uUID,
+		TenantID: tUID,
+	})
+}

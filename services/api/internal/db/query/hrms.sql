@@ -8,6 +8,9 @@ INSERT INTO employees (
 -- name: GetEmployee :one
 SELECT * FROM employees WHERE id = $1 AND tenant_id = $2;
 
+-- name: GetEmployeeByUserID :one
+SELECT * FROM employees WHERE user_id = $1 AND tenant_id = $2;
+
 -- name: ListEmployees :many
 SELECT * FROM employees
 WHERE tenant_id = $1

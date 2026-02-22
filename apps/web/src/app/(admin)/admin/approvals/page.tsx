@@ -63,22 +63,12 @@ export default function ApprovalsQueuePage() {
   const loadRequests = async () => {
     setLoading(true)
     try {
-      // Mock endpoint, will hook up to unified /admin/approvals later
       const res = await apiClient(`/admin/approvals?status=${activeTab}&limit=100`)
       if (res.ok) {
         const data = await res.json()
-        setRequests(Array.isArray(data) ? data : data.data || [])
+        setRequests(Array.isArray(data) ? data : [])
       } else {
-        // Fallback demo data
-        if (activeTab === "pending") {
-          setRequests([
-            { id: "1", request_type: "waiver", requester_name: "John Doe (Teacher)", student_name: "Alice Smith (Adm: 1001)", amount: 500, reason: "Medical Emergency", status: "pending", created_at: new Date().toISOString() },
-            { id: "2", request_type: "concession", requester_name: "Front Desk", student_name: "Bob Jones (Adm: 1042)", amount: 2000, reason: "Staff Child Concession", status: "pending", created_at: new Date().toISOString() },
-            { id: "3", request_type: "cancellation", requester_name: "Admin", student_name: "Charlie Brown", amount: 1500, reason: "Wrong amount entered during fee collection", status: "pending", created_at: new Date().toISOString() },
-          ])
-        } else {
-          setRequests([])
-        }
+        toast.error("Failed to load approval requests")
       }
     } catch {
       toast.error("Failed to load approval requests")
@@ -109,13 +99,9 @@ export default function ApprovalsQueuePage() {
       setActionModalOpen(false)
       loadRequests()
     } catch {
-      // If endpoint doesn't exist yet, simulate reality
-      setTimeout(() => {
-         toast.success(`Request ${actionType}d successfully`)
-         setActionModalOpen(false)
-         setRequests(requests.filter(r => r.id !== selectedReq.id))
-         setProcessing(false)
-      }, 500)
+      toast.error(`Failed to ${actionType} request`)
+    } finally {
+      setProcessing(false)
     }
   }
 

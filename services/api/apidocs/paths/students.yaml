@@ -1130,3 +1130,88 @@
     responses:
       '200':
         description: Remark acknowledged
+
+# ─── Student Remarks ────────────────────────────────
+/admin/remarks:
+  post:
+    operationId: createAdminStudentRemark
+    tags: [Student Remarks]
+    summary: Post a remark for a student (Admin)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [student_id, category, remark_text]
+            properties:
+              student_id: { type: string, format: uuid }
+              category: { type: string, enum: [academic, behavioral, general, achievement] }
+              remark_text: { type: string }
+              requires_ack: { type: boolean, default: false }
+    responses:
+      '201':
+        description: Remark created
+
+/admin/students/{studentID}/remarks:
+  get:
+    operationId: listAdminStudentRemarks
+    tags: [Student Remarks]
+    summary: List all remarks for a specific student
+    parameters:
+      - in: path
+        name: studentID
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: List of student remarks
+
+/admin/remarks/{id}/acknowledge:
+  post:
+    operationId: acknowledgeAdminStudentRemark
+    tags: [Student Remarks]
+    summary: Acknowledge a student remark
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Remark acknowledged
+
+/teacher/remarks:
+  post:
+    operationId: createTeacherStudentRemark
+    tags: [Student Remarks - Teacher]
+    summary: Post a remark for a student (Teacher)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [student_id, category, remark_text]
+            properties:
+              student_id: { type: string, format: uuid }
+              category: { type: string, enum: [academic, behavioral, general, achievement] }
+              remark_text: { type: string }
+              requires_ack: { type: boolean, default: false }
+    responses:
+      '201':
+        description: Remark created
+
+/teacher/students/{studentID}/remarks:
+  get:
+    operationId: listTeacherStudentRemarks
+    tags: [Student Remarks - Teacher]
+    summary: List remarks given by teacher or for teacher's class
+    parameters:
+      - in: path
+        name: studentID
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: List of student remarks

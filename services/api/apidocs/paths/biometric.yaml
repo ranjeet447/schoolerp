@@ -1,0 +1,31 @@
+# Biometric Integration API Paths
+/admin/biometric/ingest:
+  post:
+    operationId: ingestBiometricLog
+    tags: [Biometric]
+    summary: Ingest logs from biometric attendance devices
+    description: |
+      Endpoints for hardware devices or integration scripts to post attendance logs.
+      Requires tenant-specific authentication.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [device_id, log_time, identifier]
+            properties:
+              device_id: { type: string, example: "DEVICE_001" }
+              log_time: { type: string, format: date-time }
+              identifier: { type: string, description: "Card ID or Biometric ID" }
+              direction: { type: string, enum: [in, out] }
+    responses:
+      '200':
+        description: Log processed
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string, format: uuid }
+                status: { type: string }

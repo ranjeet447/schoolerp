@@ -16,20 +16,17 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
-  // Mocked stats for the top strip & widgets to reflect UX strategy immediately
+  // Stats from backend
   const [stats, setStats] = useState({
-    collectionToday: 125000,
-    absentees: 45,
-    enquiries: 12,
-    staffOnLeave: 3
+    collectionToday: 0,
+    absentees: 0,
+    enquiries: 0,
+    staffOnLeave: 0
   })
 
-  // Mock data for widgets
-  const approvals = [
-    { id: 1, type: "Waiver", name: "Aarav Sharma", amount: "₹500", time: "10 mins ago" },
-    { id: 2, type: "Concession", name: "Diya Patel", amount: "10%", time: "1 hour ago" },
-    { id: 3, type: "TC Request", name: "Rohan Verma", amount: "Class X", time: "2 hours ago" },
-  ]
+  const [approvals, setApprovals] = useState<any[]>([])
+  
+  // Keep mocked data for features not yet linked to backend
   const defaulters = [
     { class: "Class X-A", amount: "₹45,000", students: 8 },
     { class: "Class IX-B", amount: "₹38,000", students: 6 },
@@ -48,11 +45,32 @@ export default function AdminDashboardPage() {
     if (silent) setRefreshing(true)
     else setLoading(true)
     
-    // Simulate real data load
-    setTimeout(() => {
+    try {
+      const [statsRes, approvalsRes] = await Promise.all([
+        apiClient("/admin/dashboard/command-status"),
+        apiClient("/admin/approvals?status=pending&limit=3")
+      ])
+
+      if (statsRes.ok) {
+        const data = await statsRes.json()
+        setStats({
+          collectionToday: data.finance?.collected_today || 0,
+          absentees: data.attendance?.students?.absent || 0,
+          enquiries: data.admissions?.walkins_today || 0,
+          staffOnLeave: data.attendance?.staff?.absent || 0
+        })
+      }
+
+      if (approvalsRes.ok) {
+        const data = await approvalsRes.json()
+        setApprovals(data)
+      }
+    } catch (error) {
+      console.error("Dashboard load failed:", error)
+    } finally {
       setLoading(false)
       setRefreshing(false)
-    }, 800)
+    }
   }
 
   useEffect(() => {
@@ -138,11 +156,17 @@ export default function AdminDashboardPage() {
             {approvals.map(req => (
               <div key={req.id} className="flex items-center justify-between p-3 rounded-lg bg-white border border-orange-100/50 shadow-sm">
                 <div>
-                  <p className="text-sm font-bold text-foreground">{req.name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{req.type} ({req.amount}) • {req.time}</p>
+                  <p className="text-sm font-bold text-foreground">{req.student_name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {req.request_type} {req.amount ? `(₹${req.amount})` : ''} • {req.created_at ? new Date(req.created_at).toLocaleDateString() : 'Just now'}
+                  </p>
                 </div>
                 <div className="flex gap-1">
-                  <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"><CheckCircle className="w-4 h-4" /></Button>
+                  <Link href="/admin/approvals">
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50">
+                      <CheckCircle className="w-4 h-4" />
+                    </Button>
+                  </Link>
                 </div>
               </div>
             ))}

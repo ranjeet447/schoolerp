@@ -1,0 +1,30 @@
+# Notifications API Paths — Service-level alerts and logs
+/admin/notifications/send:
+  post:
+    operationId: sendNotification
+    tags: [Notifications]
+    summary: Send a targeted notification
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [type, body, targets]
+            properties:
+              type: { type: string, enum: [email, sms, push, whatsapp] }
+              subject: { type: string }
+              body: { type: string }
+              targets: { type: object, description: "Filter for recipients (e.g., class_id, role)" }
+    responses:
+      '200':
+        description: Notification queued
+
+/admin/notifications/logs:
+  get:
+    operationId: listNotificationLogs
+    tags: [Notifications]
+    summary: View delivery logs and status
+    responses:
+      '200':
+        description: Log list

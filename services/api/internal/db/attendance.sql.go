@@ -210,6 +210,71 @@ func (q *Queries) GetDailyAttendanceStats(ctx context.Context, arg GetDailyAtten
 	return i, err
 }
 
+const getMonthlyAttendanceSummary = `-- name: GetMonthlyAttendanceSummary :many
+SELECT 
+    s.id as student_id,
+    s.full_name,
+    s.admission_number,
+    COUNT(CASE WHEN ae.status = 'present' THEN 1 END) as present_count,
+    COUNT(CASE WHEN ae.status = 'absent' THEN 1 END) as absent_count,
+    COUNT(CASE WHEN ae.status = 'late' THEN 1 END) as late_count,
+    COUNT(CASE WHEN ae.status = 'excused' THEN 1 END) as excused_count
+FROM students s
+LEFT JOIN attendance_sessions ssn ON ssn.class_section_id = s.section_id 
+    AND ssn.tenant_id = s.tenant_id
+    AND to_char(ssn.date, 'YYYY-MM') = $1::text
+LEFT JOIN attendance_entries ae ON ae.session_id = ssn.id AND ae.student_id = s.id
+WHERE s.tenant_id = $2 
+  AND s.section_id = $3
+  AND s.status = 'active'
+GROUP BY s.id, s.full_name, s.admission_number
+ORDER BY s.full_name ASC
+`
+
+type GetMonthlyAttendanceSummaryParams struct {
+	Month          string      `json:"month"`
+	TenantID       pgtype.UUID `json:"tenant_id"`
+	ClassSectionID pgtype.UUID `json:"class_section_id"`
+}
+
+type GetMonthlyAttendanceSummaryRow struct {
+	StudentID       pgtype.UUID `json:"student_id"`
+	FullName        string      `json:"full_name"`
+	AdmissionNumber string      `json:"admission_number"`
+	PresentCount    int64       `json:"present_count"`
+	AbsentCount     int64       `json:"absent_count"`
+	LateCount       int64       `json:"late_count"`
+	ExcusedCount    int64       `json:"excused_count"`
+}
+
+func (q *Queries) GetMonthlyAttendanceSummary(ctx context.Context, arg GetMonthlyAttendanceSummaryParams) ([]GetMonthlyAttendanceSummaryRow, error) {
+	rows, err := q.db.Query(ctx, getMonthlyAttendanceSummary, arg.Month, arg.TenantID, arg.ClassSectionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetMonthlyAttendanceSummaryRow
+	for rows.Next() {
+		var i GetMonthlyAttendanceSummaryRow
+		if err := rows.Scan(
+			&i.StudentID,
+			&i.FullName,
+			&i.AdmissionNumber,
+			&i.PresentCount,
+			&i.AbsentCount,
+			&i.LateCount,
+			&i.ExcusedCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLeaveRequests = `-- name: ListLeaveRequests :many
 SELECT lr.id, lr.tenant_id, lr.student_id, lr.from_date, lr.to_date, lr.reason, lr.status, lr.decided_by, lr.decided_at, lr.created_at, s.full_name, s.admission_number
 FROM leave_requests lr

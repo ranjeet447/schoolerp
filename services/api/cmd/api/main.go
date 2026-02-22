@@ -33,6 +33,7 @@ import (
 	academic "github.com/schoolerp/api/internal/handler/academics"
 	"github.com/schoolerp/api/internal/handler/admission"
 	"github.com/schoolerp/api/internal/handler/alumni"
+	approvalshandler "github.com/schoolerp/api/internal/handler/approvals"
 	"github.com/schoolerp/api/internal/handler/attendance"
 	authhandler "github.com/schoolerp/api/internal/handler/auth"
 	"github.com/schoolerp/api/internal/handler/automation"
@@ -314,6 +315,7 @@ func main() {
 	idCardHandler := sis.NewIDCardHandler(idCardService)
 	student360Handler := sis.NewStudent360Handler(student360Service)
 	dashboardHandler := dashhandler.NewHandler(dashboardService)
+	approvalsHandler := approvalshandler.NewHandler(approvalSvc, querier)
 	biometricHandler := biometric.NewHandler(biometricService)
 	hostelHandler := sis.NewHostelHandler(hostelService)
 	scheduleHandler := academic.NewScheduleHandler(scheduleService)
@@ -408,6 +410,7 @@ func main() {
 			studentHandler.RegisterRoutes(r)
 			student360Handler.RegisterRoutes(r)
 			dashboardHandler.RegisterRoutes(r)
+			approvalsHandler.RegisterRoutes(r)
 			biometricHandler.RegisterRoutes(r)
 			customFieldHandler.RegisterRoutes(r)
 			attendanceHandler.RegisterRoutes(r)
@@ -472,9 +475,11 @@ func main() {
 			noticeHandler.RegisterRoutes(r)
 			examHandler.RegisterRoutes(r)
 			academicHandler.RegisterRoutes(r)
+			studentHandler.RegisterTeacherRoutes(r)
 			scheduleHandler.RegisterRoutes(r)
 			calendarHandler.RegisterRoutes(r)
 			resourceHandler.RegisterRoutes(r)
+			hrmsHandler.RegisterTeacherRoutes(r)
 		})
 
 		// Parent Routes
@@ -492,6 +497,7 @@ func main() {
 		r.Route("/accountant", func(r chi.Router) {
 			r.Use(middleware.RoleGuard("accountant", "tenant_admin", "super_admin"))
 			financeHandler.RegisterRoutes(r)
+			studentHandler.RegisterAccountantRoutes(r)
 		})
 
 		// AI Routes

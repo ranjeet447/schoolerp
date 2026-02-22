@@ -22,7 +22,8 @@ import {
   LayoutGrid,
   ClipboardList,
   Printer,
-  Send
+  Send,
+  MessageSquare
 } from "lucide-react"
 import { 
   Button, 
@@ -40,7 +41,13 @@ import {
   TabsList,
   TabsTrigger,
   Switch,
-  Label
+  Label,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  Textarea
 } from "@schoolerp/ui"
 
 type ClassSectionOption = {
@@ -87,6 +94,15 @@ function AttendanceContent() {
   const [loadingSchedule, setLoadingSchedule] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+
+  // Flash Remark State
+  const [isRemarkModalOpen, setIsRemarkModalOpen] = useState(false)
+  const [remarkingStudent, setRemarkingStudent] = useState<StudentEntry | null>(null)
+  const [flashRemarkForm, setFlashRemarkForm] = useState({
+    category: "behavior",
+    text: "",
+    requiresAck: true
+  })
 
   useEffect(() => {
     fetchClassSections()
@@ -138,7 +154,6 @@ function AttendanceContent() {
       const res = await apiClient(`/teacher/attendance/sessions?class_section_id=${classSectionID}&date=${date}`)
       if (res.ok) {
         const data = await res.json()
-        // Default everyone to 'present' if it's a new session, or use existing status
         const entries = data.entries.map((e: any) => ({
           id: e.student_id,
           name: e.student_name,
@@ -159,7 +174,6 @@ function AttendanceContent() {
     if (!selectedPeriod) return
     setLoading(true)
     try {
-      // Find period number (assuming period_name has it or use index)
       const periodNum = schedule.findIndex(s => s.id === selectedPeriod.id) + 1
       const res = await apiClient(`/teacher/period-attendance?class_section_id=${selectedPeriod.class_section_id}&date=${date}&period=${periodNum}`)
       if (res.ok) {
@@ -168,13 +182,12 @@ function AttendanceContent() {
            const mapped = data.entries.map((e: any) => ({
              id: e.student_id,
              name: e.student_name || "Student",
-             rollNumber: "", // backend might not return it here, might need another call or merge
+             rollNumber: "",
              status: e.status,
              remarks: e.remarks
            }))
            setStudents(mapped)
         } else {
-           // If no session exists, we need to fetch students for this class_section_id
            const sRes = await apiClient(`/teacher/attendance/sessions?class_section_id=${selectedPeriod.class_section_id}&date=${date}`)
            if (sRes.ok) {
              const sData = await sRes.json()
@@ -253,6 +266,31 @@ function AttendanceContent() {
       }
     } catch (err) {
       toast.error("Network error")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleSubmitFlashRemark = async () => {
+    if (!remarkingStudent || !flashRemarkForm.text.trim()) return
+    setSubmitting(true)
+    try {
+      const res = await apiClient("/teacher/remarks", {
+        method: "POST",
+        body: JSON.stringify({
+          student_id: remarkingStudent.id,
+          category: flashRemarkForm.category,
+          remark_text: flashRemarkForm.text,
+          requires_ack: flashRemarkForm.requiresAck
+        })
+      })
+      if (res.ok) {
+        toast.success(`Remark posted for ${remarkingStudent.name}`)
+        setFlashRemarkForm({ ...flashRemarkForm, text: "" })
+        setIsRemarkModalOpen(false)
+      }
+    } catch (err) {
+      toast.error("Failed to post remark")
     } finally {
       setSubmitting(false)
     }
@@ -497,18 +535,20 @@ function AttendanceContent() {
                       {student.status === 'half_day' && <Clock3 className="h-5 w-5 text-indigo-500" />}
                     </div>
                     
-                    {/* Compact actions button for desktop */}
                     <div className="hidden sm:flex items-center gap-1">
-                       {student.status === 'late' && (
-                         <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-amber-100" title="Print Late Slip" onClick={(e) => { e.stopPropagation(); toast.success("Late Slip sent to printer")}}>
-                           <Printer className="h-4 w-4 text-amber-500" />
-                         </Button>
-                       )}
-                       {student.status === 'absent' && (
-                         <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-rose-100" title="Send SMS/Notice" onClick={(e) => { e.stopPropagation(); toast.success("Notice sent to parent")}}>
-                           <Send className="h-4 w-4 text-rose-500" />
-                         </Button>
-                       )}
+                       <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 hover:bg-emerald-100" 
+                          title="Quick Remark" 
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setRemarkingStudent(student);
+                            setIsRemarkModalOpen(true);
+                          }}
+                        >
+                          <MessageSquare className="h-4 w-4 text-emerald-500" />
+                        </Button>
                       <Select value={student.status} onValueChange={(val) => setStatus(student.id, val as any)}>
                          <SelectTrigger onClick={(e) => e.stopPropagation()} className="h-8 w-8 p-0 rounded-lg border-none bg-transparent hover:bg-slate-200/50 flex items-center justify-center">
                             <LayoutGrid className="h-3 w-3 text-slate-400" />
@@ -536,6 +576,68 @@ function AttendanceContent() {
           )}
         </div>
       </div>
+
+      <Dialog open={isRemarkModalOpen} onOpenChange={setIsRemarkModalOpen}>
+        <DialogContent className="max-w-xl rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
+           <div className="bg-slate-900 p-8 text-white relative">
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-black font-outfit uppercase tracking-tight">Flash Remark</DialogTitle>
+                <div className="flex items-center gap-2 mt-2">
+                   <Badge className="bg-emerald-500 text-slate-900 border-none font-black px-2 py-0.5 text-[10px] tracking-widest uppercase">{remarkingStudent?.name}</Badge>
+                   <span className="text-slate-400 text-xs font-medium italic">Post-marking observation</span>
+                </div>
+              </DialogHeader>
+           </div>
+           
+           <div className="p-8 space-y-6 bg-white">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Category</label>
+                <div className="grid grid-cols-3 gap-2">
+                   {["behavior", "academic", "achievement"].map(cat => (
+                     <button
+                      key={cat}
+                      onClick={() => setFlashRemarkForm({...flashRemarkForm, category: cat})}
+                      className={`py-2 px-3 rounded-xl transition-all border-2 text-[10px] font-black uppercase tracking-widest ${flashRemarkForm.category === cat ? 'bg-slate-900 border-slate-900 text-white' : 'bg-slate-50 border-transparent hover:border-slate-200 text-slate-500'}`}
+                     >
+                        {cat}
+                     </button>
+                   ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Observational Insight</label>
+                <Textarea 
+                  placeholder="Quick observation..." 
+                  className="min-h-[100px] rounded-2xl border-slate-100 focus:ring-emerald-500 p-4 text-sm font-medium"
+                  value={flashRemarkForm.text}
+                  onChange={(e) => setFlashRemarkForm({...flashRemarkForm, text: e.target.value})}
+                />
+              </div>
+           </div>
+
+           <DialogFooter className="p-6 bg-slate-50 border-t border-slate-100 flex-row gap-4 items-center justify-between">
+              <div className="flex items-center gap-2">
+                 <input 
+                  type="checkbox" 
+                  id="req-ack-flash" 
+                  className="h-4 w-4 rounded-lg border-emerald-500 text-emerald-500" 
+                  checked={flashRemarkForm.requiresAck}
+                  onChange={(e) => setFlashRemarkForm({...flashRemarkForm, requiresAck: e.target.checked})}
+                 />
+                 <label htmlFor="req-ack-flash" className="text-[10px] font-black text-slate-500 uppercase tracking-widest cursor-pointer">Req. Parent Ack</label>
+              </div>
+              <Button 
+                className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black px-8 h-12 shadow-md gap-2"
+                disabled={submitting || !flashRemarkForm.text.trim()}
+                onClick={handleSubmitFlashRemark}
+              >
+                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                 Post Remark
+              </Button>
+           </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

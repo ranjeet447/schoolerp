@@ -51,8 +51,9 @@ type NavItem = {
 const NAV_ITEMS = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
   { href: '/admin/diary', label: 'Teacher Diary', icon: BookOpen, permission: 'sis:read' },
-  { href: '/admin/students', label: 'Students', icon: Users, permission: 'sis:read' },
+  { href: '/admin/reception', label: 'Reception Hub', icon: School, permission: 'sis:read' },
   { href: '/admin/admissions/enquiries', label: 'Admissions', icon: ClipboardList, permission: 'sis:read' },
+  { href: '/admin/safety/visitors', label: 'Visitor Logs', icon: Clock, permission: 'safety:read' },
   { href: '/admin/attendance', label: 'Attendance', icon: CalendarCheck, permission: 'attendance:read' },
   { href: '/admin/staff-attendance', label: 'Staff Attendance', icon: Clock, permission: 'attendance:read' },
   { href: '/admin/timetable', label: 'Timetable', icon: CalendarDays, permission: 'attendance:read' },
@@ -83,11 +84,15 @@ const NAV_ITEMS = [
     activePrefixes: ['/admin/settings/users', '/admin/settings/roles', '/admin/settings/permissions', '/admin/settings/access'],
   },
   { href: '/admin/settings/onboarding', label: 'School Onboarding', icon: School, permission: 'platform:manage' },
+  { href: '/admin/settings/templates', label: 'Smart Alerts', icon: MessageSquare, permission: 'tenant:settings:view' },
+  { href: '/admin/settings/gateways', label: 'Gateways', icon: Sliders, permission: 'tenant:settings:view' },
+  { href: '/admin/settings/profile', label: 'My Profile', icon: User },
   { href: '/admin/settings/master-data', label: 'Settings', icon: Settings, permission: 'tenant:settings:view' },
 ];
 
 const NAV_GROUP_ORDER = [
   'Overview',
+  'Reception',
   'Academics & Students',
   'Operations',
   'Administration',
@@ -102,6 +107,7 @@ function isNavItemActive(pathname: string, item: NavItem): boolean {
 }
 
 function getNavGroup(href: string): (typeof NAV_GROUP_ORDER)[number] {
+  if (href.startsWith('/admin/reception') || href.startsWith('/admin/admissions/enquiries') || href.startsWith('/admin/safety/visitors')) return 'Reception';
   if (href.startsWith('/admin/settings') || href.startsWith('/admin/plan') || href.startsWith('/admin/billing')) return 'Administration';
   if (
     href.startsWith('/admin/students') ||
@@ -305,7 +311,7 @@ export default function AdminLayoutClient({
         
         <div className="border-t border-border p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <Link href="/admin/settings/profile" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
               <div className="h-9 w-9 rounded-full bg-indigo-500/20 flex items-center justify-center text-xs font-bold text-indigo-400 border border-indigo-500/30" style={{ borderColor: config?.branding?.primary_color ? `${config.branding.primary_color}50` : undefined, color: config?.branding?.primary_color || undefined }}>
                 {user?.name?.[0] || <User className="h-4 w-4" />}
               </div>
@@ -313,7 +319,7 @@ export default function AdminLayoutClient({
                 <p className="text-sm font-medium text-foreground truncate">{user?.name || 'Loading...'}</p>
                 <p className="text-xs text-muted-foreground truncate capitalize">{user?.role?.replace('_', ' ') || ''}</p>
               </div>
-            </div>
+            </Link>
             <Button 
               variant="ghost"
               size="icon"

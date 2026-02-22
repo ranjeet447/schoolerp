@@ -132,5 +132,16 @@ export async function apiClient(path: string, options: RequestInit = {}) {
     }
   }
 
+  // Automatically parse JSON for convenience if content-type is application/json
+  const contentType = response.headers.get("content-type")
+  if (contentType?.includes("application/json")) {
+    const data = await response.json()
+    // Add success flag if not present for consistency
+    if (typeof data === 'object' && data !== null && data.success === undefined) {
+      data.success = response.ok
+    }
+    return data
+  }
+
   return response
 }

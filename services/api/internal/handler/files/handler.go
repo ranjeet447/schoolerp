@@ -18,7 +18,7 @@ func NewHandler(svc *filesvc.FileService) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(r chi.Router) {
-	r.Post("/files/upload", h.Upload)
+	r.With(middleware.RateLimitByKey("upload", 5, 0, nil)).Post("/files/upload", h.Upload)
 }
 
 func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {

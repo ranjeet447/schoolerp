@@ -5,6 +5,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Select,
 import { Loader2, Save } from "lucide-react"
 import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
+import { useAuth } from "@/components/auth-provider"
 
 type ExamRow = {
   id: string
@@ -49,6 +50,7 @@ const numericValue = (value: unknown): number => {
 }
 
 export default function TeacherMarksPage() {
+  const { user } = useAuth()
   const [exams, setExams] = useState<ExamRow[]>([])
   const [subjects, setSubjects] = useState<ExamSubjectRow[]>([])
   const [marksRows, setMarksRows] = useState<MarksRow[]>([])
@@ -113,7 +115,8 @@ export default function TeacherMarksPage() {
 
   const fetchSubjects = async (examID: string) => {
     try {
-      const res = await apiClient(`/teacher/exams/${examID}/subjects`)
+      const url = user?.id ? `/teacher/exams/${examID}/subjects?teacher_id=${user.id}` : `/teacher/exams/${examID}/subjects`
+      const res = await apiClient(url)
       if (!res.ok) {
         throw new Error((await res.text()) || "Failed to load exam subjects")
       }

@@ -294,6 +294,43 @@ func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (S
 	return i, err
 }
 
+const createStudentDocument = `-- name: CreateStudentDocument :one
+INSERT INTO student_documents (
+    tenant_id, student_id, file_id, type, note
+) VALUES (
+    $1, $2, $3, $4, $5
+) RETURNING id, tenant_id, student_id, file_id, type, note, created_at
+`
+
+type CreateStudentDocumentParams struct {
+	TenantID  pgtype.UUID `json:"tenant_id"`
+	StudentID pgtype.UUID `json:"student_id"`
+	FileID    pgtype.UUID `json:"file_id"`
+	Type      string      `json:"type"`
+	Note      pgtype.Text `json:"note"`
+}
+
+func (q *Queries) CreateStudentDocument(ctx context.Context, arg CreateStudentDocumentParams) (StudentDocument, error) {
+	row := q.db.QueryRow(ctx, createStudentDocument,
+		arg.TenantID,
+		arg.StudentID,
+		arg.FileID,
+		arg.Type,
+		arg.Note,
+	)
+	var i StudentDocument
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.StudentID,
+		&i.FileID,
+		&i.Type,
+		&i.Note,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createStudentRemark = `-- name: CreateStudentRemark :one
 INSERT INTO student_remarks (
     tenant_id, student_id, posted_by, category, remark_text, requires_ack
@@ -801,6 +838,60 @@ func (q *Queries) ListSectionsByTenant(ctx context.Context, tenantID pgtype.UUID
 	return items, nil
 }
 
+const listStudentDocuments = `-- name: ListStudentDocuments :many
+SELECT sd.id, sd.tenant_id, sd.student_id, sd.file_id, sd.type, sd.note, sd.created_at, f.name as file_name, f.url as file_url
+FROM student_documents sd
+JOIN files f ON sd.file_id = f.id
+WHERE sd.student_id = $1 AND sd.tenant_id = $2
+`
+
+type ListStudentDocumentsParams struct {
+	StudentID pgtype.UUID `json:"student_id"`
+	TenantID  pgtype.UUID `json:"tenant_id"`
+}
+
+type ListStudentDocumentsRow struct {
+	ID        pgtype.UUID        `json:"id"`
+	TenantID  pgtype.UUID        `json:"tenant_id"`
+	StudentID pgtype.UUID        `json:"student_id"`
+	FileID    pgtype.UUID        `json:"file_id"`
+	Type      string             `json:"type"`
+	Note      pgtype.Text        `json:"note"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	FileName  string             `json:"file_name"`
+	FileUrl   pgtype.Text        `json:"file_url"`
+}
+
+func (q *Queries) ListStudentDocuments(ctx context.Context, arg ListStudentDocumentsParams) ([]ListStudentDocumentsRow, error) {
+	rows, err := q.db.Query(ctx, listStudentDocuments, arg.StudentID, arg.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStudentDocumentsRow
+	for rows.Next() {
+		var i ListStudentDocumentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.StudentID,
+			&i.FileID,
+			&i.Type,
+			&i.Note,
+			&i.CreatedAt,
+			&i.FileName,
+			&i.FileUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStudentRemarks = `-- name: ListStudentRemarks :many
 SELECT sr.id, sr.tenant_id, sr.student_id, sr.posted_by, sr.category, sr.remark_text, sr.requires_ack, sr.is_acknowledged, sr.ack_by_user_id, sr.ack_at, sr.created_at, sr.updated_at, u.full_name as posted_by_name 
 FROM student_remarks sr
@@ -952,6 +1043,98 @@ func (q *Queries) ListSubjects(ctx context.Context, tenantID pgtype.UUID) ([]Sub
 	return items, nil
 }
 
+const listTeacherSections = `-- name: ListTeacherSections :many
+SELECT DISTINCT sec.id, sec.tenant_id, sec.class_id, sec.name, sec.capacity, sec.created_at, c.name as class_name
+FROM sections sec
+JOIN classes c ON sec.class_id = c.id
+JOIN timetable_entries te ON sec.id = te.class_section_id
+WHERE te.teacher_id = $1 AND te.tenant_id = $2
+ORDER BY c.name, sec.name
+`
+
+type ListTeacherSectionsParams struct {
+	TeacherID pgtype.UUID `json:"teacher_id"`
+	TenantID  pgtype.UUID `json:"tenant_id"`
+}
+
+type ListTeacherSectionsRow struct {
+	ID        pgtype.UUID        `json:"id"`
+	TenantID  pgtype.UUID        `json:"tenant_id"`
+	ClassID   pgtype.UUID        `json:"class_id"`
+	Name      string             `json:"name"`
+	Capacity  pgtype.Int4        `json:"capacity"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ClassName string             `json:"class_name"`
+}
+
+func (q *Queries) ListTeacherSections(ctx context.Context, arg ListTeacherSectionsParams) ([]ListTeacherSectionsRow, error) {
+	rows, err := q.db.Query(ctx, listTeacherSections, arg.TeacherID, arg.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTeacherSectionsRow
+	for rows.Next() {
+		var i ListTeacherSectionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.ClassID,
+			&i.Name,
+			&i.Capacity,
+			&i.CreatedAt,
+			&i.ClassName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTeacherSubjects = `-- name: ListTeacherSubjects :many
+SELECT DISTINCT s.id, s.tenant_id, s.name, s.code, s.type, s.created_at
+FROM subjects s
+JOIN timetable_entries te ON s.id = te.subject_id
+WHERE te.teacher_id = $1 AND te.tenant_id = $2
+ORDER BY s.name
+`
+
+type ListTeacherSubjectsParams struct {
+	TeacherID pgtype.UUID `json:"teacher_id"`
+	TenantID  pgtype.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) ListTeacherSubjects(ctx context.Context, arg ListTeacherSubjectsParams) ([]Subject, error) {
+	rows, err := q.db.Query(ctx, listTeacherSubjects, arg.TeacherID, arg.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Subject
+	for rows.Next() {
+		var i Subject
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Name,
+			&i.Code,
+			&i.Type,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const promoteStudent = `-- name: PromoteStudent :one
 INSERT INTO student_promotions (
     tenant_id, student_id, from_academic_year_id, to_academic_year_id,
@@ -1001,6 +1184,77 @@ func (q *Queries) PromoteStudent(ctx context.Context, arg PromoteStudentParams) 
 		&i.Remarks,
 	)
 	return i, err
+}
+
+const searchStudents = `-- name: SearchStudents :many
+SELECT s.id, s.full_name, s.admission_number, s.status, s.section_id, c.id as class_id, sec.name as section_name, c.name as class_name
+FROM students s
+LEFT JOIN sections sec ON s.section_id = sec.id
+LEFT JOIN classes c ON sec.class_id = c.id
+WHERE s.tenant_id = $1
+  AND (
+    $2::text = '' 
+    OR s.full_name ILIKE '%' || $2 || '%' 
+    OR s.admission_number ILIKE '%' || $2 || '%'
+  )
+  AND (array_length($3::uuid[], 1) IS NULL OR s.section_id = ANY($3::uuid[]))
+  AND (array_length($4::uuid[], 1) IS NULL OR sec.class_id = ANY($4::uuid[]))
+  AND s.status = 'active'
+LIMIT $5
+`
+
+type SearchStudentsParams struct {
+	TenantID pgtype.UUID   `json:"tenant_id"`
+	Column2  string        `json:"column_2"`
+	Column3  []pgtype.UUID `json:"column_3"`
+	Column4  []pgtype.UUID `json:"column_4"`
+	Limit    int32         `json:"limit"`
+}
+
+type SearchStudentsRow struct {
+	ID              pgtype.UUID `json:"id"`
+	FullName        string      `json:"full_name"`
+	AdmissionNumber string      `json:"admission_number"`
+	Status          pgtype.Text `json:"status"`
+	SectionID       pgtype.UUID `json:"section_id"`
+	ClassID         pgtype.UUID `json:"class_id"`
+	SectionName     pgtype.Text `json:"section_name"`
+	ClassName       pgtype.Text `json:"class_name"`
+}
+
+func (q *Queries) SearchStudents(ctx context.Context, arg SearchStudentsParams) ([]SearchStudentsRow, error) {
+	rows, err := q.db.Query(ctx, searchStudents,
+		arg.TenantID,
+		arg.Column2,
+		arg.Column3,
+		arg.Column4,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchStudentsRow
+	for rows.Next() {
+		var i SearchStudentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.FullName,
+			&i.AdmissionNumber,
+			&i.Status,
+			&i.SectionID,
+			&i.ClassID,
+			&i.SectionName,
+			&i.ClassName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateStudent = `-- name: UpdateStudent :one
@@ -1056,4 +1310,22 @@ func (q *Queries) UpdateStudent(ctx context.Context, arg UpdateStudentParams) (S
 		&i.BiometricID,
 	)
 	return i, err
+}
+
+const updateStudentStatus = `-- name: UpdateStudentStatus :exec
+UPDATE students
+SET status = $1, 
+    updated_at = NOW()
+WHERE id = $2 AND tenant_id = $3
+`
+
+type UpdateStudentStatusParams struct {
+	Status   pgtype.Text `json:"status"`
+	ID       pgtype.UUID `json:"id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) UpdateStudentStatus(ctx context.Context, arg UpdateStudentStatusParams) error {
+	_, err := q.db.Exec(ctx, updateStudentStatus, arg.Status, arg.ID, arg.TenantID)
+	return err
 }

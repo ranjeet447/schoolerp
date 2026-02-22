@@ -114,7 +114,8 @@ func (s *StudentService) SearchStudents(ctx context.Context, tenantID, userID, r
 
 	// If role is teacher, restrict search to assigned classes/sections
 	if role == "teacher" {
-		scopes, err := s.q.ListUserRoleAssignmentsByScope(ctx, uUUID, tUUID, "teacher")
+		queries := s.q.(*db.Queries)
+		scopes, err := queries.ListUserRoleAssignmentsByScope(ctx, uUUID, tUUID, "teacher")
 		if err != nil {
 			return nil, err
 		}
@@ -134,11 +135,11 @@ func (s *StudentService) SearchStudents(ctx context.Context, tenantID, userID, r
 	}
 
 	return s.q.SearchStudents(ctx, db.SearchStudentsParams{
-		TenantID:   tUUID,
-		Column2:    query,
-		SectionIds: sectionIDs,
-		ClassIds:   classIDs,
-		Limit:      limit,
+		TenantID: tUUID,
+		Column2:  query,
+		Column3:  sectionIDs,
+		Column4:  classIDs,
+		Limit:    limit,
 	})
 }
 
@@ -247,7 +248,7 @@ func (s *StudentService) DeleteStudent(ctx context.Context, tenantID, studentID,
 
 	uUUID := pgtype.UUID{}
 	uUUID.Scan(userID)
-
+	
 	_ = s.audit.Log(ctx, audit.Entry{
 		TenantID:     tUUID,
 		UserID:       uUUID,
@@ -256,6 +257,39 @@ func (s *StudentService) DeleteStudent(ctx context.Context, tenantID, studentID,
 		ResourceType: "student",
 		ResourceID:   sUUID,
 		Before:       before,
+		IPAddress:    ip,
+	})
+
+	return nil
+}
+
+func (s *StudentService) UpdateStudentStatus(ctx context.Context, tenantID, studentID, status, userID, reqID, ip string) error {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+
+	sUUID := pgtype.UUID{}
+	sUUID.Scan(studentID)
+
+	err := s.q.UpdateStudentStatus(ctx, db.UpdateStudentStatusParams{
+		ID:       sUUID,
+		TenantID: tUUID,
+		Status:   pgtype.Text{String: status, Valid: status != ""},
+	})
+	if err != nil {
+		return err
+	}
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(userID)
+
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    reqID,
+		Action:       "student.update_status",
+		ResourceType: "student",
+		ResourceID:   sUUID,
+		After:        map[string]interface{}{"status": status},
 		IPAddress:    ip,
 	})
 
@@ -580,4 +614,23 @@ func (s *StudentService) ImportStudents(ctx context.Context, tenantID string, r 
 	}
 
 	return result, nil
+}
+
+func (s *StudentService) AddStudentDocument(ctx context.Context, tenantID, studentID, fileID, docType, note string) (db.StudentDocument, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+
+	sUUID := pgtype.UUID{}
+	sUUID.Scan(studentID)
+
+	fUUID := pgtype.UUID{}
+	fUUID.Scan(fileID)
+
+	return s.q.CreateStudentDocument(ctx, db.CreateStudentDocumentParams{
+		TenantID:  tUUID,
+		StudentID: sUUID,
+		FileID:    fUUID,
+		Type:      docType,
+		Note:      pgtype.Text{String: note, Valid: note != ""},
+	})
 }

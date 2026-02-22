@@ -437,3 +437,64 @@
                 logo_url: { type: string, format: uri }
                 modules: { type: array, items: { type: string } }
                 feature_flags: { type: object, additionalProperties: { type: boolean } }
+
+/auth/me:
+  get:
+    operationId: authGetMe
+    tags: [Auth]
+    summary: Get consolidated user profile
+    description: |
+      Returns a unified user profile combining data from `users`, `employees`,
+      and `guardians` tables based on the authenticated user's role.
+    responses:
+      '200':
+        description: Consolidated profile data
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data:
+                  type: object
+                  properties:
+                    user_id: { type: string, format: uuid }
+                    email: { type: string, format: email }
+                    full_name: { type: string }
+                    role: { type: string }
+                    tenant_id: { type: string, format: uuid }
+                    phone: { type: string }
+                    employee_details: { type: object, description: "Present for staff roles" }
+                    guardian_details: { type: object, description: "Present for parents" }
+      '401':
+        description: Not authenticated
+  patch:
+    operationId: authUpdateMe
+    tags: [Auth]
+    summary: Update user profile
+    description: |
+      Updates basic profile information (Full Name, Phone, Address).
+      Changes are synchronized across `users`, `employees`, and `guardians` tables.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              full_name: { type: string, example: "Ranjeet Kumar" }
+              phone: { type: string, example: "+91 9876543210" }
+              address: { type: string, example: "New Delhi, India" }
+              avatar_url: { type: string, format: uri, example: "https://example.com/avatar.jpg" }
+    responses:
+      '200':
+        description: Profile updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                message: { type: string, example: "Profile updated successfully" }
+      '401':
+        description: Not authenticated

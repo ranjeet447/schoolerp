@@ -1,3 +1,9 @@
+-- name: UpdateStudentStatus :exec
+UPDATE students
+SET status = @status, 
+    updated_at = NOW()
+WHERE id = @id AND tenant_id = @tenant_id;
+
 -- name: CreateStudent :one
 INSERT INTO students (
     tenant_id, admission_number, full_name, date_of_birth, gender, section_id, status
@@ -189,3 +195,31 @@ UPDATE student_remarks
 SET is_acknowledged = TRUE, ack_by_user_id = @ack_by_user_id, ack_at = NOW()
 WHERE id = @id AND tenant_id = @tenant_id
 RETURNING *;
+
+-- name: CreateStudentDocument :one
+INSERT INTO student_documents (
+    tenant_id, student_id, file_id, type, note
+) VALUES (
+    $1, $2, $3, $4, $5
+) RETURNING *;
+
+-- name: ListStudentDocuments :many
+SELECT sd.*, f.name as file_name, f.url as file_url
+FROM student_documents sd
+JOIN files f ON sd.file_id = f.id
+WHERE sd.student_id = $1 AND sd.tenant_id = $2;
+
+-- name: ListTeacherSections :many
+SELECT DISTINCT sec.*, c.name as class_name
+FROM sections sec
+JOIN classes c ON sec.class_id = c.id
+JOIN timetable_entries te ON sec.id = te.class_section_id
+WHERE te.teacher_id = $1 AND te.tenant_id = $2
+ORDER BY c.name, sec.name;
+
+-- name: ListTeacherSubjects :many
+SELECT DISTINCT s.*
+FROM subjects s
+JOIN timetable_entries te ON s.id = te.subject_id
+WHERE te.teacher_id = $1 AND te.tenant_id = $2
+ORDER BY s.name;

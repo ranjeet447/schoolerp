@@ -94,13 +94,13 @@ LIMIT $3 OFFSET $2
 `
 
 type ListOutboxEventsParams struct {
-	TenantID    pgtype.UUID `json:"tenant_id"`
-	OffsetCount int32       `json:"offset_count"`
-	LimitCount  int32       `json:"limit_count"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+	Offset   int32       `json:"offset"`
+	Limit    int32       `json:"limit"`
 }
 
 func (q *Queries) ListOutboxEvents(ctx context.Context, arg ListOutboxEventsParams) ([]Outbox, error) {
-	rows, err := q.db.Query(ctx, listOutboxEvents, arg.TenantID, arg.OffsetCount, arg.LimitCount)
+	rows, err := q.db.Query(ctx, listOutboxEvents, arg.TenantID, arg.Offset, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +135,8 @@ UPDATE outbox
 SET status = $1,
     retry_count = CASE WHEN $1 = 'failed' THEN retry_count + 1 ELSE retry_count END,
     error_message = $2,
-    processed_at = CASE WHEN $1 = 'completed' THEN NOW() ELSE processed_at END
+    processed_at = CASE WHEN $1 = 'completed' THEN NOW() ELSE processed_at END,
+    process_after = CASE WHEN $1 = 'failed' THEN NOW() + (POWER(2, retry_count) * INTERVAL '1 minute') ELSE process_after END
 WHERE id = $3
 `
 

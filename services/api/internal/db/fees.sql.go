@@ -540,6 +540,209 @@ func (q *Queries) GetActiveSeries(ctx context.Context, tenantID pgtype.UUID) (Re
 	return i, err
 }
 
+const getDailyFinancialSummary = `-- name: GetDailyFinancialSummary :many
+SELECT 
+    r.payment_mode,
+    fh.name as fee_head_name,
+    SUM(ri.amount) as total_amount,
+    COUNT(DISTINCT r.id) as receipt_count
+FROM receipts r
+JOIN receipt_items ri ON r.id = ri.receipt_id
+JOIN fee_heads fh ON ri.fee_head_id = fh.id
+WHERE r.tenant_id = $1 
+  AND r.status != 'cancelled'
+  AND r.created_at::DATE = $2::DATE
+GROUP BY r.payment_mode, fh.name
+ORDER BY r.payment_mode, fh.name
+`
+
+type GetDailyFinancialSummaryParams struct {
+	TenantID   pgtype.UUID `json:"tenant_id"`
+	TargetDate pgtype.Date `json:"target_date"`
+}
+
+type GetDailyFinancialSummaryRow struct {
+	PaymentMode  string `json:"payment_mode"`
+	FeeHeadName  string `json:"fee_head_name"`
+	TotalAmount  int64  `json:"total_amount"`
+	ReceiptCount int64  `json:"receipt_count"`
+}
+
+func (q *Queries) GetDailyFinancialSummary(ctx context.Context, arg GetDailyFinancialSummaryParams) ([]GetDailyFinancialSummaryRow, error) {
+	rows, err := q.db.Query(ctx, getDailyFinancialSummary, arg.TenantID, arg.TargetDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetDailyFinancialSummaryRow
+	for rows.Next() {
+		var i GetDailyFinancialSummaryRow
+		if err := rows.Scan(
+			&i.PaymentMode,
+			&i.FeeHeadName,
+			&i.TotalAmount,
+			&i.ReceiptCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getDefaulters = `-- name: GetDefaulters :many
+SELECT 
+    s.id as student_id,
+    s.full_name,
+    s.admission_number,
+    c.name as class_name,
+    sec.name as section_name,
+    fh.name as fee_head_name,
+    fpi.amount as due_amount,
+    fpi.due_date,
+    COALESCE(SUM(ri.amount), 0)::BIGINT as paid_amount,
+    (fpi.amount - COALESCE(SUM(ri.amount), 0))::BIGINT as balance_amount
+FROM student_fee_plans sfp
+JOIN students s ON sfp.student_id = s.id
+JOIN sections sec ON s.section_id = sec.id
+JOIN classes c ON sec.class_id = c.id
+JOIN fee_plan_items fpi ON sfp.plan_id = fpi.plan_id
+JOIN fee_heads fh ON fpi.head_id = fh.id
+LEFT JOIN receipt_items ri ON ri.fee_head_id = fpi.head_id 
+    AND ri.receipt_id IN (
+        SELECT id FROM receipts WHERE student_id = s.id AND status != 'cancelled'
+    )
+WHERE s.tenant_id = $1
+GROUP BY s.id, s.full_name, s.admission_number, c.name, sec.name, fh.name, fpi.amount, fpi.due_date
+HAVING (fpi.amount - COALESCE(SUM(ri.amount), 0)) > 0
+ORDER BY fpi.due_date ASC, s.full_name ASC
+`
+
+type GetDefaultersRow struct {
+	StudentID       pgtype.UUID `json:"student_id"`
+	FullName        string      `json:"full_name"`
+	AdmissionNumber string      `json:"admission_number"`
+	ClassName       string      `json:"class_name"`
+	SectionName     string      `json:"section_name"`
+	FeeHeadName     string      `json:"fee_head_name"`
+	DueAmount       int64       `json:"due_amount"`
+	DueDate         pgtype.Date `json:"due_date"`
+	PaidAmount      int64       `json:"paid_amount"`
+	BalanceAmount   int64       `json:"balance_amount"`
+}
+
+func (q *Queries) GetDefaulters(ctx context.Context, tenantID pgtype.UUID) ([]GetDefaultersRow, error) {
+	rows, err := q.db.Query(ctx, getDefaulters, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetDefaultersRow
+	for rows.Next() {
+		var i GetDefaultersRow
+		if err := rows.Scan(
+			&i.StudentID,
+			&i.FullName,
+			&i.AdmissionNumber,
+			&i.ClassName,
+			&i.SectionName,
+			&i.FeeHeadName,
+			&i.DueAmount,
+			&i.DueDate,
+			&i.PaidAmount,
+			&i.BalanceAmount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFeeDayBook = `-- name: GetFeeDayBook :many
+SELECT 
+    r.id,
+    r.receipt_number,
+    r.amount_paid,
+    r.payment_mode,
+    r.created_at,
+    s.full_name as student_name,
+    s.admission_number,
+    c.name as class_name,
+    sec.name as section_name,
+    fh.name as fee_head_name,
+    ri.amount as item_amount
+FROM receipts r
+JOIN students s ON r.student_id = s.id
+JOIN sections sec ON s.section_id = sec.id
+JOIN classes c ON sec.class_id = c.id
+JOIN receipt_items ri ON r.id = ri.receipt_id
+JOIN fee_heads fh ON ri.fee_head_id = fh.id
+WHERE r.tenant_id = $1 
+  AND r.status != 'cancelled'
+  AND r.created_at >= $2 
+  AND r.created_at <= $3
+ORDER BY r.created_at ASC, r.receipt_number ASC
+`
+
+type GetFeeDayBookParams struct {
+	TenantID    pgtype.UUID        `json:"tenant_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	CreatedAt_2 pgtype.Timestamptz `json:"created_at_2"`
+}
+
+type GetFeeDayBookRow struct {
+	ID              pgtype.UUID        `json:"id"`
+	ReceiptNumber   string             `json:"receipt_number"`
+	AmountPaid      int64              `json:"amount_paid"`
+	PaymentMode     string             `json:"payment_mode"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	StudentName     string             `json:"student_name"`
+	AdmissionNumber string             `json:"admission_number"`
+	ClassName       string             `json:"class_name"`
+	SectionName     string             `json:"section_name"`
+	FeeHeadName     string             `json:"fee_head_name"`
+	ItemAmount      int64              `json:"item_amount"`
+}
+
+func (q *Queries) GetFeeDayBook(ctx context.Context, arg GetFeeDayBookParams) ([]GetFeeDayBookRow, error) {
+	rows, err := q.db.Query(ctx, getFeeDayBook, arg.TenantID, arg.CreatedAt, arg.CreatedAt_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetFeeDayBookRow
+	for rows.Next() {
+		var i GetFeeDayBookRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ReceiptNumber,
+			&i.AmountPaid,
+			&i.PaymentMode,
+			&i.CreatedAt,
+			&i.StudentName,
+			&i.AdmissionNumber,
+			&i.ClassName,
+			&i.SectionName,
+			&i.FeeHeadName,
+			&i.ItemAmount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getNextReceiptNumber = `-- name: GetNextReceiptNumber :one
 UPDATE receipt_series
 SET current_number = current_number + 1, updated_at = NOW()

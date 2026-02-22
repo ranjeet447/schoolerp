@@ -50,6 +50,12 @@ RETURNING *;
 SELECT * FROM approval_requests
 WHERE tenant_id = $1 AND status = 'pending';
 
+-- name: ListProcessedApprovals :many
+SELECT * FROM approval_requests
+WHERE tenant_id = $1 AND status != 'pending'
+ORDER BY updated_at DESC
+LIMIT $2 OFFSET $3;
+
 -- name: CreateUser :one
 INSERT INTO users (id, email, phone, full_name, is_active)
 VALUES ($1, $2, $3, $4, $5)

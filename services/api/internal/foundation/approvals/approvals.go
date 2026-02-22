@@ -60,3 +60,14 @@ func (s *Service) ListPending(ctx context.Context, tenantID string) ([]db.Approv
 
 	return s.q.ListPendingApprovals(ctx, tUUID)
 }
+
+func (s *Service) ListProcessed(ctx context.Context, tenantID string, limit, offset int32) ([]db.ApprovalRequest, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+
+	return s.q.ListProcessedApprovals(ctx, db.ListProcessedApprovalsParams{
+		TenantID: tUUID,
+		Limit:    limit,
+		Offset:   offset,
+	})
+}

@@ -3,6 +3,7 @@ package finance
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -194,6 +195,41 @@ func (s *Service) ApplyStudentConcession(ctx context.Context, studentID, ruleID,
 		ON CONFLICT (student_id, rule_id) DO UPDATE SET remarks = EXCLUDED.remarks
 	`, toPgUUID(studentID), toPgUUID(ruleID), toPgUUID(userID), remarks)
 	return err
+}
+
+func (s *Service) GetDailyFinancialSummary(ctx context.Context, tenantID string, targetDate string) ([]db.GetDailyFinancialSummaryRow, error) {
+	tUUID := toPgUUID(tenantID)
+	
+	var date pgtype.Date
+	if targetDate == "" {
+		date = pgtype.Date{Time: time.Now(), Valid: true}
+	} else if err := date.Scan(targetDate); err != nil {
+		return nil, fmt.Errorf("invalid date format: %w", err)
+	}
+
+	return s.q.GetDailyFinancialSummary(ctx, db.GetDailyFinancialSummaryParams{
+		TenantID:   tUUID,
+		TargetDate: date,
+	})
+}
+
+func (s *Service) GetFeeDayBookData(ctx context.Context, tenantID string, from, to time.Time) ([]db.GetFeeDayBookRow, error) {
+	tUUID := toPgUUID(tenantID)
+	
+	var fromTs, toTs pgtype.Timestamptz
+	fromTs.Scan(from)
+	toTs.Scan(to)
+
+	return s.q.GetFeeDayBook(ctx, db.GetFeeDayBookParams{
+		TenantID:  tUUID,
+		CreatedAt: fromTs,
+		CreatedAt_2: toTs,
+	})
+}
+
+func (s *Service) GetDefaultersData(ctx context.Context, tenantID string) ([]db.GetDefaultersRow, error) {
+	tUUID := toPgUUID(tenantID)
+	return s.q.GetDefaulters(ctx, tUUID)
 }
 
 // Helpers

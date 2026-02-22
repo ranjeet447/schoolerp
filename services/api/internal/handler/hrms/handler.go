@@ -410,3 +410,83 @@ func (h *Handler) CreateStaffTask(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(task)
 }
+
+func (h *Handler) RegisterTeacherRoutes(r chi.Router) {
+	r.Route("/leaves", func(r chi.Router) {
+		r.Post("/", h.ApplyLeave)
+		r.Get("/", h.ListTeacherLeaves)
+		r.Get("/types", h.ListLeaveTypes)
+	})
+}
+
+func (h *Handler) ApplyLeave(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	userID := middleware.GetUserID(r.Context())
+
+	var req struct {
+		LeaveTypeID string    `json:"leave_type_id"`
+		StartDate   time.Time `json:"start_date"`
+		EndDate     time.Time `json:"end_date"`
+		Reason      string    `json:"reason"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	employee, err := h.svc.GetEmployeeByUserID(r.Context(), tenantID, userID)
+	if err != nil {
+		http.Error(w, "failed to identify employee record", http.StatusNotFound)
+		return
+	}
+
+	leave, err := h.svc.CreateStaffLeaveRequest(r.Context(), tenantID, employee.ID.String(), req.LeaveTypeID, req.StartDate, req.EndDate, req.Reason)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(leave)
+}
+
+func (h *Handler) ListTeacherLeaves(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	userID := middleware.GetUserID(r.Context())
+	status := r.URL.Query().Get("status")
+
+	employee, err := h.svc.GetEmployeeByUserID(r.Context(), tenantID, userID)
+	if err != nil {
+		http.Error(w, "failed to identify employee record", http.StatusNotFound)
+		return
+	}
+
+	empID := employee.ID.String()
+	var statusPtr *string
+	if status != "" {
+		statusPtr = &status
+	}
+
+	leaves, err := h.svc.ListStaffLeaveRequests(r.Context(), tenantID, &empID, statusPtr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(leaves)
+}
+
+func (h *Handler) ListLeaveTypes(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	activeOnly := true
+	types, err := h.svc.ListLeaveTypes(r.Context(), tenantID, &activeOnly)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(types)
+}

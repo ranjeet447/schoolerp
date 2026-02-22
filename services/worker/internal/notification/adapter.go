@@ -9,6 +9,9 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/schoolerp/worker/internal/db"
 )
 
 type Adapter interface {
@@ -16,6 +19,91 @@ type Adapter interface {
 	SendWhatsApp(ctx context.Context, to string, body string) error
 	SendPush(ctx context.Context, playerID string, title, body string) error
 }
+
+// TenantAwareAdapter is an extension for multi-tenant environments
+type TenantAwareAdapter interface {
+	Adapter
+	WithTenant(tenantID string) Adapter
+}
+
+type MultiTenantAdapter struct {
+	q        db.Querier
+	fallback Adapter
+}
+
+func NewMultiTenantAdapter(q db.Querier, fallback Adapter) *MultiTenantAdapter {
+	return &MultiTenantAdapter{q: q, fallback: fallback}
+}
+
+func (m *MultiTenantAdapter) WithTenant(tenantID string) Adapter {
+	return &tenantSpecificAdapter{
+		tenantID: tenantID,
+		parent:   m,
+	}
+}
+
+// Default implementation (no tenant context) - uses fallback
+func (m *MultiTenantAdapter) SendSMS(ctx context.Context, to string, body string) error {
+	return m.fallback.SendSMS(ctx, to, body)
+}
+
+func (m *MultiTenantAdapter) SendWhatsApp(ctx context.Context, to string, body string) error {
+	return m.fallback.SendWhatsApp(ctx, to, body)
+}
+
+func (m *MultiTenantAdapter) SendPush(ctx context.Context, playerID string, title, body string) error {
+	return m.fallback.SendPush(ctx, playerID, title, body)
+}
+
+type tenantSpecificAdapter struct {
+	tenantID string
+	parent   *MultiTenantAdapter
+}
+
+func (t *tenantSpecificAdapter) resolve(ctx context.Context) Adapter {
+	var tUUID pgtype.UUID
+	tUUID.Scan(t.tenantID)
+
+	cfg, err := t.parent.q.GetTenantActiveNotificationGateway(ctx, tUUID)
+	if err != nil {
+		return t.parent.fallback
+	}
+
+	switch cfg.Provider {
+	case "smshorizon":
+		return NewSmsHorizonAdapter(cfg.ApiKey.String, cfg.ApiSecret.String, cfg.SenderID.String)
+	case "msg91":
+		var rate float64
+		var waRate float64
+		if cfg.Settings != nil {
+			var s struct {
+				Rate   float64 `json:"rate_per_sms"`
+				WaRate float64 `json:"whatsapp_rate"`
+			}
+			_ = json.Unmarshal(cfg.Settings, &s)
+			rate = s.Rate
+			waRate = s.WaRate
+		}
+		return NewMsg91Adapter(t.parent.q, t.tenantID, cfg.ApiKey.String, cfg.SenderID.String, rate, waRate)
+	// Add more providers here
+	default:
+		return t.parent.fallback
+	}
+}
+
+func (t *tenantSpecificAdapter) SendSMS(ctx context.Context, to string, body string) error {
+	return t.resolve(ctx).SendSMS(ctx, to, body)
+}
+
+func (t *tenantSpecificAdapter) SendWhatsApp(ctx context.Context, to string, body string) error {
+	return t.resolve(ctx).SendWhatsApp(ctx, to, body)
+}
+
+func (t *tenantSpecificAdapter) SendPush(ctx context.Context, playerID string, title, body string) error {
+	// Push is usually not per-tenant-gateway, might be global OneSignal/Firebase
+	return t.parent.fallback.SendPush(ctx, playerID, title, body)
+}
+
 
 type StubAdapter struct{}
 

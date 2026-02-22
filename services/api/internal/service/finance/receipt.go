@@ -77,17 +77,56 @@ func (s *Service) IssueReceipt(ctx context.Context, p IssueReceiptParams) (db.Re
 	}
 
 	// 3.5 Create Receipt Items
-	for _, item := range p.Items {
-		hUUID := pgtype.UUID{}
-		hUUID.Scan(item.HeadID)
-
-		_, err := qtx.CreateReceiptItem(ctx, db.CreateReceiptItemParams{
-			ReceiptID: receipt.ID,
-			FeeHeadID: hUUID,
-			Amount:    item.Amount,
-		})
+	if len(p.Items) == 0 {
+		// Auto-allocate against oldest dues (FIFO)
+		dues, err := qtx.GetStudentFeeSummary(ctx, sUUID)
 		if err != nil {
-			return db.Receipt{}, fmt.Errorf("failed to create receipt item: %w", err)
+			return db.Receipt{}, fmt.Errorf("failed to fetch dues for auto-allocation: %w", err)
+		}
+
+		remaining := p.Amount
+		for _, d := range dues {
+			if remaining <= 0 {
+				break
+			}
+			itemDue := d.Amount - d.PaidAmount
+			if itemDue <= 0 {
+				continue
+			}
+
+			allocate := itemDue
+			if remaining < itemDue {
+				allocate = remaining
+			}
+
+			_, err := qtx.CreateReceiptItem(ctx, db.CreateReceiptItemParams{
+				ReceiptID: receipt.ID,
+				FeeHeadID: d.HeadID,
+				Amount:    allocate,
+			})
+			if err != nil {
+				return db.Receipt{}, fmt.Errorf("failed to create auto-allocated receipt item: %w", err)
+			}
+			remaining -= allocate
+		}
+
+		// If there's still money left after all known dues are covered,
+		// we could either return an error or put it in a "suspense" head.
+		// For now, we'll just allow it - it might be an overpayment.
+	} else {
+		// Manual itemization
+		for _, item := range p.Items {
+			hUUID := pgtype.UUID{}
+			hUUID.Scan(item.HeadID)
+
+			_, err := qtx.CreateReceiptItem(ctx, db.CreateReceiptItemParams{
+				ReceiptID: receipt.ID,
+				FeeHeadID: hUUID,
+				Amount:    item.Amount,
+			})
+			if err != nil {
+				return db.Receipt{}, fmt.Errorf("failed to create receipt item: %w", err)
+			}
 		}
 	}
 

@@ -21,12 +21,14 @@ import {
   Banknote, 
   PhoneCall, 
   GraduationCap,
-  Loader2
+  Loader2,
+  Download
 } from "lucide-react";
 import { exportToCsv, printDocument } from "@/lib/exportUtils";
 import { apiClient } from "@/lib/api-client";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { ClassSelect } from "@/components/ui/class-select";
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState("students");
@@ -128,12 +130,7 @@ export default function ReportsPage() {
 
         <TabsContent value="attendance" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-             <ReportCard 
-                title="Student Monthly Attendance" 
-                description="Comprehensive view of student attendance for a selected month."
-                icon={<CalendarDays className="h-5 w-5 text-indigo-500" />}
-                fetchData={async () => ({ data: [], title: "Student Attendance" })}
-             />
+             <AttendanceExportDialog />
              <ReportCard 
                 title="Staff Attendance Summary" 
                 description="Monthly attendance compilation for all teaching and non-teaching staff."
@@ -301,4 +298,103 @@ function ReportCard({
       </CardContent>
     </Card>
   )
+}
+
+function AttendanceExportDialog() {
+  const [open, setOpen] = useState(false);
+  const [selectedClass, setSelectedClass] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // Fallback UI import for Dialog
+  // We'll just build a neat inline card here for simplicity if Dialog isn't purely exported. 
+  // Let's use the actual Card but expand it on click.
+  
+  const handleExport = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!selectedClass) {
+      toast.error("Please select a class");
+      return;
+    }
+    if (!selectedMonth) {
+      toast.error("Please select a month");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const url = `/admin/attendance/monthly-summary?class_section_id=${selectedClass}&month=${selectedMonth}`;
+      
+      const res = await apiClient(url);
+      if (!res.ok) throw new Error("Export failed");
+      
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `attendance_summary_${selectedMonth}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      toast.success("Export successful!");
+      setOpen(false);
+    } catch (error) {
+      toast.error("Failed to generate export");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card 
+      className={`bg-card border-border/50 rounded-3xl hover:border-primary/50 transition-colors cursor-pointer flex flex-col ${open ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}
+      onClick={() => setOpen(!open)}
+    >
+      <CardHeader>
+        <div className="flex items-start gap-4">
+          <div className="p-3 bg-muted rounded-2xl">
+            <CalendarDays className="h-5 w-5 text-indigo-500" />
+          </div>
+          <div>
+            <CardTitle className="text-lg">Student Monthly Attendance</CardTitle>
+            <CardDescription className="mt-1">Export comprehensive attendance data.</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      
+      {open && (
+        <CardContent className="space-y-4 pt-4 border-t border-border/50">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Select Class</label>
+            <div onClick={(e) => e.stopPropagation()}>
+              <ClassSelect 
+                value={selectedClass} 
+                onSelect={setSelectedClass} 
+                placeholder="Choose a class section..."
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Select Month</label>
+            <input 
+              type="month" 
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <Button 
+            className="w-full" 
+            onClick={handleExport}
+            disabled={loading}
+          >
+            {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+            Download CSV Export
+          </Button>
+        </CardContent>
+      )}
+    </Card>
+  );
 }

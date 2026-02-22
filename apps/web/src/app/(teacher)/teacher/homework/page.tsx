@@ -47,6 +47,7 @@ import {
   TableCell
 } from "@schoolerp/ui"
 import { apiClient } from "@/lib/api-client"
+import { useAuth } from "@/components/auth-provider"
 import { toast } from "sonner"
 
 type HomeworkClassSectionOption = {
@@ -71,6 +72,7 @@ type Submission = {
 }
 
 export default function TeacherHomeworkPage() {
+  const { user } = useAuth()
   const [classSectionID, setClassSectionID] = useState("")
   const [subjectID, setSubjectID] = useState("")
   const [title, setTitle] = useState("")
@@ -93,7 +95,8 @@ export default function TeacherHomeworkPage() {
 
   const fetchOptions = async () => {
     try {
-      const res = await apiClient("/teacher/homework/options")
+      const url = user?.id ? `/teacher/homework/options?teacher_id=${user.id}` : "/teacher/homework/options"
+      const res = await apiClient(url)
       if (!res.ok) {
         const msg = await res.text()
         throw new Error(msg || "Failed to load homework options")
@@ -142,8 +145,8 @@ export default function TeacherHomeworkPage() {
   }
 
   useEffect(() => {
-    fetchOptions()
-  }, [])
+    if (user?.id) fetchOptions()
+  }, [user?.id])
 
   useEffect(() => {
     if (classSectionID) fetchHomework(classSectionID)

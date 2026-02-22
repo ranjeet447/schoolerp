@@ -139,7 +139,16 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) ListSubjects(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	subjects, err := h.svc.ListSubjects(r.Context(), id)
+	teacherID := r.URL.Query().Get("teacher_id")
+
+	var subjects any
+	var err error
+	if teacherID != "" {
+		subjects, err = h.svc.ListTeacherExamSubjects(r.Context(), id, teacherID)
+	} else {
+		subjects, err = h.svc.ListSubjects(r.Context(), id)
+	}
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -604,7 +613,7 @@ func (h *Handler) GetHallTicketPDF(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/手/pdf") // Note: should be application/pdf, fixing below
+	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", "attachment; filename=hall_ticket.pdf")
 	w.Write(pdf)
 }

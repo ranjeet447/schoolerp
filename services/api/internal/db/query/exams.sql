@@ -208,3 +208,10 @@ ORDER BY ht.roll_number;
 UPDATE exam_subjects
 SET metadata = $3
 WHERE exam_id = $1 AND subject_id = $2;
+
+-- name: ListTeacherExamSubjects :many
+SELECT DISTINCT es.*, s.name as subject_name
+FROM exam_subjects es
+JOIN subjects s ON es.subject_id = s.id
+JOIN timetable_entries te ON s.id = te.subject_id
+WHERE es.exam_id = $1 AND te.teacher_id = $2;

@@ -347,7 +347,7 @@ func (s *Service) ListHomeworkForSection(ctx context.Context, tenantID, sectionI
 	})
 }
 
-func (s *Service) ListHomeworkOptions(ctx context.Context, tenantID string) (HomeworkOptions, error) {
+func (s *Service) ListHomeworkOptions(ctx context.Context, tenantID string, teacherID *string) (HomeworkOptions, error) {
 	tUUID := pgtype.UUID{}
 	if err := tUUID.Scan(tenantID); err != nil {
 		return HomeworkOptions{}, fmt.Errorf("invalid tenant_id")
@@ -365,48 +365,92 @@ func (s *Service) ListHomeworkOptions(ctx context.Context, tenantID string) (Hom
 		}
 	}
 
-	sections, err := s.q.ListSectionsByTenant(ctx, tUUID)
+	var classSections []HomeworkClassSectionOption
+	var sections []db.Section
+	var teacherSections []db.ListTeacherSectionsRow
+
+	if teacherID != nil && *teacherID != "" {
+		teacherUUID := pgtype.UUID{}
+		teacherUUID.Scan(*teacherID)
+		teacherSections, err = s.q.ListTeacherSections(ctx, db.ListTeacherSectionsParams{
+			TeacherID: teacherUUID,
+			TenantID:  tUUID,
+		})
+	} else {
+		sections, err = s.q.ListSectionsByTenant(ctx, tUUID)
+	}
+
 	if err != nil {
 		return HomeworkOptions{}, err
 	}
 
-	classSections := make([]HomeworkClassSectionOption, 0, len(sections))
-	for _, section := range sections {
-		if !section.ID.Valid {
-			continue
+	if teacherID != nil && *teacherID != "" {
+		for _, section := range teacherSections {
+			classSections = append(classSections, HomeworkClassSectionOption{
+				ID:        section.ID.String(),
+				ClassID:   section.ClassID.String(),
+				ClassName: section.ClassName,
+				Name:      section.Name,
+				Label:     section.ClassName + " - " + section.Name,
+			})
 		}
-		className := ""
-		if section.ClassID.Valid {
-			className = classNameByID[section.ClassID.Bytes]
+	} else {
+		for _, section := range sections {
+			if !section.ID.Valid {
+				continue
+			}
+			className := ""
+			if section.ClassID.Valid {
+				className = classNameByID[section.ClassID.Bytes]
+			}
+			if className == "" {
+				className = "Class"
+			}
+			classSections = append(classSections, HomeworkClassSectionOption{
+				ID:        section.ID.String(),
+				ClassID:   section.ClassID.String(),
+				ClassName: className,
+				Name:      section.Name,
+				Label:     className + " - " + section.Name,
+			})
 		}
-		if className == "" {
-			className = "Class"
-		}
-		classSections = append(classSections, HomeworkClassSectionOption{
-			ID:        section.ID.String(),
-			ClassID:   section.ClassID.String(),
-			ClassName: className,
-			Name:      section.Name,
-			Label:     className + " - " + section.Name,
-		})
 	}
 
-	subjectRows, err := s.q.ListSubjects(ctx, tUUID)
-	if err != nil {
-		return HomeworkOptions{}, err
-	}
-
-	subjects := make([]HomeworkSubjectOption, 0, len(subjectRows))
-	for _, subject := range subjectRows {
-		if !subject.ID.Valid {
-			continue
-		}
-		subjects = append(subjects, HomeworkSubjectOption{
-			ID:   subject.ID.String(),
-			Name: subject.Name,
-			Code: subject.Code.String,
-			Type: subject.Type.String,
+	var subjects []HomeworkSubjectOption
+	if teacherID != nil && *teacherID != "" {
+		teacherUUID := pgtype.UUID{}
+		teacherUUID.Scan(*teacherID)
+		subjectRows, err := s.q.ListTeacherSubjects(ctx, db.ListTeacherSubjectsParams{
+			TeacherID: teacherUUID,
+			TenantID:  tUUID,
 		})
+		if err != nil {
+			return HomeworkOptions{}, err
+		}
+		for _, subject := range subjectRows {
+			subjects = append(subjects, HomeworkSubjectOption{
+				ID:   subject.ID.String(),
+				Name: subject.Name,
+				Code: subject.Code.String,
+				Type: subject.Type.String,
+			})
+		}
+	} else {
+		subjectRows, err := s.q.ListSubjects(ctx, tUUID)
+		if err != nil {
+			return HomeworkOptions{}, err
+		}
+		for _, subject := range subjectRows {
+			if !subject.ID.Valid {
+				continue
+			}
+			subjects = append(subjects, HomeworkSubjectOption{
+				ID:   subject.ID.String(),
+				Name: subject.Name,
+				Code: subject.Code.String,
+				Type: subject.Type.String,
+			})
+		}
 	}
 
 	return HomeworkOptions{ClassSections: classSections, Subjects: subjects}, nil

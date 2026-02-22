@@ -25,6 +25,7 @@ func (h *ScheduleHandler) RegisterRoutes(r chi.Router) {
 			r.Post("/", h.CreateVariant)
 		})
 		r.Get("/teacher-daily", h.GetTeacherDailyTimetable)
+		r.Get("/teacher-weekly", h.GetTeacherWeeklyTimetable)
 		r.Route("/periods", func(r chi.Router) {
 			r.Get("/{variantID}", h.GetPeriods)
 			r.Post("/", h.CreatePeriod)
@@ -304,6 +305,18 @@ func (h *ScheduleHandler) GetTeacherDailyTimetable(w http.ResponseWriter, r *htt
 	}
 
 	list, err := h.svc.GetTeacherDailyTimetable(r.Context(), tenantID, userID, date)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(list)
+}
+
+func (h *ScheduleHandler) GetTeacherWeeklyTimetable(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	userID := middleware.GetUserID(r.Context())
+	
+	list, err := h.svc.GetTeacherWeeklyTimetable(r.Context(), tenantID, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

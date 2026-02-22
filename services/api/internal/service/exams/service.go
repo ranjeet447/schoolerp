@@ -133,6 +133,15 @@ func (s *Service) ListSubjects(ctx context.Context, examID string) ([]db.ListExa
 	return s.q.ListExamSubjects(ctx, eUUID)
 }
 
+func (s *Service) ListTeacherExamSubjects(ctx context.Context, examID, teacherID string) ([]db.ListTeacherExamSubjectsRow, error) {
+	eUUID := toPgUUID(examID)
+	tUUID := toPgUUID(teacherID)
+	return s.q.ListTeacherExamSubjects(ctx, db.ListTeacherExamSubjectsParams{
+		ExamID:    eUUID,
+		TeacherID: tUUID,
+	})
+}
+
 func (s *Service) UpdateSubjectMetadata(ctx context.Context, tenantID, examID, subjectID string, metadata []byte) error {
 	eUUID := toPgUUID(examID)
 	sUUID := toPgUUID(subjectID)

@@ -11,6 +11,57 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createNotificationGatewayConfig = `-- name: CreateNotificationGatewayConfig :one
+INSERT INTO notification_gateway_configs (
+    tenant_id, provider, api_key, api_secret, sender_id, is_active, settings
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7
+) ON CONFLICT (tenant_id, provider) DO UPDATE SET
+    api_key = EXCLUDED.api_key,
+    api_secret = EXCLUDED.api_secret,
+    sender_id = EXCLUDED.sender_id,
+    is_active = EXCLUDED.is_active,
+    settings = EXCLUDED.settings,
+    updated_at = NOW()
+RETURNING id, tenant_id, provider, api_key, api_secret, sender_id, is_active, settings, created_at, updated_at
+`
+
+type CreateNotificationGatewayConfigParams struct {
+	TenantID  pgtype.UUID `json:"tenant_id"`
+	Provider  string      `json:"provider"`
+	ApiKey    pgtype.Text `json:"api_key"`
+	ApiSecret pgtype.Text `json:"api_secret"`
+	SenderID  pgtype.Text `json:"sender_id"`
+	IsActive  pgtype.Bool `json:"is_active"`
+	Settings  []byte      `json:"settings"`
+}
+
+func (q *Queries) CreateNotificationGatewayConfig(ctx context.Context, arg CreateNotificationGatewayConfigParams) (NotificationGatewayConfig, error) {
+	row := q.db.QueryRow(ctx, createNotificationGatewayConfig,
+		arg.TenantID,
+		arg.Provider,
+		arg.ApiKey,
+		arg.ApiSecret,
+		arg.SenderID,
+		arg.IsActive,
+		arg.Settings,
+	)
+	var i NotificationGatewayConfig
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Provider,
+		&i.ApiKey,
+		&i.ApiSecret,
+		&i.SenderID,
+		&i.IsActive,
+		&i.Settings,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createNotificationTemplate = `-- name: CreateNotificationTemplate :one
 INSERT INTO notification_templates (
     tenant_id, code, channel, locale, subject, body
@@ -92,6 +143,109 @@ func (q *Queries) GetNotificationTemplate(ctx context.Context, arg GetNotificati
 	return i, err
 }
 
+const getSmsBillingSummary = `-- name: GetSmsBillingSummary :many
+SELECT 
+    provider,
+    SUM(message_count)::bigint as total_messages,
+    SUM(cost)::numeric as total_cost
+FROM sms_usage_logs
+WHERE tenant_id = $1 AND created_at >= $2 AND created_at <= $3
+GROUP BY provider
+`
+
+type GetSmsBillingSummaryParams struct {
+	TenantID    pgtype.UUID        `json:"tenant_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	CreatedAt_2 pgtype.Timestamptz `json:"created_at_2"`
+}
+
+type GetSmsBillingSummaryRow struct {
+	Provider      string         `json:"provider"`
+	TotalMessages int64          `json:"total_messages"`
+	TotalCost     pgtype.Numeric `json:"total_cost"`
+}
+
+func (q *Queries) GetSmsBillingSummary(ctx context.Context, arg GetSmsBillingSummaryParams) ([]GetSmsBillingSummaryRow, error) {
+	rows, err := q.db.Query(ctx, getSmsBillingSummary, arg.TenantID, arg.CreatedAt, arg.CreatedAt_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetSmsBillingSummaryRow
+	for rows.Next() {
+		var i GetSmsBillingSummaryRow
+		if err := rows.Scan(&i.Provider, &i.TotalMessages, &i.TotalCost); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getTenantActiveNotificationGateway = `-- name: GetTenantActiveNotificationGateway :one
+SELECT id, tenant_id, provider, api_key, api_secret, sender_id, is_active, settings, created_at, updated_at FROM notification_gateway_configs
+WHERE tenant_id = $1 AND is_active = true
+LIMIT 1
+`
+
+func (q *Queries) GetTenantActiveNotificationGateway(ctx context.Context, tenantID pgtype.UUID) (NotificationGatewayConfig, error) {
+	row := q.db.QueryRow(ctx, getTenantActiveNotificationGateway, tenantID)
+	var i NotificationGatewayConfig
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Provider,
+		&i.ApiKey,
+		&i.ApiSecret,
+		&i.SenderID,
+		&i.IsActive,
+		&i.Settings,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const listNotificationGatewayConfigs = `-- name: ListNotificationGatewayConfigs :many
+SELECT id, tenant_id, provider, api_key, api_secret, sender_id, is_active, settings, created_at, updated_at FROM notification_gateway_configs
+WHERE tenant_id = $1
+ORDER BY provider
+`
+
+func (q *Queries) ListNotificationGatewayConfigs(ctx context.Context, tenantID pgtype.UUID) ([]NotificationGatewayConfig, error) {
+	rows, err := q.db.Query(ctx, listNotificationGatewayConfigs, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []NotificationGatewayConfig
+	for rows.Next() {
+		var i NotificationGatewayConfig
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Provider,
+			&i.ApiKey,
+			&i.ApiSecret,
+			&i.SenderID,
+			&i.IsActive,
+			&i.Settings,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listNotificationTemplates = `-- name: ListNotificationTemplates :many
 SELECT id, tenant_id, code, channel, locale, subject, body, created_at FROM notification_templates
 WHERE (tenant_id = $1 OR tenant_id IS NULL)
@@ -125,6 +279,55 @@ func (q *Queries) ListNotificationTemplates(ctx context.Context, tenantID pgtype
 		return nil, err
 	}
 	return items, nil
+}
+
+const logSmsUsage = `-- name: LogSmsUsage :one
+INSERT INTO sms_usage_logs (
+    tenant_id, provider, recipient, message_content, message_count, cost, status, external_id, error_message
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
+) RETURNING id, tenant_id, provider, recipient, message_content, message_count, cost, status, external_id, error_message, created_at
+`
+
+type LogSmsUsageParams struct {
+	TenantID       pgtype.UUID    `json:"tenant_id"`
+	Provider       string         `json:"provider"`
+	Recipient      string         `json:"recipient"`
+	MessageContent pgtype.Text    `json:"message_content"`
+	MessageCount   int32          `json:"message_count"`
+	Cost           pgtype.Numeric `json:"cost"`
+	Status         pgtype.Text    `json:"status"`
+	ExternalID     pgtype.Text    `json:"external_id"`
+	ErrorMessage   pgtype.Text    `json:"error_message"`
+}
+
+func (q *Queries) LogSmsUsage(ctx context.Context, arg LogSmsUsageParams) (SmsUsageLog, error) {
+	row := q.db.QueryRow(ctx, logSmsUsage,
+		arg.TenantID,
+		arg.Provider,
+		arg.Recipient,
+		arg.MessageContent,
+		arg.MessageCount,
+		arg.Cost,
+		arg.Status,
+		arg.ExternalID,
+		arg.ErrorMessage,
+	)
+	var i SmsUsageLog
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Provider,
+		&i.Recipient,
+		&i.MessageContent,
+		&i.MessageCount,
+		&i.Cost,
+		&i.Status,
+		&i.ExternalID,
+		&i.ErrorMessage,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const resolveNotificationTemplate = `-- name: ResolveNotificationTemplate :one

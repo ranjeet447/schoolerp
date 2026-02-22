@@ -206,3 +206,35 @@ func (q *Queries) ListUserRoleAssignmentsByScope(ctx context.Context, userID, te
 	}
 	return scopes, nil
 }
+
+// GetGuardianByUserID retrieves a guardian by their user id
+func (q *Queries) GetGuardianByUserID(ctx context.Context, userID pgtype.UUID) (Guardian, error) {
+	const query = `SELECT id, tenant_id, full_name, phone, email, address, created_at, user_id, preferred_language FROM guardians WHERE user_id = $1`
+	row := q.db.QueryRow(ctx, query, userID)
+	var i Guardian
+	err := row.Scan(
+		&i.ID, &i.TenantID, &i.FullName, &i.Phone, &i.Email, &i.Address, &i.CreatedAt, &i.UserID, &i.PreferredLanguage,
+	)
+	return i, err
+}
+
+// UpdateUserFullName updates the full name of a user
+func (q *Queries) UpdateUserFullName(ctx context.Context, id pgtype.UUID, fullName string) error {
+	const query = `UPDATE users SET full_name = $1, updated_at = NOW() WHERE id = $2`
+	_, err := q.db.Exec(ctx, query, fullName, id)
+	return err
+}
+
+// UpdateGuardianProfile updates basic contact info for a guardian
+func (q *Queries) UpdateGuardianProfile(ctx context.Context, userID pgtype.UUID, phone, address string) error {
+	const query = `UPDATE guardians SET phone = $1, address = $2 WHERE user_id = $3`
+	_, err := q.db.Exec(ctx, query, phone, address, userID)
+	return err
+}
+
+// UpdateUserAvatar updates the avatar URL for a user
+func (q *Queries) UpdateUserAvatar(ctx context.Context, id pgtype.UUID, avatarURL string) error {
+	const query = `UPDATE users SET avatar_url = $1, updated_at = NOW() WHERE id = $2`
+	_, err := q.db.Exec(ctx, query, avatarURL, id)
+	return err
+}

@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { RBACService } from '@/lib/auth-service';
 
 interface AuthUser {
+  id: string;
   email: string;
   name: string;
   role: string;

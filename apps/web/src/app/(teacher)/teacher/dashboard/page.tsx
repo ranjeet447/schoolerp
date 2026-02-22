@@ -124,7 +124,7 @@ export default function TeacherDashboardPage() {
           <Button variant="outline" size="lg" className="rounded-2xl border-emerald-100 hover:bg-emerald-50 gap-2 font-bold shadow-sm" onClick={() => loadDashboard(true)} disabled={refreshing}>
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Sync Data
           </Button>
-          <Button variant="default" size="lg" className="rounded-2xl bg-slate-900 hover:bg-slate-800 gap-2 font-bold shadow-lg">
+          <Button variant="default" size="lg" className="rounded-2xl bg-slate-900 hover:bg-slate-800 gap-2 font-bold shadow-lg" onClick={() => window.location.href = '/teacher/timetable'}>
             <CalendarCheck className="h-4 w-4" /> My Timetable
           </Button>
         </div>
@@ -256,22 +256,22 @@ export default function TeacherDashboardPage() {
           <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-xl space-y-6">
             <h3 className="text-xl font-black font-outfit">Quick Actions</h3>
             <div className="grid grid-cols-1 gap-4">
-              <Button variant="ghost" className="justify-start bg-white/5 hover:bg-white/10 p-6 rounded-3xl h-auto gap-4 border-none">
-                <div className="h-10 w-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-slate-900">
-                  <QrCode className="h-5 w-5" />
+              <Button variant="ghost" className="justify-start bg-white/5 hover:bg-white/10 p-6 rounded-3xl h-auto gap-4 border-none" onClick={() => window.location.href = '/teacher/remarks'}>
+                <div className="h-10 w-10 bg-amber-500 rounded-2xl flex items-center justify-center text-slate-900">
+                  <MessageSquare className="h-5 w-5" />
                 </div>
                 <div className="text-left">
-                  <p className="font-bold text-white leading-tight">Biometric Bridge</p>
-                  <p className="text-xs text-white/50">Sync device logs manually</p>
+                  <p className="font-bold text-white leading-tight">Student Remarks</p>
+                  <p className="text-xs text-white/50">Post behavioral logs</p>
                 </div>
               </Button>
               <Button variant="ghost" className="justify-start bg-white/5 hover:bg-white/10 p-6 rounded-3xl h-auto gap-4 border-none">
                 <div className="h-10 w-10 bg-indigo-500 rounded-2xl flex items-center justify-center text-white">
-                  <MessageSquare className="h-5 w-5" />
+                  <RefreshCw className="h-5 w-5" />
                 </div>
                 <div className="text-left">
                   <p className="font-bold text-white leading-tight">Post Notice</p>
-                  <p className="text-xs text-white/50">Broadast to your classes</p>
+                  <p className="text-xs text-white/50">Broadcast to your classes</p>
                 </div>
               </Button>
             </div>

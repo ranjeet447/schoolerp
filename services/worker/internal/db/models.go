@@ -1164,6 +1164,19 @@ type NoticeAck struct {
 	AckAt    pgtype.Timestamptz `json:"ack_at"`
 }
 
+type NotificationGatewayConfig struct {
+	ID        pgtype.UUID        `json:"id"`
+	TenantID  pgtype.UUID        `json:"tenant_id"`
+	Provider  string             `json:"provider"`
+	ApiKey    pgtype.Text        `json:"api_key"`
+	ApiSecret pgtype.Text        `json:"api_secret"`
+	SenderID  pgtype.Text        `json:"sender_id"`
+	IsActive  pgtype.Bool        `json:"is_active"`
+	Settings  []byte             `json:"settings"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type NotificationTemplate struct {
 	ID        pgtype.UUID        `json:"id"`
 	TenantID  pgtype.UUID        `json:"tenant_id"`
@@ -1933,6 +1946,20 @@ type Session struct {
 	IpAddress  pgtype.Text        `json:"ip_address"`
 	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type SmsUsageLog struct {
+	ID             pgtype.UUID        `json:"id"`
+	TenantID       pgtype.UUID        `json:"tenant_id"`
+	Provider       string             `json:"provider"`
+	Recipient      string             `json:"recipient"`
+	MessageContent pgtype.Text        `json:"message_content"`
+	MessageCount   int32              `json:"message_count"`
+	Cost           pgtype.Numeric     `json:"cost"`
+	Status         pgtype.Text        `json:"status"`
+	ExternalID     pgtype.Text        `json:"external_id"`
+	ErrorMessage   pgtype.Text        `json:"error_message"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type StaffAttendanceEntry struct {

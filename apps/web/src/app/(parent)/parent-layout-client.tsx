@@ -20,6 +20,7 @@ import { usePathname } from 'next/navigation';
 import { TenantConfig } from '@/lib/tenant-utils';
 import { useAuth } from '@/components/auth-provider';
 import { apiClient } from '@/lib/api-client';
+import { Home, Banknote as BanknoteIcon, BookOpen as BookIcon, GraduationCap as ResultsIcon, FileText as NoticesIcon } from 'lucide-react';
 
 const NAV_ITEMS = [
   { href: '/parent/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { href: '/parent/results', label: 'Exam Results', icon: GraduationCap, permission: 'exams:read' },
   { href: '/parent/notices', label: 'Notices', icon: FileText, permission: 'notices:read' },
   { href: '/parent/leaves', label: 'Leave Requests', icon: MessageSquare, permission: 'attendance:write' },
+  { href: '/parent/profile', label: 'My Profile', icon: User },
 ];
 
 export default function ParentLayoutClient({
@@ -118,7 +120,7 @@ export default function ParentLayoutClient({
         
         <div className="border-t border-rose-100 p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <Link href="/parent/profile" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
               <div className="h-9 w-9 rounded-full bg-rose-100 flex items-center justify-center text-xs font-bold text-rose-600 border border-rose-200" style={{ color: primaryColor, backgroundColor: `${primaryColor}20`, borderColor: `${primaryColor}30` }}>
                 {user?.name?.[0] || <User className="h-4 w-4" />}
               </div>
@@ -126,7 +128,7 @@ export default function ParentLayoutClient({
                 <p className="text-sm font-medium text-slate-900 truncate">{user?.name || 'Loading...'}</p>
                 <p className="text-xs text-slate-400 truncate capitalize">{user?.role?.replace('_', ' ') || ''}</p>
               </div>
-            </div>
+            </Link>
             <Button
               variant="ghost"
               size="icon"
@@ -149,9 +151,33 @@ export default function ParentLayoutClient({
             <span className="text-sm text-slate-400 font-medium">{schoolName}</span>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-6 pb-24 md:pb-6">
           {children}
         </main>
+        
+        {/* Mobile Bottom Navigation */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-rose-100 flex items-center justify-around px-2 z-50">
+          <Link href="/parent/dashboard" className={`flex flex-col items-center gap-1 ${pathname === '/parent/dashboard' ? 'text-rose-600' : 'text-slate-400'}`}>
+            <Home className="h-5 w-5" />
+            <span className="text-[10px] font-bold uppercase tracking-tighter">Home</span>
+          </Link>
+          <Link href="/parent/homework" className={`flex flex-col items-center gap-1 ${pathname === '/parent/homework' ? 'text-rose-600' : 'text-slate-400'}`}>
+            <BookIcon className="h-5 w-5" />
+            <span className="text-[10px] font-bold uppercase tracking-tighter">Works</span>
+          </Link>
+          <Link href="/parent/fees" className={`flex flex-col items-center gap-1 ${pathname === '/parent/fees' ? 'text-rose-600' : 'text-slate-400'}`}>
+            <BanknoteIcon className="h-5 w-5" />
+            <span className="text-[10px] font-bold uppercase tracking-tighter">Fees</span>
+          </Link>
+          <Link href="/parent/results" className={`flex flex-col items-center gap-1 ${pathname === '/parent/results' ? 'text-rose-600' : 'text-slate-400'}`}>
+            <ResultsIcon className="h-5 w-5" />
+            <span className="text-[10px] font-bold uppercase tracking-tighter">Results</span>
+          </Link>
+          <Link href="/parent/notices" className={`flex flex-col items-center gap-1 ${pathname === '/parent/notices' ? 'text-rose-600' : 'text-slate-400'}`}>
+            <NoticesIcon className="h-5 w-5" />
+            <span className="text-[10px] font-bold uppercase tracking-tighter">Notices</span>
+          </Link>
+        </div>
       </div>
     </div>
   );

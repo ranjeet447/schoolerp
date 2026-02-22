@@ -20,8 +20,10 @@ export type Student = {
   class_name: string
   section_name: string
   class_id?: string
-  status: "active" | "inactive" | "graduated"
+  status: "active" | "inactive" | "graduated" | "pending_review"
 }
+
+import { apiClient } from '@/lib/api-client'
 
 export const columns: ColumnDef<Student>[] = [
   {
@@ -46,9 +48,11 @@ export const columns: ColumnDef<Student>[] = [
       const status = row.getValue("status") as string
       return (
         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-          status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+          status === 'active' ? 'bg-green-100 text-green-800' :
+          status === 'pending_review' ? 'bg-amber-100 text-amber-800' :
+          'bg-gray-100 text-gray-800'
         }`}>
-          {status}
+          {status.replace('_', ' ')}
         </span>
       )
     },
@@ -76,6 +80,28 @@ export const columns: ColumnDef<Student>[] = [
             <DropdownMenuItem asChild>
               <Link href={`/admin/students/${student.id}`}>View Profile</Link>
             </DropdownMenuItem>
+            {student.status === 'pending_review' && (
+              <DropdownMenuItem
+                onClick={async () => {
+                  try {
+                    const res = await apiClient(`/admin/students/${student.id}/status`, {
+                      method: 'PUT',
+                      body: JSON.stringify({ status: 'active' }),
+                    });
+                    if (res.ok) {
+                      window.location.reload();
+                    } else {
+                      alert("Failed to approve student");
+                    }
+                  } catch (e) {
+                    console.error(e);
+                  }
+                }}
+                className="text-green-600 focus:text-green-600 font-medium cursor-pointer"
+              >
+                Approve Admission
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem>Edit Details</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

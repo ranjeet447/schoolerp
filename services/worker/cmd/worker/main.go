@@ -42,15 +42,18 @@ func main() {
 
 	querier := db.New(pool)
 	pdfSvc := pdf.NewProcessor(querier)
-	var notifSvc notification.Adapter
+	
+	var fallbackSvc notification.Adapter
 	notifWebhookURL := os.Getenv("NOTIFICATION_WEBHOOK_URL")
 	if notifWebhookURL != "" {
-		notifSvc = notification.NewWebhookAdapter(notifWebhookURL, os.Getenv("NOTIFICATION_WEBHOOK_TOKEN"))
-		log.Info().Msg("Notification adapter: webhook")
+		fallbackSvc = notification.NewWebhookAdapter(notifWebhookURL, os.Getenv("NOTIFICATION_WEBHOOK_TOKEN"))
+		log.Info().Msg("Fallback notification: webhook")
 	} else {
-		notifSvc = &notification.StubAdapter{}
-		log.Info().Msg("Notification adapter: stub")
+		fallbackSvc = &notification.StubAdapter{}
+		log.Info().Msg("Fallback notification: stub")
 	}
+
+	notifSvc := notification.NewMultiTenantAdapter(querier, fallbackSvc)
 	notifConsumer := worker.NewConsumer(querier, notifSvc)
 
 	ctx, cancel := context.WithCancel(context.Background())

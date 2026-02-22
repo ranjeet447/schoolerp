@@ -81,6 +81,28 @@ type LoginResult struct {
 	ExpiresAt   time.Time `json:"expires_at"`
 }
 
+// UserProfile represents a unified user profile across different roles
+type UserProfile struct {
+	UserID    string `json:"user_id"`
+	Email     string `json:"email"`
+	FullName  string `json:"full_name"`
+	Phone     string `json:"phone"`
+	AvatarURL string `json:"avatar_url"`
+	Role      string `json:"role"`
+	TenantID  string `json:"tenant_id"`
+
+	EmployeeDetails *db.Employee `json:"employee_details,omitempty"`
+	GuardianDetails *db.Guardian `json:"guardian_details,omitempty"`
+}
+
+// UpdateProfileRequest contains fields that can be updated by the user
+type UpdateProfileRequest struct {
+	FullName  string `json:"full_name"`
+	Phone     string `json:"phone"`
+	Address   string `json:"address"`
+	AvatarURL string `json:"avatar_url"`
+}
+
 // Login authenticates a user via email/password and returns a JWT
 func (s *Service) Login(ctx context.Context, email, password string) (*LoginResult, error) {
 	normalizedEmail := strings.ToLower(strings.TrimSpace(email))
@@ -368,6 +390,122 @@ func (s *Service) mintLoginResult(ctx context.Context, user db.AuthUser, identit
 		Permissions: roleAssignment.Permissions,
 		ExpiresAt:   expiresAt,
 	}, nil
+}
+
+// GetConsolidatedProfile retrieves basic user info and role-specific details
+func (s *Service) GetConsolidatedProfile(ctx context.Context, userID string) (*UserProfile, error) {
+	var uid pgtype.UUID
+	if err := uid.Scan(strings.TrimSpace(userID)); err != nil || !uid.Valid {
+		return nil, ErrUserNotFound
+	}
+
+	user, err := s.queries.GetUserByID(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+
+	roleAssignment, err := s.queries.GetUserRoleAssignmentWithPermissions(ctx, uid)
+	if err != nil {
+		// Fallback for users with no explicit roles
+		roleAssignment = db.GetUserRoleAssignmentWithPermissionsRow{
+			RoleCode: "user",
+			TenantID: pgtype.UUID{},
+		}
+	}
+
+	profile := &UserProfile{
+		UserID:   user.ID.String(),
+		Email:    user.Email.String,
+		FullName: user.FullName,
+		Role:     roleAssignment.RoleCode,
+		TenantID: roleAssignment.TenantID.String(),
+	}
+
+	// Fetch role-specific details
+	switch strings.ToLower(roleAssignment.RoleCode) {
+	case "tenant_admin", "teacher", "finance", "ops", "support_l1", "support_l2":
+		emp, err := s.queries.GetEmployeeByUserID(ctx, db.GetEmployeeByUserIDParams{
+			UserID:   uid,
+			TenantID: roleAssignment.TenantID,
+		})
+		if err == nil {
+			profile.EmployeeDetails = &emp
+			if emp.Phone.Valid {
+				profile.Phone = emp.Phone.String
+			}
+		}
+	case "parent":
+		g, err := s.queries.GetGuardianByUserID(ctx, uid)
+		if err == nil {
+			profile.GuardianDetails = &g
+			profile.Phone = g.Phone
+		}
+	}
+
+	return profile, nil
+}
+
+// UpdateProfile updates basic user information and role-specific details
+func (s *Service) UpdateProfile(ctx context.Context, userID string, req UpdateProfileRequest) error {
+	var uid pgtype.UUID
+	if err := uid.Scan(strings.TrimSpace(userID)); err != nil || !uid.Valid {
+		return ErrUserNotFound
+	}
+
+	// 1. Update users table if FullName is provided
+	if req.FullName != "" {
+		if err := s.queries.UpdateUserFullName(ctx, uid, req.FullName); err != nil {
+			return err
+		}
+	}
+
+	// 2. Update avatar if provided
+	if req.AvatarURL != "" {
+		if err := s.queries.UpdateUserAvatar(ctx, uid, req.AvatarURL); err != nil {
+			return err
+		}
+	}
+
+	// 3. Determine role to update specific tables
+	roleAssignment, err := s.queries.GetUserRoleAssignmentWithPermissions(ctx, uid)
+	if err != nil {
+		return nil // Non-critical for background updates
+	}
+
+	switch strings.ToLower(roleAssignment.RoleCode) {
+	case "tenant_admin", "teacher", "finance", "ops", "support_l1", "support_l2":
+		emp, err := s.queries.GetEmployeeByUserID(ctx, db.GetEmployeeByUserIDParams{
+			UserID:   uid,
+			TenantID: roleAssignment.TenantID,
+		})
+		if err == nil {
+			updateParams := db.UpdateEmployeeParams{
+				ID:                emp.ID,
+				TenantID:          emp.TenantID,
+				FullName:          emp.FullName,
+				Email:             emp.Email,
+				Phone:             emp.Phone,
+				Department:        emp.Department,
+				Designation:       emp.Designation,
+				SalaryStructureID: emp.SalaryStructureID,
+				BankDetails:       emp.BankDetails,
+				Status:            emp.Status,
+			}
+			if req.FullName != "" {
+				updateParams.FullName = req.FullName
+			}
+			if req.Phone != "" {
+				updateParams.Phone = pgtype.Text{String: req.Phone, Valid: true}
+			}
+			_, _ = s.queries.UpdateEmployee(ctx, updateParams)
+		}
+	case "parent":
+		if req.Phone != "" || req.Address != "" {
+			_ = s.queries.UpdateGuardianProfile(ctx, uid, req.Phone, req.Address)
+		}
+	}
+
+	return nil
 }
 
 // hashPassword creates a SHA256 hash of the password

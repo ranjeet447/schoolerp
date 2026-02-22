@@ -80,6 +80,13 @@ type CollectionItem = {
   total_amount: number
 }
 
+type DailySummaryItem = {
+  payment_mode: string
+  fee_head_name: string
+  total_amount: number
+  receipt_count: number
+}
+
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value || 0)
 
@@ -104,8 +111,21 @@ export default function AdminFinancePage() {
   const [lateFeeRules, setLateFeeRules] = useState<LateFeeRule[]>([])
   const [concessionRules, setConcessionRules] = useState<ConcessionRule[]>([])
   const [reminderConfigs, setReminderConfigs] = useState<any[]>([])
+  const [reportsDate, setReportsDate] = useState(defaults.to)
+  const [dailySummary, setDailySummary] = useState<DailySummaryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+
+  const fetchDailySummary = async () => {
+    try {
+      const res = await apiClient(`/admin/finance/reports/daily-summary?date=${reportsDate}`)
+      if (res.ok) {
+        setDailySummary(await res.json())
+      }
+    } catch (err) {
+      console.error(err)
+    }
+  }
 
   const fetchBackendData = async () => {
     setLoading(true)
@@ -135,6 +155,7 @@ export default function AdminFinancePage() {
       const remRes = await apiClient("/admin/rules/fee-reminders")
       if (remRes.ok) setReminderConfigs(await remRes.json())
 
+      await fetchDailySummary()
     } catch (err) {
       toast.error("Failed to sync finance data")
     } finally {
@@ -212,6 +233,9 @@ export default function AdminFinancePage() {
           </TabsTrigger>
           <TabsTrigger value="ledger" className="gap-2">
             <Receipt className="h-4 w-4" /> Daily Ledger
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="gap-2">
+            <FileText className="h-4 w-4" /> Reports
           </TabsTrigger>
           <TabsTrigger value="automation" className="gap-2">
             <RefreshCw className="h-4 w-4" /> Automation
@@ -447,6 +471,87 @@ export default function AdminFinancePage() {
             </div>
           </Card>
         </TabsContent>
+        <TabsContent value="reports" className="space-y-6">
+          <Card className="border-none shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-xl">Daily Financial Summary</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">Summary of collections by mode and fee head for a specific date.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input 
+                  type="date" 
+                  value={reportsDate} 
+                  onChange={(e) => setReportsDate(e.target.value)} 
+                  className="w-40"
+                />
+                <Button onClick={fetchDailySummary} size="sm">
+                  <RefreshCw className="h-4 w-4 mr-2" /> Load
+                </Button>
+                <div className="h-8 w-px bg-border mx-2" />
+                <Button 
+                  onClick={() => {
+                    const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/v1'}/admin/finance/reports/day-book?from=${reportsDate}&to=${reportsDate}`;
+                    window.open(url, "_blank");
+                  }} 
+                  variant="outline" 
+                  size="sm"
+                >
+                  <FileText className="h-4 w-4 mr-2" /> Day Book PDF
+                </Button>
+                <Button 
+                  onClick={() => {
+                    const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/v1'}/admin/finance/reports/defaulters`;
+                    window.open(url, "_blank");
+                  }} 
+                  variant="outline" 
+                  size="sm"
+                >
+                  <FileText className="h-4 w-4 mr-2" /> Defaulters PDF
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {dailySummary.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Group by Mode */}
+                  {Array.from(new Set(dailySummary.map(s => s.payment_mode))).map(mode => (
+                    <Card key={mode} className="border border-border/50 bg-muted/20">
+                      <CardHeader className="py-3 px-4 bg-muted/40 border-b">
+                        <CardTitle className="text-xs font-bold uppercase tracking-widest text-primary">{mode}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-0">
+                        <div className="divide-y divide-border/30">
+                          {dailySummary.filter(s => s.payment_mode === mode).map((item, idx) => (
+                            <div key={idx} className="flex justify-between items-center p-3 hover:bg-muted/10 transition-colors">
+                              <div className="space-y-0.5">
+                                <p className="text-sm font-semibold text-foreground">{item.fee_head_name}</p>
+                                <p className="text-[10px] text-muted-foreground">{item.receipt_count} receipts</p>
+                              </div>
+                              <p className="font-black text-foreground">{formatCurrency(item.total_amount)}</p>
+                            </div>
+                          ))}
+                          <div className="flex justify-between items-center p-3 bg-primary/5">
+                            <p className="text-xs font-bold text-primary italic uppercase tracking-widest">Mode Total</p>
+                            <p className="font-black text-primary">
+                              {formatCurrency(dailySummary.filter(s => s.payment_mode === mode).reduce((acc, curr) => acc + Number(curr.total_amount), 0))}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-20 bg-muted/20 border border-dashed rounded-2xl">
+                  <BarChart3 className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+                  <p className="text-muted-foreground font-medium">No collection data for {reportsDate}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="automation" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card className="lg:col-span-1 border-none shadow-sm">

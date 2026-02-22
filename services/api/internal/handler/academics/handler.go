@@ -62,7 +62,15 @@ func (h *Handler) RegisterStudentRoutes(r chi.Router) {
 }
 
 func (h *Handler) ListHomeworkOptions(w http.ResponseWriter, r *http.Request) {
-	options, err := h.svc.ListHomeworkOptions(r.Context(), middleware.GetTenantID(r.Context()))
+	tenantID := middleware.GetTenantID(r.Context())
+	teacherID := r.URL.Query().Get("teacher_id")
+
+	var tIDPtr *string
+	if teacherID != "" {
+		tIDPtr = &teacherID
+	}
+
+	options, err := h.svc.ListHomeworkOptions(r.Context(), tenantID, tIDPtr)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

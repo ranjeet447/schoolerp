@@ -282,3 +282,68 @@ JOIN students s ON flw.student_id = s.id
 LEFT JOIN fee_plan_items fpi ON flw.fee_plan_item_id = fpi.plan_id -- Simplified join for summary
 WHERE flw.tenant_id = @tenant_id AND (@status::TEXT IS NULL OR flw.status = @status::TEXT)
 ORDER BY flw.created_at DESC;
+-- name: GetDailyFinancialSummary :many
+SELECT 
+    r.payment_mode,
+    fh.name as fee_head_name,
+    SUM(ri.amount) as total_amount,
+    COUNT(DISTINCT r.id) as receipt_count
+FROM receipts r
+JOIN receipt_items ri ON r.id = ri.receipt_id
+JOIN fee_heads fh ON ri.fee_head_id = fh.id
+WHERE r.tenant_id = $1 
+  AND r.status != 'cancelled'
+  AND r.created_at::DATE = @target_date::DATE
+GROUP BY r.payment_mode, fh.name
+ORDER BY r.payment_mode, fh.name;
+-- name: GetFeeDayBook :many
+SELECT 
+    r.id,
+    r.receipt_number,
+    r.amount_paid,
+    r.payment_mode,
+    r.created_at,
+    s.full_name as student_name,
+    s.admission_number,
+    c.name as class_name,
+    sec.name as section_name,
+    fh.name as fee_head_name,
+    ri.amount as item_amount
+FROM receipts r
+JOIN students s ON r.student_id = s.id
+JOIN sections sec ON s.section_id = sec.id
+JOIN classes c ON sec.class_id = c.id
+JOIN receipt_items ri ON r.id = ri.receipt_id
+JOIN fee_heads fh ON ri.fee_head_id = fh.id
+WHERE r.tenant_id = $1 
+  AND r.status != 'cancelled'
+  AND r.created_at >= $2 
+  AND r.created_at <= $3
+ORDER BY r.created_at ASC, r.receipt_number ASC;
+
+-- name: GetDefaulters :many
+SELECT 
+    s.id as student_id,
+    s.full_name,
+    s.admission_number,
+    c.name as class_name,
+    sec.name as section_name,
+    fh.name as fee_head_name,
+    fpi.amount as due_amount,
+    fpi.due_date,
+    COALESCE(SUM(ri.amount), 0)::BIGINT as paid_amount,
+    (fpi.amount - COALESCE(SUM(ri.amount), 0))::BIGINT as balance_amount
+FROM student_fee_plans sfp
+JOIN students s ON sfp.student_id = s.id
+JOIN sections sec ON s.section_id = sec.id
+JOIN classes c ON sec.class_id = c.id
+JOIN fee_plan_items fpi ON sfp.plan_id = fpi.plan_id
+JOIN fee_heads fh ON fpi.head_id = fh.id
+LEFT JOIN receipt_items ri ON ri.fee_head_id = fpi.head_id 
+    AND ri.receipt_id IN (
+        SELECT id FROM receipts WHERE student_id = s.id AND status != 'cancelled'
+    )
+WHERE s.tenant_id = $1
+GROUP BY s.id, s.full_name, s.admission_number, c.name, sec.name, fh.name, fpi.amount, fpi.due_date
+HAVING (fpi.amount - COALESCE(SUM(ri.amount), 0)) > 0
+ORDER BY fpi.due_date ASC, s.full_name ASC;
