@@ -126,7 +126,6 @@ export const HeroSection = () => {
             </div>
           </div>
 
-          </div>
 
           {/* Ambient Glows */}
           <div className="absolute -top-12 -right-12 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none" />

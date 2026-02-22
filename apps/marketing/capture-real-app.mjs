@@ -10,7 +10,6 @@ if (!fs.existsSync(MOCKUPS_DIR)) {
 
 // Target the live deployment
 const BASE_URL = 'https://schoolerp-web.vercel.app';
-
 async function hideDevTools(page) {
   // Hide Next.js dev indicator/overlay if present
   try {
@@ -34,16 +33,13 @@ async function captureAuthenticated() {
   const superContext = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
   const superPage = await superContext.newPage();
   await superPage.goto(`${BASE_URL}/auth/login/`, { waitUntil: 'load' });
-  await superPage.fill('input[type="email"]', 'admin@schoolerp.com'); // Superadmin seed email often differs or is admin@elite.com with super_admin role
-  // Actually, checking seed data, admin@elite.com is the tenant admin. 
-  // Superadmin might be admin@schoolerp.com if defined, or let's use the one that works.
-  // We'll try common seed emails.
+  await superPage.fill('input[type="email"]', 'saas_admin@schoolerp.com');
   await superPage.fill('input[type="password"]', 'password123');
   await superPage.click('button[type="submit"]');
 
   // Wait to see if we land in platform/dashboard
   try {
-    await superPage.waitForURL('**/platform/dashboard', { timeout: 10000 });
+    await superPage.waitForURL('**/platform/dashboard/**', { timeout: 15000 });
     await hideDevTools(superPage);
     await superPage.waitForTimeout(5000);
     await superPage.screenshot({ path: path.join(MOCKUPS_DIR, 'superadmin-dashboard.png'), fullPage: true });
@@ -61,7 +57,7 @@ async function captureAuthenticated() {
   await adminPage.fill('input[type="email"]', 'admin@elite.com');
   await adminPage.fill('input[type="password"]', 'password123');
   await adminPage.click('button[type="submit"]');
-  await adminPage.waitForURL('**/admin/dashboard', { timeout: 30000 });
+  await adminPage.waitForURL('**/admin/dashboard/**', { timeout: 30000 });
   await hideDevTools(adminPage);
   await adminPage.waitForTimeout(6000);
   await adminPage.screenshot({ path: path.join(MOCKUPS_DIR, 'admin-web.png') });
