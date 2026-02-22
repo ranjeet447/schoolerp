@@ -29,31 +29,77 @@ export function isAuthTokenExpired(token: string): boolean {
 }
 
 function clearAuthStorage() {
+  // Check if we're in an impersonation session
+  const isImpersonating = !!localStorage.getItem("impersonator_auth_token")
+
+  // Always clear the current session tokens
   localStorage.removeItem("auth_token")
   localStorage.removeItem("user_id")
   localStorage.removeItem("user_email")
   localStorage.removeItem("user_name")
   localStorage.removeItem("user_role")
   localStorage.removeItem("user_permissions")
+  localStorage.removeItem("tenant_id")
   localStorage.removeItem("legal_preauth_token")
   localStorage.removeItem("legal_requirements")
-  localStorage.removeItem("impersonator_auth_token")
-  localStorage.removeItem("impersonator_user_role")
-  localStorage.removeItem("impersonator_user_id")
-  localStorage.removeItem("impersonator_user_email")
-  localStorage.removeItem("impersonator_user_name")
-  localStorage.removeItem("impersonator_tenant_id")
-  localStorage.removeItem("impersonation_started_at")
-  localStorage.removeItem("impersonation_reason")
-  localStorage.removeItem("impersonation_target_tenant_id")
-  localStorage.removeItem("impersonation_target_user_id")
-  localStorage.removeItem("impersonation_target_user_email")
+
+  // Only clear impersonator backup tokens if NOT actively impersonating
+  // (If impersonating, we need these to restore the original session)
+  if (!isImpersonating) {
+    localStorage.removeItem("impersonator_auth_token")
+    localStorage.removeItem("impersonator_user_role")
+    localStorage.removeItem("impersonator_user_id")
+    localStorage.removeItem("impersonator_user_email")
+    localStorage.removeItem("impersonator_user_name")
+    localStorage.removeItem("impersonator_tenant_id")
+    localStorage.removeItem("impersonation_started_at")
+    localStorage.removeItem("impersonation_reason")
+    localStorage.removeItem("impersonation_target_tenant_id")
+    localStorage.removeItem("impersonation_target_user_id")
+    localStorage.removeItem("impersonation_target_user_email")
+  }
 }
 
 function redirectToLogin(reason: "token_expired" | "unauthorized") {
   if (authRedirectInProgress) return
 
   authRedirectInProgress = true
+
+  // If we're impersonating and get a 401, restore the original admin session
+  const impersonatorToken = localStorage.getItem("impersonator_auth_token")
+  if (impersonatorToken) {
+    // Restore original admin session
+    const originalRole = localStorage.getItem("impersonator_user_role") || "super_admin"
+    const originalUserID = localStorage.getItem("impersonator_user_id") || ""
+    const originalUserEmail = localStorage.getItem("impersonator_user_email") || ""
+    const originalUserName = localStorage.getItem("impersonator_user_name") || ""
+    const originalTenantID = localStorage.getItem("impersonator_tenant_id") || ""
+
+    localStorage.setItem("auth_token", impersonatorToken)
+    localStorage.setItem("user_role", originalRole)
+    localStorage.setItem("user_id", originalUserID)
+    localStorage.setItem("user_email", originalUserEmail)
+    localStorage.setItem("user_name", originalUserName)
+    localStorage.setItem("tenant_id", originalTenantID)
+
+    // Clear impersonation state
+    localStorage.removeItem("impersonator_auth_token")
+    localStorage.removeItem("impersonator_user_role")
+    localStorage.removeItem("impersonator_user_id")
+    localStorage.removeItem("impersonator_user_email")
+    localStorage.removeItem("impersonator_user_name")
+    localStorage.removeItem("impersonator_tenant_id")
+    localStorage.removeItem("impersonation_started_at")
+    localStorage.removeItem("impersonation_reason")
+    localStorage.removeItem("impersonation_target_tenant_id")
+    localStorage.removeItem("impersonation_target_user_id")
+    localStorage.removeItem("impersonation_target_user_email")
+
+    // Redirect back to platform dashboard
+    window.location.replace("/platform/dashboard")
+    return
+  }
+
   clearAuthStorage()
 
   const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`
