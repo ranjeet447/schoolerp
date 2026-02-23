@@ -7268,6 +7268,125 @@ paths:
       responses:
         '200':
           description: Incident updated
+  
+  /admin/platform/billing/overview:
+    get:
+      operationId: getPlatformBillingOverview
+      tags: [Platform Billing]
+      summary: Get a high-level overview of platform billing metrics
+      responses:
+        '200':
+          description: Platform billing overview returned
+  
+  /admin/platform/billing/config:
+    get:
+      operationId: getPlatformBillingConfig
+      tags: [Platform Billing]
+      summary: Retrieve global billing configuration for the platform
+      responses:
+        '200':
+          description: Global billing configuration
+    post:
+      operationId: updatePlatformBillingConfig
+      tags: [Platform Billing]
+      summary: Update global billing configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                invoice_due_days: { type: integer }
+                grace_period_days: { type: integer }
+      responses:
+        '200':
+          description: Global billing configuration updated
+  
+  /admin/tenants/{tenant_id}/billing-controls:
+    get:
+      operationId: getTenantBillingControls
+      tags: [Tenant Billing]
+      summary: Fetch billing controls and entitlement caps for a specific tenant
+      parameters:
+        - in: path
+          name: tenant_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Tenant billing controls returned
+  
+  /admin/tenants/{tenant_id}/billing-freeze:
+    post:
+      operationId: manageTenantBillingFreeze
+      tags: [Tenant Billing]
+      summary: Apply or remove a billing freeze for a tenant
+      parameters:
+        - in: path
+          name: tenant_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, reason]
+              properties:
+                action: { type: string, enum: [apply, remove] }
+                reason: { type: string }
+      responses:
+        '200':
+          description: Billing freeze state updated
+  
+  /admin/tenants/{tenant_id}/billing-lock:
+    post:
+      operationId: manageTenantBillingLock
+      tags: [Tenant Billing]
+      summary: Lock or unlock tenant access due to billing delinquency
+      parameters:
+        - in: path
+          name: tenant_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: { type: string, enum: [lock, unlock] }
+                reason: { type: string }
+      responses:
+        '200':
+          description: Tenant billing lock updated
+  
+  /admin/platform/incidents/{incident_id}/billing-freeze:
+    post:
+      operationId: applyIncidentBillingFreeze
+      tags: [Platform Incidents]
+      summary: Freeze billing for all tenants affected by a specific platform incident
+      parameters:
+        - in: path
+          name: incident_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string }
+      responses:
+        '200':
+          description: Incident billing freeze applied successfully
 
   # from paths/parent-accountant.yaml
   # Parent & Accountant Specific API Paths

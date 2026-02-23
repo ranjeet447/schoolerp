@@ -1072,6 +1072,15 @@ func (s *Service) ManageTenantBillingLock(ctx context.Context, tenantID string, 
 		}
 		_, _ = s.db.Exec(ctx, `UPDATE tenants SET is_active = FALSE, updated_at = NOW() WHERE id = $1`, tid)
 
+		_, _ = s.q.CreateAuditLog(ctx, db.CreateAuditLogParams{
+			TenantID:     tid,
+			UserID:       updatedBy,
+			Action:       "billing_lock_applied",
+			ResourceType: "tenant_subscriptions",
+			ResourceID:   tid,
+			AfterState:   lockJSON,
+		})
+
 	case "unlock":
 		lockJSON, err := buildLockState(false, nil)
 		if err != nil {
@@ -1110,6 +1119,15 @@ func (s *Service) ManageTenantBillingLock(ctx context.Context, tenantID string, 
 			return TenantBillingControls{}, err
 		}
 		_, _ = s.db.Exec(ctx, `UPDATE tenants SET is_active = TRUE, updated_at = NOW() WHERE id = $1`, tid)
+
+		_, _ = s.q.CreateAuditLog(ctx, db.CreateAuditLogParams{
+			TenantID:     tid,
+			UserID:       updatedBy,
+			Action:       "billing_lock_removed",
+			ResourceType: "tenant_subscriptions",
+			ResourceID:   tid,
+			AfterState:   lockJSON,
+		})
 	}
 
 	return s.GetTenantBillingControls(ctx, tenantID)
@@ -1178,6 +1196,15 @@ func (s *Service) ManageTenantBillingFreeze(ctx context.Context, tenantID string
 	if err := upsertTenantBillingFreeze(ctx, s.db, tid, freezeJSON, updatedBy); err != nil {
 		return TenantBillingControls{}, err
 	}
+
+	_, _ = s.q.CreateAuditLog(ctx, db.CreateAuditLogParams{
+		TenantID:     tid,
+		UserID:       updatedBy,
+		Action:       "billing_freeze_updated",
+		ResourceType: "tenant_subscriptions",
+		ResourceID:   tid,
+		AfterState:   freezeJSON,
+	})
 
 	return s.GetTenantBillingControls(ctx, tenantID)
 }

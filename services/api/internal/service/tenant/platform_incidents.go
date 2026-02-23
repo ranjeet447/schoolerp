@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/schoolerp/api/internal/db"
 )
 
 var (
@@ -629,6 +630,19 @@ func (s *Service) ApplyIncidentBillingFreeze(ctx context.Context, incidentID str
 
 	if err := tx.Commit(ctx); err != nil {
 		return IncidentBillingFreezeResult{}, err
+	}
+
+	for _, rawTenantID := range targetTenantIDs {
+		if tid, err := parseTenantUUID(rawTenantID); err == nil {
+			_, _ = s.q.CreateAuditLog(ctx, db.CreateAuditLogParams{
+				TenantID:     tid,
+				UserID:       updatedBy,
+				Action:       "incident_billing_freeze_applied",
+				ResourceType: "tenant_subscriptions",
+				ResourceID:   tid,
+				AfterState:   freezeJSON,
+			})
+		}
 	}
 
 	return IncidentBillingFreezeResult{

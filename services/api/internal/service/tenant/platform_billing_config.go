@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/schoolerp/api/internal/db"
 )
 
 type PlatformBillingConfig struct {
@@ -102,6 +103,14 @@ func (s *Service) UpdatePlatformBillingConfig(ctx context.Context, params Update
 	if err := write("billing.invoice_template", params.InvoiceTemplate); err != nil {
 		return PlatformBillingConfig{}, err
 	}
+
+	state, _ := json.Marshal(params)
+	_, _ = s.q.CreateAuditLog(ctx, db.CreateAuditLogParams{
+		UserID:       updatedBy,
+		Action:       "platform_billing_config_updated",
+		ResourceType: "platform_settings",
+		AfterState:   state,
+	})
 
 	return s.GetPlatformBillingConfig(ctx)
 }

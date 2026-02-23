@@ -13,7 +13,8 @@ export interface UseCaseDetail {
   solution: string;
   stats: string;
   relatedFeatures: string[];
-   // Slugs of related features
+  seoContent?: string[];
+  // Slugs of related features
 }
 
 export const USE_CASES_DATA: UseCaseDetail[] = [
