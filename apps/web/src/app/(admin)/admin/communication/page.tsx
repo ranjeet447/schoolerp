@@ -81,6 +81,7 @@ const dateValue = (value: unknown) => {
 export default function AdminCommunicationPage() {
   const [events, setEvents] = useState<MessagingEventRow[]>([])
   const [ptmEvents, setPtmEvents] = useState<PtmEventRow[]>([])
+  const [activeTab, setActiveTab] = useState("overview")
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [savingModeration, setSavingModeration] = useState(false)
@@ -245,7 +246,7 @@ export default function AdminCommunicationPage() {
         </Button>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-muted/50 p-1 border border-border">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="ptm">PTM Events</TabsTrigger>
@@ -278,7 +279,7 @@ export default function AdminCommunicationPage() {
                   {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : ptmEvents.length}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">Ongoing or upcoming parent meetings</p>
-                <Button variant="link" size="sm" className="px-0 mt-4 text-emerald-600" onClick={() => {}}>
+                <Button variant="link" size="sm" className="px-0 mt-4 text-emerald-600" onClick={() => setActiveTab("ptm")}>
                    Manage Schedule →
                 </Button>
               </CardContent>
@@ -293,7 +294,7 @@ export default function AdminCommunicationPage() {
                   {moderation.is_enabled ? "Active" : "Paused"}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">{moderation.blocked_keywords.length} active filters & quiet hours</p>
-                <Button variant="link" size="sm" className="px-0 mt-4 text-amber-600" onClick={() => {}}>
+                <Button variant="link" size="sm" className="px-0 mt-4 text-amber-600" onClick={() => setActiveTab("moderation")}>
                   Configure Rules →
                 </Button>
               </CardContent>

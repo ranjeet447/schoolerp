@@ -30,6 +30,7 @@ type Querier interface {
 	CheckPaymentEventProcessed(ctx context.Context, arg CheckPaymentEventProcessedParams) (bool, error)
 	// Quota & Limits
 	CountEmployees(ctx context.Context, tenantID pgtype.UUID) (int64, error)
+	CountQueriesInPeriod(ctx context.Context, arg CountQueriesInPeriodParams) (int64, error)
 	CountRouteAllocations(ctx context.Context, arg CountRouteAllocationsParams) (int64, error)
 	CountStudents(ctx context.Context, tenantID pgtype.UUID) (int64, error)
 	CreateAIQueryLog(ctx context.Context, arg CreateAIQueryLogParams) (AiQueryLog, error)
@@ -136,6 +137,7 @@ type Querier interface {
 	CreateVehicle(ctx context.Context, arg CreateVehicleParams) (TransportVehicle, error)
 	CreateVisitor(ctx context.Context, arg CreateVisitorParams) (Visitor, error)
 	CreateVisitorLog(ctx context.Context, arg CreateVisitorLogParams) (VisitorLog, error)
+	CreateWebhookLog(ctx context.Context, arg CreateWebhookLogParams) (WebhookLog, error)
 	DeactivatePickupAuthorization(ctx context.Context, arg DeactivatePickupAuthorizationParams) error
 	DeleteAttendanceEntries(ctx context.Context, sessionID pgtype.UUID) error
 	DeleteAutomationRule(ctx context.Context, arg DeleteAutomationRuleParams) error
@@ -415,6 +417,7 @@ type Querier interface {
 	UpdateTenantConfig(ctx context.Context, arg UpdateTenantConfigParams) (Tenant, error)
 	UpdateVehicle(ctx context.Context, arg UpdateVehicleParams) (TransportVehicle, error)
 	UpdateVisitor(ctx context.Context, arg UpdateVisitorParams) (Visitor, error)
+	UpdateWebhookLogStatus(ctx context.Context, arg UpdateWebhookLogStatusParams) (WebhookLog, error)
 	UpsertAIChatSession(ctx context.Context, arg UpsertAIChatSessionParams) (AiChatSession, error)
 	UpsertChatModerationSettings(ctx context.Context, arg UpsertChatModerationSettingsParams) (ChatModerationSetting, error)
 	UpsertFeeClassConfig(ctx context.Context, arg UpsertFeeClassConfigParams) (FeeClassConfiguration, error)

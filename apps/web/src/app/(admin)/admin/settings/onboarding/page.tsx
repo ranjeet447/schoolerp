@@ -33,18 +33,7 @@ export default function OnboardingPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-
-  // Simple guard
-  if (user && user.role !== 'super_admin') {
-    return (
-      <div className="p-8 text-center">
-        <h1 className="text-xl font-bold text-red-500">Access Denied</h1>
-        <p className="text-slate-400">Only platform administrators can onboard new schools.</p>
-      </div>
-    );
-  }
   const [tenantId, setTenantId] = useState<string | null>(null);
-
   const [formData, setFormData] = useState({
     name: '',
     subdomain: '',
@@ -55,6 +44,15 @@ export default function OnboardingPage() {
     password: ''
   });
 
+  // Simple guard
+  if (user && user.role !== 'super_admin') {
+    return (
+      <div className="p-8 text-center">
+        <h1 className="text-xl font-bold text-red-500">Access Denied</h1>
+        <p className="text-slate-400">Only platform administrators can onboard new schools.</p>
+      </div>
+    );
+  }
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));

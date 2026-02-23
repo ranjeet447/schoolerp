@@ -142,8 +142,16 @@ func (h *Handler) RegisterPlatformRoutes(r chi.Router) {
 		r.Delete("/access/ip-allowlist/{allowlist_id}", h.DeletePlatformIPAllowlist)
 		r.Post("/access/break-glass/activate", h.ActivateBreakGlass)
 		r.Get("/access/break-glass/events", h.ListBreakGlassEvents)
+	})
+
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.PermissionGuard("platform:monitoring.read"))
 		r.Get("/monitoring/health", h.GetPlatformHealth)
 		r.Get("/monitoring/queue", h.GetQueueHealth)
+	})
+
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.PermissionGuard("platform:integrations.manage"))
 		r.Get("/integrations/webhooks", h.ListPlatformWebhooks)
 		r.Post("/integrations/webhooks", h.CreatePlatformWebhook)
 		r.Patch("/integrations/webhooks/{webhook_id}", h.UpdatePlatformWebhook)

@@ -34,6 +34,7 @@ const (
 	RoleKey              contextKey = "role"
 	LocaleKey            contextKey = "locale"
 	PermissionsKey       contextKey = "permissions"
+	TokenHashKey         contextKey = "token_hash"
 	tenantLookupTimeout             = 1200 * time.Millisecond
 	sessionLookupTimeout            = 3 * time.Second
 )
@@ -54,6 +55,14 @@ func GetTenantID(ctx context.Context) string {
 // GetUserID returns the user ID from the context
 func GetUserID(ctx context.Context) string {
 	if val, ok := ctx.Value(UserIDKey).(string); ok {
+		return val
+	}
+	return ""
+}
+
+// GetTokenHash returns the current session token hash from the context
+func GetTokenHash(ctx context.Context) string {
+	if val, ok := ctx.Value(TokenHashKey).(string); ok {
 		return val
 	}
 	return ""
@@ -282,6 +291,36 @@ func normalizeTenantHost(raw string) string {
 	return host
 }
 
+func isPublicAuthPath(path string) bool {
+	switch path {
+	case "/v1/auth/login",
+		"/v1/auth/forgot-password",
+		"/v1/auth/legal/docs",
+		"/v1/auth/legal/accept",
+		"/v1/auth/request-otp":
+		return true
+	default:
+		return false
+	}
+}
+
+func isProtectedAPIPath(path string) bool {
+	if strings.HasPrefix(path, "/v1/admin") ||
+		strings.HasPrefix(path, "/v1/teacher") ||
+		strings.HasPrefix(path, "/v1/parent") ||
+		strings.HasPrefix(path, "/v1/student") ||
+		strings.HasPrefix(path, "/v1/accountant") {
+		return true
+	}
+
+	// Auth subroutes that require an authenticated session/token context.
+	if path == "/v1/auth/me" || strings.HasPrefix(path, "/v1/auth/mfa/") {
+		return true
+	}
+
+	return false
+}
+
 // AuthResolver validates JWT tokens from the Authorization header
 func AuthResolver(next http.Handler) http.Handler {
 	secrets, secretConfigured := security.ResolveJWTSecrets()
@@ -302,15 +341,13 @@ func AuthResolver(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 1. Skip auth for public paths
-		if r.URL.Path == "/healthz" || strings.HasPrefix(r.URL.Path, "/v1/auth") {
+		if r.URL.Path == "/healthz" || isPublicAuthPath(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
 		}
 
 		authHeader := r.Header.Get("Authorization")
-		isProtectedPath := strings.HasPrefix(r.URL.Path, "/v1/admin") ||
-			strings.HasPrefix(r.URL.Path, "/v1/teacher") ||
-			strings.HasPrefix(r.URL.Path, "/v1/parent")
+		isProtectedPath := isProtectedAPIPath(r.URL.Path)
 
 		if !secretConfigured {
 			if isProtectedPath || authHeader != "" {
@@ -377,6 +414,18 @@ func AuthResolver(next http.Handler) http.Handler {
 				ctx = context.WithValue(ctx, PermissionsKey, pStrings)
 			}
 
+			// B2 Hardening: Block impersonated tokens from platform routes
+			if impersonated, ok := claims["impersonated"].(bool); ok && impersonated {
+				if strings.HasPrefix(r.URL.Path, "/admin/platform") {
+					log.Ctx(ctx).Warn().
+						Str("user_id", claims["sub"].(string)).
+						Str("path", r.URL.Path).
+						Msg("impersonation token access denied for platform route")
+					http.Error(w, "Forbidden: Impersonation accounts cannot access platform settings", http.StatusForbidden)
+					return
+				}
+			}
+
 			subject, _ := claims["sub"].(string)
 			jti, _ := claims["jti"].(string)
 			subject = strings.TrimSpace(subject)
@@ -405,6 +454,7 @@ func AuthResolver(next http.Handler) http.Handler {
 
 			hash := sha256.Sum256([]byte(jti))
 			tokenHash := hex.EncodeToString(hash[:])
+			ctx = context.WithValue(ctx, TokenHashKey, tokenHash)
 
 			querySessionInDB := func() (bool, error) {
 				if sessionPool == nil {
@@ -579,9 +629,9 @@ func PermissionGuard(requiredPermission string) func(http.Handler) http.Handler 
 				}
 			}
 
-			// Fallback: check if user is super_admin (they have all permissions by default conceptually,
-			// though we should still prefer explicit mapping in token)
-			if GetRole(r.Context()) == "super_admin" {
+			// Fallback: check if user is a platform-level role (they often have wide permissions)
+			role := strings.ToLower(strings.TrimSpace(GetRole(r.Context())))
+			if role == "super_admin" || role == "support_l1" || role == "support_l2" || role == "finance" || role == "ops" || role == "developer" {
 				next.ServeHTTP(w, r)
 				return
 			}

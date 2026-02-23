@@ -5,6 +5,13 @@ INSERT INTO ai_query_logs (
     $1, $2, $3, $4, $5, $6, $7
 ) RETURNING *;
 
+-- name: CountQueriesInPeriod :one
+SELECT COUNT(*)
+FROM ai_query_logs
+WHERE tenant_id = $1 
+  AND created_at >= $2 
+  AND created_at <= $3;
+
 -- name: GetTenantAIUsage :many
 SELECT 
     model,

@@ -1,6 +1,8 @@
 package finance
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,7 +30,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Get("/heads", h.ListFeeHeads)
 		r.Post("/plans", h.CreateFeePlan)
 		r.Post("/assign", h.AssignPlan)
-		
+
 		// Phase 11 Routes
 		r.Get("/structure", h.ListFeeClassConfigs)
 		r.Post("/structure", h.UpsertFeeClassConfig)
@@ -37,6 +39,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Get("/scholarships", h.ListScholarships)
 		r.Post("/scholarships", h.UpsertScholarship)
 		r.Get("/optional", h.ListOptionalFeeItems)
+		r.Post("/optional", h.UpsertOptionalFeeItem)
 		r.Post("/select", h.SelectOptionalFee)
 		r.Get("/students/{id}/summary", h.GetFeeSummary)
 	})
@@ -57,8 +60,10 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Get("/receipts", h.ListReceiptsByStudent)
 		r.Get("/reports/billing", h.GetBillingReport)
 		r.Get("/reports/collections", h.GetCollectionReport)
+		r.Get("/reports/defaulters/data", h.GetDefaultersData)
 		r.Post("/online", h.CreateOnlineOrder)
 		r.Post("/razorpay-webhook", h.HandleWebhook)
+		r.Post("/payu-webhook", h.HandleWebhook)
 		r.Get("/tally-export", h.ExportTally)
 		r.Get("/ledger-mappings", h.ListLedgerMappings)
 		r.Post("/ledger-mappings", h.UpsertLedgerMapping)
@@ -252,10 +257,15 @@ func (h *Handler) UpsertFeeClassConfig(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(cfg)
 }
 
+func (h *Handler) RegisterWebhookRoutes(r chi.Router) {
+	r.Post("/razorpay-webhook", h.HandleWebhook)
+	r.Post("/payu-webhook", h.HandleWebhook)
+}
+
 func (h *Handler) ListFeeClassConfigs(w http.ResponseWriter, r *http.Request) {
 	ayID := r.URL.Query().Get("academic_year_id")
 	classID := r.URL.Query().Get("class_id") // Optional
-	
+
 	if ayID == "" {
 		http.Error(w, "academic_year_id is required", http.StatusBadRequest)
 		return
@@ -312,7 +322,7 @@ func (h *Handler) GetActiveGatewayConfig(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "provider is required", http.StatusBadRequest)
 		return
 	}
-	
+
 	cfg, err := h.svc.GetActiveGatewayConfig(r.Context(), middleware.GetTenantID(r.Context()), provider)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -328,6 +338,39 @@ func (h *Handler) ListOptionalFeeItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	json.NewEncoder(w).Encode(items)
+}
+
+func (h *Handler) UpsertOptionalFeeItem(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name     string  `json:"name"`
+		Amount   float64 `json:"amount"`
+		Category string  `json:"category"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.Name) == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+	if req.Amount < 0 {
+		http.Error(w, "amount cannot be negative", http.StatusBadRequest)
+		return
+	}
+
+	item, err := h.svc.UpsertOptionalFeeItem(
+		r.Context(),
+		middleware.GetTenantID(r.Context()),
+		strings.TrimSpace(req.Name),
+		req.Amount,
+		strings.TrimSpace(req.Category),
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(item)
 }
 
 func (h *Handler) SelectOptionalFee(w http.ResponseWriter, r *http.Request) {
@@ -398,7 +441,7 @@ func (h *Handler) ListScholarships(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) GetFeeSummary(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	summary, err := h.svc.GetStudentFeeSummary(r.Context(), id)
+	summary, err := h.svc.GetStudentFeeSummary(r.Context(), middleware.GetTenantID(r.Context()), id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -461,10 +504,10 @@ func (h *Handler) CreateOnlineOrderParent(w http.ResponseWriter, r *http.Request
 	}
 
 	// For parents, we need to pass the UserID to verify the student is their child
-	order, err := h.svc.CreateOnlineOrderParent(r.Context(), 
-		middleware.GetTenantID(r.Context()), 
+	order, err := h.svc.CreateOnlineOrderParent(r.Context(),
+		middleware.GetTenantID(r.Context()),
 		middleware.GetUserID(r.Context()),
-		req.StudentID, 
+		req.StudentID,
 		req.Amount,
 	)
 	if err != nil {
@@ -496,26 +539,71 @@ func (h *Handler) GetGatewayKeyParent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
-	// 1. Get Signature & Event ID
-	signature := r.Header.Get("X-Razorpay-Signature")
-	eventID := r.Header.Get("X-Razorpay-Event-Id")
-
-	// 2. Read Body
+	// 1. Read Body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "could not read body", http.StatusInternalServerError)
 		return
 	}
 
-	// 3. Process Webhook (idempotent)
+	// 2. Get Signature & Event ID (provider-agnostic)
+	signature := firstNonEmpty(
+		r.Header.Get("X-Razorpay-Signature"),
+		r.Header.Get("X-PayU-Signature"),
+		r.Header.Get("X-Webhook-Signature"),
+		r.Header.Get("X-Signature"),
+	)
+	eventID := firstNonEmpty(
+		r.Header.Get("X-Razorpay-Event-Id"),
+		r.Header.Get("X-PayU-Event-Id"),
+		r.Header.Get("X-Event-Id"),
+	)
+	if eventID == "" {
+		sum := sha256.Sum256(body)
+		eventID = "body-" + hex.EncodeToString(sum[:])
+	}
+
+	tenantID := middleware.GetTenantID(r.Context())
+	if tenantID == "" {
+		tenantID = strings.TrimSpace(r.URL.Query().Get("tenant_id"))
+	}
+	if tenantID == "" {
+		http.Error(w, "tenant_id is required for webhook requests", http.StatusBadRequest)
+		return
+	}
+
 	secret := os.Getenv("RAZORPAY_WEBHOOK_SECRET")
-	err = h.svc.ProcessPaymentWebhook(r.Context(), middleware.GetTenantID(r.Context()), eventID, body, signature, secret)
+	if r.Header.Get("X-PayU-Signature") != "" || strings.Contains(strings.ToLower(r.URL.Path), "payu") {
+		if payuSecret := strings.TrimSpace(os.Getenv("PAYU_WEBHOOK_SECRET")); payuSecret != "" {
+			secret = payuSecret
+		}
+	}
+
+	// Capture headers for signature verification logic inside service
+	headers := make(map[string]string)
+	for k, v := range r.Header {
+		if len(v) > 0 {
+			headers[k] = v[0]
+		}
+	}
+
+	// 3. Process Webhook (idempotent)
+	err = h.svc.ProcessPaymentWebhook(r.Context(), tenantID, eventID, body, signature, secret, headers)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
 }
 
 func (h *Handler) ListReceiptSeries(w http.ResponseWriter, r *http.Request) {
@@ -783,7 +871,7 @@ func (h *Handler) UpsertFeeReminderConfig(w http.ResponseWriter, r *http.Request
 
 func (h *Handler) GetDailyFinancialSummary(w http.ResponseWriter, r *http.Request) {
 	date := r.URL.Query().Get("date")
-	
+
 	summary, err := h.svc.GetDailyFinancialSummary(r.Context(), middleware.GetTenantID(r.Context()), date)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -803,7 +891,7 @@ func (h *Handler) GetFeeDayBookPDF(w http.ResponseWriter, r *http.Request) {
 	if to.IsZero() {
 		to = time.Now()
 	}
-	
+
 	pdf, err := h.svc.GetFeeDayBookPDF(r.Context(), middleware.GetTenantID(r.Context()), from, to)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -825,4 +913,14 @@ func (h *Handler) GetDefaultersPDF(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=defaulters_%s.pdf", time.Now().Format("20060102")))
 	w.Write(pdf)
+}
+
+func (h *Handler) GetDefaultersData(w http.ResponseWriter, r *http.Request) {
+	items, err := h.svc.GetDefaultersData(r.Context(), middleware.GetTenantID(r.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(items)
 }

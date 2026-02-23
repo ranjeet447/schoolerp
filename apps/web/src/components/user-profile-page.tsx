@@ -128,11 +128,12 @@ export function UserProfilePage() {
                 formData.append('file', file);
                 
                 try {
-                  const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/v1/files/upload`, {
+                  const apiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/v1\/?$/, '');
+                  const uploadRes = await fetch(`${apiBase}/v1/files/upload`, {
                     method: 'POST',
                     body: formData,
                     headers: {
-                      'Authorization': `Bearer ${localStorage.getItem('token')}`
+                      'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
                     }
                   });
                   const uploadData = await uploadRes.json();

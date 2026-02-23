@@ -6,6 +6,12 @@ WHERE subdomain = $1 LIMIT 1;
 SELECT * FROM tenants
 WHERE id = $1 LIMIT 1;
 
+-- name: GetTenantAdminUser :one
+SELECT u.* FROM users u
+JOIN user_roles ur ON u.id = ur.user_id
+WHERE ur.tenant_id = $1 AND ur.role_code = 'tenant_admin'
+LIMIT 1;
+
 -- name: UpdateTenantConfig :one
 UPDATE tenants
 SET config = $2, updated_at = NOW()

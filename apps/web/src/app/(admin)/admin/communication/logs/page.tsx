@@ -266,7 +266,7 @@ export default function CommunicationLogsPage() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="bg-muted capitalize font-bold text-[10px] tracking-tight py-0.5">
-                        {log.event_type.replace(/[\._]/g, ' ')}
+                        {log.event_type.replace(/[._]/g, ' ')}
                       </Badge>
                     </TableCell>
                     <TableCell>

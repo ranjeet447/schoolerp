@@ -44,6 +44,15 @@ import { RBACService } from "@/lib/auth-service";
 import { MobileNav } from "./components/mobile-nav";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 
+const PLATFORM_ROLES = new Set([
+  "super_admin",
+  "support_l1",
+  "support_l2",
+  "finance",
+  "ops",
+  "developer",
+]);
+
 const NAV_GROUPS = [
   {
     title: "Intelligence",
@@ -55,24 +64,24 @@ const NAV_GROUPS = [
   {
     title: "Portfolio",
     items: [
-      { href: "/platform/tenants", label: "Tenant Dashboard", icon: Building2, permission: "platform:tenants.read", keywords: ["schools", "customers", "accounts"] },
-      { href: "/platform/plans", label: "Product Dash", icon: Layers3, permission: "platform:plans.read", keywords: ["pricing", "subscriptions", "plan"] },
-      { href: "/platform/signup-requests", label: "Onboarding Queue", icon: FileCheck2, permission: "platform:tenants.write", keywords: ["approval", "prospects", "requests"] },
+      { href: "/platform/tenants", label: "Tenant Dashboard", icon: Building2, permission: "platform:tenant.read", keywords: ["schools", "customers", "accounts"] },
+      { href: "/platform/plans", label: "Product Dash", icon: Layers3, permission: "platform:tenant.read", keywords: ["pricing", "subscriptions", "plan"] },
+      { href: "/platform/signup-requests", label: "Onboarding Queue", icon: FileCheck2, permission: "platform:tenant.write", keywords: ["approval", "prospects", "requests"] },
       { href: "/platform/payments", label: "Billing Dash", icon: CreditCard, permission: "platform:billing.read", keywords: ["invoices", "collections", "refunds"] },
     ],
   },
   {
     title: "Ops & Support",
     items: [
-      { href: "/platform/support", label: "Support Dashboard", icon: LifeBuoy, permission: "platform:support.read", keywords: ["tickets", "sla", "desk"] },
-      { href: "/platform/incidents", label: "Service Incidents", icon: AlertTriangle, permission: "platform:incidents.read", keywords: ["outage", "status", "postmortem"] },
+      { href: "/platform/support", label: "Support Dashboard", icon: LifeBuoy, permission: "platform:tenant.read", keywords: ["tickets", "sla", "desk"] },
+      { href: "/platform/incidents", label: "Service Incidents", icon: AlertTriangle, permission: "platform:tenant.read", keywords: ["outage", "status", "postmortem"] },
       { href: "/platform/marketing", label: "Communications", icon: Megaphone, permission: "platform:marketing.write", keywords: ["campaign", "broadcast", "outreach"] },
     ],
   },
   {
     title: "Infrastructure",
     items: [
-      { href: "/platform/integrations", label: "Infra Connectivity", icon: LinkIcon, permission: "platform:integrations.read", keywords: ["webhook", "provider", "connectors"] },
+      { href: "/platform/integrations", label: "Infra Connectivity", icon: LinkIcon, permission: "platform:integrations.manage", keywords: ["webhook", "provider", "connectors"] },
       { href: "/platform/monitoring", label: "System Telemetry", icon: Activity, permission: "platform:monitoring.read", keywords: ["observability", "metrics", "uptime"] },
       { href: "/platform/settings", label: "Global Config", icon: Settings, permission: "platform:settings.write", keywords: ["config", "defaults", "system"] },
     ],
@@ -82,12 +91,12 @@ const NAV_GROUPS = [
     items: [
       { href: "/platform/users", label: "Global Users", icon: Users, permission: "platform:user.read", keywords: ["directory", "impersonation", "identity"] },
       { href: "/platform/internal-users", label: "Access Control", icon: ShieldCheck, permission: "platform:user.read", keywords: ["rbac", "permissions", "roles"] },
-      { href: "/platform/security-events", label: "Threat Intel", icon: Shield, permission: "platform:security.read", keywords: ["security", "anomaly", "events"] },
+      { href: "/platform/security-events", label: "Threat Intel", icon: Shield, permission: "platform:audit.read", keywords: ["security", "anomaly", "events"] },
       { href: "/platform/audit-logs", label: "Audit Trails", icon: FileText, permission: "platform:audit.read", keywords: ["history", "forensics", "logs"] },
-      { href: "/platform/blocks", label: "Risk Mitigation", icon: Ban, permission: "platform:security.write", keywords: ["block", "freeze", "containment"] },
+      { href: "/platform/blocks", label: "Risk Mitigation", icon: Ban, permission: "platform:audit.read", keywords: ["block", "freeze", "containment"] },
       { href: "/platform/legal", label: "Legal & Policies", icon: Scale, permission: "platform:settings.write", keywords: ["terms", "privacy", "compliance"] },
       { href: "/platform/password-policy", label: "Governance", icon: LockKeyhole, permission: "platform:settings.write", keywords: ["password", "policy", "controls"] },
-      { href: "/platform/secrets", label: "Secret Management", icon: KeyRound, permission: "platform:security.write", keywords: ["keys", "rotation", "credentials"] },
+      { href: "/platform/secrets", label: "Secret Management", icon: KeyRound, permission: "platform:audit.read", keywords: ["keys", "rotation", "credentials"] },
     ],
   },
 ];
@@ -149,7 +158,7 @@ export default function PlatformLayoutClient({
       return;
     }
 
-    if (user.role !== "super_admin") {
+    if (!PLATFORM_ROLES.has(user.role)) {
       router.replace("/");
     }
   }, [isLoading, router, user?.role]);

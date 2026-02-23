@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { apiClient } from "@/lib/api-client"
+import { StudentSelect } from "@/components/students/student-select"
 import { 
   Button, 
   Card, 
@@ -60,6 +61,41 @@ type GatewayConfig = {
   settings?: any
 }
 
+type OptionalFeeItemRow = {
+  id: string
+  name: string
+  amount: number
+  category: string
+}
+
+const textValue = (value: unknown): string => {
+  if (typeof value === "string") return value
+  if (value && typeof value === "object" && "String" in value) {
+    const v = (value as { String?: string }).String
+    return typeof v === "string" ? v : ""
+  }
+  if (value && typeof value === "object" && "Bytes" in value) {
+    const bytes = (value as { Bytes?: number[] }).Bytes
+    if (Array.isArray(bytes) && bytes.length > 0) return bytes.join("-")
+  }
+  return ""
+}
+
+const numericValue = (value: unknown): number => {
+  if (typeof value === "number") return value
+  if (typeof value === "string") {
+    const n = Number(value)
+    return Number.isFinite(n) ? n : 0
+  }
+  if (value && typeof value === "object" && "Int" in value && "Exp" in value) {
+    const raw = value as { Int?: number; Exp?: number }
+    if (typeof raw.Int === "number" && typeof raw.Exp === "number") {
+      return raw.Int * Math.pow(10, raw.Exp)
+    }
+  }
+  return 0
+}
+
 export default function FeeSetupPage() {
   const [activeTab, setActiveTab] = useState("heads")
   
@@ -74,6 +110,14 @@ export default function FeeSetupPage() {
   const [activeYearId, setActiveYearId] = useState<string>("")
   const [selectedClass, setSelectedClass] = useState<string>("")
 
+  // -- Optional Fees State --
+  const [optionalItems, setOptionalItems] = useState<OptionalFeeItemRow[]>([])
+  const [optionalLoading, setOptionalLoading] = useState(false)
+  const [optionalSaving, setOptionalSaving] = useState(false)
+  const [optionalAssigningId, setOptionalAssigningId] = useState<string>("")
+  const [optionalStudentId, setOptionalStudentId] = useState<string>("")
+  const [optionalForm, setOptionalForm] = useState({ name: "", amount: "", category: "transport" })
+
   // -- Gateway State --
   const [gateway, setGateway] = useState<GatewayConfig>({
     provider: "razorpay",
@@ -87,6 +131,7 @@ export default function FeeSetupPage() {
   useEffect(() => {
     fetchHeads()
     fetchMetadata()
+    fetchOptionalItems()
   }, [])
 
   useEffect(() => {
@@ -152,6 +197,27 @@ export default function FeeSetupPage() {
     }
   }
 
+  const fetchOptionalItems = async () => {
+    setOptionalLoading(true)
+    try {
+      const res = await apiClient("/admin/fees/optional")
+      if (!res.ok) throw new Error(await res.text())
+      const data = await res.json()
+      const rows = Array.isArray(data) ? data : []
+      setOptionalItems(rows.map((row: any) => ({
+        id: textValue(row?.id),
+        name: String(row?.name || ""),
+        amount: numericValue(row?.amount),
+        category: textValue(row?.category) || "general",
+      })))
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to load optional fee items")
+      setOptionalItems([])
+    } finally {
+      setOptionalLoading(false)
+    }
+  }
+
   // Action Handlers
   const handleCreateHead = async () => {
     if (!newHead.name) return toast.error("Name required")
@@ -173,6 +239,54 @@ export default function FeeSetupPage() {
     })
     if (res.ok) toast.success("Gateway Config Saved")
     else toast.error("Failed to save gateway")
+  }
+
+  const handleUpsertOptionalItem = async () => {
+    if (!optionalForm.name.trim()) return toast.error("Optional item name is required")
+    const amount = Number(optionalForm.amount)
+    if (!Number.isFinite(amount) || amount < 0) return toast.error("Enter a valid amount")
+    setOptionalSaving(true)
+    try {
+      const res = await apiClient("/admin/fees/optional", {
+        method: "POST",
+        body: JSON.stringify({
+          name: optionalForm.name.trim(),
+          amount,
+          category: optionalForm.category.trim() || "general",
+        })
+      })
+      if (!res.ok) throw new Error(await res.text())
+      toast.success("Optional fee item saved")
+      setOptionalForm({ name: "", amount: "", category: optionalForm.category })
+      await fetchOptionalItems()
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to save optional item")
+    } finally {
+      setOptionalSaving(false)
+    }
+  }
+
+  const handleOptionalSelection = async (itemId: string, status: "active" | "inactive") => {
+    if (!optionalStudentId) return toast.error("Select a student first")
+    if (!activeYearId) return toast.error("Select an academic year first")
+    setOptionalAssigningId(itemId)
+    try {
+      const res = await apiClient("/admin/fees/select", {
+        method: "POST",
+        body: JSON.stringify({
+          student_id: optionalStudentId,
+          item_id: itemId,
+          academic_year_id: activeYearId,
+          status,
+        })
+      })
+      if (!res.ok) throw new Error(await res.text())
+      toast.success(status === "active" ? "Optional fee assigned to student" : "Optional fee marked inactive")
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update student optional fee")
+    } finally {
+      setOptionalAssigningId("")
+    }
   }
 
   const handleUpdateConfig = (headId: string, updates: Partial<FeeConfig>) => {
@@ -412,27 +526,124 @@ export default function FeeSetupPage() {
 
         {/* --- TAB 3: OPTIONAL / TRANSPORT FEES --- */}
         <TabsContent value="optional">
-           <Card className="border-none shadow-sm">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <Card className="border-none shadow-sm xl:col-span-1 h-fit">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
-                    <Layers className="h-5 w-5 text-amber-500" /> Optional & Transport Fees
+                  <Plus className="h-5 w-5 text-amber-500" /> Create / Update Optional Item
                 </CardTitle>
-                <p className="text-muted-foreground text-sm mt-1 font-medium">
-                    Items like Bus Routes, Uniform Kits, or Annual Function tickets that can be assigned to specific students. 
-                    <br className="hidden sm:block" />
-                    (Management of individual student assignment is done via the <strong>Student 360</strong> profile).
+                <p className="text-muted-foreground text-xs">
+                  Uses backend upsert by item name. Re-using an existing name updates amount/category.
                 </p>
               </CardHeader>
-              <CardContent>
-                <div className="text-center py-16 bg-muted/20 rounded-2xl border border-dashed flex flex-col items-center justify-center space-y-3">
-                    <Layers className="h-10 w-10 text-muted-foreground/40" />
-                    <div>
-                      <p className="font-semibold text-foreground text-sm">Optional Items Configuration coming soon.</p>
-                      <p className="text-muted-foreground text-xs mt-1">Currently, these are managed via the database or 'Extras' module.</p>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Item Name</Label>
+                  <Input
+                    value={optionalForm.name}
+                    onChange={e => setOptionalForm({ ...optionalForm, name: e.target.value })}
+                    placeholder="Bus Route A / Annual Function Pass"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Amount (₹)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={optionalForm.amount}
+                    onChange={e => setOptionalForm({ ...optionalForm, amount: e.target.value })}
+                    placeholder="2500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Category</Label>
+                  <Select value={optionalForm.category} onValueChange={v => setOptionalForm({ ...optionalForm, category: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="transport">Transport</SelectItem>
+                      <SelectItem value="uniform">Uniform</SelectItem>
+                      <SelectItem value="activity">Activity</SelectItem>
+                      <SelectItem value="event">Event</SelectItem>
+                      <SelectItem value="misc">Misc</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={handleUpsertOptionalItem} disabled={optionalSaving} className="w-full">
+                  {optionalSaving ? "Saving..." : "Save Optional Item"}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-sm xl:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Layers className="h-5 w-5 text-amber-500" /> Optional & Transport Fees
+                </CardTitle>
+                <p className="text-muted-foreground text-sm mt-1 font-medium">
+                  Create optional items and assign/unassign them to a student for the selected academic year.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                  <div className="space-y-2">
+                    <Label>Academic Year</Label>
+                    <Select value={activeYearId} onValueChange={setActiveYearId}>
+                      <SelectTrigger><SelectValue placeholder="Select Academic Year" /></SelectTrigger>
+                      <SelectContent>
+                        {academicYears.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Student (for assignment)</Label>
+                    <StudentSelect value={optionalStudentId} onValueChange={setOptionalStudentId} />
+                  </div>
+                </div>
+
+                <div className="bg-muted/30 border rounded-xl p-3 text-xs text-muted-foreground">
+                  This screen supports assignment updates. Student-wise selected items history/listing is still managed in Student 360.
+                </div>
+
+                <div className="space-y-3">
+                  {optionalLoading ? (
+                    <div className="text-center py-12 text-muted-foreground">Loading optional items...</div>
+                  ) : optionalItems.length === 0 ? (
+                    <div className="text-center py-12 bg-muted/20 rounded-2xl border border-dashed">
+                      <p className="font-medium text-sm text-muted-foreground">No optional fee items configured yet.</p>
                     </div>
+                  ) : (
+                    optionalItems.map(item => (
+                      <div key={item.id} className="rounded-xl border border-border/50 p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div>
+                          <p className="font-semibold text-foreground">{item.name}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {item.category || "misc"} • ₹{Math.round(item.amount).toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={!optionalStudentId || !activeYearId || optionalAssigningId === item.id}
+                            onClick={() => handleOptionalSelection(item.id, "inactive")}
+                          >
+                            {optionalAssigningId === item.id ? "Saving..." : "Unassign"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            disabled={!optionalStudentId || !activeYearId || optionalAssigningId === item.id}
+                            onClick={() => handleOptionalSelection(item.id, "active")}
+                          >
+                            {optionalAssigningId === item.id ? "Saving..." : "Assign"}
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>
+          </div>
         </TabsContent>
 
         {/* --- TAB 4: GATEWAYS --- */}

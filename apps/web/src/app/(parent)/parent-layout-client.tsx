@@ -15,8 +15,8 @@ import {
   BookOpen
 } from 'lucide-react';
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@schoolerp/ui';
-import { RBACService } from '@/lib/auth-service';
-import { usePathname } from 'next/navigation';
+import { RBACService, isPlatformUser } from '@/lib/auth-service';
+import { usePathname, useRouter } from 'next/navigation';
 import { TenantConfig } from '@/lib/tenant-utils';
 import { useAuth } from '@/components/auth-provider';
 import { apiClient } from '@/lib/api-client';
@@ -43,8 +43,15 @@ export default function ParentLayoutClient({
 }) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [kbVisible, setKbVisible] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (isPlatformUser(user?.role)) {
+      router.replace('/platform/dashboard');
+    }
+  }, [user?.role, router]);
 
   useEffect(() => {
     let active = true;

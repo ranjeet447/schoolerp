@@ -11,8 +11,8 @@ WHERE id = $1 AND tenant_id = $2;
 
 -- name: GetPDFTemplate :one
 SELECT * FROM pdf_templates
-WHERE tenant_id = $1 AND code = $2 AND is_active = true
-ORDER BY version DESC
+WHERE (tenant_id = $1 OR tenant_id IS NULL) AND code = $2 AND is_active = true
+ORDER BY (tenant_id IS NOT NULL) DESC, version DESC
 LIMIT 1;
 
 -- name: CreatePDFJob :one

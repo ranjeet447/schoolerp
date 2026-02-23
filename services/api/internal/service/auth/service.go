@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -279,6 +280,68 @@ func (s *Service) IssueTokenForUser(ctx context.Context, userID string) (*LoginR
 	return s.mintLoginResult(ctx, user, identity, roleAssignment)
 }
 
+// Impersonate allows a platform admin to switch context to another user
+func (s *Service) Impersonate(ctx context.Context, adminUserID, targetUserID string) (*LoginResult, error) {
+	// 1. Verify admin permissions
+	aUID := pgtype.UUID{}
+	if err := aUID.Scan(adminUserID); err != nil {
+		return nil, errors.New("invalid admin id")
+	}
+
+	roleAssignment, err := s.queries.GetUserRoleAssignmentWithPermissions(ctx, aUID)
+	if err != nil {
+		return nil, errors.New("admin role not found")
+	}
+
+	hasImpersonate := false
+	for _, p := range roleAssignment.Permissions {
+		if p == "platform:impersonation.use" || p == "platform:manage" {
+			hasImpersonate = true
+			break
+		}
+	}
+	if !hasImpersonate && !isInternalPlatformRole(roleAssignment.RoleCode) {
+		return nil, errors.New("permission denied: impersonation requires platform privileges")
+	}
+
+	// 2. Load target user
+	tUID := pgtype.UUID{}
+	if err := tUID.Scan(targetUserID); err != nil {
+		return nil, errors.New("invalid target user id")
+	}
+
+	targetUser, err := s.queries.GetUserByID(ctx, tUID)
+	if err != nil {
+		return nil, errors.New("target user not found")
+	}
+
+	if !targetUser.IsActive.Bool {
+		return nil, errors.New("target user is inactive")
+	}
+
+	targetRole, err := s.queries.GetUserRoleAssignmentWithPermissions(ctx, tUID)
+	if err != nil {
+		return nil, errors.New("target user role not found")
+	}
+
+	targetIdentity, err := s.queries.GetUserIdentity(ctx, db.GetUserIdentityParams{
+		UserID:   tUID,
+		Provider: "password",
+	})
+	if err != nil {
+		// If no password identity, create a dummy for mintLoginResult or handle it
+		targetIdentity = db.AuthIdentity{UserID: tUID, Provider: "impersonated"}
+	}
+
+	// 3. Mint token
+	log.Ctx(ctx).Info().
+		Str("admin_id", adminUserID).
+		Str("target_id", targetUserID).
+		Msg("admin impersonating user")
+
+	return s.mintLoginResult(ctx, targetUser, targetIdentity, targetRole)
+}
+
 func (s *Service) InitiatePasswordReset(ctx context.Context, email, ipAddress, userAgent string) error {
 	normalizedEmail := strings.ToLower(strings.TrimSpace(email))
 	if normalizedEmail == "" {
@@ -288,6 +351,7 @@ func (s *Service) InitiatePasswordReset(ctx context.Context, email, ipAddress, u
 	user, err := s.queries.GetUserByEmail(ctx, normalizedEmail)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			// Don't leak exists/not-exists
 			return nil
 		}
 		return err
@@ -301,10 +365,30 @@ func (s *Service) InitiatePasswordReset(ctx context.Context, email, ipAddress, u
 		return err
 	}
 
+	// Generate a secure token
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return err
+	}
+	token := hex.EncodeToString(tokenBytes)
+
+	// Store the token (valid for 1 hour)
+	tokenID := pgtype.UUID{Bytes: uuid.New(), Valid: true}
+	err = s.queries.CreatePasswordResetToken(ctx, db.CreatePasswordResetTokenParams{
+		ID:        tokenID,
+		UserID:    user.ID,
+		Token:     token,
+		ExpiresAt: pgtype.Timestamp{Time: time.Now().Add(1 * time.Hour), Valid: true},
+	})
+	if err != nil {
+		return err
+	}
+
 	payload, _ := json.Marshal(map[string]interface{}{
 		"user_id":      user.ID,
 		"tenant_id":    roleAssignment.TenantID,
 		"email":        normalizedEmail,
+		"token":        token,
 		"ip_address":   ipAddress,
 		"user_agent":   userAgent,
 		"requested_at": time.Now().UTC().Format(time.RFC3339),
@@ -317,6 +401,49 @@ func (s *Service) InitiatePasswordReset(ctx context.Context, email, ipAddress, u
 	})
 
 	return nil
+}
+
+func (s *Service) CompletePasswordReset(ctx context.Context, token, newPassword string) error {
+	if len(newPassword) < 8 {
+		return errors.New("password too short")
+	}
+
+	userID, expiresAt, err := s.queries.GetPasswordResetToken(ctx, token)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errors.New("invalid or expired token")
+		}
+		return err
+	}
+
+	if time.Now().After(expiresAt.Time) {
+		return errors.New("token expired")
+	}
+
+	// Update password in user_identities (provider 'password')
+	hashedPassword := hashPassword(newPassword)
+	err = s.queries.UpdateUserPassword(ctx, userID, "password", hashedPassword)
+	if err != nil {
+		return err
+	}
+
+	// Mark token used
+	_ = s.queries.MarkPasswordResetTokenUsed(ctx, token)
+
+	// Revoke sessions (invalidate all active sessions after password change)
+	var uidStr string
+	if err := userID.Scan(&uidStr); err == nil {
+		_ = s.sessionStore.DeleteUserSessions(ctx, uidStr)
+	}
+
+	return nil
+}
+
+func (s *Service) Logout(ctx context.Context, userID, tokenHash string, logoutAll bool) error {
+	if logoutAll {
+		return s.sessionStore.DeleteUserSessions(ctx, userID)
+	}
+	return s.sessionStore.DeleteSession(ctx, userID, tokenHash)
 }
 
 func (s *Service) mintLoginResult(ctx context.Context, user db.AuthUser, identity db.AuthIdentity, roleAssignment db.GetUserRoleAssignmentWithPermissionsRow) (*LoginResult, error) {

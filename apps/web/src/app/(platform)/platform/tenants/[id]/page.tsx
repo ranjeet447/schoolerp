@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
+import { RBACService } from "@/lib/auth-service";
 import { 
   Tabs, 
   TabsList, 
@@ -848,7 +849,7 @@ export default function PlatformTenantDetailPage() {
 
       const blob = await res.blob();
       const disposition = res.headers.get("content-disposition") || "";
-      const match = disposition.match(/filename=\"?([^\";]+)\"?/i);
+      const match = disposition.match(/filename="?([^";]+)"?/i);
       const filename = match?.[1] || `tenant_export_${id}_${exportId}.zip`;
 
       const url = URL.createObjectURL(blob);
@@ -960,6 +961,28 @@ export default function PlatformTenantDetailPage() {
       setError(e?.message || "Failed to update branch.");
     } finally {
       setBusyBranchId("");
+    }
+  };
+
+  const impersonateTenantAdmin = async () => {
+    if (impersonationReason.trim().length < 10) {
+      setError("Reason must be at least 10 characters.");
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const result = await RBACService.impersonatePlatformTenant(id, impersonationReason);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      // Note: If successful, the browser will redirect to the new dashboard
+    } catch (e: any) {
+      setError(e?.message || "Impersonation failed.");
+    } finally {
+      setBusy(false);
     }
   };
 

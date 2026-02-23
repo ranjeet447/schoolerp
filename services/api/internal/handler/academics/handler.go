@@ -57,6 +57,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 func (h *Handler) RegisterStudentRoutes(r chi.Router) {
 	r.Route("/homework", func(r chi.Router) {
 		r.Get("/", h.GetHomeworkForStudent)
+		r.Get("/pending", h.GetHomeworkForStudent) // Supports dashboard call
 		r.Post("/{id}/submit", h.SubmitHomework)
 	})
 }

@@ -65,11 +65,9 @@ export default function StudentDashboardPage() {
           </p>
         </div>
         <div className="flex gap-3">
-           <Link href="/student/homework">
-             <Button className="rounded-2xl gap-2 font-bold uppercase text-[10px] tracking-widest px-6 italic">
-               <BookOpen className="h-4 w-4" /> My Tasks
-             </Button>
-           </Link>
+           <Button className="rounded-2xl gap-2 font-bold uppercase text-[10px] tracking-widest px-6 italic" disabled>
+             <BookOpen className="h-4 w-4" /> My Tasks
+           </Button>
         </div>
       </div>
 
@@ -135,7 +133,7 @@ export default function StudentDashboardPage() {
                      <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed mb-4">{notice.body}</p>
                      <div className="flex items-center justify-between border-t border-slate-50 pt-4">
                         <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{format(new Date(notice.created_at), 'PPP')}</span>
-                        <Link href={`/student/notices`} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline">Read Story</Link>
+                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest cursor-default">Campus Post</span>
                      </div>
                   </div>
                 ))}
@@ -174,24 +172,18 @@ export default function StudentDashboardPage() {
            <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 space-y-4">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Quick Links</h3>
               <div className="grid gap-2">
-                 <Link href="/student/results">
-                   <Button variant="outline" className="w-full justify-start gap-3 rounded-2xl border-slate-100 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-100 group transition-all">
-                      <GraduationCap className="h-4 w-4 text-slate-400 group-hover:text-indigo-600" />
-                      <span className="text-xs font-bold">Academic Performance</span>
-                   </Button>
-                 </Link>
-                 <Link href="/student/timetable">
-                   <Button variant="outline" className="w-full justify-start gap-3 rounded-2xl border-slate-100 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-100 group transition-all">
-                      <Clock className="h-4 w-4 text-slate-400 group-hover:text-indigo-600" />
-                      <span className="text-xs font-bold">Weekly Timetable</span>
-                   </Button>
-                 </Link>
-                 <Link href="/student/resources">
-                   <Button variant="outline" className="w-full justify-start gap-3 rounded-2xl border-slate-100 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-100 group transition-all">
-                      <FileText className="h-4 w-4 text-slate-400 group-hover:text-indigo-600" />
-                      <span className="text-xs font-bold">Learning Materials</span>
-                   </Button>
-                 </Link>
+                 <Button disabled variant="outline" className="w-full justify-start gap-3 rounded-2xl border-slate-100 opacity-50">
+                    <GraduationCap className="h-4 w-4 text-slate-300" />
+                    <span className="text-xs font-bold">Academic Performance</span>
+                 </Button>
+                 <Button disabled variant="outline" className="w-full justify-start gap-3 rounded-2xl border-slate-100 opacity-50">
+                    <Clock className="h-4 w-4 text-slate-300" />
+                    <span className="text-xs font-bold">Weekly Timetable</span>
+                 </Button>
+                 <Button disabled variant="outline" className="w-full justify-start gap-3 rounded-2xl border-slate-100 opacity-50">
+                    <FileText className="h-4 w-4 text-slate-300" />
+                    <span className="text-xs font-bold">Learning Materials</span>
+                 </Button>
               </div>
            </div>
         </div>

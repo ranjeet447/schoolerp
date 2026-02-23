@@ -65,7 +65,8 @@ func (s *WhatsAppService) HandleIncomingMessage(ctx context.Context, tenantID, f
 		messages = append([]ai.Message{{Role: "system", Content: systemPrompt}}, messages...)
 	}
 
-	response, err := s.aiSvc.ChatWithHistory(ctx, tenantID, messages)
+	// B5: Pass fromNumber as userID for per-sender burst limiting in WhatsApp
+	response, err := s.aiSvc.ChatWithHistory(ctx, tenantID, fromNumber, messages)
 	if err != nil {
 		return "", fmt.Errorf("failed to get AI response: %w", err)
 	}

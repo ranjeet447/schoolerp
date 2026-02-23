@@ -140,6 +140,44 @@ type UpdateUserLastLoginParams struct {
 	Provider string
 }
 
+// UpdateUserPassword updates a user's password credential for a specific provider (usually 'local')
+func (q *Queries) UpdateUserPassword(ctx context.Context, userID pgtype.UUID, provider string, credential string) error {
+	const query = `UPDATE user_identities SET credential = $1, updated_at = NOW() WHERE user_id = $2 AND provider = $3`
+	_, err := q.db.Exec(ctx, query, credential, userID, provider)
+	return err
+}
+
+// CreatePasswordResetTokenParams are the params for CreatePasswordResetToken
+type CreatePasswordResetTokenParams struct {
+	ID        pgtype.UUID
+	UserID    pgtype.UUID
+	Token     string
+	ExpiresAt pgtype.Timestamp
+}
+
+// CreatePasswordResetToken creates a new password reset token
+func (q *Queries) CreatePasswordResetToken(ctx context.Context, arg CreatePasswordResetTokenParams) error {
+	const query = `INSERT INTO password_reset_tokens (id, user_id, token, expires_at) VALUES ($1, $2, $3, $4)`
+	_, err := q.db.Exec(ctx, query, arg.ID, arg.UserID, arg.Token, arg.ExpiresAt)
+	return err
+}
+
+// GetPasswordResetToken retrieves an unused password reset token by its value
+func (q *Queries) GetPasswordResetToken(ctx context.Context, token string) (pgtype.UUID, pgtype.Timestamp, error) {
+	const query = `SELECT user_id, expires_at FROM password_reset_tokens WHERE token = $1 AND used_at IS NULL`
+	var userID pgtype.UUID
+	var expiresAt pgtype.Timestamp
+	err := q.db.QueryRow(ctx, query, token).Scan(&userID, &expiresAt)
+	return userID, expiresAt, err
+}
+
+// MarkPasswordResetTokenUsed marks a password reset token as used
+func (q *Queries) MarkPasswordResetTokenUsed(ctx context.Context, token string) error {
+	const query = `UPDATE password_reset_tokens SET used_at = NOW() WHERE token = $1`
+	_, err := q.db.Exec(ctx, query, token)
+	return err
+}
+
 // ListUsersByTenantRow is the return type for ListUsersByTenant
 type ListUsersByTenantRow struct {
 	ID       pgtype.UUID

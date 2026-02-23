@@ -12,6 +12,12 @@ import {
 import { apiClient } from '@/lib/api-client';
 import Link from 'next/link';
 
+type DefaulterSummary = {
+  classLabel: string
+  amount: number
+  students: number
+}
+
 export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -25,28 +31,19 @@ export default function AdminDashboardPage() {
   })
 
   const [approvals, setApprovals] = useState<any[]>([])
-  
-  // Keep mocked data for features not yet linked to backend
-  const defaulters = [
-    { class: "Class X-A", amount: "₹45,000", students: 8 },
-    { class: "Class IX-B", amount: "₹38,000", students: 6 },
-    { class: "Class VIII-A", amount: "₹32,500", students: 5 },
-  ]
+  const [defaulters, setDefaulters] = useState<DefaulterSummary[]>([])
   const [certificates, setCertificates] = useState<any[]>([])
-  const remarks = [
-    { name: "Rahul Singh", desc: "Excellent project in Science.", teacher: "Mr. Sharma", time: "2h ago" },
-    { name: "Priya Das", desc: "Incomplete Math homework.", teacher: "Mrs. Verma", time: "3h ago" },
-  ]
 
   const loadDashboard = async (silent = false) => {
     if (silent) setRefreshing(true)
     else setLoading(true)
     
     try {
-      const [statsRes, approvalsRes, certsRes] = await Promise.all([
+      const [statsRes, approvalsRes, certsRes, defaultersRes] = await Promise.all([
         apiClient("/admin/dashboard/command-status"),
         apiClient("/admin/approvals?status=pending&limit=3"),
-        apiClient("/admin/certificates/list?status=pending&limit=5")
+        apiClient("/admin/certificates/list?status=pending&limit=5"),
+        apiClient("/admin/payments/reports/defaulters/data")
       ])
 
       if (statsRes.ok) {
@@ -68,6 +65,31 @@ export default function AdminDashboardPage() {
         const data = await certsRes.json()
         const rows = Array.isArray(data) ? data : (data?.certificates || [])
         setCertificates(rows.slice(0, 3))
+      }
+
+      if (defaultersRes.ok) {
+        const data = await defaultersRes.json()
+        const rows = Array.isArray(data) ? data : []
+        const grouped = new Map<string, { amount: number; students: Set<string> }>()
+        rows.forEach((row: any) => {
+          const className = String(row?.class_name || "Class")
+          const sectionName = String(row?.section_name || "")
+          const label = sectionName ? `${className}-${sectionName}` : className
+          const amount = Number(row?.balance_amount || 0)
+          const studentId = String(row?.student_id?.String || row?.student_id || row?.full_name || "")
+          const current = grouped.get(label) || { amount: 0, students: new Set<string>() }
+          current.amount += amount
+          if (studentId) current.students.add(studentId)
+          grouped.set(label, current)
+        })
+        setDefaulters(
+          Array.from(grouped.entries())
+            .map(([classLabel, v]) => ({ classLabel, amount: v.amount, students: v.students.size }))
+            .sort((a, b) => b.amount - a.amount)
+            .slice(0, 3)
+        )
+      } else {
+        setDefaulters([])
       }
     } catch (error) {
       console.error("Dashboard load failed:", error)
@@ -190,16 +212,20 @@ export default function AdminDashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col gap-3">
-            {defaulters.map((d, i) => (
+            {defaulters.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground py-8">
+                No defaulter data available
+              </div>
+            ) : defaulters.map((d, i) => (
               <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 font-bold text-xs">{i+1}</div>
                   <div>
-                    <p className="text-sm font-bold text-foreground">{d.class}</p>
+                    <p className="text-sm font-bold text-foreground">{d.classLabel}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{d.students} Students</p>
                   </div>
                 </div>
-                <p className="text-sm font-black text-red-600">{d.amount}</p>
+                <p className="text-sm font-black text-red-600">₹{d.amount.toLocaleString()}</p>
               </div>
             ))}
             <div className="mt-auto pt-2">
@@ -218,28 +244,11 @@ export default function AdminDashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col justify-center gap-4">
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between text-xs font-bold mb-1">
-                  <span>Walk-ins (Enquiries)</span>
-                  <span>145</span>
-                </div>
-                <Progress value={100} className="h-2 bg-blue-100 [&>div]:bg-blue-300" />
-              </div>
-              <div>
-                <div className="flex justify-between text-xs font-bold mb-1">
-                  <span>Applications Received</span>
-                  <span>82</span>
-                </div>
-                <Progress value={(82/145)*100} className="h-2 bg-blue-100 [&>div]:bg-blue-500" />
-              </div>
-              <div>
-                <div className="flex justify-between text-xs font-bold mb-1">
-                  <span>Admitted (Fees Paid)</span>
-                  <span className="text-emerald-600">45</span>
-                </div>
-                <Progress value={(45/145)*100} className="h-2 bg-emerald-100 [&>div]:bg-emerald-500" />
-              </div>
+            <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-4">
+              <p className="text-xs uppercase font-bold tracking-wider text-blue-600">Today&apos;s Admissions Activity</p>
+              <p className="mt-2 text-3xl font-black text-foreground">{stats.enquiries}</p>
+              <p className="text-xs text-muted-foreground mt-1">Walk-ins / enquiries captured from dashboard command status</p>
+              <Progress value={Math.min(stats.enquiries, 100)} className="h-2 mt-4 bg-blue-100 [&>div]:bg-blue-500" />
             </div>
             <div className="mt-auto pt-4">
               <Link href="/admin/admissions/applications">
@@ -257,32 +266,16 @@ export default function AdminDashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col justify-center">
-            <div className="grid grid-cols-2 gap-4 divide-x divide-white/10">
+            <div className="grid grid-cols-2 gap-4">
               <div className="text-center">
-                <p className="text-[10px] uppercase font-bold opacity-80 mb-2">Student Force</p>
-                <div className="relative inline-flex items-center justify-center">
-                  <svg className="w-24 h-24 transform -rotate-90">
-                    <circle cx="48" cy="48" r="36" stroke="currentColor" strokeWidth="8" fill="transparent" className="opacity-20" />
-                    <circle cx="48" cy="48" r="36" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray="226.2" strokeDashoffset={226.2 - (226.2 * 94) / 100} className="text-white" />
-                  </svg>
-                  <div className="absolute flex flex-col items-center justify-center">
-                    <span className="text-xl font-black">94%</span>
-                  </div>
-                </div>
-                <p className="text-xs font-medium mt-2 opacity-90 text-white/80">45 Absent</p>
+                <p className="text-[10px] uppercase font-bold opacity-80 mb-2">Students Absent</p>
+                <p className="text-4xl font-black">{stats.absentees}</p>
+                <p className="text-xs font-medium mt-2 opacity-90 text-white/80">Live absent count</p>
               </div>
               <div className="text-center">
-                <p className="text-[10px] uppercase font-bold opacity-80 mb-2">Staff Force</p>
-                <div className="relative inline-flex items-center justify-center">
-                  <svg className="w-24 h-24 transform -rotate-90">
-                    <circle cx="48" cy="48" r="36" stroke="currentColor" strokeWidth="8" fill="transparent" className="opacity-20" />
-                    <circle cx="48" cy="48" r="36" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray="226.2" strokeDashoffset={226.2 - (226.2 * 96) / 100} className="text-emerald-400" />
-                  </svg>
-                  <div className="absolute flex flex-col items-center justify-center">
-                    <span className="text-xl font-black">96%</span>
-                  </div>
-                </div>
-                <p className="text-xs font-medium mt-2 opacity-90 text-emerald-200">3 on Leave</p>
+                <p className="text-[10px] uppercase font-bold opacity-80 mb-2">Staff On Leave</p>
+                <p className="text-4xl font-black text-emerald-200">{stats.staffOnLeave}</p>
+                <p className="text-xs font-medium mt-2 opacity-90 text-emerald-200">Live staff leave count</p>
               </div>
             </div>
           </CardContent>
@@ -323,24 +316,20 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Widget 6: Recent Remarks (Teacher Diary) */}
+        {/* Widget 6: Teacher Diary */}
         <Card className="border-none shadow-sm flex flex-col h-full">
           <CardHeader className="pb-3 border-b mb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2 tracking-tight"><MessageSquare className="w-5 h-5 text-purple-500" /> Live Remarks Feed</CardTitle>
+              <CardTitle className="text-lg flex items-center gap-2 tracking-tight"><MessageSquare className="w-5 h-5 text-purple-500" /> Teacher Diary</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col gap-4">
-            {remarks.map((r, i) => (
-              <div key={i} className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center shrink-0 text-purple-600 font-bold text-xs">{r.name[0]}</div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-0.5"><span className="font-bold text-foreground">{r.name}</span> by {r.teacher}</p>
-                  <p className="text-sm font-medium leading-snug">{r.desc}</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">{r.time}</p>
-                </div>
+            <div className="flex-1 flex items-center justify-center rounded-xl border border-dashed bg-purple-50/30 p-6 text-center">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Live remarks feed is not wired yet</p>
+                <p className="text-xs text-muted-foreground mt-1">Use Teacher Diary to view and manage remarks.</p>
               </div>
-            ))}
+            </div>
             <div className="mt-auto pt-2">
               <Link href="/admin/diary">
                 <Button variant="ghost" className="w-full text-xs text-purple-600 hover:bg-purple-50 h-8">View Teacher Diary</Button>

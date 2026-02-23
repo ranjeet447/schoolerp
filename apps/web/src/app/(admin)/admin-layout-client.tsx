@@ -33,7 +33,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@schoolerp/ui';
-import { RBACService } from '@/lib/auth-service';
+import { RBACService, isPlatformUser } from '@/lib/auth-service';
 import { usePathname, useRouter } from 'next/navigation';
 import { TenantConfig } from '@/lib/tenant-utils';
 import { useAuth } from '@/components/auth-provider';
@@ -66,6 +66,7 @@ const NAV_ITEMS = [
   { href: '/admin/kb', label: 'Knowledgebase', icon: BookOpen, permission: 'notices:read' },
   { href: '/admin/certificates', label: 'TC & Certificates', icon: FileCheck2, permission: 'sis:read' },
   { href: '/admin/notices', label: 'Notices', icon: FileText, permission: 'notices:read' },
+  { href: '/admin/students/promotion', label: 'Year-end Promotion', icon: GraduationCap, permission: 'sis:write' },
   { href: '/admin/houses', label: 'Houses', icon: Shield, permission: 'sis:read' },
   { href: '/admin/custom-fields', label: 'Custom Fields', icon: Sliders, permission: 'tenant:settings:view' },
   { href: '/admin/bulk-import', label: 'Bulk Import', icon: Upload, permission: 'sis:write' },
@@ -153,7 +154,7 @@ export default function AdminLayoutClient({
   const [exitingImpersonation, setExitingImpersonation] = useState(false);
 
   useEffect(() => {
-    if (user?.role === 'super_admin') {
+    if (isPlatformUser(user?.role)) {
       router.replace('/platform/dashboard');
     }
   }, [user?.role, router]);

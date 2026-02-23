@@ -23,6 +23,20 @@ type ModewiseData = {
   count: number
 }
 
+type BillingReportPayload = {
+  summary?: {
+    total_collections?: number
+    receipt_count?: number
+    average_receipt?: number
+    by_mode?: Record<string, number>
+  }
+  rows?: Array<{
+    amount_paid?: number
+    created_at?: string
+    payment_mode?: string
+  }>
+}
+
 const BAR_COLORS = [
   "bg-blue-500", "bg-emerald-500", "bg-purple-500", "bg-amber-500",
   "bg-pink-500", "bg-indigo-500", "bg-teal-500", "bg-orange-500"
@@ -32,6 +46,27 @@ const PIE_COLORS = [
   "#3b82f6", "#10b981", "#8b5cf6", "#f59e0b",
   "#ec4899", "#6366f1", "#14b8a6", "#f97316"
 ]
+
+const formatDateKey = (date: Date) => {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, "0")
+  const d = String(date.getDate()).padStart(2, "0")
+  return `${y}-${m}-${d}`
+}
+
+const dateRangeForDays = (days: number) => {
+  const end = new Date()
+  end.setHours(23, 59, 59, 999)
+  const start = new Date(end)
+  start.setDate(start.getDate() - Math.max(days - 1, 0))
+  start.setHours(0, 0, 0, 0)
+  return { start, end }
+}
+
+const parseBillingPayload = (data: any): BillingReportPayload => ({
+  summary: data?.summary || {},
+  rows: Array.isArray(data?.rows) ? data.rows : [],
+})
 
 export default function FinanceDashboardChartsPage() {
   const [period, setPeriod] = useState("30")
@@ -49,68 +84,98 @@ export default function FinanceDashboardChartsPage() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [summaryRes, headRes, modeRes] = await Promise.all([
-        apiClient(`/admin/finance/billing-summary?days=${period}`),
-        apiClient(`/admin/finance/daily-summary`),
-        apiClient(`/admin/finance/billing-summary?days=${period}`)
+      const days = parseInt(period, 10)
+      const current = dateRangeForDays(days)
+      const previousStart = new Date(current.start)
+      previousStart.setDate(previousStart.getDate() - days)
+      const previousEnd = new Date(current.end)
+      previousEnd.setDate(previousEnd.getDate() - days)
+
+      const from = formatDateKey(current.start)
+      const to = formatDateKey(current.end)
+      const prevFrom = formatDateKey(previousStart)
+      const prevTo = formatDateKey(previousEnd)
+
+      const [billingRes, previousBillingRes, headRes] = await Promise.all([
+        apiClient(`/admin/payments/reports/billing?from=${from}&to=${to}`),
+        apiClient(`/admin/payments/reports/billing?from=${prevFrom}&to=${prevTo}`),
+        apiClient(`/admin/payments/reports/collections?from=${from}&to=${to}`),
       ])
 
-      if (summaryRes.ok) {
-        const data = await summaryRes.json()
-        setSummary({
-          totalCollection: data.total_collections || 0,
-          receiptCount: data.receipt_count || 0,
-          averageReceipt: data.average_receipt || 0,
-          growthPercent: data.growth_percent || 12.5
-        })
-
-        // Parse payment modes
-        if (data.by_mode) {
-          const modeEntries = Object.entries(data.by_mode).map(([mode, amount]) => ({
-            payment_mode: mode,
-            total_amount: amount as number,
-            count: 0
-          }))
-          setModewise(modeEntries)
-        }
+      if (!billingRes.ok) {
+        throw new Error((await billingRes.text()) || "Failed to load billing report")
       }
 
-      if (headRes.ok) {
-        const data = await headRes.json()
-        const rows = Array.isArray(data) ? data : []
-        const total = rows.reduce((acc: number, r: any) => acc + (r.total_amount || 0), 0)
-        setHeadwise(rows.map((r: any) => ({
-          head_name: r.fee_head_name || r.payment_mode || "Unknown",
-          total_amount: r.total_amount || 0,
-          percentage: total > 0 ? Math.round(((r.total_amount || 0) / total) * 100) : 0
-        })))
+      const billingPayload = parseBillingPayload(await billingRes.json())
+      const previousPayload = previousBillingRes.ok
+        ? parseBillingPayload(await previousBillingRes.json())
+        : { summary: {}, rows: [] }
 
-        // Generate daily data from summary
-        const days = parseInt(period)
-        const daily: CollectionData[] = []
-        for (let i = days - 1; i >= 0; i--) {
-          const d = new Date()
-          d.setDate(d.getDate() - i)
-          daily.push({
-            date: d.toISOString().split("T")[0],
-            amount: Math.floor(Math.random() * 50000) + 10000 // Will be replaced with real data
-          })
-        }
-        setDailyCollections(daily)
-      }
-    } catch {
-      // Generate sample data if API not ready
-      const days = parseInt(period)
-      const daily: CollectionData[] = []
-      for (let i = days - 1; i >= 0; i--) {
-        const d = new Date()
-        d.setDate(d.getDate() - i)
-        daily.push({
-          date: d.toISOString().split("T")[0],
-          amount: Math.floor(Math.random() * 50000) + 10000
+      const summaryData = billingPayload.summary || {}
+      const previousTotal = Number(previousPayload.summary?.total_collections || 0)
+      const currentTotal = Number(summaryData.total_collections || 0)
+      const growthPercent = previousTotal > 0
+        ? Number((((currentTotal - previousTotal) / previousTotal) * 100).toFixed(1))
+        : 0
+
+      setSummary({
+        totalCollection: currentTotal,
+        receiptCount: Number(summaryData.receipt_count || 0),
+        averageReceipt: Number(summaryData.average_receipt || 0),
+        growthPercent,
+      })
+
+      const billingRows = Array.isArray(billingPayload.rows) ? billingPayload.rows : []
+
+      const modeMap = new Map<string, ModewiseData>()
+      billingRows.forEach((row) => {
+        const mode = String(row?.payment_mode || "unknown").toLowerCase()
+        const amount = Number(row?.amount_paid || 0)
+        const currentMode = modeMap.get(mode) || { payment_mode: mode, total_amount: 0, count: 0 }
+        currentMode.total_amount += amount
+        currentMode.count += 1
+        modeMap.set(mode, currentMode)
+      })
+      if (modeMap.size === 0 && summaryData.by_mode) {
+        Object.entries(summaryData.by_mode).forEach(([mode, amount]) => {
+          modeMap.set(mode, { payment_mode: mode, total_amount: Number(amount || 0), count: 0 })
         })
       }
-      setDailyCollections(daily)
+      setModewise(Array.from(modeMap.values()).sort((a, b) => b.total_amount - a.total_amount))
+
+      const dailyTotals = new Map<string, number>()
+      billingRows.forEach((row) => {
+        const raw = String(row?.created_at || "")
+        if (!raw) return
+        const day = raw.slice(0, 10)
+        dailyTotals.set(day, (dailyTotals.get(day) || 0) + Number(row?.amount_paid || 0))
+      })
+      const series: CollectionData[] = []
+      const cursor = new Date(current.start)
+      while (cursor <= current.end) {
+        const key = formatDateKey(cursor)
+        series.push({ date: key, amount: dailyTotals.get(key) || 0 })
+        cursor.setDate(cursor.getDate() + 1)
+      }
+      setDailyCollections(series)
+
+      if (!headRes.ok) {
+        throw new Error((await headRes.text()) || "Failed to load fee-head report")
+      }
+      const headRows = await headRes.json()
+      const rows = Array.isArray(headRows) ? headRows : []
+      const total = rows.reduce((acc: number, r: any) => acc + Number(r?.total_amount || 0), 0)
+      setHeadwise(rows.map((r: any) => ({
+        head_name: String(r?.head_name || "Unknown"),
+        total_amount: Number(r?.total_amount || 0),
+        percentage: total > 0 ? Math.round((Number(r?.total_amount || 0) / total) * 100) : 0,
+      })))
+    } catch (err: any) {
+      setDailyCollections([])
+      setHeadwise([])
+      setModewise([])
+      setSummary({ totalCollection: 0, receiptCount: 0, averageReceipt: 0, growthPercent: 0 })
+      toast.error(err?.message || "Failed to load finance charts")
     } finally {
       setLoading(false)
     }

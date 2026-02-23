@@ -101,9 +101,15 @@ SELECT * FROM receipts
 WHERE student_id = $1 AND tenant_id = $2
 ORDER BY created_at DESC;
 
--- name: LogPaymentEvent :one
-INSERT INTO payment_events (tenant_id, gateway_event_id, event_type)
-VALUES ($1, $2, $3)
+-- name: CreateWebhookLog :one
+INSERT INTO webhook_logs (tenant_id, provider, event_id, payload, status)
+VALUES ($1, $2, $3, $4, 'received')
+RETURNING *;
+
+-- name: UpdateWebhookLogStatus :one
+UPDATE webhook_logs
+SET status = $3, error_message = $4, processed_at = $5, updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2
 RETURNING *;
 
 -- name: CheckPaymentEventProcessed :one
@@ -111,6 +117,11 @@ SELECT EXISTS (
     SELECT 1 FROM payment_events 
     WHERE tenant_id = $1 AND gateway_event_id = $2
 ) as processed;
+
+-- name: LogPaymentEvent :one
+INSERT INTO payment_events (tenant_id, gateway_event_id, event_type)
+VALUES ($1, $2, $3)
+RETURNING *;
 
 -- name: CreateReceiptSeries :one
 INSERT INTO receipt_series (tenant_id, branch_id, prefix, current_number, is_active)

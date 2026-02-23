@@ -278,7 +278,7 @@ func main() {
 	alumniService := alumniservice.NewService(querier)
 	authService := authservice.NewService(querier, sessionStore)
 	rolesService := rolesservice.NewService(querier)
-	notificationService := notificationservice.NewService(querier)
+	notificationService := notificationservice.NewService(querier, cryptoService)
 	academicService := academicservice.NewService(querier, auditLogger)
 	tenantService := tenantservice.NewService(querier, pool, sessionStore)
 	marketingService := marketingservice.NewService(pool)
@@ -431,8 +431,18 @@ func main() {
 		fileHandler.RegisterRoutes(r)
 		marketingHandler.RegisterPublicRoutes(r)
 		admissionHandler.RegisterPublicRoutes(r)
+		r.Route("/payments", func(r chi.Router) {
+			financeHandler.RegisterWebhookRoutes(r)
+		})
 
 		r.Get("/tenants/config", tenantHandler.GetConfig)
+
+		// Platform control-plane routes (kept under /admin/platform path for frontend compatibility,
+		// but registered outside the /admin tenant-admin route group so internal platform roles can access).
+		r.Route("/admin/platform", func(r chi.Router) {
+			r.Use(middleware.RoleGuard("super_admin", "support_l1", "support_l2", "finance", "ops", "developer"))
+			tenantHandler.RegisterPlatformRoutes(r)
+		})
 
 		// Admin Routes
 		r.Route("/admin", func(r chi.Router) {
@@ -491,16 +501,11 @@ func main() {
 			})
 			r.Post("/tenants/onboard", tenantHandler.OnboardSchool)
 
-			// Platform routes for SaaS admin
-			r.Route("/platform", func(r chi.Router) {
-				r.Use(middleware.RoleGuard("super_admin"))
-				tenantHandler.RegisterPlatformRoutes(r)
-			})
 		})
 
 		// Teacher Routes
 		r.Route("/teacher", func(r chi.Router) {
-			r.Use(middleware.RoleGuard("teacher", "tenant_admin", "super_admin")) // Allow admins to view teacher routes too
+			r.Use(middleware.RoleGuard("teacher", "tenant_admin", "super_admin", "support_l1", "support_l2", "finance", "ops", "developer"))
 			attendanceHandler.RegisterTeacherRoutes(r)
 			staffAttendHandler.RegisterRoutes(r) // Expose period-attendance
 			noticeHandler.RegisterRoutes(r)
@@ -515,7 +520,7 @@ func main() {
 
 		// Parent Routes
 		r.Route("/parent", func(r chi.Router) {
-			r.Use(middleware.RoleGuard("parent"))
+			r.Use(middleware.RoleGuard("parent", "tenant_admin", "super_admin", "support_l1", "support_l2", "finance", "ops", "developer"))
 			studentHandler.RegisterParentRoutes(r)
 			attendanceHandler.RegisterParentRoutes(r)
 			financeHandler.RegisterParentRoutes(r)
@@ -526,7 +531,7 @@ func main() {
 
 		// Student Routes
 		r.Route("/student", func(r chi.Router) {
-			r.Use(middleware.RoleGuard("student"))
+			r.Use(middleware.RoleGuard("student", "tenant_admin", "super_admin", "support_l1", "support_l2", "finance", "ops", "developer"))
 			academicHandler.RegisterStudentRoutes(r)
 			noticeHandler.RegisterParentRoutes(r) // Notices/Exams typically shared
 			examHandler.RegisterParentRoutes(r)
@@ -534,7 +539,7 @@ func main() {
 
 		// Accountant Routes
 		r.Route("/accountant", func(r chi.Router) {
-			r.Use(middleware.RoleGuard("accountant", "tenant_admin", "super_admin"))
+			r.Use(middleware.RoleGuard("accountant", "tenant_admin", "super_admin", "support_l1", "support_l2", "finance", "ops", "developer"))
 			financeHandler.RegisterRoutes(r)
 			studentHandler.RegisterAccountantRoutes(r)
 		})

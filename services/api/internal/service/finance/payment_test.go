@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/hex"
 	"testing"
 
@@ -17,8 +18,10 @@ import (
 
 type mockFinanceQuerier struct {
 	db.Querier
-	outboxCreated bool
-	gatewayConfig db.PaymentGatewayConfig
+	outboxCreated     bool
+	gatewayConfig     db.PaymentGatewayConfig
+	processedEvents   map[string]bool
+	loggedEvents      map[string]bool
 }
 
 func (m *mockFinanceQuerier) CreatePaymentOrder(ctx context.Context, arg db.CreatePaymentOrderParams) (db.PaymentOrder, error) {
@@ -56,10 +59,20 @@ func (m *mockFinanceQuerier) GetPaymentOrder(ctx context.Context, arg db.GetPaym
 }
 
 func (m *mockFinanceQuerier) LogPaymentEvent(ctx context.Context, arg db.LogPaymentEventParams) (db.PaymentEvent, error) {
+	if m.loggedEvents == nil {
+		m.loggedEvents = make(map[string]bool)
+	}
+	m.loggedEvents[arg.GatewayEventID] = true
 	return db.PaymentEvent{}, nil
 }
 
 func (m *mockFinanceQuerier) CheckPaymentEventProcessed(ctx context.Context, arg db.CheckPaymentEventProcessedParams) (bool, error) {
+	if m.processedEvents != nil && m.processedEvents[arg.GatewayEventID] {
+		return true, nil
+	}
+	if m.loggedEvents != nil && m.loggedEvents[arg.GatewayEventID] {
+		return true, nil
+	}
 	return false, nil
 }
 
@@ -107,6 +120,23 @@ func TestVerifyWebhookSignature(t *testing.T) {
 	}
 }
 
+func TestVerifyPayUWebhookSignature(t *testing.T) {
+	provider := &PayUProvider{}
+	secret := "payu_salt"
+	body := []byte(`{"event":"payment_success","mihpayid":"123"}`)
+
+	h := hmac.New(sha512.New, []byte(secret))
+	h.Write(body)
+	sig := "sha512=" + hex.EncodeToString(h.Sum(nil))
+
+	if !provider.VerifyWebhookSignature(body, sig, secret) {
+		t.Fatalf("expected PayU signature verification to pass")
+	}
+	if provider.VerifyWebhookSignature(body, sig, "wrong") {
+		t.Fatalf("expected PayU signature verification to fail with wrong secret")
+	}
+}
+
 func TestProcessPaymentWebhook(t *testing.T) {
 	mock := &mockFinanceQuerier{
 		gatewayConfig: db.PaymentGatewayConfig{
@@ -128,13 +158,99 @@ func TestProcessPaymentWebhook(t *testing.T) {
 	h.Write(body)
 	sig := hex.EncodeToString(h.Sum(nil))
 
-	err := svc.ProcessPaymentWebhook(context.Background(), "fcc75681-6967-4638-867c-9ef1c990fc7e", "evt_123", body, sig, secret)
+	err := svc.ProcessPaymentWebhook(context.Background(), "fcc75681-6967-4638-867c-9ef1c990fc7e", "evt_123", body, sig, secret, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	
 	if !mock.outboxCreated {
 		t.Errorf("Expected outbox event to be created for paid order")
+	}
+}
+
+func TestNormalizePayUEvent(t *testing.T) {
+	payload := []byte(`{
+		"event": "payment_success",
+		"txnid": "txn_123",
+		"mihpayid": "mih_456",
+		"amount": 1000.50,
+		"status": "success",
+		"order_id": "order_789"
+	}`)
+
+	headers := map[string]string{
+		"x-payu-event-id": "evt_abc",
+	}
+
+	event, err := NormalizePayUEvent(payload, headers)
+	if err != nil {
+		t.Fatalf("NormalizePayUEvent failed: %v", err)
+	}
+
+	if event.Provider != "payu" {
+		t.Errorf("Expected provider payu, got %s", event.Provider)
+	}
+	if event.ProviderEventID != "evt_abc" {
+		t.Errorf("Expected ProviderEventID evt_abc, got %s", event.ProviderEventID)
+	}
+	if event.OrderID != "txn_123" {
+		t.Errorf("Expected OrderID txn_123 (from txnid), got %s", event.OrderID)
+	}
+	if event.Status != "paid" {
+		t.Errorf("Expected status paid, got %s", event.Status)
+	}
+	if event.Amount != 1000 {
+		t.Errorf("Expected amount 1000, got %d", event.Amount)
+	}
+}
+
+func TestProcessPayUPaymentWebhookIdempotency(t *testing.T) {
+	mock := &mockFinanceQuerier{
+		gatewayConfig: db.PaymentGatewayConfig{
+			Provider: "payu",
+		},
+	}
+	provider := &PayUProvider{Salt: "test_salt"}
+	
+	auditLogger := audit.NewLogger(mock)
+	policyEval := policy.NewEvaluator(mock)
+	locksSvc := locks.NewService(mock)
+
+	svc := NewService(mock, nil, auditLogger, policyEval, locksSvc, nil, nil)
+	svc.payment = provider // Fallback in getTenantPaymentProvider
+
+	orderID := "00000000-0000-0000-0000-000000000001"
+	body := []byte(`{"event":"payment_success","txnid":"` + orderID + `","mihpayid":"mih_456","status":"success"}`)
+	
+	// Create signature
+	h := hmac.New(sha512.New, []byte("test_salt"))
+	h.Write(body)
+	sig := "sha512=" + hex.EncodeToString(h.Sum(nil))
+
+	ctx := context.Background()
+	tenantID := "fcc75681-6967-4638-867c-9ef1c990fc7e"
+
+	// Reset mock
+	mock.outboxCreated = false
+
+	// First call
+	err := svc.ProcessPaymentWebhook(ctx, tenantID, "evt_123", body, sig, "test_salt", nil)
+	if err != nil {
+		t.Fatalf("First call failed: %v", err)
+	}
+	if !mock.outboxCreated {
+		t.Errorf("Expected outbox event on first call")
+	}
+
+	// Second call - should skip outbox/receipt/ledger
+	mock.outboxCreated = false
+	err = svc.ProcessPaymentWebhook(ctx, tenantID, "evt_123", body, sig, "test_salt", nil)
+	if err != nil {
+		t.Fatalf("Second call failed: %v", err)
+	}
+	
+	if mock.outboxCreated {
+		t.Errorf("Expected NO outbox event on second call (duplicate event)")
 	}
 }
 
@@ -195,4 +311,3 @@ func TestGetTenantPaymentProvider(t *testing.T) {
 		t.Errorf("Decryption in provider resolution failed. Expected %s, got %s", secret, rzp.KeySecret)
 	}
 }
-

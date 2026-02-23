@@ -2,18 +2,23 @@ package notification
 
 import (
 	"context"
+	"encoding/hex"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/schoolerp/api/internal/db"
+	"github.com/schoolerp/api/internal/foundation/security"
 )
 
 type Service struct {
-	q db.Querier
+	q      db.Querier
+	crypto *security.Crypto
 }
 
-func NewService(q db.Querier) *Service {
-	return &Service{q: q}
+func NewService(q db.Querier, crypto *security.Crypto) *Service {
+	return &Service{q: q, crypto: crypto}
 }
 
 func (s *Service) ListLogs(ctx context.Context, tenantID string, limit, offset int32) ([]db.Outbox, error) {
@@ -142,14 +147,43 @@ func (s *Service) CreateOrUpdateGatewayConfig(ctx context.Context, tenantID, pro
 	tID := pgtype.UUID{}
 	tID.Scan(tenantID)
 
+	// Partial update support: If secrets are empty, keep existing encrypted values
+	if apiKey == "" || apiSecret == "" {
+		existing, err := s.q.GetTenantActiveNotificationGateway(ctx, tID)
+		if err == nil && existing.Provider == provider {
+			if apiKey == "" {
+				apiKey = existing.ApiKey.String
+			}
+			if apiSecret == "" {
+				apiSecret = existing.ApiSecret.String
+			}
+		}
+	}
+
+	// Encrypt if not already encrypted
+	if s.crypto != nil {
+		if apiKey != "" && !strings.HasPrefix(apiKey, "enc:") {
+			enc, err := s.crypto.Encrypt([]byte(apiKey))
+			if err == nil {
+				apiKey = fmt.Sprintf("enc:%s", hex.EncodeToString(enc))
+			}
+		}
+		if apiSecret != "" && !strings.HasPrefix(apiSecret, "enc:") {
+			enc, err := s.crypto.Encrypt([]byte(apiSecret))
+			if err == nil {
+				apiSecret = fmt.Sprintf("enc:%s", hex.EncodeToString(enc))
+			}
+		}
+	}
+
 	return s.q.CreateNotificationGatewayConfig(ctx, db.CreateNotificationGatewayConfigParams{
-		TenantID: tID,
-		Provider: provider,
-		ApiKey:   pgtype.Text{String: apiKey, Valid: apiKey != ""},
+		TenantID:  tID,
+		Provider:  provider,
+		ApiKey:    pgtype.Text{String: apiKey, Valid: apiKey != ""},
 		ApiSecret: pgtype.Text{String: apiSecret, Valid: apiSecret != ""},
-		SenderID: pgtype.Text{String: senderID, Valid: senderID != ""},
-		IsActive: pgtype.Bool{Bool: isActive, Valid: true},
-		Settings: settings,
+		SenderID:  pgtype.Text{String: senderID, Valid: senderID != ""},
+		IsActive:  pgtype.Bool{Bool: isActive, Valid: true},
+		Settings:  settings,
 	})
 }
 
@@ -157,14 +191,40 @@ func (s *Service) ListGatewayConfigs(ctx context.Context, tenantID string) ([]db
 	tID := pgtype.UUID{}
 	tID.Scan(tenantID)
 
-	return s.q.ListNotificationGatewayConfigs(ctx, tID)
+	configs, err := s.q.ListNotificationGatewayConfigs(ctx, tID)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range configs {
+		configs[i].ApiKey = s.maskSecret(configs[i].ApiKey)
+		configs[i].ApiSecret = s.maskSecret(configs[i].ApiSecret)
+	}
+	return configs, nil
+}
+
+func (s *Service) maskSecret(t pgtype.Text) pgtype.Text {
+	if !t.Valid || t.String == "" {
+		return t
+	}
+	// Mask as requested, maybe showing last 4 if long enough
+	if len(t.String) > 8 {
+		return pgtype.Text{String: "********" + t.String[len(t.String)-4:], Valid: true}
+	}
+	return pgtype.Text{String: "********", Valid: true}
 }
 
 func (s *Service) GetActiveGatewayConfig(ctx context.Context, tenantID string) (db.NotificationGatewayConfig, error) {
 	tID := pgtype.UUID{}
 	tID.Scan(tenantID)
 
-	return s.q.GetTenantActiveNotificationGateway(ctx, tID)
+	cfg, err := s.q.GetTenantActiveNotificationGateway(ctx, tID)
+	if err != nil {
+		return db.NotificationGatewayConfig{}, err
+	}
+	cfg.ApiKey = s.maskSecret(cfg.ApiKey)
+	cfg.ApiSecret = s.maskSecret(cfg.ApiSecret)
+	return cfg, nil
 }
 
 func (s *Service) GetUsageStats(ctx context.Context, tenantID string, since time.Time) (db.GetSmsUsageStatsRow, error) {

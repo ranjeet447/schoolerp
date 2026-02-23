@@ -13,13 +13,13 @@ import (
 // Advanced Fee Configurations
 
 type FeeClassConfigParams struct {
-	TenantID       string    `json:"tenant_id"`
-	AcademicYearID string    `json:"academic_year_id"`
-	ClassID        string    `json:"class_id"`
-	FeeHeadID      string    `json:"fee_head_id"`
-	Amount         float64   `json:"amount"`
+	TenantID       string     `json:"tenant_id"`
+	AcademicYearID string     `json:"academic_year_id"`
+	ClassID        string     `json:"class_id"`
+	FeeHeadID      string     `json:"fee_head_id"`
+	Amount         float64    `json:"amount"`
 	DueDate        *time.Time `json:"due_date"`
-	IsOptional     bool      `json:"is_optional"`
+	IsOptional     bool       `json:"is_optional"`
 }
 
 func (s *Service) UpsertFeeClassConfig(ctx context.Context, p FeeClassConfigParams) (db.FeeClassConfiguration, error) {
@@ -27,7 +27,7 @@ func (s *Service) UpsertFeeClassConfig(ctx context.Context, p FeeClassConfigPara
 	ayID := toPgUUID(p.AcademicYearID)
 	cID := toPgUUID(p.ClassID)
 	fhID := toPgUUID(p.FeeHeadID)
-	
+
 	var dDate pgtype.Date
 	if p.DueDate != nil {
 		dDate = pgtype.Date{Time: *p.DueDate, Valid: true}
@@ -43,16 +43,6 @@ func (s *Service) UpsertFeeClassConfig(ctx context.Context, p FeeClassConfigPara
 		IsOptional:     pgtype.Bool{Bool: p.IsOptional, Valid: true},
 	})
 }
-
-// Helper to convert float to numeric if needed, but sqlc might generate string or special type for Numeric.
-// Checking generated code: usually pgtype.Numeric.
-// I'll need a helper for float->Numeric if I want to be precise, ensuring proper scaling.
-// For now, I'll rely on a simple conversion if possible, or assume input is string. 
-// Wait, UpsertFeeClassConfigParams generated from SQL:
-/*
-   Amount pgtype.Numeric
-*/
-// I'll leave a TODO comment and fix the Numeric conversion.
 
 func (s *Service) ListFeeClassConfigs(ctx context.Context, tenantID, ayID string, classID *string) ([]db.ListFeeClassConfigsRow, error) {
 	tID := toPgUUID(tenantID)
@@ -176,6 +166,15 @@ func (s *Service) GetActiveGatewayConfig(ctx context.Context, tenantID, provider
 
 func (s *Service) ListOptionalFeeItems(ctx context.Context, tenantID string) ([]db.OptionalFeeItem, error) {
 	return s.q.ListOptionalFeeItems(ctx, toPgUUID(tenantID))
+}
+
+func (s *Service) UpsertOptionalFeeItem(ctx context.Context, tenantID, name string, amount float64, category string) (db.OptionalFeeItem, error) {
+	return s.q.UpsertOptionalFeeItem(ctx, db.UpsertOptionalFeeItemParams{
+		TenantID: toPgUUID(tenantID),
+		Name:     name,
+		Amount:   floatToNumeric(amount),
+		Category: pgtype.Text{String: category, Valid: category != ""},
+	})
 }
 
 func (s *Service) SelectOptionalFee(ctx context.Context, tenantID, studentID, itemID, ayID, status string) (db.StudentOptionalFee, error) {

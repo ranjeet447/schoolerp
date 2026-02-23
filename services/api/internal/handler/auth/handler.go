@@ -26,6 +26,7 @@ func NewHandler(svc *auth.Service) *Handler {
 func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/auth/login", h.Login)
 	r.With(middleware.RateLimitByKey("forgot_password", 3, 0, nil)).Post("/auth/forgot-password", h.ForgotPassword)
+	r.Post("/auth/reset-password", h.ResetPassword)
 	r.Post("/auth/mfa/setup", h.SetupMFA)
 	r.Post("/auth/mfa/enable", h.EnableMFA)
 	r.Post("/auth/mfa/validate", h.ValidateMFA)
@@ -33,12 +34,39 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/auth/legal/accept", h.AcceptLegalDocs)
 	r.Get("/auth/me", h.GetMe)
 	r.Patch("/auth/me", h.UpdateMe)
+	r.Post("/auth/logout", h.Logout)
+	r.Post("/auth/impersonate", h.Impersonate)
 }
 
-// ... Login ...
+func (h *Handler) Impersonate(w http.ResponseWriter, r *http.Request) {
+	adminID := middleware.GetUserID(r.Context())
+	if adminID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 
-// MFA Handlers
+	var req struct {
+		TargetUserID string `json:"user_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
 
+	result, err := h.svc.Impersonate(r.Context(), adminID, req.TargetUserID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    result,
+	})
+}
+
+// SetupMFA ...
 func (h *Handler) SetupMFA(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
 	if userID == "" {
@@ -462,4 +490,45 @@ func maskLoginEmail(email string) string {
 		return local[:1] + "***@" + parts[1]
 	}
 	return local[:1] + "***" + local[len(local)-1:] + "@" + parts[1]
+}
+
+type resetPasswordRequest struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"new_password"`
+}
+
+func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	var req resetPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.svc.CompletePasswordReset(r.Context(), req.Token, req.NewPassword); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	tokenHash := middleware.GetTokenHash(r.Context())
+	logoutAll := r.URL.Query().Get("all") == "true"
+
+	if userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if err := h.svc.Logout(r.Context(), userID, tokenHash, logoutAll); err != nil {
+		http.Error(w, "Failed to logout", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"success": true}`))
 }

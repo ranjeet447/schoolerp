@@ -24,6 +24,7 @@ SELECT COALESCE(
 		WHEN @quota_key = 'students' THEN 500::BIGINT
 		WHEN @quota_key = 'staff' THEN 100::BIGINT
 		WHEN @quota_key = 'storage_mb' THEN 10240::BIGINT
+		WHEN @quota_key = 'ai_ask_monthly' THEN 50::BIGINT
 		ELSE 0::BIGINT
 	END
 )::BIGINT AS effective_limit

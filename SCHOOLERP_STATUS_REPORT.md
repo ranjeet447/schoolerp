@@ -38,7 +38,7 @@
 | **15. Library** | ✅ | Book catalog, Issue/Return, Cataloging. | Fine payment integration within student fee summary. | FE: `/admin/library`, BE: `library` package, DB: `library_books`, `library_issues` |
 | **16. Hostel** | ✅ | Buildings, Rooms, Student allocations. | Mess management / Menu. | FE: `/admin/hostel`, BE: `sis/hostel.go`, DB: `hostel_rooms` |
 | **17. Staff / HR** | ✅ | Employee profiles, Payroll runs, Payslip generation. | Recruitment / Applicant Tracking system. | FE: `/admin/hrms`, BE: `hrms` package, DB: `employees`, `payroll_runs` |
-| **18. AI / KB** | ✅ | AI Helpdesk, KB grounding, Lesson Plan generation. | Vector search (currently full-text TSVector). | FE: `/admin/kb`, BE: `ai` package, DB: `ai_knowledge_base` |
+| **18. AI / KB** | ✅ | AI Helpdesk with Conversation Memory, KB grounding, Lesson Plan. | Vector search (currently full-text TSVector). | FE: `/admin/kb`, BE: `ai` package |
 | **19. Automations** | ✅ | Event-based webhooks, Scheduled reminders. | Visual flow builder. | FE: `/admin/automation`, BE: `automation` service, DB: `automation_scheduled_tasks` |
 | **20. Audit logs** | ✅ | Immutable trail (BigInt ID), request_id tracking. | Export to External SIEM. | BE: `foundation/audit`, DB: `audit_logs` |
 

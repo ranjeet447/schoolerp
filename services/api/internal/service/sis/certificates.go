@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"html/template"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -14,9 +15,35 @@ import (
 )
 
 type CertificateService struct {
-	q        db.Querier
-	audit    *audit.Logger
+	q           db.Querier
+	audit       *audit.Logger
 	fileService *files.FileService
+}
+
+func (s *CertificateService) renderTemplate(ctx context.Context, tenantID, code string, data interface{}) (string, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+
+	tmpl, err := s.q.GetPDFTemplate(ctx, db.GetPDFTemplateParams{
+		TenantID: tUUID,
+		Code:     code,
+	})
+	if err != nil {
+		// If not found, it's not fatal, but we can't render dynamic
+		return "", err
+	}
+
+	t, err := template.New(code).Parse(tmpl.HtmlBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse template: %w", err)
+	}
+
+	var buf bytes.Buffer
+	if err := t.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	return buf.String(), nil
 }
 
 func NewCertificateService(q db.Querier, audit *audit.Logger, fileService *files.FileService) *CertificateService {
@@ -57,6 +84,35 @@ func (s *CertificateService) GenerateBonafide(ctx context.Context, p GenerateBon
 	// 2. Generate Certificate Number
 	certNum := fmt.Sprintf("BON-%s-%04d", time.Now().Format("0601"), time.Now().Unix()%10000)
 
+	// 3a. Use Dynamic Template if available
+	templData := struct {
+		StudentName     string
+		AdmissionNumber string
+		TenantName      string
+		Reason          string
+		Date            string
+		CertificateNo   string
+	}{
+		StudentName:     student.FullName,
+		AdmissionNumber: student.AdmissionNumber,
+		TenantName:      tenant.Name,
+		Reason:          p.Reason,
+		Date:            time.Now().Format("02 Jan 2006"),
+		CertificateNo:   certNum,
+	}
+
+	text, err := s.renderTemplate(ctx, p.TenantID, "bonafide_v1", templData)
+	if err != nil {
+		// Fallback to hardcoded if template not found or error
+		text = fmt.Sprintf(
+			"This is to certify that %s (Admission No. %s) is a bonafide student of our institution.",
+			student.FullName, student.AdmissionNumber,
+		)
+		if p.Reason != "" {
+			text += fmt.Sprintf(" This certificate is being issued for the purpose of %s.", p.Reason)
+		}
+	}
+
 	// 3. Generate PDF
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.AddPage()
@@ -90,15 +146,6 @@ func (s *CertificateService) GenerateBonafide(ctx context.Context, p GenerateBon
 	// Body text
 	pdf.SetFont("Arial", "", 14)
 	pdf.SetLineWidth(0.2)
-	text := fmt.Sprintf(
-		"This is to certify that %s (Admission No. %s) is a bonafide student of our institution.",
-		student.FullName, student.AdmissionNumber,
-	)
-	
-	if p.Reason != "" {
-		text += fmt.Sprintf(" This certificate is being issued for the purpose of %s.", p.Reason)
-	}
-
 	pdf.MultiCell(0, 8, text, "", "J", false)
 	pdf.Ln(30)
 

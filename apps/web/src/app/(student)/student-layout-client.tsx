@@ -4,31 +4,19 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { 
   LayoutDashboard, 
-  Users, 
-  Banknote, 
   Menu,
   GraduationCap,
   LogOut,
   User,
-  MessageSquare,
-  FileText,
-  BookOpen,
-  Calendar
 } from 'lucide-react';
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@schoolerp/ui';
-import { RBACService } from '@/lib/auth-service';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { TenantConfig } from '@/lib/tenant-utils';
 import { useAuth } from '@/components/auth-provider';
-import { apiClient } from '@/lib/api-client';
-import { Home, BookOpen as BookIcon, GraduationCap as ResultsIcon, FileText as NoticesIcon } from 'lucide-react';
-
+import { isPlatformUser } from '@/lib/auth-service';
+import { Home } from 'lucide-react';
 const NAV_ITEMS = [
   { href: '/student/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/student/homework', label: 'Homework', icon: BookOpen },
-  { href: '/student/attendance', label: 'Attendance', icon: Calendar },
-  { href: '/student/results', label: 'Exam Results', icon: GraduationCap },
-  { href: '/student/notices', label: 'Notices', icon: FileText },
   { href: '/student/profile', label: 'My Profile', icon: User },
 ];
 
@@ -41,7 +29,14 @@ export default function StudentLayoutClient({
 }) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (isPlatformUser(user?.role)) {
+      router.replace('/platform/dashboard');
+    }
+  }, [user?.role, router]);
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -146,28 +141,12 @@ export default function StudentLayoutClient({
             <span className="text-[10px] font-bold uppercase tracking-tighter">Home</span>
           </Link>
           <Link 
-            href="/student/homework" 
-            className={`flex flex-col items-center gap-1 min-w-[64px] ${pathname.startsWith('/student/homework') ? 'text-indigo-600' : 'text-slate-400'}`}
-            style={pathname.startsWith('/student/homework') ? { color: primaryColor } : {}}
+            href="/student/profile" 
+            className={`flex flex-col items-center gap-1 min-w-[64px] ${pathname.startsWith('/student/profile') ? 'text-indigo-600' : 'text-slate-400'}`}
+            style={pathname.startsWith('/student/profile') ? { color: primaryColor } : {}}
           >
-            <BookIcon className="h-5 w-5" />
-            <span className="text-[10px] font-bold uppercase tracking-tighter">Tasks</span>
-          </Link>
-          <Link 
-            href="/student/results" 
-            className={`flex flex-col items-center gap-1 min-w-[64px] ${pathname.startsWith('/student/results') ? 'text-indigo-600' : 'text-slate-400'}`}
-            style={pathname.startsWith('/student/results') ? { color: primaryColor } : {}}
-          >
-            <ResultsIcon className="h-5 w-5" />
-            <span className="text-[10px] font-bold uppercase tracking-tighter">Grades</span>
-          </Link>
-          <Link 
-            href="/student/notices" 
-            className={`flex flex-col items-center gap-1 min-w-[64px] ${pathname.startsWith('/student/notices') ? 'text-indigo-600' : 'text-slate-400'}`}
-            style={pathname.startsWith('/student/notices') ? { color: primaryColor } : {}}
-          >
-            <NoticesIcon className="h-5 w-5" />
-            <span className="text-[10px] font-bold uppercase tracking-tighter">News</span>
+            <User className="h-5 w-5" />
+            <span className="text-[10px] font-bold uppercase tracking-tighter">Profile</span>
           </Link>
           <button 
             onClick={() => setMobileMenuOpen(true)}

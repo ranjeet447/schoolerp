@@ -490,6 +490,41 @@ func (q *Queries) CreateRefund(ctx context.Context, arg CreateRefundParams) (Fee
 	return i, err
 }
 
+const createWebhookLog = `-- name: CreateWebhookLog :one
+INSERT INTO webhook_logs (tenant_id, provider, event_id, payload, status)
+VALUES ($1, $2, $3, $4, 'received')
+RETURNING id, tenant_id, provider, event_id, payload, status, error_message, processed_at, created_at
+`
+
+type CreateWebhookLogParams struct {
+	TenantID pgtype.UUID `json:"tenant_id"`
+	Provider string      `json:"provider"`
+	EventID  string      `json:"event_id"`
+	Payload  []byte      `json:"payload"`
+}
+
+func (q *Queries) CreateWebhookLog(ctx context.Context, arg CreateWebhookLogParams) (WebhookLog, error) {
+	row := q.db.QueryRow(ctx, createWebhookLog,
+		arg.TenantID,
+		arg.Provider,
+		arg.EventID,
+		arg.Payload,
+	)
+	var i WebhookLog
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Provider,
+		&i.EventID,
+		&i.Payload,
+		&i.Status,
+		&i.ErrorMessage,
+		&i.ProcessedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getActiveGatewayConfig = `-- name: GetActiveGatewayConfig :one
 SELECT id, tenant_id, provider, api_key, api_secret, webhook_secret, is_active, settings, created_at, updated_at FROM payment_gateway_configs
 WHERE tenant_id = $1 AND provider = $2 AND is_active = true
@@ -1418,6 +1453,44 @@ func (q *Queries) UpdateReceiptSeries(ctx context.Context, arg UpdateReceiptSeri
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateWebhookLogStatus = `-- name: UpdateWebhookLogStatus :one
+UPDATE webhook_logs
+SET status = $3, error_message = $4, processed_at = $5, updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2
+RETURNING id, tenant_id, provider, event_id, payload, status, error_message, processed_at, created_at
+`
+
+type UpdateWebhookLogStatusParams struct {
+	ID           pgtype.UUID        `json:"id"`
+	TenantID     pgtype.UUID        `json:"tenant_id"`
+	Status       string             `json:"status"`
+	ErrorMessage pgtype.Text        `json:"error_message"`
+	ProcessedAt  pgtype.Timestamptz `json:"processed_at"`
+}
+
+func (q *Queries) UpdateWebhookLogStatus(ctx context.Context, arg UpdateWebhookLogStatusParams) (WebhookLog, error) {
+	row := q.db.QueryRow(ctx, updateWebhookLogStatus,
+		arg.ID,
+		arg.TenantID,
+		arg.Status,
+		arg.ErrorMessage,
+		arg.ProcessedAt,
+	)
+	var i WebhookLog
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Provider,
+		&i.EventID,
+		&i.Payload,
+		&i.Status,
+		&i.ErrorMessage,
+		&i.ProcessedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }

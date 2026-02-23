@@ -3,6 +3,7 @@ package finance
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -88,17 +89,98 @@ func (s *Service) AssignPlanToStudent(ctx context.Context, studentID, planID str
 	return err
 }
 
-func (s *Service) GetStudentFeeSummary(ctx context.Context, studentID string) ([]db.GetStudentFeeSummaryRow, error) {
+func (s *Service) GetStudentFeeSummary(ctx context.Context, tenantID, studentID string) ([]db.GetStudentFeeSummaryRow, error) {
 	sUUID := pgtype.UUID{}
 	sUUID.Scan(studentID)
-	
+
 	summary, err := s.q.GetStudentFeeSummary(ctx, sUUID)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: Calculate and add late fees to summary if overdue
+	// Late fees are folded into `Amount` so existing clients continue to compute
+	// balance as `amount - paid_amount` without schema changes.
+	if s.db != nil {
+		if rules, err := s.ListLateFeeRules(ctx, tenantID); err == nil && len(rules) > 0 {
+			summary = applyLateFeeRulesToSummary(summary, rules, time.Now())
+		}
+	}
 	return summary, nil
+}
+
+func applyLateFeeRulesToSummary(summary []db.GetStudentFeeSummaryRow, rules []LateFeeRule, now time.Time) []db.GetStudentFeeSummaryRow {
+	if len(summary) == 0 || len(rules) == 0 {
+		return summary
+	}
+
+	active := make([]LateFeeRule, 0, len(rules))
+	for _, r := range rules {
+		if r.IsActive {
+			active = append(active, r)
+		}
+	}
+	if len(active) == 0 {
+		return summary
+	}
+
+	for i := range summary {
+		row := &summary[i]
+		if !row.DueDate.Valid {
+			continue
+		}
+		if row.Amount <= row.PaidAmount {
+			continue
+		}
+		headID, _ := pgUUIDToString(row.HeadID)
+		rule := chooseLateFeeRule(active, headID)
+		if rule == nil {
+			continue
+		}
+
+		due := time.Date(row.DueDate.Time.Year(), row.DueDate.Time.Month(), row.DueDate.Time.Day(), 0, 0, 0, 0, now.Location())
+		daysPastDue := int(now.Sub(due).Hours() / 24)
+		effectiveDays := daysPastDue - maxInt(0, rule.GraceDays)
+		if effectiveDays <= 0 {
+			continue
+		}
+
+		var lateFee int64
+		switch rule.RuleType {
+		case "daily":
+			lateFee = int64(math.Round(rule.Amount * float64(effectiveDays)))
+		case "fixed":
+			lateFee = int64(math.Round(rule.Amount))
+		default:
+			continue
+		}
+		if lateFee <= 0 {
+			continue
+		}
+		row.Amount += lateFee
+	}
+
+	return summary
+}
+
+func chooseLateFeeRule(rules []LateFeeRule, headID string) *LateFeeRule {
+	var global *LateFeeRule
+	for i := range rules {
+		r := &rules[i]
+		if r.FeeHeadID != nil && *r.FeeHeadID == headID {
+			return r
+		}
+		if r.FeeHeadID == nil && global == nil {
+			global = r
+		}
+	}
+	return global
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // Late Fee Rules
@@ -140,9 +222,10 @@ func (s *Service) ListLateFeeRules(ctx context.Context, tenantID string) ([]Late
 			return nil, err
 		}
 		if headID.Valid {
-			hid := headID.Bytes
-			hStr := fmt.Sprintf("%x-%x-%x-%x-%x", hid[0:4], hid[4:6], hid[6:8], hid[8:10], hid[10:16])
-			r.FeeHeadID = &hStr
+			hStr, convErr := pgUUIDToString(headID)
+			if convErr == nil {
+				r.FeeHeadID = &hStr
+			}
 		}
 		rules = append(rules, r)
 	}
@@ -201,7 +284,7 @@ func (s *Service) ApplyStudentConcession(ctx context.Context, studentID, ruleID,
 
 func (s *Service) GetDailyFinancialSummary(ctx context.Context, tenantID string, targetDate string) ([]db.GetDailyFinancialSummaryRow, error) {
 	tUUID := toPgUUID(tenantID)
-	
+
 	var date pgtype.Date
 	if targetDate == "" {
 		date = pgtype.Date{Time: time.Now(), Valid: true}
@@ -217,14 +300,14 @@ func (s *Service) GetDailyFinancialSummary(ctx context.Context, tenantID string,
 
 func (s *Service) GetFeeDayBookData(ctx context.Context, tenantID string, from, to time.Time) ([]db.GetFeeDayBookRow, error) {
 	tUUID := toPgUUID(tenantID)
-	
+
 	var fromTs, toTs pgtype.Timestamptz
 	fromTs.Scan(from)
 	toTs.Scan(to)
 
 	return s.q.GetFeeDayBook(ctx, db.GetFeeDayBookParams{
-		TenantID:  tUUID,
-		CreatedAt: fromTs,
+		TenantID:    tUUID,
+		CreatedAt:   fromTs,
 		CreatedAt_2: toTs,
 	})
 }

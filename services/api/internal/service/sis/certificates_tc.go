@@ -42,6 +42,15 @@ func (s *CertificateService) GenerateTC(ctx context.Context, p GenerateTCParams)
 
 	certNum := fmt.Sprintf("TC-%s-%04d", time.Now().Format("0601"), time.Now().Unix()%10000)
 
+	// 2a. Dynamic Section (e.g. for header text or custom notice)
+	headerText, _ := s.renderTemplate(ctx, p.TenantID, "tc_header_v1", struct {
+		StudentName string
+		TenantName  string
+	}{
+		StudentName: student.FullName,
+		TenantName:  tenant.Name,
+	})
+
 	// 2. Build PDF
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.AddPage()
@@ -52,6 +61,11 @@ func (s *CertificateService) GenerateTC(ctx context.Context, p GenerateTCParams)
 	if tenant.Domain.Valid {
 		pdf.SetFont("Arial", "", 10)
 		pdf.CellFormat(0, 5, tenant.Domain.String, "", 1, "C", false, 0, "")
+	}
+
+	if headerText != "" {
+		pdf.SetFont("Arial", "I", 10)
+		pdf.MultiCell(0, 5, headerText, "", "C", false)
 	}
 	pdf.Ln(10)
 
@@ -98,7 +112,7 @@ func (s *CertificateService) GenerateTC(ctx context.Context, p GenerateTCParams)
 		return db.Certificate{}, err
 	}
 
-	// 3. Upload & Save
+	// 4. Upload to Filestore
 	file, err := s.fileService.Upload(ctx, files.UploadParams{
 		TenantID:    p.TenantID,
 		Name:        fmt.Sprintf("tc_%s.pdf", student.AdmissionNumber),
@@ -108,16 +122,17 @@ func (s *CertificateService) GenerateTC(ctx context.Context, p GenerateTCParams)
 		ContentSize: int64(buf.Len()),
 	})
 	if err != nil {
-		return db.Certificate{}, err
+		return db.Certificate{}, fmt.Errorf("failed to upload certificate: %w", err)
 	}
 
+	// 5. Save to database
 	uUUID := pgtype.UUID{}
 	uUUID.Scan(p.UserID)
 
 	cert, err := s.q.CreateCertificate(ctx, db.CreateCertificateParams{
 		TenantID:          tUUID,
 		StudentID:         sUUID,
-		CertificateType:   "tc",
+		CertificateType:   "transfer_certificate",
 		CertificateNumber: certNum,
 		IssuanceDate:      pgtype.Date{Time: time.Now(), Valid: true},
 		IssuedBy:          uUUID,
@@ -125,9 +140,10 @@ func (s *CertificateService) GenerateTC(ctx context.Context, p GenerateTCParams)
 		FileID:            pgtype.UUID{Bytes: file.ID.Bytes, Valid: true},
 	})
 	if err != nil {
-		return db.Certificate{}, err
+		return db.Certificate{}, fmt.Errorf("failed to save certificate record: %w", err)
 	}
 
+	// 6. Audit Log
 	_ = s.audit.Log(ctx, audit.Entry{
 		TenantID:     tUUID,
 		UserID:       uUUID,

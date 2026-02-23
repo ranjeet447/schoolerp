@@ -68,12 +68,37 @@ func (h *AIHandler) GenerateLessonPlan(w http.ResponseWriter, r *http.Request) {
 
 	plan, err := h.aiSvc.GenerateLessonPlan(r.Context(), tenantID, userID, req.Subject, req.Topic, req.Grade)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		h.handleAIError(w, err)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"lesson_plan": plan})
+}
+
+func (h *AIHandler) handleAIError(w http.ResponseWriter, err error) {
+	if err == nil {
+		return
+	}
+
+	errMsg := err.Error()
+	statusCode := http.StatusInternalServerError
+
+	switch {
+	case strings.Contains(errMsg, "MONTHLY_AI_QUOTA_EXCEEDED"):
+		statusCode = http.StatusTooManyRequests
+		errMsg = "Monthly AI query quota exceeded for this tenant. Please upgrade your plan or contact support."
+	case strings.Contains(errMsg, "INSUFFICIENT_CREDITS"):
+		statusCode = http.StatusPaymentRequired
+		errMsg = "Insufficient credits for AI usage. Please top up your school wallet."
+	case strings.Contains(errMsg, "ADDON_REQUIRED"):
+		statusCode = http.StatusForbidden
+		errMsg = "AI Suite add-on is required for this feature. Please enable it in Settings > Add-ons."
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": errMsg})
 }
 
 func (h *AIHandler) ParentQuery(w http.ResponseWriter, r *http.Request) {
@@ -95,6 +120,7 @@ func (h *AIHandler) ParentQuery(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Query       string `json:"query"`
 		ContextInfo string `json:"context_info"`
+		ThreadID    string `json:"thread_id"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -105,9 +131,9 @@ func (h *AIHandler) ParentQuery(w http.ResponseWriter, r *http.Request) {
 	tenantID := middleware.GetTenantID(r.Context())
 	userID := middleware.GetUserID(r.Context())
 
-	answer, err := h.aiSvc.AnswerParentQuery(r.Context(), tenantID, userID, req.Query, req.ContextInfo)
+	answer, err := h.aiSvc.AnswerParentQuery(r.Context(), tenantID, userID, req.Query, req.ContextInfo, req.ThreadID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		h.handleAIError(w, err)
 		return
 	}
 
@@ -153,7 +179,7 @@ func (h *AIHandler) GenerateRubric(w http.ResponseWriter, r *http.Request) {
 
 	rubricJson, err := h.aiSvc.GenerateRubric(r.Context(), tenantID, userID, req.Subject, req.Title, req.Grade, req.MaxMarks)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		h.handleAIError(w, err)
 		return
 	}
 

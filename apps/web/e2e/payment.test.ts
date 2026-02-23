@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Parent Payment Flow', () => {
   test('should allow a parent to view fees and initiate payment', async ({ page }) => {
     // 1. Login as Parent
-    await page.goto('/login');
+    await page.goto('/auth/login');
     await page.fill('input[name="email"]', 'parent@example.com');
     await page.fill('input[name="password"]', 'password123');
     await page.click('button[type="submit"]');

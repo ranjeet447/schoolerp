@@ -7,6 +7,8 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/rs/zerolog/log"
@@ -25,6 +27,9 @@ type Service struct {
 	q       db.Querier
 	client  *ai.Client
 	billing BillingService
+
+	// B5: Per-user burst limiter (simple pod-local)
+	ratelimiter sync.Map
 }
 
 func NewService(q db.Querier, billing BillingService) (*Service, error) {
@@ -55,6 +60,7 @@ func NewService(q db.Querier, billing BillingService) (*Service, error) {
 		q:       q,
 		client:  ai.NewClient(provider, apiKey),
 		billing: billing,
+		ratelimiter: sync.Map{},
 	}, nil
 }
 
@@ -81,7 +87,7 @@ func (s *Service) logQuery(ctx context.Context, tenantID, userID string, provide
 
 // GenerateLessonPlan creates a grounded lesson plan based on subject and topic
 func (s *Service) GenerateLessonPlan(ctx context.Context, tenantID, userID string, subject, topic, grade string) (string, error) {
-	if err := s.checkBilling(ctx, tenantID, "ai_suite_v1", "ai_request"); err != nil {
+	if err := s.checkBilling(ctx, tenantID, userID, "ai_suite_v1", "ai_request"); err != nil {
 		return "", err
 	}
 
@@ -113,7 +119,7 @@ Keep it practical and easy for a teacher to follow.`, subject, topic, grade)
 	}
 
 	// Async log and debit (best effort)
-	go s.logAndDebit(context.Background(), tenantID, userID, "ai_request", "lesson_plan", map[string]interface{}{
+	go s.logAndDebit(context.Background(), tenantID, userID, "ai_request", "lesson_plan", "", map[string]interface{}{
 		"subject": subject,
 		"topic":   topic,
 	})
@@ -121,33 +127,70 @@ Keep it practical and easy for a teacher to follow.`, subject, topic, grade)
 	return resp, nil
 }
 
-// AnswerParentQuery handles general school queries grounded in provided context
-func (s *Service) AnswerParentQuery(ctx context.Context, tenantID, userID string, query, contextInfo string) (string, error) {
-	if err := s.checkBilling(ctx, tenantID, "ai_suite_v1", "ai_request"); err != nil {
+// AnswerParentQuery handles general school queries grounded in provided context with conversation memory
+func (s *Service) AnswerParentQuery(ctx context.Context, tenantID, userID string, query, contextInfo, threadID string) (string, error) {
+	if err := s.checkBilling(ctx, tenantID, userID, "ai_suite_v1", "ai_request"); err != nil {
 		return "", err
 	}
 
-	prompt := fmt.Sprintf(`You are a school admin helpdesk assistant. 
-Use the following context to answer the parent's query. If the answer is not in the context, politely say you don't know and suggest contacting the school office.
+	tID := pgtype.UUID{}
+	tID.Scan(tenantID)
 
-Context:
-%s
+	var history []ai.Message
+	if threadID != "" {
+		session, err := s.q.GetAIChatSession(ctx, db.GetAIChatSessionParams{
+			TenantID:   tID,
+			ExternalID: threadID,
+		})
+		if err == nil {
+			json.Unmarshal(session.Messages, &history)
+		}
+	}
 
-Parent Query: %s
+	// Prepare current prompt
+	systemPrompt := "You are a professional school helpdesk agent. Always be polite and helpful. Use the provided context to answer. If unknown, say so and suggest contacting the office."
+	if contextInfo != "" {
+		systemPrompt += "\n\nContext:\n" + contextInfo
+	}
 
-Answer concisely and professionally.`, contextInfo, query)
+	messages := []ai.Message{
+		{Role: "system", Content: systemPrompt},
+	}
+	
+	// Add history (limit to last 10 messages for context window)
+	if len(history) > 10 {
+		messages = append(messages, history[len(history)-10:]...)
+	} else {
+		messages = append(messages, history...)
+	}
+	
+	// Add current query
+	messages = append(messages, ai.Message{Role: "user", Content: query})
 
 	resp, err := s.client.Chat(ctx, ai.ChatRequest{
-		Messages: []ai.Message{
-			{Role: "system", Content: "You are a professional school helpdesk agent. Always be polite and helpful."},
-			{Role: "user", Content: prompt},
-		},
+		Messages:    messages,
 		Temperature: 0.3,
 	})
 
 	if err == nil {
-		go s.logAndDebit(context.Background(), tenantID, userID, "ai_request", "parent_query", map[string]interface{}{
-			"query": query,
+		// Update history
+		history = append(history, ai.Message{Role: "user", Content: query})
+		history = append(history, ai.Message{Role: "assistant", Content: resp})
+		
+		msgJSON, _ := json.Marshal(history)
+		
+		if threadID != "" {
+			s.q.UpsertAIChatSession(ctx, db.UpsertAIChatSessionParams{
+				TenantID:   tID,
+				ExternalID: threadID,
+				Messages:   msgJSON,
+				ExpiresAt:  pgtype.Timestamptz{Time: time.Now().Add(24 * time.Hour), Valid: true},
+			})
+		}
+
+		go s.logAndDebit(context.Background(), tenantID, userID, "ai_request", "parent_query", "", map[string]interface{}{
+			"query":     query,
+			"thread_id": threadID,
 		})
 	}
 
@@ -156,7 +199,7 @@ Answer concisely and professionally.`, contextInfo, query)
 
 // GenerateRubric creates evaluation criteria for an exam
 func (s *Service) GenerateRubric(ctx context.Context, tenantID, userID string, subject, title, grade string, maxMarks int) (string, error) {
-	if err := s.checkBilling(ctx, tenantID, "ai_suite_v1", "ai_request"); err != nil {
+	if err := s.checkBilling(ctx, tenantID, userID, "ai_suite_v1", "ai_request"); err != nil {
 		return "", err
 	}
 
@@ -199,7 +242,7 @@ Do not include any other text, only the JSON.`, subject, title, grade, maxMarks,
 		return "", fmt.Errorf("failed to generate rubric: %w", err)
 	}
 
-	go s.logAndDebit(context.Background(), tenantID, userID, "ai_request", "rubric", map[string]interface{}{
+	go s.logAndDebit(context.Background(), tenantID, userID, "ai_request", "rubric", "", map[string]interface{}{
 		"subject": subject,
 		"title":   title,
 	})
@@ -212,8 +255,8 @@ Do not include any other text, only the JSON.`, subject, title, grade, maxMarks,
 
 	return resp, nil
 }
-func (s *Service) ChatWithHistory(ctx context.Context, tenantID string, messages []ai.Message) (string, error) {
-	if err := s.checkBilling(ctx, tenantID, "ai_suite_v1", "ai_request"); err != nil {
+func (s *Service) ChatWithHistory(ctx context.Context, tenantID, userID string, messages []ai.Message) (string, error) {
+	if err := s.checkBilling(ctx, tenantID, userID, "ai_suite_v1", "ai_request"); err != nil {
 		return "", err
 	}
 
@@ -229,7 +272,7 @@ func (s *Service) ChatWithHistory(ctx context.Context, tenantID string, messages
 
 	if err == nil {
 		// Log usage (anonymous user for WhatsApp for now)
-		go s.logAndDebit(context.Background(), tenantID, "whatsapp", "ai_request", "whatsapp_chat", map[string]interface{}{})
+		go s.logAndDebit(context.Background(), tenantID, "whatsapp", "ai_request", "whatsapp_chat", "", map[string]interface{}{})
 	}
 
 	return resp, err
@@ -258,12 +301,67 @@ func (s *Service) DetectLanguage(ctx context.Context, text string) (string, erro
 
 // --- Billing Helpers ---
 
-func (s *Service) checkBilling(ctx context.Context, tenantID, addonCode, featureCode string) error {
-	if s.billing == nil {
-		return nil // Billing not enforced
+func (s *Service) checkBilling(ctx context.Context, tenantID, userID, addonCode, featureCode string) error {
+	// B5: Per-user burst limiter (Initial RC Hardening) 
+	// Limit is 10 requests per minute per user (or per-tenant if userID is empty)
+	now := time.Now()
+	limitKey := fmt.Sprintf("burst:%s:%s", tenantID, userID)
+	if userID == "" {
+		limitKey = fmt.Sprintf("burst:%s:global", tenantID)
+	}
+	
+	val, ok := s.ratelimiter.Load(limitKey)
+	var timestamps []int64
+	if ok {
+		timestamps = val.([]int64)
+	}
+	
+	// Keep only timestamps within the last 60 seconds
+	filtered := make([]int64, 0, 10)
+	for _, t := range timestamps {
+		if now.Unix()-t < 60 {
+			filtered = append(filtered, t)
+		}
+	}
+	
+	if len(filtered) >= 10 {
+		return fmt.Errorf("AI_RATE_LIMIT_EXCEEDED: too many requests per minute (max 10)")
+	}
+	
+	// Record new timestamp and update
+	filtered = append(filtered, now.Unix())
+	s.ratelimiter.Store(limitKey, filtered)
+
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+
+	// 1. Quota Check (Monthly AI Ask)
+	// We check for 'ai_ask_monthly' key
+	limit, _ := s.q.GetEffectiveTenantLimit(ctx, db.GetEffectiveTenantLimitParams{
+		TenantID: tUUID,
+		QuotaKey: "ai_ask_monthly",
+	})
+	
+	if limit > 0 {
+		now := time.Now()
+		startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+		endOfMonth := startOfMonth.AddDate(0, 1, 0).Add(-time.Nanosecond)
+
+		count, err := s.q.CountQueriesInPeriod(ctx, db.CountQueriesInPeriodParams{
+			TenantID:  tUUID,
+			CreatedAt: pgtype.Timestamptz{Time: startOfMonth, Valid: true},
+			CreatedAt_2: pgtype.Timestamptz{Time: endOfMonth, Valid: true},
+		})
+		if err == nil && count >= limit {
+			return fmt.Errorf("MONTHLY_AI_QUOTA_EXCEEDED")
+		}
 	}
 
-	// 1. Check Addon
+	if s.billing == nil {
+		return nil // Billing not enforced, Proceed if quota allows
+	}
+
+	// 2. Check Addon
 	hasAddon, err := s.billing.HasAddon(ctx, tenantID, addonCode)
 	if err != nil {
 		return err
@@ -272,7 +370,7 @@ func (s *Service) checkBilling(ctx context.Context, tenantID, addonCode, feature
 		return fmt.Errorf("ADDON_REQUIRED: %s", addonCode)
 	}
 
-	// 2. Check Credits (Preview)
+	// 3. Check Credits (Preview)
 	balance, err := s.billing.GetWalletBalance(ctx, tenantID)
 	if err != nil {
 		return err
@@ -280,8 +378,6 @@ func (s *Service) checkBilling(ctx context.Context, tenantID, addonCode, feature
 
 	rate, err := s.billing.GetEffectiveRate(ctx, tenantID, featureCode)
 	if err != nil {
-		// If rate is not configured, we might allow it or block it. 
-		// Assuming we block it for safety.
 		return err
 	}
 
@@ -292,7 +388,7 @@ func (s *Service) checkBilling(ctx context.Context, tenantID, addonCode, feature
 	return nil
 }
 
-func (s *Service) logAndDebit(ctx context.Context, tenantID, userID, featureCode, typeLabel string, metadata map[string]interface{}) {
+func (s *Service) logAndDebit(ctx context.Context, tenantID, userID, featureCode, typeLabel, ref string, metadata map[string]interface{}) {
 	// Log query first (original behavior)
 	s.logQuery(ctx, tenantID, userID, string(s.client.GetProvider()), "default", 0, 0, metadata)
 
@@ -313,7 +409,19 @@ func (s *Service) logAndDebit(ctx context.Context, tenantID, userID, featureCode
 		uid = &userID
 	}
 
-	err = s.billing.DebitWallet(ctx, tenantID, int64(rate), uid, "usage", desc, "", metadata)
+	// Ensure we have a reference_id
+	if ref == "" {
+		if reqID, ok := metadata["request_id"].(string); ok && reqID != "" {
+			ref = reqID
+		} else if msgID, ok := metadata["message_id"].(string); ok && msgID != "" {
+			ref = msgID
+		} else {
+			// Fallback: search for something unique in metadata or construct one
+			ref = fmt.Sprintf("ai-%s-%d", tenantID, time.Now().UnixNano())
+		}
+	}
+
+	err = s.billing.DebitWallet(ctx, tenantID, int64(rate), uid, "usage", desc, ref, metadata)
 	if err != nil {
 		log.Error().Err(err).Str("tenant_id", tenantID).Msg("Failed to debit wallet for AI usage")
 	}

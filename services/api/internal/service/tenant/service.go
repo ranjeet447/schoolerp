@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/schoolerp/api/internal/db"
+	"github.com/schoolerp/api/internal/foundation/security"
 	"github.com/schoolerp/api/internal/foundation/sessionstore"
 )
 
@@ -185,15 +186,13 @@ func (s *Service) ListPlugins(ctx context.Context, tenantSubdomain string) ([]ma
 }
 
 func (s *Service) MintImpersonationToken(ctx context.Context, claims jwt.MapClaims) (string, error) {
-	// In a real scenario, this would call the Auth service or use a shared secret.
-	// For this implementation, we assume the secret is available via configuration or environment.
-	// We will use a placeholder secret for now, or if configured, a real one.
-	// START: Temporary secret usage. Replace with s.config.JWTSecret or similar.
-	secret := []byte("temporary-secret-change-me-in-production")
-	// END: Temporary secret usage.
+	jwtSecrets, ok := security.ResolveJWTSecrets()
+	if !ok || len(jwtSecrets) == 0 {
+		return "", errors.New("JWT secrets are not configured")
+	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signed, err := token.SignedString(secret)
+	signed, err := token.SignedString([]byte(jwtSecrets[0]))
 	if err != nil {
 		return "", fmt.Errorf("failed to sign token: %w", err)
 	}

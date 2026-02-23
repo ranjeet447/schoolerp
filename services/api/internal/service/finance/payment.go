@@ -5,12 +5,17 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"hash"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -20,6 +25,18 @@ import (
 type PaymentProvider interface {
 	CreateOrder(ctx context.Context, amount int64, currency string, receiptID string) (string, error)
 	VerifyWebhookSignature(body []byte, signature string, secret string) bool
+}
+
+type InternalPaymentEvent struct {
+	Provider         string          `json:"provider"`
+	ProviderEventID  string          `json:"provider_event_id"`
+	OrderID          string          `json:"order_id"`
+	Status           string          `json:"status"`
+	Amount           int64           `json:"amount"`
+	Currency         string          `json:"currency,omitempty"`
+	GatewayPaymentID string          `json:"gateway_payment_id,omitempty"`
+	EventType        string          `json:"event_type,omitempty"`
+	Raw              json.RawMessage `json:"raw,omitempty"`
 }
 
 // RazorpayProvider is a production implementation
@@ -74,10 +91,14 @@ func (r *RazorpayProvider) CreateOrder(ctx context.Context, amount int64, curren
 }
 
 func (r *RazorpayProvider) VerifyWebhookSignature(body []byte, signature string, secret string) bool {
+	signature = normalizeWebhookSignature(signature)
+	if signature == "" || strings.TrimSpace(secret) == "" {
+		return false
+	}
 	h := hmac.New(sha256.New, []byte(secret))
 	h.Write(body)
 	expected := hex.EncodeToString(h.Sum(nil))
-	return expected == signature
+	return hmac.Equal([]byte(expected), []byte(signature))
 }
 
 func pgUUIDToString(v pgtype.UUID) (string, error) {
@@ -123,9 +144,289 @@ func (p *PayUProvider) CreateOrder(ctx context.Context, amount int64, currency s
 }
 
 func (p *PayUProvider) VerifyWebhookSignature(body []byte, signature string, secret string) bool {
-	// TODO: Implement PayU specific hash verification
-	// PayU webhook/s2s verification involves hashing parameters with the Salt.
-	return true 
+	normalized := normalizeWebhookSignature(signature)
+	secret = strings.TrimSpace(secret)
+	if secret == "" {
+		secret = strings.TrimSpace(p.Salt)
+	}
+	if normalized == "" || secret == "" {
+		return false
+	}
+
+	// PayU webhook implementations vary by integration/version. Accept a strict set of
+	// common signature constructions instead of allowing all events through.
+	candidates := []string{
+		hmacHex(sha512.New, []byte(secret), body),
+		hmacHex(sha256.New, []byte(secret), body),
+		plainHashHexSHA512(append(append([]byte{}, body...), []byte(secret)...)),
+		plainHashHexSHA512(append(append([]byte{}, []byte(secret)...), body...)),
+		plainHashHexSHA256(append(append([]byte{}, body...), []byte(secret)...)),
+		plainHashHexSHA256(append(append([]byte{}, []byte(secret)...), body...)),
+	}
+	for _, candidate := range candidates {
+		if hmac.Equal([]byte(candidate), []byte(normalized)) {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeWebhookSignature(signature string) string {
+	s := strings.TrimSpace(strings.ToLower(signature))
+	s = strings.TrimPrefix(s, "sha256=")
+	s = strings.TrimPrefix(s, "sha512=")
+	s = strings.TrimPrefix(s, "hmac-sha256=")
+	s = strings.TrimPrefix(s, "hmac-sha512=")
+	return s
+}
+
+func hmacHex(hashFn func() hash.Hash, key []byte, body []byte) string {
+	h := hmac.New(hashFn, key)
+	h.Write(body)
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func plainHashHexSHA512(body []byte) string {
+	sum := sha512.Sum512(body)
+	return hex.EncodeToString(sum[:])
+}
+
+func plainHashHexSHA256(body []byte) string {
+	sum := sha256.Sum256(body)
+	return hex.EncodeToString(sum[:])
+}
+
+func NormalizeRazorpayEvent(payload []byte, fallbackEventID string) (InternalPaymentEvent, error) {
+	var event struct {
+		Event   string `json:"event"`
+		Payload struct {
+			Payment struct {
+				Entity struct {
+					ID       string `json:"id"`
+					OrderID  string `json:"order_id"`
+					Amount   int64  `json:"amount"`
+					Currency string `json:"currency"`
+					Status   string `json:"status"`
+				} `json:"entity"`
+			} `json:"payment"`
+		} `json:"payload"`
+	}
+	if err := json.Unmarshal(payload, &event); err != nil {
+		return InternalPaymentEvent{}, err
+	}
+
+	status := strings.ToLower(strings.TrimSpace(event.Payload.Payment.Entity.Status))
+	switch strings.ToLower(strings.TrimSpace(event.Event)) {
+	case "payment.captured", "order.paid":
+		status = "paid"
+	case "payment.failed":
+		status = "failed"
+	case "payment.refunded":
+		status = "refunded"
+	}
+	if status == "" {
+		status = "unknown"
+	}
+
+	providerEventID := strings.TrimSpace(fallbackEventID)
+	if providerEventID == "" {
+		sum := sha256.Sum256(payload)
+		providerEventID = "razorpay-body-" + hex.EncodeToString(sum[:])
+	}
+
+	return InternalPaymentEvent{
+		Provider:         "razorpay",
+		ProviderEventID:  providerEventID,
+		OrderID:          strings.TrimSpace(event.Payload.Payment.Entity.OrderID),
+		Status:           status,
+		Amount:           event.Payload.Payment.Entity.Amount,
+		Currency:         strings.TrimSpace(event.Payload.Payment.Entity.Currency),
+		GatewayPaymentID: strings.TrimSpace(event.Payload.Payment.Entity.ID),
+		EventType:        strings.TrimSpace(event.Event),
+		Raw:              json.RawMessage(append([]byte(nil), payload...)),
+	}, nil
+}
+
+func NormalizePayUEvent(payload []byte, headers map[string]string) (InternalPaymentEvent, error) {
+	getHeader := func(keys ...string) string {
+		for _, k := range keys {
+			if v := strings.TrimSpace(headers[strings.ToLower(strings.TrimSpace(k))]); v != "" {
+				return v
+			}
+		}
+		return ""
+	}
+
+	type payUNested struct {
+		Event          string      `json:"event"`
+		Status         string      `json:"status"`
+		TxnID          string      `json:"txnid"`
+		MihPayID       string      `json:"mihpayid"`
+		Amount         interface{} `json:"amount"`
+		Currency       string      `json:"currency"`
+		OrderID        string      `json:"order_id"`
+		MerchantTxnID  string      `json:"merchantTransactionId"`
+		PaymentID      string      `json:"payment_id"`
+		PaymentIDAlt   string      `json:"paymentId"`
+		TxnStatus      string      `json:"transaction_status"`
+		Data           struct {
+			TxnID         string      `json:"txnid"`
+			MihPayID      string      `json:"mihpayid"`
+			Amount        interface{} `json:"amount"`
+			Status        string      `json:"status"`
+			OrderID       string      `json:"order_id"`
+			MerchantTxnID string      `json:"merchantTransactionId"`
+			PaymentID     string      `json:"payment_id"`
+			PaymentIDAlt  string      `json:"paymentId"`
+			Currency      string      `json:"currency"`
+		} `json:"data"`
+	}
+
+	var parsed payUNested
+	if err := json.Unmarshal(payload, &parsed); err == nil {
+		orderID := firstNonEmptyTrimmed(parsed.TxnID, parsed.Data.TxnID, parsed.OrderID, parsed.Data.OrderID, parsed.MerchantTxnID, parsed.Data.MerchantTxnID)
+		statusRaw := firstNonEmptyTrimmed(parsed.Status, parsed.Data.Status, parsed.TxnStatus, parsed.Event)
+		status := normalizePayUStatus(statusRaw)
+		gatewayPaymentID := firstNonEmptyTrimmed(parsed.MihPayID, parsed.Data.MihPayID, parsed.PaymentID, parsed.Data.PaymentID, parsed.PaymentIDAlt, parsed.Data.PaymentIDAlt)
+		eventType := firstNonEmptyTrimmed(parsed.Event, statusRaw)
+		currency := firstNonEmptyTrimmed(parsed.Currency, parsed.Data.Currency)
+		amount := parseGatewayAmount(firstNonEmptyInterface(parsed.Amount, parsed.Data.Amount))
+		providerEventID := firstNonEmptyTrimmed(
+			getHeader("x-payu-event-id", "x-event-id", "event-id"),
+			composePayUEventID(gatewayPaymentID, orderID, status),
+		)
+		if providerEventID == "" {
+			sum := sha256.Sum256(payload)
+			providerEventID = "payu-body-" + hex.EncodeToString(sum[:])
+		}
+		return InternalPaymentEvent{
+			Provider:         "payu",
+			ProviderEventID:  providerEventID,
+			OrderID:          orderID,
+			Status:           status,
+			Amount:           amount,
+			Currency:         currency,
+			GatewayPaymentID: gatewayPaymentID,
+			EventType:        eventType,
+			Raw:              json.RawMessage(append([]byte(nil), payload...)),
+		}, nil
+	}
+
+	values, err := url.ParseQuery(string(payload))
+	if err != nil {
+		return InternalPaymentEvent{}, err
+	}
+	orderID := strings.TrimSpace(values.Get("txnid"))
+	status := normalizePayUStatus(values.Get("status"))
+	gatewayPaymentID := firstNonEmptyTrimmed(values.Get("mihpayid"), values.Get("payuMoneyId"))
+	eventType := strings.TrimSpace(values.Get("event"))
+	amount := parseGatewayAmount(values.Get("amount"))
+	providerEventID := firstNonEmptyTrimmed(
+		getHeader("x-payu-event-id", "x-event-id", "event-id"),
+		composePayUEventID(gatewayPaymentID, orderID, status),
+	)
+	if providerEventID == "" {
+		sum := sha256.Sum256(payload)
+		providerEventID = "payu-body-" + hex.EncodeToString(sum[:])
+	}
+	return InternalPaymentEvent{
+		Provider:         "payu",
+		ProviderEventID:  providerEventID,
+		OrderID:          orderID,
+		Status:           status,
+		Amount:           amount,
+		Currency:         strings.TrimSpace(values.Get("currency")),
+		GatewayPaymentID: gatewayPaymentID,
+		EventType:        eventType,
+		Raw:              json.RawMessage(append([]byte(nil), payload...)),
+	}, nil
+}
+
+func firstNonEmptyTrimmed(values ...string) string {
+	for _, v := range values {
+		if t := strings.TrimSpace(v); t != "" {
+			return t
+		}
+	}
+	return ""
+}
+
+func firstNonEmptyInterface(values ...interface{}) interface{} {
+	for _, v := range values {
+		switch x := v.(type) {
+		case nil:
+			continue
+		case string:
+			if strings.TrimSpace(x) == "" {
+				continue
+			}
+			return x
+		default:
+			return v
+		}
+	}
+	return nil
+}
+
+func composePayUEventID(gatewayPaymentID, orderID, status string) string {
+	key := firstNonEmptyTrimmed(gatewayPaymentID, orderID)
+	if key == "" {
+		return ""
+	}
+	if strings.TrimSpace(status) == "" {
+		return "payu-" + key
+	}
+	return "payu-" + key + ":" + strings.ToLower(strings.TrimSpace(status))
+}
+
+func normalizePayUStatus(status string) string {
+	s := strings.ToLower(strings.TrimSpace(status))
+	switch s {
+	case "success", "captured", "payment_success", "order.paid":
+		return "paid"
+	case "failed", "failure", "payment_failed":
+		return "failed"
+	case "refunded", "refund_success":
+		return "refunded"
+	case "":
+		return "unknown"
+	default:
+		return s
+	}
+}
+
+func parseGatewayAmount(v interface{}) int64 {
+	switch x := v.(type) {
+	case nil:
+		return 0
+	case int64:
+		return x
+	case int32:
+		return int64(x)
+	case int:
+		return int64(x)
+	case float64:
+		return int64(x)
+	case json.Number:
+		if i, err := x.Int64(); err == nil {
+			return i
+		}
+		if f, err := x.Float64(); err == nil {
+			return int64(f)
+		}
+	case string:
+		s := strings.TrimSpace(x)
+		if s == "" {
+			return 0
+		}
+		if i, err := strconv.ParseInt(s, 10, 64); err == nil {
+			return i
+		}
+		if f, err := strconv.ParseFloat(s, 64); err == nil {
+			return int64(f)
+		}
+	}
+	return 0
 }
 
 func (s *Service) getTenantPaymentProvider(ctx context.Context, tenantID string) (PaymentProvider, error) {
@@ -232,45 +533,101 @@ func (s *Service) CreateOnlineOrderParent(ctx context.Context, tenantID, userID,
 	return s.CreateOnlineOrder(ctx, tenantID, studentID, amount)
 }
 
-func (s *Service) ProcessPaymentWebhook(ctx context.Context, tenantID, eventID string, body []byte, signature string, secret string) error {
+func (s *Service) ProcessPaymentWebhook(ctx context.Context, tenantID, eventID string, body []byte, signature string, secret string, headers map[string]string) (err error) {
+	tUUID := toPgUUID(tenantID)
+	
+	// Pre-normalize headers for identification
+	normalizedHeaders := map[string]string{}
+	for k, v := range headers {
+		normalizedHeaders[strings.ToLower(strings.TrimSpace(k))] = strings.TrimSpace(v)
+	}
+
+	providerType := "unknown"
+	if _, exists := normalizedHeaders["x-razorpay-signature"]; exists {
+		providerType = "razorpay"
+	} else if _, exists := normalizedHeaders["x-payu-signature"]; exists {
+		providerType = "payu"
+	}
+
+	// 0. Log incoming webhook for auditability
+	logEntry, logErr := s.q.CreateWebhookLog(ctx, db.CreateWebhookLogParams{
+		TenantID: tUUID,
+		Provider: providerType,
+		EventID:  eventID,
+		Payload:  body,
+	})
+
+	// Use defer to update the status of the log entry at the end
+	defer func() {
+		if logErr == nil {
+			status := "completed"
+			errMsg := ""
+			if err != nil {
+				status = "failed"
+				errMsg = err.Error()
+			}
+			_, _ = s.q.UpdateWebhookLogStatus(ctx, db.UpdateWebhookLogStatusParams{
+				ID:           logEntry.ID,
+				TenantID:     tUUID,
+				Status:       status,
+				ErrorMessage: pgtype.Text{String: errMsg, Valid: errMsg != ""},
+				ProcessedAt:  pgtype.Timestamptz{Time: time.Now(), Valid: true},
+			})
+		}
+	}()
+
 	provider, err := s.getTenantPaymentProvider(ctx, tenantID)
 	if err != nil {
 		return err
 	}
 
 	// 1. Verify Signature
-	// Note: secret passed here might be from URL params or globalenv. 
-	// Ideally, we should fetch the secret from DB too if tenant-specific.
-	// We'll trust the provider to know its secret, OR we assume the caller passed the right one.
-	// But wait, RazorpayProvider doesn't hold the WebhookSecret in the struct above. 
-	// Let's check VerifyWebhookSignature in interface. It takes secret as arg.
-	
-	// FIX: We should use the secret from the DB config if available.
 	if _, ok := provider.(*RazorpayProvider); ok {
-		// Does RazorpayProvider need to store secret? 
-		// The interface method `VerifyWebhookSignature` takes `secret` as argument.
-		// So we should fetch the secret from DB and pass it.
-		
 		cfg, err := s.q.GetActiveGatewayConfig(ctx, db.GetActiveGatewayConfigParams{
-			TenantID: toPgUUID(tenantID),
+			TenantID: tUUID,
 			Provider: "razorpay",
 		})
 		if err == nil && cfg.WebhookSecret.Valid {
 			secret = cfg.WebhookSecret.String
 		}
 	}
+	if payu, ok := provider.(*PayUProvider); ok && strings.TrimSpace(secret) == "" {
+		secret = strings.TrimSpace(payu.Salt)
+	}
 
 	if !provider.VerifyWebhookSignature(body, signature, secret) {
 		return fmt.Errorf("invalid webhook signature")
 	}
 
-	// 2. Check Idempotency
-	tUUID := pgtype.UUID{}
-	tUUID.Scan(tenantID)
-	
+	// 2. Normalize Event
+	if eventID != "" && normalizedHeaders["x-event-id"] == "" {
+		normalizedHeaders["x-event-id"] = strings.TrimSpace(eventID)
+	}
+	if eventID != "" && normalizedHeaders["x-payu-event-id"] == "" {
+		normalizedHeaders["x-payu-event-id"] = strings.TrimSpace(eventID)
+	}
+	if eventID != "" && normalizedHeaders["x-razorpay-event-id"] == "" {
+		normalizedHeaders["x-razorpay-event-id"] = strings.TrimSpace(eventID)
+	}
+
+	var normalizedEvent InternalPaymentEvent
+	switch provider.(type) {
+	case *PayUProvider:
+		normalizedEvent, err = NormalizePayUEvent(body, normalizedHeaders)
+	default:
+		normalizedEvent, err = NormalizeRazorpayEvent(body, eventID)
+	}
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(normalizedEvent.ProviderEventID) == "" {
+		return fmt.Errorf("missing provider event id in webhook")
+	}
+
+	// 3. Check Idempotency (Event Level)
 	processed, err := s.q.CheckPaymentEventProcessed(ctx, db.CheckPaymentEventProcessedParams{
 		TenantID:       tUUID,
-		GatewayEventID: eventID,
+		GatewayEventID: normalizedEvent.ProviderEventID,
 	})
 	if err != nil {
 		return err
@@ -279,36 +636,19 @@ func (s *Service) ProcessPaymentWebhook(ctx context.Context, tenantID, eventID s
 		return nil // Already processed
 	}
 
-	// 3. Parse Event
-	var event struct {
-		Event   string `json:"event"`
-		Payload struct {
-			Payment struct {
-				Entity struct {
-					ID      string `json:"id"`
-					OrderID string `json:"order_id"`
-					Amount  int64  `json:"amount"`
-				} `json:"entity"`
-			} `json:"payment"`
-		} `json:"payload"`
-	}
-	if err := json.Unmarshal(body, &event); err != nil {
-		return err
-	}
-
 	// 4. Handle Paid Event
-	if event.Event == "payment.captured" || event.Event == "order.paid" {
+	if normalizedEvent.Status == "paid" {
 		// Log the event for idempotency
 		_, err = s.q.LogPaymentEvent(ctx, db.LogPaymentEventParams{
 			TenantID:       tUUID,
-			GatewayEventID: eventID,
-			EventType:      event.Event,
+			GatewayEventID: normalizedEvent.ProviderEventID,
+			EventType:      firstNonEmptyTrimmed(normalizedEvent.EventType, normalizedEvent.Status),
 		})
 		if err != nil {
 			return err
 		}
 
-		orderUUID, err := resolveInternalOrderID(event.Payload.Payment.Entity.OrderID)
+		orderUUID, err := resolveInternalOrderID(normalizedEvent.OrderID)
 		if err != nil {
 			return err
 		}
@@ -326,18 +666,26 @@ func (s *Service) ProcessPaymentWebhook(ctx context.Context, tenantID, eventID s
 			return err
 		}
 
-		// Issue Auto Receipt
-		_, err = s.IssueReceipt(ctx, IssueReceiptParams{
-			TenantID:       tenantID,
-			StudentID:      studentID,
-			Amount:         order.Amount,
-			Mode:           "online",
-			TransactionRef: event.Payload.Payment.Entity.ID,
-			UserID:         "00000000-0000-0000-0000-000000000000", // System
-			IP:             "127.0.0.1",
-		})
-		if err != nil {
-			return fmt.Errorf("failed to issue auto-receipt: %w", err)
+		// Issue auto receipt when DB transaction support is available.
+		if s.db != nil {
+			_, err = s.IssueReceipt(ctx, IssueReceiptParams{
+				TenantID:       tenantID,
+				StudentID:      studentID,
+				Amount:         order.Amount,
+				Mode:           "online",
+				TransactionRef: firstNonEmptyTrimmed(normalizedEvent.GatewayPaymentID, normalizedEvent.ProviderEventID),
+				UserID:         "00000000-0000-0000-0000-000000000000", // System
+				IP:             "127.0.0.1",
+			})
+			if err != nil {
+				// We don't want to fail processing if it's already issued (idempotency check in IssueReceipt)
+				if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "already exists") {
+					// Likely already issued by another concurrent process or retry
+					fmt.Printf("Receipt already issued for trans: %s\n", normalizedEvent.GatewayPaymentID)
+				} else {
+					return fmt.Errorf("failed to issue auto-receipt: %w", err)
+				}
+			}
 		}
 
 		_, err = s.q.UpdatePaymentOrderStatus(ctx, db.UpdatePaymentOrderStatusParams{
@@ -351,7 +699,10 @@ func (s *Service) ProcessPaymentWebhook(ctx context.Context, tenantID, eventID s
 		}
 
 		// 5. Outbox Event for Notification
-		payload, _ := json.Marshal(event.Payload)
+		payload := body
+		if len(normalizedEvent.Raw) > 0 {
+			payload = normalizedEvent.Raw
+		}
 		_, _ = s.q.CreateOutboxEvent(ctx, db.CreateOutboxEventParams{
 			TenantID:  tUUID,
 			EventType: "fee.paid",

@@ -4,6 +4,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Capacitor } from '@capacitor/core';
 import { Network } from '@capacitor/network';
+import { clearSession } from './lib/secure-storage';
 
 const WEB_APP_URL = import.meta.env.VITE_WEB_APP_URL || 'http://localhost:3000';
 
@@ -38,6 +39,13 @@ export default function App() {
         });
         const status = await Network.getStatus();
         setIsConnected(status.connected);
+
+        // B1 Hardening: Handle logout signal from webview
+        window.addEventListener('message', async (event) => {
+            if (event.data === 'LOGOUT') {
+                await clearSession();
+            }
+        });
 
         // App URL listener (deep links)
         appURLHandle = await CapApp.addListener('appUrlOpen', async (/* { url } */) => {

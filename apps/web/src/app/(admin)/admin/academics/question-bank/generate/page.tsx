@@ -35,14 +35,39 @@ type Subject = {
   name: string
 }
 
+type AcademicYear = {
+  id: string
+  name: string
+  is_active?: boolean | { Bool?: boolean }
+}
+
+const textValue = (value: unknown) => {
+  if (typeof value === "string") return value
+  if (value && typeof value === "object" && "String" in value) {
+    const v = (value as { String?: string }).String
+    return typeof v === "string" ? v : ""
+  }
+  return ""
+}
+
+const boolValue = (value: unknown) => {
+  if (typeof value === "boolean") return value
+  if (value && typeof value === "object" && "Bool" in value) {
+    return Boolean((value as { Bool?: boolean }).Bool)
+  }
+  return false
+}
+
 export default function GeneratePaperPage() {
   const router = useRouter()
   const [subjects, setSubjects] = useState<Subject[]>([])
+  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
   const [loading, setLoading] = useState(false)
   
   // Form State
   const [setName, setSetName] = useState("")
   const [selectedSubject, setSelectedSubject] = useState("")
+  const [selectedAYID, setSelectedAYID] = useState("")
   const [blueprints, setBlueprints] = useState<Blueprint[]>([])
 
   // New Blueprint Item State
@@ -54,11 +79,41 @@ export default function GeneratePaperPage() {
   })
 
   useEffect(() => {
-    const fetchSubjects = async () => {
-      const res = await apiClient("/academics/subjects")
-      if (res.ok) setSubjects(await res.json())
+    const loadFormData = async () => {
+      try {
+        const [subjectsRes, yearsRes] = await Promise.all([
+          apiClient("/admin/academic-structure/subjects"),
+          apiClient("/admin/academic-structure/academic-years"),
+        ])
+        if (subjectsRes.ok) {
+          const subjectData = await subjectsRes.json()
+          const nextSubjects = Array.isArray(subjectData) ? subjectData.map((s: any) => ({
+            id: textValue(s?.id),
+            name: String(s?.name || ""),
+          })).filter((s: Subject) => s.id && s.name) : []
+          setSubjects(nextSubjects)
+          if (nextSubjects.length > 0) {
+            setSelectedSubject(prev => prev || nextSubjects[0].id)
+          }
+        }
+        if (yearsRes.ok) {
+          const yearData = await yearsRes.json()
+          const years = Array.isArray(yearData) ? yearData.map((y: any) => ({
+            id: textValue(y?.id),
+            name: String(y?.name || ""),
+            is_active: y?.is_active,
+          })).filter((y: AcademicYear) => y.id && y.name) : []
+          setAcademicYears(years)
+          const currentYear = years.find((y) => boolValue(y.is_active))
+          if (years.length > 0) {
+            setSelectedAYID(prev => prev || currentYear?.id || years[0].id)
+          }
+        }
+      } catch {
+        toast.error("Failed to load subjects / academic years")
+      }
     }
-    fetchSubjects()
+    loadFormData()
   }, [])
 
   const addBlueprint = () => {
@@ -72,7 +127,7 @@ export default function GeneratePaperPage() {
   }
 
   const handleGenerate = async () => {
-    if (!selectedSubject || !setName || blueprints.length === 0) {
+    if (!selectedSubject || !selectedAYID || !setName || blueprints.length === 0) {
       toast.error("Please fill all required fields")
       return
     }
@@ -82,20 +137,19 @@ export default function GeneratePaperPage() {
       const payload = {
         subject_id: selectedSubject,
         set_name: setName,
-        academic_year_id: "", // Optional or fetch current
+        academic_year_id: selectedAYID,
         blueprints: blueprints
       }
 
-      const res = await apiClient("/exams/papers/generate", {
+      const res = await apiClient("/admin/exams/papers/generate", {
         method: "POST",
         body: JSON.stringify(payload)
       })
 
       if (res.ok) {
-        toast.success("Paper Generated Successfully!")
         const paper = await res.json()
-        // TODO: Redirect to paper view or show preview
-        router.push("/admin/academics/question-bank") 
+        toast.success("Paper generated. Open the Papers tab in Exams to review and publish.")
+        router.push("/admin/exams")
       } else {
         const error = await res.text()
         toast.error("Generation Failed: " + error)
@@ -127,13 +181,22 @@ export default function GeneratePaperPage() {
                <CardTitle>Paper Details</CardTitle>
              </CardHeader>
              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Subject</Label>
                     <Select value={selectedSubject} onValueChange={setSelectedSubject}>
                       <SelectTrigger><SelectValue placeholder="Select Subject" /></SelectTrigger>
                       <SelectContent>
                         {subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Academic Year</Label>
+                    <Select value={selectedAYID} onValueChange={setSelectedAYID}>
+                      <SelectTrigger><SelectValue placeholder="Select Academic Year" /></SelectTrigger>
+                      <SelectContent>
+                        {academicYears.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
