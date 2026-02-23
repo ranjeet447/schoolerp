@@ -45,6 +45,7 @@ SELECT COALESCE(
 		WHEN $1 = 'students' THEN 500::BIGINT
 		WHEN $1 = 'staff' THEN 100::BIGINT
 		WHEN $1 = 'storage_mb' THEN 10240::BIGINT
+		WHEN $1 = 'ai_ask_monthly' THEN 50::BIGINT
 		ELSE 0::BIGINT
 	END
 )::BIGINT AS effective_limit

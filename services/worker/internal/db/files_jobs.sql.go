@@ -118,8 +118,8 @@ func (q *Queries) GetFile(ctx context.Context, arg GetFileParams) (File, error) 
 
 const getPDFTemplate = `-- name: GetPDFTemplate :one
 SELECT id, tenant_id, code, name, html_body, version, is_active, created_at FROM pdf_templates
-WHERE tenant_id = $1 AND code = $2 AND is_active = true
-ORDER BY version DESC
+WHERE (tenant_id = $1 OR tenant_id IS NULL) AND code = $2 AND is_active = true
+ORDER BY (tenant_id IS NOT NULL) DESC, version DESC
 LIMIT 1
 `
 

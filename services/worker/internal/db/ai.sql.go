@@ -11,6 +11,27 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countQueriesInPeriod = `-- name: CountQueriesInPeriod :one
+SELECT COUNT(*)
+FROM ai_query_logs
+WHERE tenant_id = $1 
+  AND created_at >= $2 
+  AND created_at <= $3
+`
+
+type CountQueriesInPeriodParams struct {
+	TenantID    pgtype.UUID        `json:"tenant_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	CreatedAt_2 pgtype.Timestamptz `json:"created_at_2"`
+}
+
+func (q *Queries) CountQueriesInPeriod(ctx context.Context, arg CountQueriesInPeriodParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countQueriesInPeriod, arg.TenantID, arg.CreatedAt, arg.CreatedAt_2)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createAIQueryLog = `-- name: CreateAIQueryLog :one
 INSERT INTO ai_query_logs (
     tenant_id, user_id, provider, model, tokens_used, cost, metadata

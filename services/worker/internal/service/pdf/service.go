@@ -43,11 +43,25 @@ func (p *Processor) ProcessJob(ctx context.Context, job db.PdfJob) error {
 		return err
 	}
 
+	// B4 Hardening: Validate HTML weight and required variables
+	if len(pdfTemplate.HtmlBody) > 1024*1024 { // 1MB limit
+		p.markFailed(ctx, job, "template is too large (max 1MB)")
+		return fmt.Errorf("template too large")
+	}
+
 	// 3. Render HTML
 	var payload map[string]interface{}
 	if err := json.Unmarshal(job.Payload, &payload); err != nil {
 		p.markFailed(ctx, job, fmt.Sprintf("invalid payload: %v", err))
 		return err
+	}
+
+	// Basic variable validation Example: Bonafide/TC need student_name or admission_no
+	if job.TemplateCode == "bonafide" || job.TemplateCode == "tc" {
+		if payload["student_name"] == nil && payload["admission_no"] == nil {
+			p.markFailed(ctx, job, "missing required student_name or admission_no for certificate")
+			return fmt.Errorf("missing required variables")
+		}
 	}
 
 	tmpl, err := template.New("pdf").Parse(pdfTemplate.HtmlBody)

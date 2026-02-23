@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -64,6 +66,10 @@ func (s *BillingService) DebitWallet(ctx context.Context, tenantID string, amoun
 		return err
 	}
 
+	if strings.TrimSpace(ref) == "" {
+		return errors.New("reference_id is required for wallet debits")
+	}
+
 	var uid pgtype.UUID
 	if userID != nil {
 		uid.Scan(*userID)
@@ -72,10 +78,22 @@ func (s *BillingService) DebitWallet(ctx context.Context, tenantID string, amoun
 	metaJSON, _ := json.Marshal(metadata)
 
 	return pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		// First, check if this reference_id has already been processed to avoid double billing
+		var exists bool
+		err := tx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM wallet_ledger
+				WHERE reference_id = $1 AND wallet_id IN (SELECT id FROM wallets WHERE tenant_id = $2)
+			)
+		`, ref, tid).Scan(&exists)
+		if err == nil && exists {
+			return nil // Already processed
+		}
+
 		// 1. Lock wallet and check balance
 		var walletID pgtype.UUID
 		var currentBalance int64
-		err := tx.QueryRow(ctx, `
+		err = tx.QueryRow(ctx, `
 			SELECT id, balance_paise FROM wallets WHERE tenant_id = $1 FOR UPDATE
 		`, tid).Scan(&walletID, &currentBalance)
 		if err != nil {
@@ -102,7 +120,14 @@ func (s *BillingService) DebitWallet(ctx context.Context, tenantID string, amoun
 			INSERT INTO wallet_ledger (wallet_id, amount_paise, type, description, reference_id, user_id, metadata)
 			VALUES ($1, $2, $3, $4, $5, $6, $7)
 		`, walletID, -amount, debitType, desc, ref, uid, metaJSON)
-		return err
+		if err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				return nil // Idempotent success (already processed)
+			}
+			return err
+		}
+		return nil
 	})
 }
 

@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -268,7 +269,8 @@ func (c *Consumer) handleEvent(ctx context.Context, event db.Outbox) error {
 		}
 
 		// Debit credits
-		return c.debitCredits(ctx, event.TenantID, "sms", "SMS Alert", map[string]interface{}{"event_type": event.EventType})
+		ref := fmt.Sprintf("outbox-%s", hex.EncodeToString(event.ID.Bytes[:]))
+		return c.debitCredits(ctx, event.TenantID, "sms", "SMS Alert", ref, map[string]interface{}{"event_type": event.EventType})
 
 	case "fee.paid":
 		var payload map[string]interface{}
@@ -294,7 +296,8 @@ func (c *Consumer) handleEvent(ctx context.Context, event db.Outbox) error {
 		}
 
 		// Debit credits
-		return c.debitCredits(ctx, event.TenantID, "whatsapp", "WhatsApp Fee Receipt", map[string]interface{}{"event_type": event.EventType})
+		ref := fmt.Sprintf("outbox-%s", hex.EncodeToString(event.ID.Bytes[:]))
+		return c.debitCredits(ctx, event.TenantID, "whatsapp", "WhatsApp Fee Receipt", ref, map[string]interface{}{"event_type": event.EventType})
 
 	case "notice.published":
 		var payload map[string]interface{}
@@ -609,7 +612,7 @@ func (c *Consumer) checkAddon(ctx context.Context, tenantID pgtype.UUID, addonCo
 	return nil
 }
 
-func (c *Consumer) debitCredits(ctx context.Context, tenantID pgtype.UUID, featureCode, desc string, metadata map[string]interface{}) error {
+func (c *Consumer) debitCredits(ctx context.Context, tenantID pgtype.UUID, featureCode, desc, ref string, metadata map[string]interface{}) error {
 	if c.billing == nil {
 		return nil
 	}
@@ -619,5 +622,5 @@ func (c *Consumer) debitCredits(ctx context.Context, tenantID pgtype.UUID, featu
 		return nil // Or return error to block? Assuming best effort if rate missing
 	}
 
-	return c.billing.DebitWallet(ctx, tenantID.String(), rate, nil, "usage", desc, "", metadata)
+	return c.billing.DebitWallet(ctx, tenantID.String(), rate, nil, "usage", desc, ref, metadata)
 }

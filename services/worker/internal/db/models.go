@@ -2560,3 +2560,15 @@ type WalletLedger struct {
 	ReferenceID pgtype.Text        `json:"reference_id"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
+
+type WebhookLog struct {
+	ID           pgtype.UUID        `json:"id"`
+	TenantID     pgtype.UUID        `json:"tenant_id"`
+	Provider     string             `json:"provider"`
+	EventID      string             `json:"event_id"`
+	Payload      []byte             `json:"payload"`
+	Status       string             `json:"status"`
+	ErrorMessage pgtype.Text        `json:"error_message"`
+	ProcessedAt  pgtype.Timestamptz `json:"processed_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}

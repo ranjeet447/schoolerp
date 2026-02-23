@@ -95,6 +95,22 @@ func main() {
 		}
 	}()
 
+	// Maintenance Cron: Webhook log retention cleanup (90 days)
+	maintenanceTicker := time.NewTicker(24 * time.Hour) // Weekly cleanup is fine too
+	defer maintenanceTicker.Stop()
+	go func() {
+		// Run once on startup
+		processMaintenance(ctx, pool)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-maintenanceTicker.C:
+				processMaintenance(ctx, pool)
+			}
+		}
+	}()
+
 	// Cron: Homework + PTM reminders every 10 minutes
 	reminderTicker := time.NewTicker(10 * time.Minute)
 	defer reminderTicker.Stop()
@@ -138,6 +154,17 @@ func processPoll(ctx context.Context, q db.Querier, pdfSvc *pdf.Processor) {
 		if err := pdfSvc.ProcessJob(ctx, job); err != nil {
 			log.Error().Err(err).Str("job_id", job.ID.String()).Msg("Error processing job")
 		}
+	}
+}
+
+func processMaintenance(ctx context.Context, pool *pgxpool.Pool) {
+	// B3 Hardening: Delete webhook logs older than 90 days
+	// We use raw SQL to avoid needing to regenerate SQLC models during this hardening turn.
+	res, err := pool.Exec(ctx, "DELETE FROM webhook_logs WHERE created_at < NOW() - INTERVAL '90 days'")
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to cleanup old webhook logs")
+	} else if count := res.RowsAffected(); count > 0 {
+		log.Info().Int64("count", count).Msg("Cleaned up old webhook logs")
 	}
 }
 
