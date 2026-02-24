@@ -129,6 +129,16 @@ export function FeaturesClient() {
                       {feature.title}
                     </h3>
 
+                    {feature.mockUI.screenshot && (
+                      <div className="mb-4 relative aspect-[16/9] rounded-xl overflow-hidden border bg-muted/50 group-hover:border-primary/30 transition-colors shadow-sm">
+                        <img 
+                          src={feature.mockUI.screenshot} 
+                          alt={feature.title} 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                        />
+                      </div>
+                    )}
+
                     <p className="text-muted-foreground font-medium text-sm mb-6 flex-grow line-clamp-3">
                       {feature.description}
                     </p>

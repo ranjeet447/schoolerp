@@ -7,7 +7,8 @@ import {
   USE_CASES_DATA, 
   FEATURES_DATA,
   Breadcrumbs,
-  RelatedContent
+  RelatedContent,
+  BrowserFrame
 } from '@schoolerp/ui';
 import { Metadata } from 'next';
 import { CheckCircle } from 'lucide-react';
@@ -90,8 +91,18 @@ export default async function UseCaseDetailPage({ params }: UseCasePageProps) {
         </Container>
       </Section>
 
-      <Section className="bg-background pt-16 pb-24">
+      <Section className="bg-background pt-8 pb-16">
         <Container>
+           {data.screenshot && (
+             <div className="mb-24 scale-105">
+               <div className="text-center mb-10">
+                  <p className="text-xs font-black uppercase tracking-widest text-primary mb-2">Workflow Visual</p>
+                  <h3 className="text-2xl font-bold tracking-tight">The interface built for this solution</h3>
+               </div>
+               <BrowserFrame src={data.screenshot} alt={data.title} className="shadow-3xl" />
+             </div>
+           )}
+
           <div className="grid gap-12 lg:gap-20 md:grid-cols-2 max-w-5xl mx-auto mb-24">
             <div className="rounded-[2.5rem] border border-red-200 bg-red-50/50 p-10 md:p-12 relative overflow-hidden">
               <div className="relative z-10">

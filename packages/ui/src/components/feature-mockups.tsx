@@ -4,9 +4,13 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '../lib/utils';
 
+import { BrowserFrame } from './browser-frame';
+
 interface MockupProps {
   type: string;
   color: string;
+  screenshot?: string;
+  title?: string;
 }
 
 const TableMockup = ({ color }: { color: string }) => (
@@ -144,7 +148,19 @@ const SelectionMockup = ({ color }: { color: string }) => (
   </div>
 );
 
-export const FeatureMockup = ({ type, color }: MockupProps) => {
+export const FeatureMockup = ({ type, color, screenshot, title }: MockupProps) => {
+  if (screenshot) {
+    return (
+      <div className="w-full flex items-center justify-center p-2">
+        <BrowserFrame 
+          src={screenshot} 
+          alt={title || "Feature Preview"} 
+          className="w-full h-auto max-w-sm rounded-[1rem] shadow-xl hover:shadow-2xl transition-all duration-500 scale-95 hover:scale-100" 
+        />
+      </div>
+    );
+  }
+
   const getMockup = () => {
     switch (type) {
       case 'table': return <TableMockup color={color} />;

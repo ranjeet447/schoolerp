@@ -10,12 +10,11 @@ import { twMerge } from 'tailwind-merge';
 import { cn } from '../lib/utils';
 
 const NAV_LINKS = [
+  { label: 'Product', href: '/product' },
   { label: 'Features', href: '/features' },
   { label: 'Use Cases', href: '/use-cases' },
   { label: 'Blog', href: '/blog' },
   { label: 'Pricing', href: '/pricing' },
-  { label: 'Integrations', href: '/integrations' },
-  { label: 'Roadmap', href: '/roadmap' },
 ];
 
 export const Navbar = () => {

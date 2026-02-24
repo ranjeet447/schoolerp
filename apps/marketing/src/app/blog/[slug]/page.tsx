@@ -2,8 +2,9 @@ import React from 'react';
 import { Container, Section, FinalCTA, BlogPostingSchema, FAQSchema, BLOG_POSTS_DATA, Breadcrumbs, Button } from '@schoolerp/ui';
 import { Metadata } from 'next';
 import Link from 'next/link';
+import Image from 'next/image';
 import Script from 'next/script';
-import { ArrowLeft, Calendar, User, ChevronRight, Sparkles, Clock, Share2, Bookmark, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Calendar, User, ChevronRight, Sparkles, Clock, Share2, Bookmark, ArrowRight, Twitter, Linkedin, Facebook } from 'lucide-react';
 import { notFound } from 'next/navigation';
 
 interface BlogPostPageProps {
@@ -67,7 +68,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
           description={post.excerpt} 
           datePublished={new Date(post.date).toISOString()} 
           authorName={post.author}
-          imageUrl="https://schoolerp.com/og-hero.png"
+          imageUrl={post.image}
        />
 
        {/* Hero Section */}
@@ -91,7 +92,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                  "{post.excerpt}"
                </p>
 
-               <div className="flex flex-wrap items-center justify-center gap-6 text-sm font-bold text-muted-foreground uppercase tracking-wider">
+               <div className="flex flex-wrap items-center justify-center gap-6 text-sm font-bold text-muted-foreground uppercase tracking-wider mb-16">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary border border-primary/10">
                       <User className="h-5 w-5" />
@@ -108,6 +109,18 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                     <Clock className="h-4 w-4 text-primary" />
                     <span>{post.readTime}</span>
                   </div>
+               </div>
+
+               {/* Hero Image */}
+               <div className="relative w-full aspect-[21/9] rounded-[3rem] overflow-hidden shadow-2xl border-4 border-white/10 dark:border-white/5">
+                  <Image 
+                    src={post.image} 
+                    alt={post.title} 
+                    fill 
+                    className="object-cover"
+                    priority
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
                </div>
             </div>
           </Container>

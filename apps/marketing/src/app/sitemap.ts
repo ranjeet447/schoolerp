@@ -1,11 +1,31 @@
 import { MetadataRoute } from 'next';
-import { FEATURES_DATA, BLOG_POSTS_DATA, USE_CASES_DATA, RESOURCES_DATA } from '@schoolerp/ui';
+import { 
+  FEATURES_DATA, 
+  BLOG_POSTS_DATA, 
+  USE_CASES_DATA, 
+  RESOURCES_DATA,
+  TEMPLATES_DATA,
+  INTEGRATIONS_DATA,
+  CASE_STUDIES_DATA
+} from '@schoolerp/ui';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = 'https://schoolerp.com';
 
   // Static routes
-  const staticRoutes = ['', '/features', '/pricing', '/about', '/contact', '/blog', '/use-cases', '/resources'].map((route) => ({
+  const staticRoutes = [
+    '', 
+    '/features', 
+    '/pricing', 
+    '/about', 
+    '/contact', 
+    '/blog', 
+    '/use-cases', 
+    '/resources',
+    '/integrations',
+    '/templates',
+    '/case-studies'
+  ].map((route) => ({
     url: `${baseUrl}${route}`,
     lastModified: new Date(),
     changeFrequency: 'monthly' as const,
@@ -36,6 +56,30 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.8,
   }));
 
+  // Template routes
+  const templates = TEMPLATES_DATA.map((template) => ({
+    url: `${baseUrl}/templates/${template.slug}`,
+    lastModified: new Date(),
+    changeFrequency: 'monthly' as const,
+    priority: 0.7,
+  }));
+
+  // Integration routes
+  const integrations = INTEGRATIONS_DATA.map((integration) => ({
+    url: `${baseUrl}/integrations/${integration.slug}`,
+    lastModified: new Date(),
+    changeFrequency: 'monthly' as const,
+    priority: 0.7,
+  }));
+
+  // Case Study routes
+  const caseStudies = CASE_STUDIES_DATA.map((study) => ({
+    url: `${baseUrl}/case-studies/${study.slug}`,
+    lastModified: new Date(),
+    changeFrequency: 'monthly' as const,
+    priority: 0.8,
+  }));
+
   // Resource routes
   const resources = RESOURCES_DATA.map((res) => ({
     url: `${baseUrl}/resources/${res.slug}`,
@@ -44,6 +88,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
-  return [...staticRoutes, ...features, ...useCases, ...blogPosts, ...resources];
+  return [
+    ...staticRoutes, 
+    ...features, 
+    ...useCases, 
+    ...blogPosts, 
+    ...resources,
+    ...templates,
+    ...integrations,
+    ...caseStudies
+  ];
 }
 

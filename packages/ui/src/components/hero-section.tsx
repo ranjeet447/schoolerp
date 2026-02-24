@@ -7,6 +7,7 @@ import { Container, Section } from './layout-foundation';
 import { ChevronRight, Sparkles, CheckCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { trackEvent } from '../lib/analytics';
+import { BrowserFrame, MobileFrame } from './browser-frame';
 
 export const HeroSection = () => {
   return (
@@ -100,36 +101,78 @@ export const HeroSection = () => {
 
         {/* Realistic Product Mockup Composite */}
         <motion.div 
-          initial={{ opacity: 0, y: 60, rotateX: 10 }}
-          whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
+          initial={{ opacity: 0, scale: 0.95, y: 100 }}
+          whileInView={{ opacity: 1, scale: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 1.2, delay: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          className="mt-24 w-full max-w-6xl relative perspective-1000"
+          className="mt-28 w-full max-w-7xl relative"
         >
           {/* Main Web Dashboard Mockup */}
-          <div className="relative z-10 overflow-hidden rounded-[2.5rem] border border-primary/20 bg-card/30 backdrop-blur-3xl shadow-[0_32px_128px_-16px_rgba(139,92,246,0.2)]">
-            <div className="flex items-center gap-3 border-b border-white/10 bg-white/5 px-6 py-4">
-              <div className="flex gap-2">
-                <div className="h-3 w-3 rounded-full bg-red-400/30" />
-                <div className="h-3 w-3 rounded-full bg-amber-400/30" />
-                <div className="h-3 w-3 rounded-full bg-emerald-400/30" />
-              </div>
-              <div className="h-4 w-64 rounded-full bg-white/5 mx-auto" />
-            </div>
-            <div className="aspect-[16/10] relative group">
-              <img 
-                src="/mockups/admin-web.png" 
-                alt="SchoolERP Admin Dashboard" 
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-background/40 to-transparent pointer-events-none" />
-            </div>
+          <div className="relative z-10 mx-auto px-4 lg:px-0">
+             <BrowserFrame 
+                src="/product-screens/admin/admin-dashboard.png" 
+                alt="SchoolERP Platform Dashboard"
+                className="shadow-[0_48px_128px_-16px_rgba(139,92,246,0.3)]"
+             />
           </div>
 
+          {/* Floating Mobile Feature */}
+          <motion.div
+            initial={{ opacity: 0, x: 50, rotate: 12 }}
+            whileInView={{ opacity: 1, x: 0, rotate: -6 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1.5, delay: 1.2, type: 'spring' }}
+            className="absolute -right-4 md:-right-12 bottom-0 md:-bottom-24 z-20 scale-75 md:scale-100 hidden sm:block"
+          >
+            <MobileFrame 
+              src="/product-screens/teacher/teacher-dashboard-mobile.png" 
+              alt="Teacher Mobile Dashboard" 
+            />
+          </motion.div>
+
+          {/* Floating Accountant View */}
+          <motion.div
+            initial={{ opacity: 0, x: -50, rotate: -12 }}
+            whileInView={{ opacity: 1, x: 0, rotate: 6 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1.5, delay: 1.4, type: 'spring' }}
+            className="absolute -left-12 bottom-12 z-20 hidden lg:block"
+          >
+             <div className="w-96 rounded-2xl border bg-card/60 backdrop-blur-3xl p-4 shadow-3xl">
+                <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-3">Instant Finance Intelligence</p>
+                <img src="/product-screens/accountant/accountant-dashboard.png" className="rounded-xl border shadow-sm" alt="Accountant view" />
+             </div>
+          </motion.div>
 
           {/* Ambient Glows */}
           <div className="absolute -top-12 -right-12 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none" />
           <div className="absolute -bottom-12 -left-12 w-64 h-64 bg-fuchsia-500/10 blur-[100px] rounded-full pointer-events-none" />
+
+          {/* Carousel-like Dashboard Thumbnails */}
+          <div className="mt-20 mx-auto max-w-4xl">
+            <div className="flex flex-wrap justify-center gap-6">
+              {[
+                { label: 'Accountant', img: '/product-screens/accountant/accountant-dashboard.png' },
+                { label: 'Teacher', img: '/product-screens/teacher/teacher-dashboard.png' },
+                { label: 'Parent', img: '/product-screens/parent/parent-dashboard.png' },
+                { label: 'Student', img: '/product-screens/student/student-dashboard.png' },
+              ].map((thumb, i) => (
+                <motion.div
+                  key={thumb.label}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 1.5 + i * 0.1 }}
+                  className="group relative cursor-pointer"
+                  onClick={() => window.location.href = '/product'}
+                >
+                  <div className="w-48 aspect-video overflow-hidden rounded-xl border bg-card transition-all duration-300 group-hover:-translate-y-2 group-hover:shadow-2xl group-hover:border-primary/50">
+                     <img src={thumb.img} alt={thumb.label} className="w-full h-full object-cover object-top opacity-60 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center transition-colors group-hover:text-primary">{thumb.label}</p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
         </motion.div>
       </Container>
     </Section>

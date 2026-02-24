@@ -777,36 +777,6 @@ export default function PlatformTenantDetailPage() {
     });
   };
 
-  const impersonateTenantAdmin = async () => {
-    await action("Impersonation", async () => {
-      const res = await apiClient(`/admin/platform/tenants/${id}/impersonate`, {
-        method: "POST",
-        body: JSON.stringify({ reason: impersonationReason, duration_minutes: 30 }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
-      const now = new Date().toISOString();
-      localStorage.setItem("impersonator_auth_token", localStorage.getItem("auth_token") || "");
-      localStorage.setItem("impersonator_user_role", localStorage.getItem("user_role") || "");
-      localStorage.setItem("impersonator_user_id", localStorage.getItem("user_id") || "");
-      localStorage.setItem("impersonator_user_email", localStorage.getItem("user_email") || "");
-      localStorage.setItem("impersonator_user_name", localStorage.getItem("user_name") || "");
-      localStorage.setItem("impersonator_tenant_id", localStorage.getItem("tenant_id") || "");
-      localStorage.setItem("impersonation_started_at", now);
-      localStorage.setItem("impersonation_reason", impersonationReason.trim());
-      localStorage.setItem("impersonation_target_tenant_id", data.target_tenant_id);
-      localStorage.setItem("impersonation_target_user_id", data.target_user_id);
-      localStorage.setItem("impersonation_target_user_email", data.target_user_email);
-      localStorage.setItem("auth_token", data.token);
-      localStorage.setItem("user_role", "tenant_admin");
-      localStorage.setItem("tenant_id", data.target_tenant_id);
-      localStorage.setItem("user_id", data.target_user_id);
-      localStorage.setItem("user_email", data.target_user_email);
-      localStorage.setItem("user_name", `${data.target_tenant_name} Admin`);
-      window.location.href = "/admin/dashboard";
-    });
-  };
-
   const requestTenantExport = async () => {
     await action("Tenant data export request", async () => {
       if (!exportReason.trim()) {

@@ -2,7 +2,8 @@ import React from 'react';
 import { Container, Section, FinalCTA, BLOG_POSTS_DATA, Breadcrumbs } from '@schoolerp/ui';
 import { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, Calendar, Sparkles } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowRight, Calendar, Sparkles, Clock } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'Blog - School ERP Guides & Insights for Indian Schools',
@@ -46,12 +47,13 @@ export default function BlogListingPage() {
           <Link href={`/blog/${featuredPost.slug}`} className="group relative block rounded-[3rem] overflow-hidden border border-border/50 bg-card/50 shadow-2xl transition-all hover:border-primary/30 hover:shadow-primary/5">
             <div className="grid lg:grid-cols-2 gap-0 overflow-hidden">
                <div className="relative aspect-[4/3] lg:aspect-auto min-h-[400px] bg-muted overflow-hidden">
+                  <Image 
+                    src={featuredPost.image} 
+                    alt={featuredPost.title} 
+                    fill 
+                    className="object-cover group-hover:scale-105 transition-transform duration-700" 
+                  />
                   <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-indigo-500/30 opacity-40 group-hover:opacity-60 transition-opacity" />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                     <div className="w-24 h-24 rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center text-white/40 font-black text-4xl group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500">
-                        {featuredPost.category[0]}
-                     </div>
-                  </div>
                   <div className="absolute top-8 left-8">
                      <span className="px-4 py-1.5 rounded-full bg-primary text-[10px] font-black uppercase tracking-widest text-white shadow-xl">
                         Featured Article
@@ -112,8 +114,18 @@ export default function BlogListingPage() {
                 className="group flex flex-col h-full rounded-[2.5rem] border border-border/50 bg-card transition-all hover:shadow-2xl hover:border-primary/40 hover:-translate-y-2 overflow-hidden"
               >
                 <div className="aspect-[16/10] w-full bg-muted flex items-center justify-center text-muted-foreground overflow-hidden relative border-b border-border/50">
+                   <Image 
+                    src={post.image} 
+                    alt={post.title} 
+                    fill 
+                    className="object-cover group-hover:scale-110 transition-transform duration-700" 
+                  />
                    <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent group-hover:opacity-50 transition-opacity" />
-                   <div className="text-2xl font-black opacity-30 uppercase tracking-widest">{post.category}</div>
+                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="h-12 w-12 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white">
+                         <ArrowRight className="h-6 w-6" />
+                      </div>
+                   </div>
                 </div>
                 <div className="flex flex-1 flex-col p-10">
                   <div className="mb-6 flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
