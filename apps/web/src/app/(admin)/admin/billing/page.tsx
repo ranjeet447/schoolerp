@@ -34,8 +34,14 @@ type PluginItem = {
     name: string;
     description?: string;
     category?: string;
+    price_paise?: number;
+    billing_period?: string;
+    is_active?: boolean;
   };
   enabled: boolean;
+  catalog_active?: boolean;
+  entitled?: boolean;
+  entitlement_status?: string;
 };
 
 type AddonActivationRequest = {
@@ -57,6 +63,12 @@ function formatDate(value?: string): string {
 
 function formatAmount(currency: string, value: number): string {
   return `${Number(value || 0).toLocaleString("en-IN")} ${currency || "INR"}`;
+}
+
+function formatAddonPrice(pricePaise?: number, billingPeriod?: string): string {
+  const paise = Number(pricePaise || 0);
+  if (paise <= 0) return "Usage / custom pricing";
+  return `Rs ${Math.round(paise / 100).toLocaleString("en-IN")} / ${billingPeriod || "monthly"}`;
 }
 
 export default function AdminBillingPage() {
@@ -172,6 +184,26 @@ export default function AdminBillingPage() {
       await load(statusFilter);
     } catch (err: any) {
       setError(err?.message || "Failed to submit add-on request.");
+    } finally {
+      setAddonLoadingID("");
+    }
+  };
+
+  const activateEntitledAddon = async (addonID: string) => {
+    if (!addonID) return;
+    setAddonLoadingID(addonID);
+    try {
+      const res = await apiClient(`/admin/tenants/plugins/${addonID}`, {
+        method: "POST",
+        body: JSON.stringify({ enabled: true, settings: {} }),
+      });
+      if (!res.ok) {
+        const message = await res.text();
+        throw new Error(message || "Failed to activate add-on.");
+      }
+      await load(statusFilter);
+    } catch (err: any) {
+      setError(err?.message || "Failed to activate add-on.");
     } finally {
       setAddonLoadingID("");
     }
@@ -312,6 +344,9 @@ export default function AdminBillingPage() {
                               <div className="flex-1 min-w-0">
                                 <p className="font-semibold truncate">{addon.metadata.name}</p>
                                 <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{addon.metadata.description || "No description provided."}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {formatAddonPrice(addon.metadata.price_paise, addon.metadata.billing_period)}
+                                </p>
                                 {req && (
                                   <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 w-fit px-2 py-0.5 rounded">
                                     Status: <span className="capitalize">{req.status}</span>
@@ -320,13 +355,24 @@ export default function AdminBillingPage() {
                                 )}
                               </div>
                               <div className="shrink-0 flex items-center gap-2">
+                                {addon.entitled && (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={() => void activateEntitledAddon(addon.metadata.id)}
+                                    disabled={addonLoadingID === addon.metadata.id}
+                                  >
+                                    {addonLoadingID === addon.metadata.id ? "Activating..." : "Activate"}
+                                  </Button>
+                                )}
                                 <Button
+                                  type="button"
                                   size="sm"
                                   onClick={() => setRequestingAddonID(isExpanded ? "" : addon.metadata.id)}
-                                  disabled={requestLocked}
+                                  disabled={requestLocked || Boolean(addon.entitled) || addon.catalog_active === false}
                                   variant="secondary"
                                 >
-                                  {requestLocked ? "Requested" : "Request"}
+                                  {addon.catalog_active === false ? "Unavailable" : requestLocked ? "Requested" : addon.entitled ? "Entitled" : "Request"}
                                 </Button>
                               </div>
                             </div>
@@ -341,8 +387,9 @@ export default function AdminBillingPage() {
                                   placeholder="Why do you need this add-on? (Optional)"
                                 />
                                 <div className="flex justify-end gap-2">
-                                  <Button size="sm" variant="ghost" onClick={() => setRequestingAddonID("")}>Cancel</Button>
+                                  <Button type="button" size="sm" variant="ghost" onClick={() => setRequestingAddonID("")}>Cancel</Button>
                                   <Button
+                                    type="button"
                                     size="sm"
                                     onClick={() => void requestAddon(addon.metadata.id)}
                                     disabled={addonLoadingID === addon.metadata.id}

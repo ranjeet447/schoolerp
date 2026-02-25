@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { apiClient } from "@/lib/api-client";
+import { semanticBadge, semanticText } from "@/lib/semantic-theme";
 import {
   TrendingUp,
   Users,
@@ -243,7 +244,7 @@ export default function PlatformAnalyticsPage() {
             <Filter className="h-4 w-4" />
             <span>Filter Metrics</span>
           </Button>
-          <Button className="gap-2 font-black shadow-lg shadow-primary/20 h-11" onClick={() => void load()}>
+          <Button type="button" className="gap-2 font-black shadow-lg shadow-primary/20 h-11" onClick={() => void load()}>
             <RefreshCcw className="h-4 w-4" />
             <span>Refresh Data</span>
           </Button>
@@ -254,7 +255,7 @@ export default function PlatformAnalyticsPage() {
         <Card className="border-destructive/20 bg-destructive/5">
           <CardContent className="flex flex-col gap-3 p-5 md:flex-row md:items-center md:justify-between">
             <p className="text-sm font-semibold text-destructive">{error}</p>
-            <Button size="sm" variant="outline" onClick={() => void load()} className="gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={() => void load()} className="gap-2">
               <Download className="h-4 w-4" />
               Retry
             </Button>
@@ -287,7 +288,7 @@ export default function PlatformAnalyticsPage() {
                     <div className="rounded-xl bg-primary/10 text-primary p-3">
                       <stat.icon className="h-6 w-6" />
                     </div>
-                    <Badge className="bg-emerald-500/10 text-emerald-600 border-none font-black text-[10px]">
+                    <Badge className={`${semanticBadge("success")} border-none font-black text-[10px]`}>
                       <ArrowUpRight className="h-3 w-3 mr-0.5" />
                       LIVE
                     </Badge>
@@ -329,7 +330,7 @@ export default function PlatformAnalyticsPage() {
                   {convertedTenants.map((tenant) => (
                     <div key={tenant.id} className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
                       <div className="flex items-center gap-4">
-                        <div className="h-11 w-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black shadow-lg">
+                        <div className="h-11 w-11 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-black shadow-lg shadow-primary/20">
                           {(tenant.name || "S").slice(0, 1).toUpperCase()}
                         </div>
                         <div>
@@ -341,7 +342,7 @@ export default function PlatformAnalyticsPage() {
                         <Badge variant="secondary" className="font-bold text-[10px] px-3">
                           {(tenant.plan_code || "unassigned").toUpperCase()}
                         </Badge>
-                        <Badge className="bg-emerald-500/10 text-emerald-600 border-none font-black text-[10px] px-3">ACTIVE</Badge>
+                        <Badge className={`${semanticBadge("success")} border-none font-black text-[10px] px-3`}>ACTIVE</Badge>
                       </div>
                     </div>
                   ))}
@@ -355,7 +356,7 @@ export default function PlatformAnalyticsPage() {
           <Card className="border-none shadow-sm shadow-black/5 bg-card/50 backdrop-blur-sm">
             <CardHeader className="p-6">
               <div className="flex items-center gap-2">
-                <PieChart className="h-5 w-5 text-indigo-500" />
+                <PieChart className={`h-5 w-5 ${semanticText("primary")}`} />
                 <CardTitle className="text-xl font-black">Plan Contribution</CardTitle>
               </div>
               <CardDescription className="font-medium">Tenant distribution by subscription plan.</CardDescription>
@@ -373,12 +374,12 @@ export default function PlatformAnalyticsPage() {
                   <div key={item.planCode} className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
                       <span className="font-bold text-foreground">{item.planCode.toUpperCase()}</span>
-                      <span className="font-black text-indigo-600 uppercase tracking-tighter">
+                      <span className={`font-black uppercase tracking-tighter ${semanticText("primary")}`}>
                         {item.share.toFixed(1)}% ({formatCurrency(item.estimatedMrr)})
                       </span>
                     </div>
                     <div className="h-3 w-full bg-muted rounded-full overflow-hidden shadow-inner">
-                      <div className="h-full bg-gradient-to-r from-indigo-500 to-indigo-700" style={{ width: `${Math.max(3, item.share)}%` }} />
+                      <div className="h-full bg-primary" style={{ width: `${Math.max(3, item.share)}%` }} />
                     </div>
                   </div>
                 ))
@@ -452,7 +453,7 @@ export default function PlatformAnalyticsPage() {
                           <td className="px-8 py-5 font-black text-foreground">{row.schools}</td>
                           <td className="px-8 py-5 font-bold text-muted-foreground">{row.active}</td>
                           <td className="px-8 py-5">
-                            <Badge className="bg-emerald-500/10 text-emerald-600 border-none font-black text-[10px]">
+                            <Badge className={`${semanticBadge("success")} border-none font-black text-[10px]`}>
                               <ArrowUpRight className="h-3 w-3 mr-1" /> {row.share}%
                             </Badge>
                           </td>

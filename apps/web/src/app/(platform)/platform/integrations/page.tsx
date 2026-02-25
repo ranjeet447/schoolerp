@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
+import { semanticBadge, semanticText } from "@/lib/semantic-theme";
 import {
   Activity,
   Zap,
@@ -110,14 +111,14 @@ export default function IntegrationsDashboard() {
         status: health?.is_healthy ? "Operational" : "Degraded",
         health: successRate,
         icon: Zap,
-        color: health?.is_healthy ? "text-emerald-500" : "text-amber-500",
+        color: health?.is_healthy ? semanticText("success") : semanticText("warning"),
       },
       {
         name: "Total Events (24h)",
         status: `${(health?.total_last_24h || 0).toLocaleString()} events`,
         health: Math.min(100, (health?.total_last_24h || 0) > 0 ? 100 : 0),
         icon: Activity,
-        color: "text-blue-500",
+        color: semanticText("info"),
       },
       {
         name: "Failed Events (24h)",
@@ -127,7 +128,7 @@ export default function IntegrationsDashboard() {
             ? Math.max(0, 100 - Math.round(((health?.failure_last_24h || 0) / (health?.total_last_24h || 1)) * 100))
             : 100,
         icon: ShieldCheck,
-        color: (health?.failure_last_24h || 0) > 0 ? "text-amber-500" : "text-indigo-500",
+        color: (health?.failure_last_24h || 0) > 0 ? semanticText("warning") : semanticText("primary"),
       },
     ],
     [health, successRate],
@@ -153,10 +154,10 @@ export default function IntegrationsDashboard() {
           <p className="mt-1 text-lg text-muted-foreground font-medium">Platform integration health and API telemetry.</p>
         </div>
         <div className="flex items-center gap-2">
-           <Badge className={health?.is_healthy ? "bg-emerald-500/10 text-emerald-600 border-none font-bold" : "bg-amber-500/10 text-amber-700 border-none font-bold"}>
+           <Badge className={`${health?.is_healthy ? semanticBadge("success") : semanticBadge("warning")} border-none font-bold`}>
              {health?.is_healthy ? "HEALTHY" : "DEGRADED"}
            </Badge>
-           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => void load()}>
+           <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => void load()}>
              <RefreshCw className="h-4 w-4" />
            </Button>
         </div>
@@ -166,7 +167,7 @@ export default function IntegrationsDashboard() {
         <Card className="border-destructive/20 bg-destructive/5">
           <CardContent className="flex flex-col gap-3 p-5 md:flex-row md:items-center md:justify-between">
             <p className="text-sm font-semibold text-destructive">{error}</p>
-            <Button size="sm" variant="outline" onClick={() => void load()} className="gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={() => void load()} className="gap-2">
               <RefreshCw className="h-4 w-4" />
               Retry
             </Button>
@@ -187,7 +188,7 @@ export default function IntegrationsDashboard() {
                   <h3 className="text-sm font-bold text-foreground">{service.name}</h3>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-black uppercase text-muted-foreground/60">{service.status}</span>
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary"></span>
                   </div>
                 </div>
                 <span className="text-sm font-black text-foreground">{Math.round(service.health)}%</span>
@@ -245,9 +246,9 @@ export default function IntegrationsDashboard() {
                      <div key={log.id} className={`flex items-center justify-between p-4 transition-colors ${success ? "hover:bg-muted/30" : "bg-amber-500/5"}`}>
                        <div className="flex items-center gap-3">
                          {success ? (
-                           <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                         <CheckCircle2 className={`h-4 w-4 ${semanticText("success")}`} />
                          ) : (
-                           <AlertCircle className="h-4 w-4 text-amber-500" />
+                           <AlertCircle className={`h-4 w-4 ${semanticText("warning")}`} />
                          )}
                          <div>
                            <p className="text-sm font-bold text-foreground">
@@ -269,13 +270,13 @@ export default function IntegrationsDashboard() {
            </CardContent>
          </Card>
 
-         <Card className="border-none shadow-sm bg-indigo-600 text-white overflow-hidden relative group">
+         <Card className="border-none shadow-sm bg-primary text-primary-foreground overflow-hidden relative group">
            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.2),transparent)] pointer-events-none" />
            <CardContent className="p-8 h-full flex flex-col justify-between">
              <div className="space-y-4">
                <Zap className="h-10 w-10 text-white/50" />
                <h3 className="text-2xl font-black leading-tight">Developer API Reference</h3>
-               <p className="text-indigo-100 text-sm leading-relaxed">
+               <p className="text-primary-foreground/80 text-sm leading-relaxed">
                  Access technical documentation for platform-level API integration and event schemas.
                </p>
              </div>

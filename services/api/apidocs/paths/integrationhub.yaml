@@ -1,0 +1,335 @@
+# Integrations Hub API Paths — Add-ons, credits, OAuth integrations, live classes
+
+/admin/billing/addons:
+  get:
+    operationId: listBillingAddons
+    tags: [Billing Add-ons]
+    summary: List available and active tenant add-ons
+    responses:
+      '200':
+        description: Add-on catalog with tenant state
+
+/admin/billing/addons/{code}/activate:
+  post:
+    operationId: activateBillingAddon
+    tags: [Billing Add-ons]
+    summary: Activate or request activation for a tenant add-on
+    parameters:
+      - in: path
+        name: code
+        required: true
+        schema: { type: string }
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              reason: { type: string }
+    responses:
+      '200':
+        description: Activated (self-serve) or request created
+
+/admin/billing/addons/{code}/cancel:
+  post:
+    operationId: cancelBillingAddon
+    tags: [Billing Add-ons]
+    summary: Cancel a tenant add-on
+    parameters:
+      - in: path
+        name: code
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Add-on cancelled
+
+/admin/billing/credits/balance:
+  get:
+    operationId: getCreditBalances
+    tags: [Billing Credits]
+    summary: Get tenant credit wallet balances and monthly usage summary
+    responses:
+      '200':
+        description: Credit balances
+
+/admin/billing/credits/ledger:
+  get:
+    operationId: getCreditLedger
+    tags: [Billing Credits]
+    summary: Get tenant credit ledger entries
+    parameters:
+      - in: query
+        name: wallet_type
+        schema: { type: string, example: sms_credits }
+      - in: query
+        name: limit
+        schema: { type: integer, default: 50 }
+      - in: query
+        name: offset
+        schema: { type: integer, default: 0 }
+    responses:
+      '200':
+        description: Credit ledger entries
+
+/admin/billing/credits/topup:
+  post:
+    operationId: requestCreditTopup
+    tags: [Billing Credits]
+    summary: Request a tenant credit top-up (platform approval/invoice flow)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [wallet_type, amount]
+            properties:
+              wallet_type: { type: string, example: sms_credits }
+              amount: { type: integer, format: int64, example: 1000 }
+    responses:
+      '202':
+        description: Top-up request created and pending approval
+
+/admin/platform/billing/credits/adjust:
+  post:
+    operationId: platformAdjustCredits
+    tags: [Platform Billing]
+    summary: Adjust tenant credits (support/finance action)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [tenant_id, wallet_type, amount, reference_id]
+            properties:
+              tenant_id: { type: string, format: uuid }
+              wallet_type: { type: string }
+              amount: { type: integer, format: int64, description: "Positive for credit, negative for debit" }
+              source: { type: string, example: support_adjustment }
+              reference_id: { type: string }
+              metadata: { type: object }
+    responses:
+      '200':
+        description: Adjustment applied
+      '409':
+        description: Insufficient credits for debit adjustment
+
+/admin/platform/billing/addons/catalog:
+  get:
+    operationId: listPlatformAddonCatalog
+    tags: [Platform Billing]
+    summary: List platform add-on catalog
+    responses:
+      '200':
+        description: Platform add-on catalog
+  post:
+    operationId: createOrUpdatePlatformAddonCatalogItem
+    tags: [Platform Billing]
+    summary: Create a platform add-on catalog item
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, name]
+            properties:
+              code: { type: string }
+              name: { type: string }
+              description: { type: string }
+              monthly_price_paise: { type: integer, format: int64 }
+              billing_period: { type: string, example: monthly }
+              category: { type: string }
+              status: { type: string, enum: [active, inactive, hidden] }
+              requires_approval: { type: boolean }
+              features_unlocked:
+                type: array
+                items: { type: string }
+              integration_unlocked: { type: string, example: google_workspace }
+              included_credits: { type: object, additionalProperties: { type: integer, format: int64 } }
+              config_schema: { type: object }
+              is_active: { type: boolean }
+    responses:
+      '200':
+        description: Catalog item saved
+
+/admin/platform/billing/addons/catalog/{code}:
+  put:
+    operationId: updatePlatformAddonCatalogItem
+    tags: [Platform Billing]
+    summary: Update a platform add-on catalog item
+    parameters:
+      - in: path
+        name: code
+        required: true
+        schema: { type: string }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name: { type: string }
+              description: { type: string }
+              monthly_price_paise: { type: integer, format: int64 }
+              billing_period: { type: string }
+              category: { type: string }
+              status: { type: string, enum: [active, inactive, hidden] }
+              requires_approval: { type: boolean }
+              features_unlocked:
+                type: array
+                items: { type: string }
+              integration_unlocked: { type: string }
+              included_credits: { type: object, additionalProperties: { type: integer, format: int64 } }
+              config_schema: { type: object }
+              is_active: { type: boolean }
+    responses:
+      '200':
+        description: Catalog item saved
+
+/admin/settings/integrations:
+  get:
+    operationId: listTenantIntegrations
+    tags: [Integrations]
+    summary: List tenant education integrations and add-on status
+    responses:
+      '200':
+        description: Integration list
+
+/admin/settings/integrations/{provider}/connect:
+  post:
+    operationId: startTenantIntegrationConnect
+    tags: [Integrations]
+    summary: Start OAuth connection for tenant integration
+    parameters:
+      - in: path
+        name: provider
+        required: true
+        schema: { type: string, enum: [google_workspace, microsoft_365] }
+    responses:
+      '200':
+        description: OAuth start response with auth URL
+
+/admin/settings/integrations/{provider}/callback:
+  get:
+    operationId: finishTenantIntegrationConnectAdminCallback
+    tags: [Integrations]
+    summary: Admin-auth callback alias for OAuth completion
+    parameters:
+      - in: path
+        name: provider
+        required: true
+        schema: { type: string, enum: [google_workspace, microsoft_365] }
+      - in: query
+        name: state
+        required: true
+        schema: { type: string }
+      - in: query
+        name: code
+        required: true
+        schema: { type: string }
+    responses:
+      '302':
+        description: Redirect to integrations page
+
+/integrations/oauth/{provider}/callback:
+  get:
+    operationId: finishTenantIntegrationConnectPublicCallback
+    tags: [Integrations]
+    summary: Public OAuth callback (tenant resolved by stored oauth_state)
+    security: []
+    parameters:
+      - in: path
+        name: provider
+        required: true
+        schema: { type: string, enum: [google_workspace, microsoft_365] }
+      - in: query
+        name: state
+        required: true
+        schema: { type: string }
+      - in: query
+        name: code
+        required: true
+        schema: { type: string }
+      - in: query
+        name: redirect
+        required: false
+        schema: { type: string }
+    responses:
+      '302':
+        description: Redirect to integrations page
+
+/admin/settings/integrations/{provider}/disconnect:
+  post:
+    operationId: disconnectTenantIntegration
+    tags: [Integrations]
+    summary: Disconnect tenant integration and clear stored tokens
+    parameters:
+      - in: path
+        name: provider
+        required: true
+        schema: { type: string, enum: [google_workspace, microsoft_365] }
+    responses:
+      '200':
+        description: Integration disconnected
+
+/teacher/live-classes/schedule:
+  post:
+    operationId: scheduleTeacherLiveClass
+    tags: [Live Classes]
+    summary: Schedule a live class and create provider meeting link
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, starts_at, ends_at]
+            properties:
+              title: { type: string }
+              description: { type: string }
+              class_id: { type: string, format: uuid }
+              section_id: { type: string, format: uuid }
+              provider: { type: string, enum: [google_workspace, microsoft_365] }
+              starts_at: { type: string, format: date-time }
+              ends_at: { type: string, format: date-time }
+    responses:
+      '201':
+        description: Live class scheduled
+      '403':
+        description: Upgrade required or add-on inactive
+
+/teacher/live-classes/list:
+  get:
+    operationId: listTeacherLiveClasses
+    tags: [Live Classes]
+    summary: List tenant live class events (teacher view)
+    parameters:
+      - in: query
+        name: limit
+        schema: { type: integer, default: 50 }
+    responses:
+      '200':
+        description: Live classes
+
+/parent/live-classes/list:
+  get:
+    operationId: listParentLiveClasses
+    tags: [Live Classes]
+    summary: List live class events visible to parent portal
+    responses:
+      '200':
+        description: Live classes
+
+/student/live-classes/list:
+  get:
+    operationId: listStudentLiveClasses
+    tags: [Live Classes]
+    summary: List live class events visible to student portal
+    responses:
+      '200':
+        description: Live classes

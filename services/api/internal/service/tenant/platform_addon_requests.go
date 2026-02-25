@@ -121,7 +121,7 @@ func (s *Service) CreateTenantAddonActivationRequest(ctx context.Context, tenant
 	if addonID == "" {
 		return TenantAddonActivationRequestRow{}, ErrAddonRequestAddonRequired
 	}
-	meta, ok := findAddonMetadata(addonID)
+	meta, ok := s.getPlatformAddonMetadata(ctx, addonID)
 	if !ok {
 		return TenantAddonActivationRequestRow{}, ErrAddonRequestAddonUnknown
 	}
@@ -359,7 +359,7 @@ func (s *Service) ReviewPlatformAddonActivationRequest(ctx context.Context, requ
 	if decision == "approve" && params.ActivateNow {
 		payload.ActivatedAt = now.Format(time.RFC3339)
 		status = "executed"
-		if err := s.UpdatePluginConfig(ctx, current.TenantID, payload.AddonID, true, payload.Settings); err != nil {
+		if err := s.UpdateTenantAddon(ctx, current.TenantID, payload.AddonID, true, payload.Settings); err != nil {
 			return TenantAddonActivationRequestRow{}, err
 		}
 	}
@@ -428,7 +428,7 @@ func (s *Service) ActivatePlatformAddonActivationRequest(ctx context.Context, re
 	}
 	payload.ActivatedAt = now.Format(time.RFC3339)
 
-	if err := s.UpdatePluginConfig(ctx, current.TenantID, payload.AddonID, true, payload.Settings); err != nil {
+	if err := s.UpdateTenantAddon(ctx, current.TenantID, payload.AddonID, true, payload.Settings); err != nil {
 		return TenantAddonActivationRequestRow{}, err
 	}
 

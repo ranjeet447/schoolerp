@@ -22,6 +22,13 @@ import (
 	"github.com/schoolerp/api/internal/db"
 )
 
+type gatewayWebhookCandidate struct {
+	TenantID       string
+	Provider       string
+	WebhookSecret  string
+	APISecret      string
+}
+
 type PaymentProvider interface {
 	CreateOrder(ctx context.Context, amount int64, currency string, receiptID string) (string, error)
 	VerifyWebhookSignature(body []byte, signature string, secret string) bool
@@ -729,4 +736,79 @@ func (s *Service) decryptSecret(val string) string {
 		return val
 	}
 	return string(dec)
+}
+
+func resolveWebhookTenantFromCandidates(provider string, body []byte, signature string, candidates []gatewayWebhookCandidate) (tenantID string, secret string, ok bool) {
+	p := strings.ToLower(strings.TrimSpace(provider))
+	for _, c := range candidates {
+		if strings.ToLower(strings.TrimSpace(c.Provider)) != p {
+			continue
+		}
+		switch p {
+		case "razorpay":
+			sec := strings.TrimSpace(c.WebhookSecret)
+			if sec == "" {
+				continue
+			}
+			if (&RazorpayProvider{}).VerifyWebhookSignature(body, signature, sec) {
+				return c.TenantID, sec, true
+			}
+		case "payu":
+			sec := strings.TrimSpace(c.WebhookSecret)
+			if sec == "" {
+				sec = strings.TrimSpace(c.APISecret)
+			}
+			if sec == "" {
+				continue
+			}
+			if (&PayUProvider{}).VerifyWebhookSignature(body, signature, sec) {
+				return c.TenantID, sec, true
+			}
+		}
+	}
+	return "", "", false
+}
+
+// ResolveWebhookTenant securely resolves the tenant by verifying the request signature
+// against active tenant gateway secrets for the provider. This avoids trusting query params.
+func (s *Service) ResolveWebhookTenant(ctx context.Context, provider string, body []byte, signature string) (tenantID string, secret string, err error) {
+	if s.db == nil {
+		return "", "", fmt.Errorf("database not available for webhook tenant resolution")
+	}
+	rows, err := s.db.Query(ctx, `
+		SELECT tenant_id, provider, COALESCE(webhook_secret, ''), COALESCE(api_secret, '')
+		FROM payment_gateway_configs
+		WHERE provider = $1 AND is_active = TRUE
+	`, strings.ToLower(strings.TrimSpace(provider)))
+	if err != nil {
+		return "", "", err
+	}
+	defer rows.Close()
+
+	candidates := make([]gatewayWebhookCandidate, 0, 8)
+	for rows.Next() {
+		var tid pgtype.UUID
+		var prov, webhookSecret, apiSecret string
+		if err := rows.Scan(&tid, &prov, &webhookSecret, &apiSecret); err != nil {
+			return "", "", err
+		}
+		tidStr, err := pgUUIDToString(tid)
+		if err != nil {
+			continue
+		}
+		candidates = append(candidates, gatewayWebhookCandidate{
+			TenantID:      tidStr,
+			Provider:      prov,
+			WebhookSecret: s.decryptSecret(webhookSecret),
+			APISecret:     s.decryptSecret(apiSecret),
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return "", "", err
+	}
+	tid, sec, ok := resolveWebhookTenantFromCandidates(provider, body, signature, candidates)
+	if !ok {
+		return "", "", fmt.Errorf("unable to resolve tenant for webhook")
+	}
+	return tid, sec, nil
 }

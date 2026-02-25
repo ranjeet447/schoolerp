@@ -68,6 +68,7 @@ const NAV_GROUPS = [
       { href: "/platform/plans", label: "Product Dash", icon: Layers3, permission: "platform:tenant.read", keywords: ["pricing", "subscriptions", "plan"] },
       { href: "/platform/signup-requests", label: "Onboarding Queue", icon: FileCheck2, permission: "platform:tenant.write", keywords: ["approval", "prospects", "requests"] },
       { href: "/platform/payments", label: "Billing Dash", icon: CreditCard, permission: "platform:billing.read", keywords: ["invoices", "collections", "refunds"] },
+      { href: "/platform/settings/gateways", label: "Gateway Pricing", icon: CreditCard, permission: "platform:billing.write", keywords: ["gateway", "rates", "pricing", "billing config"] },
     ],
   },
   {

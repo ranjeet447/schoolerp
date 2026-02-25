@@ -219,6 +219,7 @@ export default function TenantListPage() {
                     <TableCell className="text-right px-8">
                        <div className="flex items-center justify-end gap-2">
                           <Button 
+                            type="button"
                             variant="outline" 
                             size="sm" 
                             className="rounded-xl h-9 px-4 font-bold border-primary/20 text-primary hover:bg-primary/5 gap-2"
@@ -233,6 +234,7 @@ export default function TenantListPage() {
                              Impersonate
                           </Button>
                           <Button 
+                            type="button"
                             variant="ghost" 
                             size="icon" 
                             className={`rounded-xl h-9 w-9 ${tenant.lifecycle_status === 'suspended' ? 'text-emerald-500 hover:bg-emerald-500/10' : 'text-rose-500 hover:bg-rose-500/10'}`}
@@ -300,10 +302,11 @@ export default function TenantListPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setImpersonationDialogOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setImpersonationDialogOpen(false)}>
               Cancel
             </Button>
             <Button
+              type="button"
               onClick={handleImpersonate}
               disabled={!impersonationTenant || impersonationReason.trim().length < 10 || actionLoading === `impersonate-${impersonationTenant?.id}`}
               className="gap-2"

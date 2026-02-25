@@ -46,6 +46,9 @@ type PluginMetadata struct {
 	Description string                 `json:"description"`
 	Category    string                 `json:"category"`
 	Config      map[string]interface{} `json:"config_schema,omitempty"` // For dynamic form generation
+	PricePaise  int64                  `json:"price_paise,omitempty"`
+	BillingPeriod string               `json:"billing_period,omitempty"`
+	IsActive    bool                   `json:"is_active"`
 }
 
 var SystemPlugins = []PluginMetadata{
@@ -54,6 +57,9 @@ var SystemPlugins = []PluginMetadata{
 		Name:        "Razorpay Payments",
 		Description: "Accept online payments via Razorpay gateway.",
 		Category:    "Finance",
+		PricePaise:  19900,
+		BillingPeriod: "monthly",
+		IsActive:    true,
 		Config: map[string]interface{}{
 			"key_id":     "text",
 			"key_secret": "password",
@@ -64,6 +70,9 @@ var SystemPlugins = []PluginMetadata{
 		Name:        "SMS Gateway",
 		Description: "Send automated SMS notifications to parents and staff.",
 		Category:    "Communication",
+		PricePaise:  0,
+		BillingPeriod: "monthly",
+		IsActive:    true,
 		Config: map[string]interface{}{
 			"provider": "text", // e.g. "twilio", "msg91"
 			"api_key":  "password",
@@ -74,6 +83,9 @@ var SystemPlugins = []PluginMetadata{
 		Name:        "Google Analytics",
 		Description: "Track website traffic and user engagement.",
 		Category:    "Marketing",
+		PricePaise:  0,
+		BillingPeriod: "monthly",
+		IsActive:    true,
 		Config: map[string]interface{}{
 			"tracking_id": "text",
 		},
@@ -83,6 +95,9 @@ var SystemPlugins = []PluginMetadata{
 		Name:        "AI Suite (Practical AI)",
 		Description: "Enable AI Teacher Copilot and Parent Helpdesk.",
 		Category:    "AI & Automation",
+		PricePaise:  99900,
+		BillingPeriod: "monthly",
+		IsActive:    true,
 		Config: map[string]interface{}{
 			"enable_teacher_copilot": "boolean",
 			"enable_parent_helpdesk": "boolean",
@@ -164,8 +179,19 @@ func (s *Service) ListPlugins(ctx context.Context, tenantSubdomain string) ([]ma
 		pluginsConfig = make(map[string]interface{})
 	}
 
-	result := make([]map[string]interface{}, len(SystemPlugins))
-	for i, p := range SystemPlugins {
+	catalog, err := s.listPlatformAddonCatalog(ctx)
+	if err != nil {
+		catalog = defaultPlatformAddonCatalog()
+	}
+	if len(catalog) == 0 {
+		catalog = defaultPlatformAddonCatalog()
+	}
+
+	entitlements, _ := s.listTenantAddonEntitlementsByCode(ctx, t.ID.String())
+
+	result := make([]map[string]interface{}, 0, len(catalog))
+	seen := make(map[string]struct{}, len(catalog))
+	for _, p := range catalog {
 		pluginState, ok := pluginsConfig[p.ID].(map[string]interface{})
 		isEnabled := false
 		var settings interface{}
@@ -175,11 +201,38 @@ func (s *Service) ListPlugins(ctx context.Context, tenantSubdomain string) ([]ma
 			settings = pluginState["settings"]
 		}
 
-		result[i] = map[string]interface{}{
+		entitlement, hasEntitlement := entitlements[p.ID]
+
+		result = append(result, map[string]interface{}{
 			"metadata": p,
 			"enabled":  isEnabled,
 			"settings": settings,
+			"catalog_active": p.IsActive,
+			"entitled": hasEntitlement && strings.EqualFold(entitlement.Status, "active"),
+			"entitlement_status": entitlement.Status,
+			"entitlement_expires_at": entitlement.ExpiresAt,
+		})
+		seen[p.ID] = struct{}{}
+	}
+
+	// Preserve legacy plugin states if they exist in tenant config but are absent from catalog.
+	for _, p := range SystemPlugins {
+		if _, ok := seen[p.ID]; ok {
+			continue
 		}
+		pluginState, ok := pluginsConfig[p.ID].(map[string]interface{})
+		isEnabled := false
+		var settings interface{}
+		if ok {
+			isEnabled, _ = pluginState["enabled"].(bool)
+			settings = pluginState["settings"]
+		}
+		result = append(result, map[string]interface{}{
+			"metadata": p,
+			"enabled":  isEnabled,
+			"settings": settings,
+			"catalog_active": p.IsActive,
+		})
 	}
 
 	return result, nil
@@ -200,6 +253,10 @@ func (s *Service) MintImpersonationToken(ctx context.Context, claims jwt.MapClai
 }
 
 func (s *Service) UpdatePluginConfig(ctx context.Context, tenantID string, pluginID string, enabled bool, settings map[string]interface{}) error {
+	return s.updatePluginConfig(ctx, tenantID, pluginID, enabled, settings, true)
+}
+
+func (s *Service) updatePluginConfig(ctx context.Context, tenantID string, pluginID string, enabled bool, settings map[string]interface{}, enforceEntitlement bool) error {
 	var tid pgtype.UUID
 	if err := tid.Scan(tenantID); err != nil {
 		return err
@@ -218,6 +275,20 @@ func (s *Service) UpdatePluginConfig(ctx context.Context, tenantID string, plugi
 	pluginsConfig, ok := config["plugins"].(map[string]interface{})
 	if !ok {
 		pluginsConfig = make(map[string]interface{})
+	}
+
+	currentEnabled := false
+	if raw, ok := pluginsConfig[pluginID].(map[string]interface{}); ok {
+		currentEnabled, _ = raw["enabled"].(bool)
+	}
+
+	if enforceEntitlement && enabled && !currentEnabled {
+		if _, isCatalogAddon := s.getPlatformAddonMetadata(ctx, pluginID); isCatalogAddon {
+			hasEntitlement, err := s.hasActiveTenantAddonEntitlement(ctx, tenantID, pluginID)
+			if err == nil && !hasEntitlement {
+				return ErrAddonRequired
+			}
+		}
 	}
 
 	pluginsConfig[pluginID] = map[string]interface{}{

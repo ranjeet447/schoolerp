@@ -323,7 +323,7 @@ export default function PlatformPlansPage() {
           <h1 className="text-3xl font-black tracking-tight text-foreground">Product Packaging</h1>
           <p className="text-muted-foreground">Manage service plans, feature flags and rollout cohorts.</p>
         </div>
-        <Button onClick={() => handleOpenPlanDialog()}>
+        <Button type="button" onClick={() => handleOpenPlanDialog()}>
           <Plus className="mr-2 h-4 w-4" /> Create New Plan
         </Button>
       </div>
@@ -475,7 +475,7 @@ export default function PlatformPlansPage() {
                              <input type="checkbox" checked={rolloutForm.dry_run} onChange={e => setRolloutForm(p => ({ ...p, dry_run: e.target.checked }))} id="dryrun" />
                              <Label htmlFor="dryrun">Dry Run (Simulate only)</Label>
                          </div>
-                         <Button onClick={handleRollout} disabled={busyId === "rollout"}>
+                         <Button type="button" onClick={handleRollout} disabled={busyId === "rollout"}>
                             {busyId === "rollout" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                              Execute Rollout
                          </Button>
@@ -550,8 +550,8 @@ export default function PlatformPlansPage() {
                   </div>
               </div>
               <DialogFooter>
-                  <Button variant="outline" onClick={() => setPlanDialogOpen(false)}>Cancel</Button>
-                  <Button onClick={handleSavePlan} disabled={busyId === "save-plan"}>
+                  <Button type="button" variant="outline" onClick={() => setPlanDialogOpen(false)}>Cancel</Button>
+                  <Button type="button" onClick={handleSavePlan} disabled={busyId === "save-plan"}>
                       {busyId === "save-plan" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       Save Plan
                   </Button>
@@ -597,8 +597,8 @@ export default function PlatformPlansPage() {
                   </div>
               </div>
               <DialogFooter>
-                  <Button variant="outline" onClick={() => setCloneDialogOpen(false)}>Cancel</Button>
-                  <Button onClick={handleClonePlan} disabled={busyId.startsWith("clone-")}>
+                  <Button type="button" variant="outline" onClick={() => setCloneDialogOpen(false)}>Cancel</Button>
+                  <Button type="button" onClick={handleClonePlan} disabled={busyId.startsWith("clone-")}>
                       {busyId.startsWith("clone-") && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       Clone Plan
                   </Button>

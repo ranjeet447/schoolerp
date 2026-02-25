@@ -100,13 +100,13 @@ func main() {
 	defer maintenanceTicker.Stop()
 	go func() {
 		// Run once on startup
-		processMaintenance(ctx, pool)
-		for {
+			processMaintenance(ctx, pool, billingSvc)
+			for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-maintenanceTicker.C:
-				processMaintenance(ctx, pool)
+					processMaintenance(ctx, pool, billingSvc)
 			}
 		}
 	}()
@@ -157,7 +157,7 @@ func processPoll(ctx context.Context, q db.Querier, pdfSvc *pdf.Processor) {
 	}
 }
 
-func processMaintenance(ctx context.Context, pool *pgxpool.Pool) {
+func processMaintenance(ctx context.Context, pool *pgxpool.Pool, billingSvc *service.BillingService) {
 	// B3 Hardening: Delete webhook logs older than 90 days
 	// We use raw SQL to avoid needing to regenerate SQLC models during this hardening turn.
 	res, err := pool.Exec(ctx, "DELETE FROM webhook_logs WHERE created_at < NOW() - INTERVAL '90 days'")
@@ -165,6 +165,14 @@ func processMaintenance(ctx context.Context, pool *pgxpool.Pool) {
 		log.Error().Err(err).Msg("Failed to cleanup old webhook logs")
 	} else if count := res.RowsAffected(); count > 0 {
 		log.Info().Int64("count", count).Msg("Cleaned up old webhook logs")
+	}
+	if billingSvc != nil {
+		if err := billingSvc.ApplyMonthlyIncludedCredits(ctx, time.Now().Format("2006-01")); err != nil {
+			log.Error().Err(err).Msg("Failed applying monthly included credits")
+		}
+		if err := billingSvc.RefreshExpiringIntegrationTokens(ctx); err != nil {
+			log.Error().Err(err).Msg("Failed refreshing tenant integration tokens")
+		}
 	}
 }
 
@@ -219,4 +227,3 @@ func processReminders(ctx context.Context, q db.Querier) {
 		log.Info().Int("count", len(slots)).Msg("Processed PTM reminders")
 	}
 }
-

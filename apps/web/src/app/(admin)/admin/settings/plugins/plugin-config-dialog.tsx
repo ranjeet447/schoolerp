@@ -12,9 +12,15 @@ type PluginItem = {
     name: string;
     description?: string;
     config_schema?: Record<string, string>;
+    price_paise?: number;
+    billing_period?: string;
+    is_active?: boolean;
   };
   enabled: boolean;
   settings?: Record<string, unknown>;
+  catalog_active?: boolean;
+  entitled?: boolean;
+  entitlement_status?: string;
 };
 
 type AddonActivationRequest = {
@@ -38,8 +44,12 @@ export default function PluginConfigDialog({ plugin, latestRequest, open, onOpen
   const [settings, setSettings] = useState<Record<string, unknown>>(plugin.settings || {});
   const [reason, setReason] = useState('');
   const requestStatus = (latestRequest?.status || '').toLowerCase();
-  const isRequestMode = !plugin.enabled;
+  const isEntitled = Boolean(plugin.entitled);
+  const catalogActive = plugin.catalog_active !== false && plugin.metadata.is_active !== false;
+  const isRequestMode = !plugin.enabled && !isEntitled;
   const requestLocked = requestStatus === 'pending' || requestStatus === 'approved';
+  const pricePaise = Number(plugin.metadata.price_paise || 0);
+  const billingPeriod = plugin.metadata.billing_period || "monthly";
 
   useEffect(() => {
     setSettings(plugin.settings || {});
@@ -112,6 +122,24 @@ export default function PluginConfigDialog({ plugin, latestRequest, open, onOpen
           </div>
         ) : null}
 
+        <div className="rounded-md border border-white/10 bg-white/5 p-3 text-xs text-slate-300">
+          <p className="font-semibold text-white">
+            Pricing:{" "}
+            {pricePaise > 0
+              ? `Rs ${Math.round(pricePaise / 100).toLocaleString("en-IN")} / ${billingPeriod}`
+              : "Usage / custom pricing (contact platform admin)"}
+          </p>
+          <p className="mt-1 text-slate-400">
+            {plugin.enabled
+              ? "This add-on is active for your tenant."
+              : isEntitled
+                ? "Entitlement is active. You can enable and configure it for your tenant."
+                : catalogActive
+                  ? "Submit a request for platform approval and billing activation."
+                  : "This add-on is currently unavailable in the platform catalog."}
+          </p>
+        </div>
+
         <div className="grid gap-4 py-2">
           {Object.entries(plugin.metadata.config_schema || {}).map(([key, type]) => {
             const inputType = String(type || 'text').toLowerCase();
@@ -175,14 +203,15 @@ export default function PluginConfigDialog({ plugin, latestRequest, open, onOpen
 
         <DialogFooter>
           <Button
+            type="button"
             onClick={handleSave}
-            disabled={loading || requestLocked}
+            disabled={loading || requestLocked || (!plugin.enabled && !isEntitled && !catalogActive)}
             className="bg-indigo-600 hover:bg-indigo-700 text-white w-full"
           >
             {loading ? 'Submitting...' : (
               <span className="flex items-center gap-2">
                 <Save className="h-4 w-4" />
-                {isRequestMode ? 'Submit Activation Request' : 'Save Settings'}
+                {isRequestMode ? 'Submit Activation Request' : (plugin.enabled ? 'Save Settings' : 'Enable & Save Settings')}
               </span>
             )}
           </Button>
@@ -191,4 +220,3 @@ export default function PluginConfigDialog({ plugin, latestRequest, open, onOpen
     </Dialog>
   );
 }
-

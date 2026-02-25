@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
+import { semanticIconChip, semanticText } from "@/lib/semantic-theme";
 import {
   CreditCard,
   TrendingUp,
@@ -166,7 +167,7 @@ export default function PaymentsDashboard() {
         <Card className="border-destructive/20 bg-destructive/5">
           <CardContent className="flex flex-col gap-3 p-5 md:flex-row md:items-center md:justify-between">
             <p className="text-sm font-semibold text-destructive">{error}</p>
-            <Button size="sm" variant="outline" onClick={() => void load()} className="gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={() => void load()} className="gap-2">
               <RefreshCcw className="h-4 w-4" />
               Retry
             </Button>
@@ -183,7 +184,7 @@ export default function PaymentsDashboard() {
                   <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60">{stat.label}</p>
                   <h3 className="mt-2 text-2xl font-black text-foreground">{stat.value}</h3>
                   <div className={`mt-1 flex items-center gap-1 text-xs font-bold ${
-                    stat.trend === "up" ? "text-emerald-500" : "text-amber-500"
+                    stat.trend === "up" ? semanticText("success") : semanticText("warning")
                   }`}>
                     {stat.trend === "up" ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
                     {stat.change}
@@ -206,7 +207,7 @@ export default function PaymentsDashboard() {
               <CardContent className="p-6">
                 <div className="flex flex-col gap-4">
                   <div className="flex items-center justify-between">
-                    <div className="rounded-xl p-3 bg-indigo-500/10 text-indigo-500">
+                    <div className={`rounded-xl p-3 ${semanticIconChip("primary")}`}>
                       <action.icon className="h-6 w-6" />
                     </div>
                     <ArrowRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
@@ -241,7 +242,7 @@ export default function PaymentsDashboard() {
               {payments.map((payment) => (
                 <div key={payment.id} className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600 font-black text-[10px]">
+                    <div className={`h-8 w-8 rounded-full flex items-center justify-center font-black text-[10px] ${semanticIconChip("success")}`}>
                       ₹
                     </div>
                     <div>

@@ -259,18 +259,24 @@ func (c *Consumer) handleEvent(ctx context.Context, event db.Outbox) error {
 			notif = ta.WithTenant(event.TenantID.String())
 		}
 
-		// Billing Gating
-		if err := c.checkAddon(ctx, event.TenantID, "communications_sms"); err != nil {
-			return err
-		}
+			// Billing Gating
+			if err := c.checkAddon(ctx, event.TenantID, "communications_sms"); err != nil {
+				return err
+			}
+			ref := fmt.Sprintf("outbox-%s", hex.EncodeToString(event.ID.Bytes[:]))
+			if err := c.ensureCreditsAvailable(ctx, event.TenantID, "sms_credits", "sms", ref); err != nil {
+				return err
+			}
 
-		if err := notif.SendSMS(ctx, phone, message); err != nil {
-			return err
-		}
+			if err := notif.SendSMS(ctx, phone, message); err != nil {
+				return err
+			}
 
-		// Debit credits
-		ref := fmt.Sprintf("outbox-%s", hex.EncodeToString(event.ID.Bytes[:]))
-		return c.debitCredits(ctx, event.TenantID, "sms", "SMS Alert", ref, map[string]interface{}{"event_type": event.EventType})
+			// Debit credits
+			if err := c.debitTenantCredits(ctx, event.TenantID, "sms_credits", "SMS Alert", ref, map[string]interface{}{"event_type": event.EventType}); err != nil {
+				return err
+			}
+			return c.debitCredits(ctx, event.TenantID, "sms", "SMS Alert", ref, map[string]interface{}{"event_type": event.EventType})
 
 	case "fee.paid":
 		var payload map[string]interface{}
@@ -286,18 +292,24 @@ func (c *Consumer) handleEvent(ctx context.Context, event db.Outbox) error {
 			notif = ta.WithTenant(event.TenantID.String())
 		}
 
-		// Billing Gating
-		if err := c.checkAddon(ctx, event.TenantID, "communications_whatsapp"); err != nil {
-			return err
-		}
+			// Billing Gating
+			if err := c.checkAddon(ctx, event.TenantID, "communications_whatsapp"); err != nil {
+				return err
+			}
+			ref := fmt.Sprintf("outbox-%s", hex.EncodeToString(event.ID.Bytes[:]))
+			if err := c.ensureCreditsAvailable(ctx, event.TenantID, "whatsapp_credits", "whatsapp", ref); err != nil {
+				return err
+			}
 
-		if err := notif.SendWhatsApp(ctx, contact, "Fee payment received. Thank you!"); err != nil {
-			return err
-		}
+			if err := notif.SendWhatsApp(ctx, contact, "Fee payment received. Thank you!"); err != nil {
+				return err
+			}
 
-		// Debit credits
-		ref := fmt.Sprintf("outbox-%s", hex.EncodeToString(event.ID.Bytes[:]))
-		return c.debitCredits(ctx, event.TenantID, "whatsapp", "WhatsApp Fee Receipt", ref, map[string]interface{}{"event_type": event.EventType})
+			// Debit credits
+			if err := c.debitTenantCredits(ctx, event.TenantID, "whatsapp_credits", "WhatsApp Fee Receipt", ref, map[string]interface{}{"event_type": event.EventType}); err != nil {
+				return err
+			}
+			return c.debitCredits(ctx, event.TenantID, "whatsapp", "WhatsApp Fee Receipt", ref, map[string]interface{}{"event_type": event.EventType})
 
 	case "notice.published":
 		var payload map[string]interface{}
@@ -602,14 +614,29 @@ func (c *Consumer) checkAddon(ctx context.Context, tenantID pgtype.UUID, addonCo
 	if c.billing == nil {
 		return nil
 	}
-	active, err := c.billing.HasAddon(ctx, tenantID.String(), addonCode)
-	if err != nil {
-		return err
+	for _, candidate := range addonCodeCandidates(addonCode) {
+		active, err := c.billing.HasAddon(ctx, tenantID.String(), candidate)
+		if err != nil {
+			return err
+		}
+		if active {
+			return nil
+		}
 	}
-	if !active {
-		return fmt.Errorf("ADDON_REQUIRED: %s", addonCode)
+	return fmt.Errorf("ADDON_REQUIRED: %s", addonCode)
+}
+
+func addonCodeCandidates(addonCode string) []string {
+	switch addonCode {
+	case "communications_sms":
+		// Backward-compat: catalog/default seed currently uses notifications_sms.
+		return []string{"communications_sms", "notifications_sms"}
+	case "communications_whatsapp":
+		// Backward-compat for deployments that gate WhatsApp under the generic SMS/notifications add-on.
+		return []string{"communications_whatsapp", "notifications_whatsapp", "notifications_sms"}
+	default:
+		return []string{addonCode}
 	}
-	return nil
 }
 
 func (c *Consumer) debitCredits(ctx context.Context, tenantID pgtype.UUID, featureCode, desc, ref string, metadata map[string]interface{}) error {
@@ -623,4 +650,45 @@ func (c *Consumer) debitCredits(ctx context.Context, tenantID pgtype.UUID, featu
 	}
 
 	return c.billing.DebitWallet(ctx, tenantID.String(), rate, nil, "usage", desc, ref, metadata)
+}
+
+func (c *Consumer) ensureCreditsAvailable(ctx context.Context, tenantID pgtype.UUID, walletType, featureCode, ref string) error {
+	if c.billing == nil {
+		return nil
+	}
+	// Credit-balance gating (new tenant_credit_wallets), fall back to legacy rate-card wallet if not configured.
+	if balance, err := c.billing.GetCreditBalance(ctx, tenantID.String(), walletType); err == nil {
+		if rate, rateErr := c.billing.GetEffectiveRate(ctx, tenantID.String(), featureCode); rateErr == nil && rate > 0 {
+			if balance < rate {
+				return service.ErrInsufficientCredits
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Consumer) debitTenantCredits(ctx context.Context, tenantID pgtype.UUID, walletType, desc, ref string, metadata map[string]interface{}) error {
+	if c.billing == nil {
+		return nil
+	}
+	rate, err := c.billing.GetEffectiveRate(ctx, tenantID.String(), walletTypeToFeatureCode(walletType))
+	if err != nil || rate <= 0 {
+		return nil
+	}
+	return c.billing.DebitUsageCredits(ctx, tenantID.String(), walletType, rate, ref, metadata)
+}
+
+func walletTypeToFeatureCode(walletType string) string {
+	switch walletType {
+	case "sms_credits":
+		return "sms"
+	case "whatsapp_credits":
+		return "whatsapp"
+	case "email_credits":
+		return "email"
+	case "ai_credits":
+		return "ai_request"
+	default:
+		return walletType
+	}
 }

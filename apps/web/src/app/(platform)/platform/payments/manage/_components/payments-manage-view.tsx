@@ -1431,6 +1431,7 @@ export function PaymentsManageView({ activeTab }: { activeTab: PaymentsManageTab
 
           <DialogFooter>
             <Button
+              type="button"
               variant="outline"
               onClick={() => setAdjustmentDialog((prev) => ({ ...prev, open: false, invoice: null }))}
               disabled={busy}
@@ -1438,6 +1439,7 @@ export function PaymentsManageView({ activeTab }: { activeTab: PaymentsManageTab
               Cancel
             </Button>
             <Button
+              type="button"
               onClick={submitInvoiceAdjustment}
               disabled={busy || !adjustmentDialog.invoice}
             >

@@ -310,7 +310,10 @@ func (s *Service) UpdateTenantAddon(ctx context.Context, tenantID, addonID strin
 	if strings.TrimSpace(addonID) == "" {
 		return fmt.Errorf("%w: addon id is required", ErrInvalidWebhook)
 	}
-	return s.UpdatePluginConfig(ctx, tenantID, strings.TrimSpace(addonID), enabled, settings)
+	if err := s.setTenantAddonEntitlement(ctx, tenantID, strings.TrimSpace(addonID), enabled, settings); err != nil {
+		return err
+	}
+	return s.updatePluginConfig(ctx, tenantID, strings.TrimSpace(addonID), enabled, settings, false)
 }
 
 func hashSecret(secret string) string {

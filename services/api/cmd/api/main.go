@@ -46,6 +46,7 @@ import (
 	"github.com/schoolerp/api/internal/handler/files"
 	"github.com/schoolerp/api/internal/handler/finance"
 	"github.com/schoolerp/api/internal/handler/hrms"
+	integrationhubhandler "github.com/schoolerp/api/internal/handler/integrationhub"
 	"github.com/schoolerp/api/internal/handler/inventory"
 	kbhandler "github.com/schoolerp/api/internal/handler/kb"
 	"github.com/schoolerp/api/internal/handler/library"
@@ -74,6 +75,7 @@ import (
 	fileservice "github.com/schoolerp/api/internal/service/files"
 	financeservice "github.com/schoolerp/api/internal/service/finance"
 	hrmsservice "github.com/schoolerp/api/internal/service/hrms"
+	integrationhubservice "github.com/schoolerp/api/internal/service/integrationhub"
 	inventoryservice "github.com/schoolerp/api/internal/service/inventory"
 	kbservice "github.com/schoolerp/api/internal/service/kb"
 	libraryservice "github.com/schoolerp/api/internal/service/library"
@@ -281,6 +283,7 @@ func main() {
 	notificationService := notificationservice.NewService(querier, cryptoService)
 	academicService := academicservice.NewService(querier, auditLogger)
 	tenantService := tenantservice.NewService(querier, pool, sessionStore)
+	integrationHubService := integrationhubservice.NewService(pool, querier, cryptoService, auditLogger, tenantService)
 	marketingService := marketingservice.NewService(pool)
 	automationService := automationservice.NewAutomationService(querier)
 	kbService := kbservice.NewService(querier, pool, auditLogger)
@@ -318,6 +321,7 @@ func main() {
 	financeHandler := finance.NewHandler(financeService)
 	noticeHandler := notices.NewHandler(noticeService)
 	notificationHandler := notification.NewHandler(notificationService)
+	integrationHubHandler := integrationhubhandler.NewHandler(integrationHubService)
 	examHandler := exams.NewHandler(examService)
 	academicHandler := academic.NewHandler(academicService)
 	transportHandler := transport.NewHandler(transportService)
@@ -431,6 +435,7 @@ func main() {
 		fileHandler.RegisterRoutes(r)
 		marketingHandler.RegisterPublicRoutes(r)
 		admissionHandler.RegisterPublicRoutes(r)
+		integrationHubHandler.RegisterPublicRoutes(r)
 		r.Route("/payments", func(r chi.Router) {
 			financeHandler.RegisterWebhookRoutes(r)
 		})
@@ -442,6 +447,7 @@ func main() {
 		r.Route("/admin/platform", func(r chi.Router) {
 			r.Use(middleware.RoleGuard("super_admin", "support_l1", "support_l2", "finance", "ops", "developer"))
 			tenantHandler.RegisterPlatformRoutes(r)
+			integrationHubHandler.RegisterPlatformRoutes(r)
 		})
 
 		// Admin Routes
@@ -458,6 +464,7 @@ func main() {
 			financeHandler.RegisterRoutes(r)
 			noticeHandler.RegisterRoutes(r)
 			notificationHandler.RegisterRoutes(r)
+			integrationHubHandler.RegisterAdminRoutes(r)
 			examHandler.RegisterRoutes(r)
 			academicHandler.RegisterRoutes(r)
 			transportHandler.RegisterRoutes(r)
@@ -516,6 +523,7 @@ func main() {
 			calendarHandler.RegisterRoutes(r)
 			resourceHandler.RegisterRoutes(r)
 			hrmsHandler.RegisterTeacherRoutes(r)
+			integrationHubHandler.RegisterTeacherRoutes(r)
 		})
 
 		// Parent Routes
@@ -524,6 +532,7 @@ func main() {
 			studentHandler.RegisterParentRoutes(r)
 			attendanceHandler.RegisterParentRoutes(r)
 			financeHandler.RegisterParentRoutes(r)
+			integrationHubHandler.RegisterParentRoutes(r)
 			noticeHandler.RegisterParentRoutes(r)
 			examHandler.RegisterParentRoutes(r)
 			academicHandler.RegisterStudentRoutes(r)
@@ -533,6 +542,7 @@ func main() {
 		r.Route("/student", func(r chi.Router) {
 			r.Use(middleware.RoleGuard("student", "tenant_admin", "super_admin", "support_l1", "support_l2", "finance", "ops", "developer"))
 			academicHandler.RegisterStudentRoutes(r)
+			integrationHubHandler.RegisterStudentRoutes(r)
 			noticeHandler.RegisterParentRoutes(r) // Notices/Exams typically shared
 			examHandler.RegisterParentRoutes(r)
 		})

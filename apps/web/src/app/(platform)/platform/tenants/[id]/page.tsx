@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
 import { RBACService } from "@/lib/auth-service";
+import { semanticBadge, semanticOutlineButton } from "@/lib/semantic-theme";
 import { 
   Tabs, 
   TabsList, 
@@ -131,6 +132,9 @@ type TenantAddon = {
     description?: string;
     category?: string;
     config_schema?: Record<string, string>;
+    price_paise?: number;
+    billing_period?: string;
+    is_active?: boolean;
   };
   enabled: boolean;
   settings?: Record<string, unknown>;
@@ -1134,9 +1138,9 @@ export default function PlatformTenantDetailPage() {
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <h4 className="text-sm font-bold text-foreground">📋 Required DNS Records</h4>
                   {domainMap.domain_verified ? (
-                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">Verified</Badge>
+                    <Badge variant="outline" className={semanticBadge("success", "outline")}>Verified</Badge>
                   ) : (
-                    <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30">Pending Verification</Badge>
+                    <Badge variant="outline" className={semanticBadge("warning", "outline")}>Pending Verification</Badge>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground mb-3">
@@ -1155,7 +1159,7 @@ export default function PlatformTenantDetailPage() {
                     <tbody className="font-mono text-xs">
                       <tr className="border-b border-border/50">
                         <td className="py-2.5">
-                          <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">
+                          <Badge variant="outline" className={semanticBadge("info", "outline")}>
                             {isApexDomain ? "A / ALIAS" : "CNAME"}
                           </Badge>
                         </td>
@@ -1205,21 +1209,21 @@ export default function PlatformTenantDetailPage() {
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-muted-foreground">Domain:</span>
               {domainMap.domain_verified ? (
-                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">✅ Verified</Badge>
+                <Badge variant="outline" className={semanticBadge("success", "outline")}>✅ Verified</Badge>
               ) : (
-                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30">⏳ Not Verified</Badge>
+                <Badge variant="outline" className={semanticBadge("warning", "outline")}>⏳ Not Verified</Badge>
               )}
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-muted-foreground">Current Status:</span>
               {(!domainMap.ssl_status || domainMap.ssl_status === "pending") && (
-                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30">⏳ Pending</Badge>
+                <Badge variant="outline" className={semanticBadge("warning", "outline")}>⏳ Pending</Badge>
               )}
               {domainMap.ssl_status === "provisioning" && (
                 <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">🔄 Provisioning</Badge>
               )}
               {domainMap.ssl_status === "active" && (
-                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">✅ Active</Badge>
+                <Badge variant="outline" className={semanticBadge("success", "outline")}>✅ Active</Badge>
               )}
               {domainMap.ssl_status === "failed" && (
                 <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/30">❌ Failed</Badge>
@@ -1307,6 +1311,11 @@ export default function PlatformTenantDetailPage() {
                         <h3 className="font-semibold text-foreground">{addon.metadata?.name || addonID}</h3>
                         <p className="text-xs text-muted-foreground mt-1">{addon.metadata?.description || "No description available."}</p>
                         <p className="text-[11px] text-muted-foreground mt-1">Category: {addon.metadata?.category || "General"}</p>
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          Pricing: {typeof addon.metadata?.price_paise === "number" && addon.metadata.price_paise > 0
+                            ? `Rs ${Math.round(Number(addon.metadata.price_paise) / 100).toLocaleString("en-IN")} / ${String(addon.metadata?.billing_period || "monthly")}`
+                            : "Usage / custom pricing"}
+                        </p>
                       </div>
                       <div className="flex items-center gap-2">
                         <Label htmlFor={`addon-enabled-${addonID}`} className="text-xs text-muted-foreground">Enabled</Label>
@@ -1373,6 +1382,7 @@ export default function PlatformTenantDetailPage() {
 
                     <div className="mt-4 flex justify-end">
                       <Button
+                        type="button"
                         size="sm"
                         disabled={busyAddonId === addonID || busy}
                         onClick={() => void saveAddonConfig(addonID)}
@@ -1430,12 +1440,12 @@ export default function PlatformTenantDetailPage() {
                         variant="outline"
                         className={
                           isExecuted
-                            ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                            ? semanticBadge("success", "outline")
                             : isApproved
-                              ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                              ? semanticBadge("info", "outline")
                               : status === "rejected"
-                                ? "bg-red-500/10 text-red-600 border-red-500/30"
-                                : "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                                ? semanticBadge("danger", "outline")
+                                : semanticBadge("warning", "outline")
                         }
                       >
                         {status || "pending"}
@@ -1461,6 +1471,7 @@ export default function PlatformTenantDetailPage() {
                       {isPending ? (
                         <>
                           <Button
+                            type="button"
                             size="sm"
                             variant="outline"
                             disabled={busyAddonRequestId === req.id}
@@ -1469,6 +1480,7 @@ export default function PlatformTenantDetailPage() {
                             Reject
                           </Button>
                           <Button
+                            type="button"
                             size="sm"
                             disabled={busyAddonRequestId === req.id}
                             onClick={() => void reviewAddonRequest(req.id, "approve", false)}
@@ -1476,6 +1488,7 @@ export default function PlatformTenantDetailPage() {
                             Approve
                           </Button>
                           <Button
+                            type="button"
                             size="sm"
                             variant="secondary"
                             disabled={busyAddonRequestId === req.id}
@@ -1487,6 +1500,7 @@ export default function PlatformTenantDetailPage() {
                       ) : null}
                       {isApproved ? (
                         <Button
+                          type="button"
                           size="sm"
                           disabled={busyAddonRequestId === req.id}
                           onClick={() => void activateAddonRequest(req.id)}
@@ -1546,7 +1560,7 @@ export default function PlatformTenantDetailPage() {
                   onChange={(e) => setPlanFlagsText(e.target.value)}
                 />
             </div>
-            <Button disabled={busy}>
+            <Button type="submit" disabled={busy}>
               Assign Plan & Overrides
             </Button>
 
@@ -1667,8 +1681,8 @@ export default function PlatformTenantDetailPage() {
               <Input type="password" placeholder="Enter new password (min. 8 characters)" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)} />
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={resetAdminPassword} disabled={busy || !newAdminPassword || newAdminPassword.length < 8}>Reset Admin Password</Button>
-              <Button variant="destructive" onClick={forceLogoutUsers} disabled={busy}>Force Logout All Users</Button>
+              <Button type="button" variant="outline" onClick={resetAdminPassword} disabled={busy || !newAdminPassword || newAdminPassword.length < 8}>Reset Admin Password</Button>
+              <Button type="button" variant="destructive" onClick={forceLogoutUsers} disabled={busy}>Force Logout All Users</Button>
             </div>
           </div>
         </div>
@@ -1680,46 +1694,52 @@ export default function PlatformTenantDetailPage() {
           Start a trial, extend trial duration, or convert tenant to paid active subscription.
         </p>
         <div className="mt-3 grid gap-2 md:grid-cols-4">
-          <input
+          <Input
             type="number"
             min={1}
-            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            className="h-10"
             value={trialDays}
             onChange={(e) => setTrialDays(e.target.value)}
             placeholder="Trial days"
           />
-          <input
+          <Input
             type="number"
             min={1}
-            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
+            className="h-10"
             value={renewAfterDays}
             onChange={(e) => setRenewAfterDays(e.target.value)}
             placeholder="Renew after days"
           />
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             disabled={busy}
             onClick={() => manageTrialLifecycle("start")}
-            className="rounded border border-indigo-600/40 px-3 py-2 text-sm text-indigo-700 hover:bg-indigo-500/10 disabled:opacity-60 dark:border-indigo-700 dark:text-indigo-200 dark:hover:bg-indigo-900/20"
+            className={semanticOutlineButton("primary")}
           >
             Start Trial
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             disabled={busy}
             onClick={() => manageTrialLifecycle("extend")}
-            className="rounded border border-amber-600/40 px-3 py-2 text-sm text-amber-700 hover:bg-amber-500/10 disabled:opacity-60 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/20"
+            className={semanticOutlineButton("warning")}
           >
             Extend Trial
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             disabled={busy}
             onClick={() => manageTrialLifecycle("convert_paid")}
-            className="rounded border border-emerald-600/40 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-60 dark:border-emerald-700 dark:text-emerald-200 dark:hover:bg-emerald-900/20 md:col-span-4"
+            className={semanticOutlineButton("success", "md:col-span-4")}
           >
             Convert To Paid
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -1763,42 +1783,39 @@ export default function PlatformTenantDetailPage() {
         </div>
 
         <div className="mt-3 grid gap-2 md:grid-cols-5">
-          <input
-            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+          <Input
             placeholder="Retry cadence days (e.g. 3,7,14)"
             value={dunningRetryCadence}
             onChange={(e) => setDunningRetryCadence(e.target.value)}
           />
-          <input
-            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+          <Input
             placeholder="Channels (email,sms,whatsapp)"
             value={dunningChannels}
             onChange={(e) => setDunningChannels(e.target.value)}
           />
-          <input
+          <Input
             type="number"
             min={1}
-            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
             placeholder="Max retries"
             value={dunningMaxRetries}
             onChange={(e) => setDunningMaxRetries(e.target.value)}
           />
-          <input
+          <Input
             type="number"
             min={1}
-            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
             placeholder="Grace days"
             value={dunningGraceDays}
             onChange={(e) => setDunningGraceDays(e.target.value)}
           />
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             disabled={busy}
             onClick={saveDunningRules}
-            className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
           >
             Save Dunning Rules
-          </button>
+          </Button>
           <label className="md:col-span-5 flex items-center gap-2 text-sm text-muted-foreground">
             <input
               type="checkbox"
@@ -1810,44 +1827,49 @@ export default function PlatformTenantDetailPage() {
         </div>
 
         <div className="mt-3 grid gap-2 md:grid-cols-4">
-          <input
-            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground md:col-span-2"
+          <Input
+            className="md:col-span-2"
             placeholder="Lock/Grace reason"
             value={billingLockReason}
             onChange={(e) => setBillingLockReason(e.target.value)}
           />
-          <input
+          <Input
             type="number"
             min={1}
-            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
             placeholder="Grace days"
             value={billingLockGraceDays}
             onChange={(e) => setBillingLockGraceDays(e.target.value)}
           />
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             disabled={busy}
             onClick={() => manageBillingLock("start_grace")}
-            className="rounded border border-indigo-600/40 px-3 py-2 text-sm text-indigo-700 hover:bg-indigo-500/10 disabled:opacity-60 dark:border-indigo-700 dark:text-indigo-200 dark:hover:bg-indigo-900/20"
+            className={semanticOutlineButton("primary")}
           >
             Start Grace
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             disabled={busy}
             onClick={() => manageBillingLock("lock")}
-            className="rounded border border-red-600/40 px-3 py-2 text-sm text-red-700 hover:bg-red-500/10 disabled:opacity-60 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/20"
+            className={semanticOutlineButton("danger")}
           >
             Lock Tenant Access
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             disabled={busy}
             onClick={() => manageBillingLock("unlock")}
-            className="rounded border border-emerald-600/40 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-60 dark:border-emerald-700 dark:text-emerald-200 dark:hover:bg-emerald-900/20"
+            className={semanticOutlineButton("success")}
           >
             Unlock Access
-          </button>
+          </Button>
         </div>
 
         <div className="mt-4 rounded border border-border bg-background/40 p-3">
@@ -1856,42 +1878,45 @@ export default function PlatformTenantDetailPage() {
             Freeze billing actions for this tenant without locking access. Reason is required for audit logging.
           </p>
           <div className="mt-2 grid gap-2 md:grid-cols-3">
-            <input
-              className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground md:col-span-2"
+            <Input
+              className="md:col-span-2"
               placeholder="Freeze reason (required)"
               value={billingFreezeReason}
               onChange={(e) => setBillingFreezeReason(e.target.value)}
             />
-            <input
+            <Input
               type="datetime-local"
-              className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
               value={billingFreezeEndsAt}
               onChange={(e) => setBillingFreezeEndsAt(e.target.value)}
             />
-            <input
-              className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground md:col-span-3"
+            <Input
+              className="md:col-span-3"
               placeholder="Incident ID (optional)"
               value={billingFreezeIncidentId}
               onChange={(e) => setBillingFreezeIncidentId(e.target.value)}
             />
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               disabled={busy || !billingFreezeReason.trim()}
               onClick={() => manageBillingFreeze("start")}
-              className="rounded border border-indigo-600/40 px-3 py-2 text-sm text-indigo-700 hover:bg-indigo-500/10 disabled:opacity-60 dark:border-indigo-700 dark:text-indigo-200 dark:hover:bg-indigo-900/20"
+              className={semanticOutlineButton("primary")}
             >
               Start Freeze
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               disabled={busy || !billingFreezeReason.trim()}
               onClick={() => manageBillingFreeze("stop")}
-              className="rounded border border-emerald-600/40 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-60 dark:border-emerald-700 dark:text-emerald-200 dark:hover:bg-emerald-900/20"
+              className={semanticOutlineButton("success")}
             >
               Stop Freeze
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -1917,10 +1942,10 @@ export default function PlatformTenantDetailPage() {
             )}
           </div>
           <div className="flex items-center gap-3">
-            <Button onClick={impersonateTenantAdmin} disabled={busy || impersonationReason.trim().length < 10}>
+            <Button type="button" onClick={impersonateTenantAdmin} disabled={busy || impersonationReason.trim().length < 10}>
               Login As Tenant Admin
             </Button>
-            <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600 border-amber-500/30">
+            <Badge variant="outline" className={`text-xs ${semanticBadge("warning", "outline")}`}>
               ⚠ Session limited to 30 minutes
             </Badge>
           </div>
@@ -1935,31 +1960,26 @@ export default function PlatformTenantDetailPage() {
               Generate a ZIP export (NDJSON per tenant-scoped table + manifest). This is intended for portability and compliance requests.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={loadData}
-            disabled={busy || loading}
-            className="rounded border border-input px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
-          >
+          <Button type="button" variant="outline" size="sm" onClick={loadData} disabled={busy || loading}>
             Refresh Exports
-          </button>
+          </Button>
         </div>
 
         <div className="mt-3 grid gap-2 md:grid-cols-6">
-          <input
-            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground md:col-span-2"
+          <Input
+            className="md:col-span-2"
             placeholder="Reason (required)"
             value={exportReason}
             onChange={(e) => setExportReason(e.target.value)}
           />
-          <input
-            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground md:col-span-2"
+          <Input
+            className="md:col-span-2"
             placeholder="Include tables (comma-separated, optional)"
             value={exportIncludeTables}
             onChange={(e) => setExportIncludeTables(e.target.value)}
           />
-          <input
-            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground md:col-span-2"
+          <Input
+            className="md:col-span-2"
             placeholder="Exclude tables (comma-separated, optional)"
             value={exportExcludeTables}
             onChange={(e) => setExportExcludeTables(e.target.value)}
@@ -1973,14 +1993,16 @@ export default function PlatformTenantDetailPage() {
             Include tenant users list (safe projection, no credentials)
           </label>
           <div className="md:col-span-6">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={requestTenantExport}
               disabled={busy || !exportReason.trim()}
-              className="rounded border border-indigo-600/40 px-3 py-2 text-sm text-indigo-700 hover:bg-indigo-500/10 disabled:opacity-60 dark:border-indigo-700 dark:text-indigo-200 dark:hover:bg-indigo-900/20"
+              className={semanticOutlineButton("primary")}
             >
               Request Export
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -2017,14 +2039,16 @@ export default function PlatformTenantDetailPage() {
                     </td>
                     <td className="py-2 text-muted-foreground">{ex.payload?.total_rows ?? "-"}</td>
                     <td className="py-2">
-                      <button
+                      <Button
                         type="button"
+                        variant="outline"
+                        size="sm"
                         onClick={() => void downloadTenantExport(ex.id)}
                         disabled={busy || busyExportId === ex.id}
-                        className="rounded border border-input px-3 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+                        className="h-8 text-xs"
                       >
                         Download
-                      </button>
+                      </Button>
                       {ex.payload?.error && (
                         <p className="mt-1 text-xs text-red-700 dark:text-red-200">{ex.payload.error}</p>
                       )}
@@ -2051,34 +2075,36 @@ export default function PlatformTenantDetailPage() {
         </div>
 
         <div className="mt-3 grid gap-2 md:grid-cols-6">
-          <input
-            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground md:col-span-3"
+          <Input
+            className="md:col-span-3"
             placeholder="Reason (required)"
             value={deletionReason}
             onChange={(e) => setDeletionReason(e.target.value)}
           />
-          <input
+          <Input
             type="number"
             min={1}
             max={168}
-            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground md:col-span-1"
+            className="md:col-span-1"
             placeholder="Cooldown"
             value={deletionCooldownHours}
             onChange={(e) => setDeletionCooldownHours(e.target.value)}
           />
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={requestTenantDeletion}
             disabled={busy || !deletionReason.trim()}
-            className="rounded border border-red-600/40 px-3 py-2 text-sm text-red-700 hover:bg-red-500/10 disabled:opacity-60 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/20 md:col-span-2"
+            className={semanticOutlineButton("danger", "md:col-span-2")}
           >
             Request Deletion
-          </button>
+          </Button>
         </div>
 
         <div className="mt-3 grid gap-2 md:grid-cols-6">
-          <input
-            className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground md:col-span-3"
+          <Input
+            className="md:col-span-3"
             placeholder={`Type confirmation: DELETE ${id}`}
             value={deletionConfirmation}
             onChange={(e) => setDeletionConfirmation(e.target.value)}
@@ -2135,8 +2161,8 @@ export default function PlatformTenantDetailPage() {
                     <td className="py-2">
                       {req.status === "pending" ? (
                         <div className="flex flex-col gap-2">
-                          <input
-                            className="w-full rounded border border-input bg-background px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground"
+                          <Input
+                            className="h-8 w-full text-xs"
                             placeholder="Review notes (optional)"
                             value={deletionReviewNotes[req.id] || ""}
                             onChange={(e) =>
@@ -2144,33 +2170,39 @@ export default function PlatformTenantDetailPage() {
                             }
                           />
                           <div className="flex flex-wrap gap-2">
-                            <button
+                            <Button
                               type="button"
+                              variant="outline"
+                              size="sm"
                               onClick={() => void reviewTenantDeletion(req.id, "approve")}
                               disabled={busy || busyDeletionRequestId === req.id}
-                              className="rounded border border-emerald-600/40 px-3 py-1 text-xs text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-60 dark:border-emerald-700 dark:text-emerald-200 dark:hover:bg-emerald-900/20"
+                              className={semanticOutlineButton("success", "h-8 text-xs")}
                             >
                               Approve
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               type="button"
+                              variant="outline"
+                              size="sm"
                               onClick={() => void reviewTenantDeletion(req.id, "reject")}
                               disabled={busy || busyDeletionRequestId === req.id}
-                              className="rounded border border-red-600/40 px-3 py-1 text-xs text-red-700 hover:bg-red-500/10 disabled:opacity-60 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/20"
+                              className={semanticOutlineButton("danger", "h-8 text-xs")}
                             >
                               Reject
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       ) : req.status === "approved" ? (
-                        <button
+                        <Button
                           type="button"
+                          variant="outline"
+                          size="sm"
                           onClick={() => void executeTenantDeletion(req.id)}
                           disabled={busy || busyDeletionRequestId === req.id || !deletionConfirmation.trim()}
-                          className="rounded border border-red-600/40 px-3 py-1 text-xs text-red-700 hover:bg-red-500/10 disabled:opacity-60 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/20"
+                          className={semanticOutlineButton("danger", "h-8 text-xs")}
                         >
                           Execute
-                        </button>
+                        </Button>
                       ) : (
                         <span className="text-xs text-muted-foreground">-</span>
                       )}
@@ -2190,22 +2222,18 @@ export default function PlatformTenantDetailPage() {
         <p className="mt-2 text-sm text-muted-foreground">
           Automated tenant migration is not available in this deployment. Use managed support workflow for controlled migrations.
         </p>
-        <button
-          type="button"
-          disabled
-          className="mt-3 cursor-not-allowed rounded border border-input px-3 py-2 text-sm text-muted-foreground opacity-70"
-        >
+        <Button type="button" variant="outline" size="sm" disabled className="mt-3 cursor-not-allowed opacity-70">
           Request Managed Migration (Unavailable)
-        </button>
+        </Button>
       </div>
 
       <div className="rounded-xl border border-border bg-card p-4">
         <h2 className="font-semibold text-foreground">Branches</h2>
         <form onSubmit={createBranch} className="mt-3 grid gap-2 md:grid-cols-4">
-          <input className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="Branch Name" value={branchName} onChange={(e) => setBranchName(e.target.value)} />
-          <input className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="Code" value={branchCode} onChange={(e) => setBranchCode(e.target.value)} />
-          <input className="rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" placeholder="Address" value={branchAddress} onChange={(e) => setBranchAddress(e.target.value)} />
-          <button disabled={busy} className="rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">Create Branch</button>
+          <Input placeholder="Branch Name" value={branchName} onChange={(e) => setBranchName(e.target.value)} />
+          <Input placeholder="Code" value={branchCode} onChange={(e) => setBranchCode(e.target.value)} />
+          <Input placeholder="Address" value={branchAddress} onChange={(e) => setBranchAddress(e.target.value)} />
+          <Button type="submit" disabled={busy}>Create Branch</Button>
         </form>
 
         <div className="mt-4 overflow-x-auto">
@@ -2234,17 +2262,16 @@ export default function PlatformTenantDetailPage() {
                     <td className="py-2 text-muted-foreground">{b.address || "-"}</td>
                     <td className="py-2 text-muted-foreground">{b.is_active ? "Active" : "Inactive"}</td>
                     <td className="py-2">
-                      <button
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
                         onClick={() => toggleBranchActive(b)}
                         disabled={busy || busyBranchId === b.id}
-                        className={`rounded border px-3 py-1 text-xs disabled:opacity-60 ${
-                          b.is_active
-                            ? "border-amber-600/40 text-amber-700 hover:bg-amber-500/10 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/20"
-                            : "border-emerald-600/40 text-emerald-700 hover:bg-emerald-500/10 dark:border-emerald-700 dark:text-emerald-200 dark:hover:bg-emerald-900/20"
-                        }`}
+                        className={semanticOutlineButton(b.is_active ? "warning" : "success", "h-8 text-xs")}
                       >
                         {b.is_active ? "Deactivate" : "Activate"}
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))

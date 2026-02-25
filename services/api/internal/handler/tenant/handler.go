@@ -408,7 +408,13 @@ func (h *Handler) UpdatePluginConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.UpdatePluginConfig(r.Context(), tenantID, pluginID, req.Enabled, req.Settings); err != nil {
-		http.Error(w, "Failed to update plugin config", http.StatusInternalServerError)
+		status := http.StatusInternalServerError
+		msg := "Failed to update plugin config"
+		if errors.Is(err, tenant.ErrAddonRequired) {
+			status = http.StatusForbidden
+			msg = "Add-on is not active for this tenant"
+		}
+		http.Error(w, msg, status)
 		return
 	}
 

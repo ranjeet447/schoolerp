@@ -478,6 +478,93 @@
       '200':
         description: Webhook processed
 
+/payments/webhook/{provider}:
+  post:
+    operationId: handlePublicPaymentWebhookByProvider
+    tags: [Finance]
+    summary: Public payment webhook endpoint (Razorpay/PayU)
+    description: |
+      Public provider webhook endpoint. Tenant is resolved server-side by webhook signature
+      verification against active tenant payment gateway configs.
+    security: []
+    parameters:
+      - name: provider
+        in: path
+        required: true
+        schema: { type: string, enum: [razorpay, payu] }
+    responses:
+      '200':
+        description: Webhook processed
+      '400':
+        description: Invalid signature or payload
+
+/admin/settings/payments/gateways:
+  get:
+    operationId: getTenantPaymentGatewaySettings
+    tags: [Finance]
+    summary: Get tenant payment gateway settings (masked)
+    parameters:
+      - name: provider
+        in: query
+        required: true
+        schema: { type: string, enum: [razorpay, payu] }
+    responses:
+      '200':
+        description: Gateway settings for tenant (sensitive values masked)
+  put:
+    operationId: putTenantPaymentGatewaySettings
+    tags: [Finance]
+    summary: Save tenant payment gateway settings
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [provider]
+            properties:
+              provider: { type: string, enum: [razorpay, payu] }
+              api_key: { type: string }
+              api_secret: { type: string }
+              webhook_secret: { type: string }
+              is_active: { type: boolean }
+              settings: { type: object }
+    responses:
+      '200':
+        description: Gateway settings saved
+
+/admin/settings/payments/gateways/test:
+  post:
+    operationId: testTenantPaymentGatewaySettings
+    tags: [Finance]
+    summary: Test tenant payment gateway credentials
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [provider]
+            properties:
+              provider: { type: string, enum: [razorpay, payu] }
+    responses:
+      '200':
+        description: Connection test result
+
+/admin/settings/payments/gateways/webhook-status:
+  get:
+    operationId: getTenantPaymentGatewayWebhookStatus
+    tags: [Finance]
+    summary: Get tenant gateway webhook status
+    parameters:
+      - name: provider
+        in: query
+        required: true
+        schema: { type: string, enum: [razorpay, payu] }
+    responses:
+      '200':
+        description: Webhook status snapshot
+
 /admin/finance/payments/tally-export:
   get:
     operationId: exportTallyData

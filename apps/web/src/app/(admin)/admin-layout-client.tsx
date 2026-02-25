@@ -86,7 +86,6 @@ const NAV_ITEMS = [
   },
   { href: '/admin/settings/onboarding', label: 'School Onboarding', icon: School, permission: 'platform:manage' },
   { href: '/admin/settings/templates', label: 'Smart Alerts', icon: MessageSquare, permission: 'tenant:settings:view' },
-  { href: '/admin/settings/gateways', label: 'Gateways', icon: Sliders, permission: 'tenant:settings:view' },
   { href: '/admin/settings/profile', label: 'My Profile', icon: User },
   { href: '/admin/settings/master-data', label: 'Settings', icon: Settings, permission: 'tenant:settings:view' },
 ];

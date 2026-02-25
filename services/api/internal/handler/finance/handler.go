@@ -75,6 +75,12 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/{id}/refund", h.CreateRefund)
 		r.Get("/{id}/pdf", h.GetReceiptPDF)
 	})
+	r.Route("/settings/payments", func(r chi.Router) {
+		r.Get("/gateways", h.GetPaymentGatewaySettings)
+		r.Put("/gateways", h.PutPaymentGatewaySettings)
+		r.Post("/gateways/test", h.TestPaymentGatewaySettings)
+		r.Get("/gateways/webhook-status", h.GetPaymentGatewayWebhookStatus)
+	})
 }
 
 func (h *Handler) RegisterParentRoutes(r chi.Router) {
@@ -260,6 +266,7 @@ func (h *Handler) UpsertFeeClassConfig(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) RegisterWebhookRoutes(r chi.Router) {
 	r.Post("/razorpay-webhook", h.HandleWebhook)
 	r.Post("/payu-webhook", h.HandleWebhook)
+	r.Post("/webhook/{provider}", h.HandleWebhookPublicByProvider)
 }
 
 func (h *Handler) ListFeeClassConfigs(w http.ResponseWriter, r *http.Request) {
@@ -298,8 +305,20 @@ func (h *Handler) UpsertGatewayConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenantID := middleware.GetTenantID(r.Context())
+	var before map[string]interface{}
+	if existing, err := h.svc.GetGatewayConfigForAdmin(r.Context(), tenantID, req.Provider); err == nil {
+		before = map[string]interface{}{
+			"provider":       existing.Provider,
+			"is_active":      existing.IsActive.Bool,
+			"api_key":        existing.ApiKey.String,
+			"api_secret":     existing.ApiSecret.String,
+			"webhook_secret": existing.WebhookSecret.String,
+		}
+	}
+
 	params := financeservice.GatewayConfigParams{
-		TenantID:      middleware.GetTenantID(r.Context()),
+		TenantID:      tenantID,
 		Provider:      req.Provider,
 		APIKey:        req.APIKey,
 		APISecret:     req.APISecret,
@@ -313,6 +332,24 @@ func (h *Handler) UpsertGatewayConfig(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	if masked, err := h.svc.GetGatewayConfigForAdmin(r.Context(), tenantID, req.Provider); err == nil {
+		h.svc.AuditGatewayConfigChange(
+			r.Context(),
+			tenantID,
+			middleware.GetUserID(r.Context()),
+			req.Provider,
+			middleware.GetReqID(r.Context()),
+			r.RemoteAddr,
+			before,
+			map[string]interface{}{
+				"provider":       masked.Provider,
+				"is_active":      masked.IsActive.Bool,
+				"api_key":        masked.ApiKey.String,
+				"api_secret":     masked.ApiSecret.String,
+				"webhook_secret": masked.WebhookSecret.String,
+			},
+		)
+	}
 	json.NewEncoder(w).Encode(cfg)
 }
 
@@ -323,12 +360,57 @@ func (h *Handler) GetActiveGatewayConfig(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	cfg, err := h.svc.GetActiveGatewayConfig(r.Context(), middleware.GetTenantID(r.Context()), provider)
+	cfg, err := h.svc.GetGatewayConfigForAdmin(r.Context(), middleware.GetTenantID(r.Context()), provider)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	json.NewEncoder(w).Encode(cfg)
+}
+
+func (h *Handler) GetPaymentGatewaySettings(w http.ResponseWriter, r *http.Request) {
+	h.GetActiveGatewayConfig(w, r)
+}
+
+func (h *Handler) PutPaymentGatewaySettings(w http.ResponseWriter, r *http.Request) {
+	h.UpsertGatewayConfig(w, r)
+}
+
+func (h *Handler) TestPaymentGatewaySettings(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Provider string `json:"provider"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	res, err := h.svc.TestGatewayConfig(r.Context(), middleware.GetTenantID(r.Context()), req.Provider)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(res)
+}
+
+func (h *Handler) GetPaymentGatewayWebhookStatus(w http.ResponseWriter, r *http.Request) {
+	provider := strings.TrimSpace(r.URL.Query().Get("provider"))
+	if provider == "" {
+		http.Error(w, "provider is required", http.StatusBadRequest)
+		return
+	}
+	scheme := "https"
+	if r.TLS == nil {
+		scheme = "http"
+	}
+	baseURL := scheme + "://" + r.Host
+	status, err := h.svc.GetGatewayWebhookStatus(r.Context(), middleware.GetTenantID(r.Context()), provider, baseURL)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(status)
 }
 
 func (h *Handler) ListOptionalFeeItems(w http.ResponseWriter, r *http.Request) {
@@ -525,7 +607,7 @@ func (h *Handler) GetGatewayKeyParent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg, err := h.svc.GetActiveGatewayConfig(r.Context(), middleware.GetTenantID(r.Context()), provider)
+	cfg, err := h.svc.GetGatewayPublicConfig(r.Context(), middleware.GetTenantID(r.Context()), provider)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -564,13 +646,6 @@ func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tenantID := middleware.GetTenantID(r.Context())
-	if tenantID == "" {
-		tenantID = strings.TrimSpace(r.URL.Query().Get("tenant_id"))
-	}
-	if tenantID == "" {
-		http.Error(w, "tenant_id is required for webhook requests", http.StatusBadRequest)
-		return
-	}
 
 	secret := os.Getenv("RAZORPAY_WEBHOOK_SECRET")
 	if r.Header.Get("X-PayU-Signature") != "" || strings.Contains(strings.ToLower(r.URL.Path), "payu") {
@@ -587,6 +662,21 @@ func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if tenantID == "" {
+		provider := "razorpay"
+		if r.Header.Get("X-PayU-Signature") != "" || strings.Contains(strings.ToLower(r.URL.Path), "payu") {
+			provider = "payu"
+		}
+		if resolvedTenantID, resolvedSecret, resolveErr := h.svc.ResolveWebhookTenant(r.Context(), provider, body, signature); resolveErr == nil {
+			tenantID = resolvedTenantID
+			secret = resolvedSecret
+		}
+	}
+	if tenantID == "" {
+		http.Error(w, "unable to resolve tenant for webhook", http.StatusUnauthorized)
+		return
+	}
+
 	// 3. Process Webhook (idempotent)
 	err = h.svc.ProcessPaymentWebhook(r.Context(), tenantID, eventID, body, signature, secret, headers)
 	if err != nil {
@@ -594,6 +684,53 @@ func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) HandleWebhookPublicByProvider(w http.ResponseWriter, r *http.Request) {
+	provider := strings.TrimSpace(strings.ToLower(chi.URLParam(r, "provider")))
+	if provider == "" {
+		http.Error(w, "provider is required", http.StatusBadRequest)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "could not read body", http.StatusInternalServerError)
+		return
+	}
+	signature := firstNonEmpty(
+		r.Header.Get("X-Razorpay-Signature"),
+		r.Header.Get("X-PayU-Signature"),
+		r.Header.Get("X-Webhook-Signature"),
+		r.Header.Get("X-Signature"),
+	)
+	eventID := firstNonEmpty(
+		r.Header.Get("X-Razorpay-Event-Id"),
+		r.Header.Get("X-PayU-Event-Id"),
+		r.Header.Get("X-Event-Id"),
+	)
+	if eventID == "" {
+		sum := sha256.Sum256(body)
+		eventID = "body-" + hex.EncodeToString(sum[:])
+	}
+
+	headers := make(map[string]string, len(r.Header))
+	for k, values := range r.Header {
+		if len(values) > 0 {
+			headers[k] = values[0]
+		}
+	}
+
+	tenantID, secret, err := h.svc.ResolveWebhookTenant(r.Context(), provider, body, signature)
+	if err != nil {
+		http.Error(w, "webhook tenant resolution failed", http.StatusUnauthorized)
+		return
+	}
+	if err := h.svc.ProcessPaymentWebhook(r.Context(), tenantID, eventID, body, signature, secret, headers); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 }
 

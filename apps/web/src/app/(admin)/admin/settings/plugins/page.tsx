@@ -13,9 +13,15 @@ type PluginItem = {
     description?: string;
     category?: string;
     config_schema?: Record<string, string>;
+    price_paise?: number;
+    billing_period?: string;
+    is_active?: boolean;
   };
   enabled: boolean;
   settings?: Record<string, unknown>;
+  catalog_active?: boolean;
+  entitled?: boolean;
+  entitlement_status?: string;
 };
 
 type AddonActivationRequest = {

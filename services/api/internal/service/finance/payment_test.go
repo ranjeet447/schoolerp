@@ -311,3 +311,58 @@ func TestGetTenantPaymentProvider(t *testing.T) {
 		t.Errorf("Decryption in provider resolution failed. Expected %s, got %s", secret, rzp.KeySecret)
 	}
 }
+
+func TestGetGatewayPublicConfigDecryptsAPIKey(t *testing.T) {
+	key := []byte("01234567890123456789012345678901")
+	crypto, _ := security.NewCrypto(key)
+
+	publicKey := "rzp_test_public_key"
+	encKey, _ := crypto.Encrypt([]byte(publicKey))
+
+	mock := &mockFinanceQuerier{
+		gatewayConfig: db.PaymentGatewayConfig{
+			Provider: "razorpay",
+			ApiKey:   pgtype.Text{String: "enc:" + hex.EncodeToString(encKey), Valid: true},
+		},
+	}
+	svc := &Service{q: mock, crypto: crypto}
+
+	cfg, err := svc.GetGatewayPublicConfig(context.Background(), "fcc75681-6967-4638-867c-9ef1c990fc7e", "razorpay")
+	if err != nil {
+		t.Fatalf("GetGatewayPublicConfig failed: %v", err)
+	}
+	if got := cfg.ApiKey.String; got != publicKey {
+		t.Fatalf("expected decrypted public api key %q, got %q", publicKey, got)
+	}
+}
+
+func TestResolveWebhookTenantFromCandidatesRazorpay(t *testing.T) {
+	body := []byte(`{"event":"payment.captured","payload":{"payment":{"entity":{"id":"pay_123"}}}}`)
+	secret := "rzp_whsec_123"
+	h := hmac.New(sha256.New, []byte(secret))
+	h.Write(body)
+	sig := hex.EncodeToString(h.Sum(nil))
+
+	tenantID, resolvedSecret, ok := resolveWebhookTenantFromCandidates("razorpay", body, sig, []gatewayWebhookCandidate{
+		{TenantID: "tenant-a", Provider: "razorpay", WebhookSecret: "wrong"},
+		{TenantID: "tenant-b", Provider: "razorpay", WebhookSecret: secret},
+	})
+	if !ok {
+		t.Fatalf("expected to resolve tenant")
+	}
+	if tenantID != "tenant-b" {
+		t.Fatalf("expected tenant-b, got %s", tenantID)
+	}
+	if resolvedSecret != secret {
+		t.Fatalf("expected resolved secret to match")
+	}
+}
+
+func TestResolveWebhookTenantFromCandidatesRejectsInvalidSignature(t *testing.T) {
+	body := []byte(`{"event":"payment.captured"}`)
+	if tenantID, _, ok := resolveWebhookTenantFromCandidates("razorpay", body, "bad", []gatewayWebhookCandidate{
+		{TenantID: "tenant-a", Provider: "razorpay", WebhookSecret: "secret"},
+	}); ok || tenantID != "" {
+		t.Fatalf("expected resolution failure for invalid signature")
+	}
+}

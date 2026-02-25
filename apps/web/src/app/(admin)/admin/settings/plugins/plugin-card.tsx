@@ -12,9 +12,15 @@ type PluginItem = {
     description?: string;
     category?: string;
     config_schema?: Record<string, string>;
+    price_paise?: number;
+    billing_period?: string;
+    is_active?: boolean;
   };
   enabled: boolean;
   settings?: Record<string, unknown>;
+  catalog_active?: boolean;
+  entitled?: boolean;
+  entitlement_status?: string;
 };
 
 type AddonActivationRequest = {
@@ -48,6 +54,24 @@ export default function PluginCard({ plugin, latestRequest, onRefresh }: PluginC
   const requestStatus = (latestRequest?.status || '').toLowerCase();
   const pendingOrApproved = requestStatus === 'pending' || requestStatus === 'approved';
   const activatedByRequest = Boolean(latestRequest?.payload?.activated_at);
+  const catalogActive = plugin.catalog_active !== false && plugin.metadata.is_active !== false;
+  const entitled = Boolean(plugin.entitled);
+  const pricePaise = Number(plugin.metadata.price_paise || 0);
+  const billingPeriod = plugin.metadata.billing_period || "monthly";
+  const priceLabel =
+    pricePaise > 0
+      ? `Rs ${Math.round(pricePaise / 100).toLocaleString("en-IN")} / ${billingPeriod}`
+      : "Usage / custom pricing";
+  const actionDisabled = (!plugin.enabled && pendingOrApproved) || (!plugin.enabled && !entitled && !catalogActive);
+  const actionLabel = plugin.enabled
+    ? "Configure"
+    : entitled
+      ? "Activate & Configure"
+      : pendingOrApproved
+        ? "Requested"
+        : catalogActive
+          ? "Request Activation"
+          : "Unavailable";
 
   return (
     <>
@@ -72,6 +96,10 @@ export default function PluginCard({ plugin, latestRequest, onRefresh }: PluginC
             <Badge className="bg-red-500/10 text-red-400 border-none text-[10px] uppercase font-bold">
               Rejected
             </Badge>
+          ) : !catalogActive ? (
+            <Badge className="bg-slate-700/60 text-slate-200 border-none text-[10px] uppercase font-bold">
+              Unavailable
+            </Badge>
           ) : (
             <Badge className="bg-slate-700/60 text-slate-200 border-none text-[10px] uppercase font-bold">
               Available
@@ -86,6 +114,9 @@ export default function PluginCard({ plugin, latestRequest, onRefresh }: PluginC
           <p className="text-sm text-slate-400 leading-relaxed">
             {plugin.metadata.description}
           </p>
+          <p className="text-xs text-slate-300/80">
+            {priceLabel}
+          </p>
           {!plugin.enabled && latestRequest?.payload?.review_notes ? (
             <p className="text-xs text-slate-300 rounded-md bg-white/5 px-2 py-1">
               Last review: {latestRequest.payload.review_notes}
@@ -98,14 +129,15 @@ export default function PluginCard({ plugin, latestRequest, onRefresh }: PluginC
             {plugin.metadata.category}
           </span>
           <Button 
+            type="button"
             variant="ghost" 
             size="sm" 
             onClick={() => setIsConfigOpen(true)}
             className="text-slate-400 hover:text-white hover:bg-white/5 gap-2"
-            disabled={!plugin.enabled && pendingOrApproved}
+            disabled={actionDisabled}
           >
             <Settings className="h-4 w-4" />
-            {plugin.enabled ? 'Configure' : pendingOrApproved ? 'Requested' : 'Request Activation'}
+            {actionLabel}
           </Button>
         </div>
       </Card>

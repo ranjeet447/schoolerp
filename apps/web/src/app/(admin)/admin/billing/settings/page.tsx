@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
 import { Button, Card, CardContent, Input, Label, Switch, Tabs, TabsContent, TabsList, TabsTrigger } from "@schoolerp/ui";
-import { CreditCard, Save } from "lucide-react";
+import { CreditCard, Save, TestTube2, Webhook } from "lucide-react";
 import { toast } from "sonner";
 
 type GatewayConfig = {
@@ -14,10 +14,24 @@ type GatewayConfig = {
   webhook_secret?: string;
 };
 
+type WebhookStatus = {
+  provider: string;
+  last_received_at?: string;
+  last_completed_at?: string;
+  last_status?: string;
+  last_error?: string;
+  received_count_24h?: number;
+  completed_count_24h?: number;
+  failed_count_24h?: number;
+  webhook_url?: string;
+};
+
 export default function TenantGatewaySettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("razorpay");
+  const [testing, setTesting] = useState(false);
+  const [webhookStatus, setWebhookStatus] = useState<WebhookStatus | null>(null);
   const [gateway, setGateway] = useState<GatewayConfig>({
     provider: "razorpay",
     is_active: false,
@@ -56,7 +70,16 @@ export default function TenantGatewaySettingsPage() {
       toast.error(err.message || "Failed to load gateway configuration");
     } finally {
       setLoading(false);
+      void fetchWebhookStatus(provider);
     }
+  };
+
+  const fetchWebhookStatus = async (provider: string) => {
+    try {
+      const res = await apiClient(`/admin/settings/payments/gateways/webhook-status?provider=${provider}`);
+      if (!res.ok) return;
+      setWebhookStatus(await res.json());
+    } catch {}
   };
 
   useEffect(() => {
@@ -70,9 +93,16 @@ export default function TenantGatewaySettingsPage() {
     }
     setSaving(true);
     try {
-      const res = await apiClient("/admin/fees/gateways", {
-        method: "POST",
-        body: JSON.stringify(gateway),
+      const masked = (v: string) => v.startsWith("********");
+      const payload = {
+        ...gateway,
+        api_key: masked(gateway.api_key) ? "" : gateway.api_key,
+        api_secret: masked(gateway.api_secret) ? "" : gateway.api_secret,
+        webhook_secret: masked(gateway.webhook_secret || "") ? "" : (gateway.webhook_secret || ""),
+      };
+      const res = await apiClient("/admin/settings/payments/gateways", {
+        method: "PUT",
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         throw new Error("Failed to save gateway configuration.");
@@ -83,6 +113,26 @@ export default function TenantGatewaySettingsPage() {
       toast.error(err.message || "Failed to save configuration.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const testConnection = async () => {
+    setTesting(true);
+    try {
+      const res = await apiClient("/admin/settings/payments/gateways/test", {
+        method: "POST",
+        body: JSON.stringify({ provider: activeTab }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok === false) {
+        throw new Error(data.message || "Connection test failed");
+      }
+      toast.success(data.message || "Gateway credentials verified");
+      await fetchWebhookStatus(activeTab);
+    } catch (err: any) {
+      toast.error(err.message || "Connection test failed");
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -143,8 +193,30 @@ export default function TenantGatewaySettingsPage() {
                     />
                   </div>
 
-                  <div className="grid gap-4">
-                    <div className="grid gap-2">
+	                  <div className="grid gap-4">
+                      <div className="rounded-lg border bg-muted/20 p-4 space-y-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <Webhook className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm font-medium">Webhook Status</span>
+                          </div>
+                          <span className={`text-xs font-medium ${webhookStatus?.last_status === "completed" ? "text-emerald-600" : webhookStatus?.failed_count_24h ? "text-rose-600" : "text-muted-foreground"}`}>
+                            {webhookStatus?.last_status || "No events yet"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground break-all">
+                          URL: {webhookStatus?.webhook_url || "Loading..."}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          24h: {webhookStatus?.received_count_24h ?? 0} received / {webhookStatus?.completed_count_24h ?? 0} completed / {webhookStatus?.failed_count_24h ?? 0} failed
+                        </p>
+                        {webhookStatus?.last_received_at && (
+                          <p className="text-xs text-muted-foreground">
+                            Last received: {new Date(webhookStatus.last_received_at).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+	                    <div className="grid gap-2">
                       <Label>API Key / Merchant ID</Label>
                       <Input
                         value={gateway.api_key}
@@ -178,12 +250,16 @@ export default function TenantGatewaySettingsPage() {
                     )}
                   </div>
 
-                  <div className="flex justify-end pt-4 border-t mt-8">
-                    <Button onClick={() => void handleSave()} disabled={saving} className="gap-2">
-                      <Save className="h-4 w-4" />
-                      {saving ? "Encrypting & Saving..." : "Save Configuration"}
-                    </Button>
-                  </div>
+	                  <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-4 border-t mt-8">
+                      <Button type="button" variant="outline" onClick={() => void testConnection()} disabled={testing} className="gap-2">
+                        <TestTube2 className="h-4 w-4" />
+                        {testing ? "Testing..." : "Test Connection"}
+                      </Button>
+	                    <Button onClick={() => void handleSave()} disabled={saving} className="gap-2">
+	                      <Save className="h-4 w-4" />
+	                      {saving ? "Encrypting & Saving..." : "Save Configuration"}
+	                    </Button>
+	                  </div>
                 </TabsContent>
               </div>
             )}
