@@ -10,7 +10,7 @@ import {
   CheckCircle2,
   AlertCircle
 } from "lucide-react";
-import { Button, Input } from "@schoolerp/ui";
+import { Button, Input, Label } from "@schoolerp/ui";
 import { toast } from "sonner";
 import Link from "next/link";
 import { RBACService } from "@/lib/auth-service";
@@ -120,31 +120,40 @@ function ResetPasswordPageContent() {
             </Link>
           </div>
         ) : (
-          <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
-            <div className="space-y-4">
-              <div className="relative">
-                <Input
-                  label="New Password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="rounded-2xl pl-12 h-14 bg-slate-50 border-none transition-all focus:ring-2 focus:ring-indigo-500/20"
-                  required
-                />
-                <Lock className="absolute left-4 top-[42px] h-5 w-5 text-slate-400" />
+          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+            <div className="space-y-6">
+              <div>
+                <Label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2 px-1">
+                  New Password
+                </Label>
+                <div className="relative">
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="rounded-2xl pl-12 h-14 bg-slate-50 border-none transition-all focus:ring-2 focus:ring-indigo-500/20"
+                    required
+                  />
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                </div>
               </div>
-              <div className="relative">
-                <Input
-                  label="Confirm Password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="rounded-2xl pl-12 h-14 bg-slate-50 border-none transition-all focus:ring-2 focus:ring-indigo-500/20"
-                  required
-                />
-                <Lock className="absolute left-4 top-[42px] h-5 w-5 text-slate-400" />
+
+              <div>
+                <Label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2 px-1">
+                  Confirm Password
+                </Label>
+                <div className="relative">
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="rounded-2xl pl-12 h-14 bg-slate-50 border-none transition-all focus:ring-2 focus:ring-indigo-500/20"
+                    required
+                  />
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                </div>
               </div>
             </div>
 
