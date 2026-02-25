@@ -7,7 +7,7 @@ import {
   Badge, Input
 } from "@schoolerp/ui"
 import { Plus, BookOpen, Search, RefreshCw } from "lucide-react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { Book } from "@/types/library"
 import { BookDialog } from "@/components/library/book-dialog"
 import Link from "next/link"
@@ -35,7 +35,7 @@ export default function BooksPage() {
         throw new Error(await res.text() || "Failed to load library books")
       }
       const data = await res.json()
-      setBooks(data || [])
+      setBooks(asArrayPayload(data))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load library books")
     } finally {

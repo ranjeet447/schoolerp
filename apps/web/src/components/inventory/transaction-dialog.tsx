@@ -5,7 +5,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
   Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea
 } from "@schoolerp/ui"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { InventoryItem, InventorySupplier } from "@/types/inventory"
 import { toast } from "sonner"
 
@@ -43,8 +43,8 @@ export function TransactionDialog({ open, onOpenChange, onSuccess }: Transaction
         apiClient("/admin/inventory/suppliers?limit=100")
       ])
       
-      if (iRes.ok) setItems(await iRes.json() || [])
-      if (sRes.ok) setSuppliers(await sRes.json() || [])
+      if (iRes.ok) setItems(asArrayPayload(await iRes.json()))
+      if (sRes.ok) setSuppliers(asArrayPayload(await sRes.json()))
     } catch (err) {
       console.error("Failed to load dependencies", err)
     }

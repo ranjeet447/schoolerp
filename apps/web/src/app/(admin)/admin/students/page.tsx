@@ -6,7 +6,7 @@ import { Button, Input } from "@schoolerp/ui";
 import { columns, Student } from '@/components/students/columns';
 import { AddStudentDialog } from '@/components/students/add-student-dialog';
 import { ImportStudentWizard } from '@/components/students/import-wizard';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, asArrayPayload } from '@/lib/api-client';
 import {
   Users,
   Download,
@@ -35,7 +35,7 @@ export default function StudentsPage() {
         if (Array.isArray(payload)) {
           setStudents(payload);
         } else {
-          setStudents(payload?.data || []);
+          setStudents(asArrayPayload(payload, ["students"]));
         }
       } catch (error) {
         console.error('Failed to fetch students:', error);

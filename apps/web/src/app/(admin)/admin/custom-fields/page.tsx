@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Button, Input, Card, CardContent, CardHeader, CardTitle, Badge } from "@schoolerp/ui";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, asArrayPayload } from "@/lib/api-client";
 import { Plus, Settings, Trash2, Edit2, Save, X, GripVertical, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
@@ -38,7 +38,7 @@ export default function CustomFieldsPage() {
     setLoading(true);
     try {
       const res = await apiClient(`/admin/custom-fields/definitions?entity_type=${activeType}`);
-      if (res.ok) setDefinitions(await res.json());
+      if (res.ok) setDefinitions(asArrayPayload(await res.json()));
     } catch (e) { console.error(e); }
     setLoading(false);
   };

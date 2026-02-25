@@ -14,7 +14,7 @@ import {
   Info
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from '@schoolerp/ui';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, asArrayPayload } from '@/lib/api-client';
 import { toast } from 'sonner';
 
 interface TimetableSlot {
@@ -44,7 +44,7 @@ export default function TeacherTimetablePage() {
       const res = await apiClient('/teacher/schedule/weekly');
       if (res.ok) {
         const data = await res.json();
-        setEntries(data || []);
+        setEntries(asArrayPayload(data));
       }
     } catch (err) {
       toast.error("Failed to load weekly timetable");

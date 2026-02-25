@@ -9,6 +9,26 @@ type JWTPayload = {
   exp?: number
 }
 
+const ARRAY_WRAPPER_KEYS = ["items", "rows", "data", "results", "list", "logs", "classes", "sections", "acks"] as const
+
+export function asArrayPayload<T = any>(input: any, extraKeys: string[] = []): T[] {
+  if (Array.isArray(input)) return input as T[]
+  if (typeof input === "string") {
+    try {
+      const parsed = JSON.parse(input)
+      if (Array.isArray(parsed)) return parsed as T[]
+      input = parsed
+    } catch {
+      return []
+    }
+  }
+  if (!input || typeof input !== "object") return []
+  for (const key of [...ARRAY_WRAPPER_KEYS, ...extraKeys]) {
+    if (Array.isArray((input as any)[key])) return (input as any)[key] as T[]
+  }
+  return []
+}
+
 function decodeJWTPayload(token: string): JWTPayload | null {
   const parts = token.split(".")
   if (parts.length < 2) return null

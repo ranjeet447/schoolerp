@@ -7,7 +7,7 @@ import { Input } from "@schoolerp/ui"
 import { Label } from "@schoolerp/ui"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@schoolerp/ui"
 import { toast } from "sonner"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { StudentSelect } from "@/components/students/student-select"
 
 export default function AccountantPaymentsPage() {
@@ -31,7 +31,7 @@ export default function AccountantPaymentsPage() {
         throw new Error(msg || "Failed to load receipts")
       }
       const payload = await res.json()
-      setReceipts(Array.isArray(payload) ? payload : payload?.data || [])
+      setReceipts(asArrayPayload(payload, ["receipts"]))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to load receipts")
       setReceipts([])

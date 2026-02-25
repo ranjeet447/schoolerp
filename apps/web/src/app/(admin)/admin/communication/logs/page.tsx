@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@schoolerp/ui";
-import { apiClient } from '@/lib/api-client';
+import { apiClient, asArrayPayload } from '@/lib/api-client';
 import { 
   MessageSquare, 
   AlertCircle, 
@@ -79,7 +79,7 @@ export default function CommunicationLogsPage() {
       const res = await apiClient(`/admin/notifications/logs?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        setLogs(data || []);
+        setLogs(asArrayPayload(data));
       }
     } catch (error) {
       console.error("Failed to fetch logs:", error);

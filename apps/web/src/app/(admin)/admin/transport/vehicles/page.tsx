@@ -7,7 +7,7 @@ import {
   Badge
 } from "@schoolerp/ui"
 import { Plus, Bus, Truck, Car } from "lucide-react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { Vehicle } from "@/types/transport"
 import { VehicleDialog } from "@/components/transport/vehicle-dialog"
 
@@ -27,7 +27,7 @@ export default function VehiclesPage() {
       const res = await apiClient("/admin/transport/vehicles")
       if (res.ok) {
         const data = await res.json()
-        setVehicles(data || [])
+        setVehicles(asArrayPayload(data))
       }
     } catch (err) {
       console.error(err)

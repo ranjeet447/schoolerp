@@ -7,7 +7,7 @@ import {
   Badge
 } from "@schoolerp/ui"
 import { Plus, GraduationCap, Users } from "lucide-react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 
 interface Alumni {
   id: string
@@ -30,7 +30,7 @@ export default function AlumniPage() {
     setLoading(true)
     try {
       const res = await apiClient("/admin/alumni")
-      if (res.ok) setAlumni(await res.json() || [])
+      if (res.ok) setAlumni(asArrayPayload(await res.json()))
     } catch (err) {
       console.error(err)
     } finally {

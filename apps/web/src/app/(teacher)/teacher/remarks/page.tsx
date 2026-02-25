@@ -40,7 +40,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@schoolerp/ui';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, asArrayPayload } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
@@ -108,7 +108,7 @@ export default function TeacherRemarksPage() {
       const res = await apiClient("/teacher/attendance/class-sections");
       if (res.ok) {
         const data = await res.json();
-        setSections(data || []);
+        setSections(asArrayPayload(data));
         if (data.length > 0) setSelectedSection(data[0].id);
       }
     } catch (err) {
@@ -125,7 +125,7 @@ export default function TeacherRemarksPage() {
       const res = await apiClient(`/teacher/attendance/sessions?class_section_id=${selectedSection}&date=${today}`);
       if (res.ok) {
         const data = await res.json();
-        setStudents(data.entries || []);
+        setStudents(asArrayPayload(data, ["entries"]));
       }
     } catch (err) {
       toast.error("Failed to load students");
@@ -140,7 +140,7 @@ export default function TeacherRemarksPage() {
       const res = await apiClient(`/teacher/students/${studentId}/remarks`);
       if (res.ok) {
         const data = await res.json();
-        setRemarks(data || []);
+        setRemarks(asArrayPayload(data));
       }
     } catch (err) {
       toast.error("Failed to load remark history");

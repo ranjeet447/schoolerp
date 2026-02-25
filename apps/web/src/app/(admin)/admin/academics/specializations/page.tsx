@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { 
   Button, 
   Card, 
@@ -66,8 +66,8 @@ export default function SpecializationsPage() {
       const allEmps: Teacher[] = await tRes.json()
       setTeachers(allEmps.filter(e => e.department === "Teaching"))
     }
-    if (sRes.ok) setSubjects(await sRes.json())
-    if (spRes.ok) setSpecs(await spRes.json())
+    if (sRes.ok) setSubjects(asArrayPayload(await sRes.json()))
+    if (spRes.ok) setSpecs(asArrayPayload(await spRes.json()))
     
     setLoading(false)
   }

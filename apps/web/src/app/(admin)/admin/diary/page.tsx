@@ -1,12 +1,10 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { toast } from "sonner"
 import {
-  BookOpen,
   MessageSquare,
-  ClipboardCheck,
   Plus,
   Calendar,
   Filter,
@@ -24,11 +22,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
   Input,
   Textarea,
   Dialog,
@@ -47,17 +40,7 @@ import {
 import { format } from "date-fns"
 
 export default function DiaryPage() {
-  const [activeTab, setActiveTab] = useState("homework")
-  
-  // Modals
-  const [newPostOpen, setNewPostOpen] = useState(false)
   const [newRemarkOpen, setNewRemarkOpen] = useState(false)
-  
-  // Data
-  const [posts, setPosts] = useState([
-    { id: "1", type: "homework", class: "X - A", subject: "Mathematics", content: "Complete Ex 4.2 all problems in notebook.", date: new Date().toISOString(), req_ack: true, ack_count: 24, total_students: 40 },
-    { id: "2", type: "classwork", class: "X - A", subject: "Science", content: "Chapter 3 notes discussed and dictated.", date: new Date().toISOString(), req_ack: false, ack_count: 0, total_students: 40 },
-  ])
   
   const [remarks, setRemarks] = useState<any[]>([])
   const [loadingRemarks, setLoadingRemarks] = useState(false)
@@ -88,7 +71,7 @@ export default function DiaryPage() {
           const res = await apiClient(`/admin/students?query=${encodeURIComponent(studentQuery)}&limit=10`)
           if (res.ok) {
             const data = await res.json()
-            setStudents(data || [])
+            setStudents(asArrayPayload(data))
           }
         } catch (err) {
           console.error("Failed to fetch students", err)
@@ -108,7 +91,7 @@ export default function DiaryPage() {
           const res = await apiClient(`/admin/students?query=${encodeURIComponent(modalStudentQuery)}&limit=10`)
           if (res.ok) {
             const data = await res.json()
-            setModalStudents(data || [])
+            setModalStudents(asArrayPayload(data))
           }
         } catch (err) {
           console.error("Failed to fetch modal students", err)
@@ -121,10 +104,10 @@ export default function DiaryPage() {
   }, [modalStudentQuery])
 
   useEffect(() => {
-    if (activeTab === 'remarks' && selectedStudent) {
+    if (selectedStudent) {
       fetchRemarks(selectedStudent.id)
     }
-  }, [activeTab, selectedStudent])
+  }, [selectedStudent])
 
   const fetchRemarks = async (studentId: string) => {
     setLoadingRemarks(true)
@@ -132,23 +115,13 @@ export default function DiaryPage() {
       const res = await apiClient(`/admin/students/${studentId}/remarks`)
       if (res.ok) {
         const data = await res.json()
-        setRemarks(data || [])
+        setRemarks(asArrayPayload(data))
       }
     } catch (err) {
       toast.error("Failed to fetch remarks")
     } finally {
       setLoadingRemarks(false)
     }
-  }
-
-  const handleCreatePost = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setProcessing(true)
-    setTimeout(() => {
-      toast.success("Homework posted successfully")
-      setNewPostOpen(false)
-      setProcessing(false)
-    }, 600)
   }
 
   const handleAddRemark = async (e: React.FormEvent) => {
@@ -197,90 +170,27 @@ export default function DiaryPage() {
     <div className="space-y-6 pb-10 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-black text-foreground tracking-tight">Teacher Diary</h1>
-          <p className="text-muted-foreground font-medium text-sm mt-1">Manage classwork, homework, and student remarks.</p>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">Student Remarks</h1>
+          <p className="text-muted-foreground font-medium text-sm mt-1">Administrative oversight for student remarks and parent acknowledgements.</p>
         </div>
         <div className="flex gap-2">
-           <Button onClick={() => activeTab === 'homework' ? setNewPostOpen(true) : setNewRemarkOpen(true)}>
+           <Button onClick={() => setNewRemarkOpen(true)}>
              <Plus className="h-4 w-4 mr-2" />
-             {activeTab === 'homework' ? 'Post Homework' : 'Add Remark'}
+             Add Remark
            </Button>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-muted p-1 rounded-2xl">
-          <TabsTrigger value="homework" className="rounded-xl px-6 gap-2"><BookOpen className="h-4 w-4"/> Homework & Classwork</TabsTrigger>
-          <TabsTrigger value="remarks" className="rounded-xl px-6 gap-2"><MessageSquare className="h-4 w-4"/> Student Remarks</TabsTrigger>
-        </TabsList>
+      <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-900">
+        Teacher homework/classwork posting is handled in the teacher portal. This admin page is for remarks oversight and intervention.
+      </div>
 
-        <TabsContent value="homework" className="space-y-6">
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            <Select defaultValue="all">
-              <SelectTrigger className="w-[180px] bg-card">
-                <SelectValue placeholder="All Classes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All My Classes</SelectItem>
-                <SelectItem value="xa">Class X - A</SelectItem>
-                <SelectItem value="xb">Class X - B</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select defaultValue="all">
-              <SelectTrigger className="w-[180px] bg-card">
-                <SelectValue placeholder="All Subjects" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Subjects</SelectItem>
-                <SelectItem value="math">Mathematics</SelectItem>
-                <SelectItem value="sci">Science</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      <div className="rounded-2xl border bg-card/50 px-4 py-3 text-sm text-muted-foreground flex items-center gap-2">
+        <MessageSquare className="h-4 w-4" />
+        Remarks & Parent Acknowledgements
+      </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {posts.map(post => (
-              <Card key={post.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-3 border-b border-border/50">
-                   <div className="flex justify-between items-start">
-                     <div className="space-y-1">
-                        <div className="text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 inline-block px-2 py-0.5 rounded-sm">
-                          {post.type}
-                        </div>
-                        <CardTitle className="text-lg">{post.subject}</CardTitle>
-                        <CardDescription>{post.class}</CardDescription>
-                     </div>
-                     <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-md flex items-center">
-                        <Calendar className="h-3 w-3 mr-1" />
-                        {format(new Date(post.date), "dd MMM")}
-                     </span>
-                   </div>
-                </CardHeader>
-                <CardContent className="pt-4 space-y-4">
-                  <p className="text-sm font-medium text-foreground">{post.content}</p>
-                  
-                  {post.req_ack && (
-                    <div className="bg-muted/30 p-3 rounded-xl border flex items-center justify-between">
-                       <div className="flex items-center text-sm font-medium">
-                         <ClipboardCheck className="h-4 w-4 mr-2 text-indigo-500" />
-                         Parent Acks
-                       </div>
-                       <div className="text-sm font-bold">
-                         <span className={post.ack_count === post.total_students ? "text-emerald-600" : "text-amber-600"}>
-                           {post.ack_count}
-                         </span>
-                         <span className="text-muted-foreground shrink-0 mx-1">/</span>
-                         <span className="text-muted-foreground">{post.total_students}</span>
-                       </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="remarks" className="space-y-6">
+      <div className="space-y-6">
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input 
@@ -386,80 +296,7 @@ export default function DiaryPage() {
               ))
             )}
           </div>
-
-        </TabsContent>
-      </Tabs>
-
-      {/* Post Homework Modal */}
-      <Dialog open={newPostOpen} onOpenChange={setNewPostOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <form onSubmit={handleCreatePost}>
-            <DialogHeader>
-              <DialogTitle>Post to Diary</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Class & Section</Label>
-                  <Select defaultValue="xa">
-                    <SelectTrigger><SelectValue/></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="xa">X - A</SelectItem>
-                      <SelectItem value="xb">X - B</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Subject</Label>
-                  <Select defaultValue="math">
-                    <SelectTrigger><SelectValue/></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="math">Mathematics</SelectItem>
-                      <SelectItem value="sci">Science</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Type</Label>
-                <Select defaultValue="hw">
-                  <SelectTrigger><SelectValue/></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="hw">Homework</SelectItem>
-                    <SelectItem value="cw">Classwork</SelectItem>
-                    <SelectItem value="notice">General Notice</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Details</Label>
-                <Textarea 
-                  placeholder="Type homework or notes here..." 
-                  className="h-24 resize-none" 
-                  required
-                />
-              </div>
-
-              <div className="flex items-center justify-between pt-2 border-t mt-4">
-                <div className="space-y-0.5">
-                  <Label className="text-base font-bold">Require Acknowledgement</Label>
-                  <p className="text-xs text-muted-foreground">Parents must sign digitally</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setNewPostOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={processing}>
-                {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <Send className="h-4 w-4 mr-2"/>}
-                Post to Students
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      </div>
 
       {/* Add Remark Modal */}
       <Dialog open={newRemarkOpen} onOpenChange={setNewRemarkOpen}>

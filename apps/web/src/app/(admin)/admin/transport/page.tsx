@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { 
   Button, 
   Card, 
@@ -58,11 +58,11 @@ export default function TransportPage() {
       apiClient("/transport/fuel-logs")
     ])
 
-    if (res[0].ok) setVehicles(await res[0].json())
-    if (res[1].ok) setDrivers(await res[1].json())
-    if (res[2].ok) setRoutes(await res[2].json())
-    if (res[3].ok) setAllocations(await res[3].json())
-    if (res[4].ok) setFuelLogs(await res[4].json())
+    if (res[0].ok) setVehicles(asArrayPayload(await res[0].json()))
+    if (res[1].ok) setDrivers(asArrayPayload(await res[1].json()))
+    if (res[2].ok) setRoutes(asArrayPayload(await res[2].json()))
+    if (res[3].ok) setAllocations(asArrayPayload(await res[3].json()))
+    if (res[4].ok) setFuelLogs(asArrayPayload(await res[4].json()))
     
     setLoading(false)
   }

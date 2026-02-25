@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from "@schoolerp/ui";
 import { User, ChevronRight } from "lucide-react";
-import { apiClient } from '@/lib/api-client';
+import { apiClient, asArrayPayload } from '@/lib/api-client';
 
 export default function ChildrenPage() {
   const [children, setChildren] = useState<any[]>([]);
@@ -24,7 +24,7 @@ export default function ChildrenPage() {
         if (Array.isArray(payload)) {
           setChildren(payload);
         } else {
-          setChildren(payload?.data || []);
+          setChildren(asArrayPayload(payload, ["children"]));
         }
       } catch (e) {
         console.error(e);

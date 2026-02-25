@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { 
   Button, 
   Card, 
@@ -56,12 +56,12 @@ export default function InventoryPage() {
       apiClient("/inventory/requisitions")
     ])
 
-    if (res[0].ok) setItems(await res[0].json())
-    if (res[1].ok) setCategories(await res[1].json())
-    if (res[2].ok) setSuppliers(await res[2].json())
-    if (res[3].ok) setPos(await res[3].json())
-    if (res[4].ok) setTransactions(await res[4].json())
-    if (res[5].ok) setRequisitions(await res[5].json())
+    if (res[0].ok) setItems(asArrayPayload(await res[0].json()))
+    if (res[1].ok) setCategories(asArrayPayload(await res[1].json()))
+    if (res[2].ok) setSuppliers(asArrayPayload(await res[2].json()))
+    if (res[3].ok) setPos(asArrayPayload(await res[3].json()))
+    if (res[4].ok) setTransactions(asArrayPayload(await res[4].json()))
+    if (res[5].ok) setRequisitions(asArrayPayload(await res[5].json()))
     
     setLoading(false)
   }

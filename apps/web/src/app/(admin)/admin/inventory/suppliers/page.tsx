@@ -6,7 +6,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@schoolerp/ui"
 import { Plus, User, Phone, Mail } from "lucide-react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { InventorySupplier } from "@/types/inventory"
 import { SupplierDialog } from "@/components/inventory/supplier-dialog"
 
@@ -25,7 +25,7 @@ export default function SuppliersPage() {
     try {
       const res = await apiClient("/admin/inventory/suppliers")
       if (res.ok) {
-        setSuppliers(await res.json() || [])
+        setSuppliers(asArrayPayload(await res.json()))
       }
     } catch (err) {
       console.error(err)

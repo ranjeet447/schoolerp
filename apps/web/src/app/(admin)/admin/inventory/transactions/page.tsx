@@ -7,7 +7,7 @@ import {
   Badge
 } from "@schoolerp/ui"
 import { Plus, ArrowDown, ArrowUp } from "lucide-react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { InventoryTransaction } from "@/types/inventory"
 import { TransactionDialog } from "@/components/inventory/transaction-dialog"
 import { cn } from "@/lib/utils"
@@ -27,7 +27,7 @@ export default function TransactionsPage() {
       const res = await apiClient("/admin/inventory/transactions?limit=50")
       if (res.ok) {
         const data = await res.json()
-        setTransactions(data || [])
+        setTransactions(asArrayPayload(data))
       }
     } catch (err) {
       console.error(err)

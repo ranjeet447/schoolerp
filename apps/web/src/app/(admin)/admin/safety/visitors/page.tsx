@@ -38,7 +38,7 @@ import {
   XCircle,
   X
 } from "lucide-react";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, asArrayPayload } from "@/lib/api-client";
 import { format } from "date-fns";
 
 export default function VisitorPage() {
@@ -72,7 +72,7 @@ export default function VisitorPage() {
     try {
       const res = await apiClient("/admin/safety/visitors/logs");
       if (res.ok) {
-        setLogs(await res.json());
+        setLogs(asArrayPayload(await res.json()));
       }
     } catch (error) {
       toast.error("Failed to fetch visitor logs");

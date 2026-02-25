@@ -316,23 +316,23 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Widget 6: Teacher Diary */}
+        {/* Widget 6: Student Remarks */}
         <Card className="border-none shadow-sm flex flex-col h-full">
           <CardHeader className="pb-3 border-b mb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2 tracking-tight"><MessageSquare className="w-5 h-5 text-purple-500" /> Teacher Diary</CardTitle>
+              <CardTitle className="text-lg flex items-center gap-2 tracking-tight"><MessageSquare className="w-5 h-5 text-purple-500" /> Student Remarks</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col gap-4">
             <div className="flex-1 flex items-center justify-center rounded-xl border border-dashed bg-purple-50/30 p-6 text-center">
               <div>
                 <p className="text-sm font-semibold text-foreground">Live remarks feed is not wired yet</p>
-                <p className="text-xs text-muted-foreground mt-1">Use Teacher Diary to view and manage remarks.</p>
+                <p className="text-xs text-muted-foreground mt-1">Use Student Remarks to review logs and parent acknowledgements.</p>
               </div>
             </div>
             <div className="mt-auto pt-2">
               <Link href="/admin/diary">
-                <Button variant="ghost" className="w-full text-xs text-purple-600 hover:bg-purple-50 h-8">View Teacher Diary</Button>
+                <Button variant="ghost" className="w-full text-xs text-purple-600 hover:bg-purple-50 h-8">Open Student Remarks</Button>
               </Link>
             </div>
           </CardContent>

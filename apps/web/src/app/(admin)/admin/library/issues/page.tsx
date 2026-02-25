@@ -7,7 +7,7 @@ import {
   Badge
 } from "@schoolerp/ui"
 import { Plus, BookOpen, Clock, AlertCircle } from "lucide-react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { LibraryIssue } from "@/types/library"
 import { IssueDialog } from "@/components/library/issue-dialog"
 import { toast } from "sonner"
@@ -29,7 +29,7 @@ export default function IssuesPage() {
       const res = await apiClient("/admin/library/issues?limit=50")
       if (res.ok) {
         const data = await res.json()
-        setIssues(data || [])
+        setIssues(asArrayPayload(data))
       }
     } catch (err) {
       console.error(err)

@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { toast } from "sonner"
 import {
   Search,
@@ -93,7 +93,7 @@ export default function FeeCollectionPage() {
           const res = await apiClient(`/admin/students?query=${encodeURIComponent(query)}&limit=10`)
           if (res.ok) {
             const data = await res.json()
-            setStudents(Array.isArray(data) ? data : data.data || [])
+            setStudents(asArrayPayload(data, ["students"]))
           }
         } catch (err) {
           console.error("Failed to fetch students", err)
@@ -120,7 +120,7 @@ export default function FeeCollectionPage() {
       const res = await apiClient(`/admin/fees/students/${student.id}/summary`)
       if (res.ok) {
         const data = await res.json()
-        setFeeSummary(data || [])
+        setFeeSummary(asArrayPayload(data))
       } else {
         toast.error("Failed to fetch fee summary")
       }

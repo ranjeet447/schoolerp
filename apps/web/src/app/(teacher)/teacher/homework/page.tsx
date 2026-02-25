@@ -46,7 +46,7 @@ import {
   TableRow,
   TableCell
 } from "@schoolerp/ui"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { useAuth } from "@/components/auth-provider"
 import { toast } from "sonner"
 
@@ -135,7 +135,7 @@ export default function TeacherHomeworkPage() {
         throw new Error(msg || "Failed to load homework")
       }
       const payload = await res.json()
-      setHomework(Array.isArray(payload) ? payload : payload?.data || [])
+      setHomework(asArrayPayload(payload, ["homework"]))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to load homework")
       setHomework([])
@@ -195,7 +195,7 @@ export default function TeacherHomeworkPage() {
     try {
       const res = await apiClient(`/teacher/homework/${hwID}/submissions`)
       if (res.ok) {
-        setSubmissions(await res.json())
+        setSubmissions(asArrayPayload(await res.json()))
       }
     } catch (e) {
       toast.error("Failed to load submissions")

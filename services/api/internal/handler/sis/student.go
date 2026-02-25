@@ -587,6 +587,8 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) RegisterParentRoutes(r chi.Router) {
 	r.Get("/me/children", h.ListMyChildren)
 	r.Get("/children/{id}/profile", h.GetMyChildProfile)
+	r.Get("/children/{id}/remarks", h.ListMyChildRemarks)
+	r.Post("/remarks/{id}/acknowledge", h.AcknowledgeMyChildRemark)
 }
 
 func (h *Handler) ListMyChildren(w http.ResponseWriter, r *http.Request) {

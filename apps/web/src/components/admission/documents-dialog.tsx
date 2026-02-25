@@ -45,7 +45,7 @@ export function ApplicationDocumentsDialog({ application, open, onOpenChange, on
 
   useEffect(() => {
     if (!open) return
-    setDocs(application?.documents || [])
+    setDocs(Array.isArray(application?.documents) ? application.documents : [])
     fetchDocumentTypes()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, application?.id])

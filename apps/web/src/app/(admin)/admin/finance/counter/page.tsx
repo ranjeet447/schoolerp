@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState, useRef } from "react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { toast } from "sonner"
 import {
   Search,
@@ -98,7 +98,7 @@ export default function FeeCounterPage() {
         const res = await apiClient(`/admin/students?limit=10&search=${search}`)
         if (res.ok) {
           const data = await res.json()
-          setStudents(data.data || data || [])
+          setStudents(asArrayPayload(data, ["students"]))
         }
       } catch (err) {
         console.error(err)
@@ -120,7 +120,7 @@ export default function FeeCounterPage() {
       const res = await apiClient(`/admin/fees/students/${student.id}/summary`)
       if (res.ok) {
         const data = await res.json()
-        setFeeSummary(data || [])
+        setFeeSummary(asArrayPayload(data))
         // Auto-fill amounts for unpaid items
         const initialAmounts: Record<string, number> = {}
         data.forEach((item: FeeItem) => {

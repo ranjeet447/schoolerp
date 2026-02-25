@@ -7,7 +7,7 @@ import {
   Badge, Input
 } from "@schoolerp/ui"
 import { AlertTriangle, Plus, Search, Package, RefreshCw } from "lucide-react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { InventoryItem } from "@/types/inventory"
 import { ItemDialog } from "@/components/inventory/item-dialog"
 import { cn } from "@/lib/utils"
@@ -34,7 +34,7 @@ export default function ItemsPage() {
       if (!res.ok) {
         throw new Error(await res.text() || "Failed to fetch inventory items")
       }
-      setItems(await res.json() || [])
+      setItems(asArrayPayload(await res.json()))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch inventory items")
     } finally {

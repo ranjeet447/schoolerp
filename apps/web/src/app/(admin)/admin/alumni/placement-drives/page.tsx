@@ -7,7 +7,7 @@ import {
   Badge
 } from "@schoolerp/ui"
 import { Plus, Briefcase } from "lucide-react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 
 interface PlacementDrive {
   id: string
@@ -29,7 +29,7 @@ export default function PlacementDrivesPage() {
     setLoading(true)
     try {
       const res = await apiClient("/admin/alumni/drives")
-      if (res.ok) setDrives(await res.json() || [])
+      if (res.ok) setDrives(asArrayPayload(await res.json()))
     } catch (err) {
       console.error(err)
     } finally {

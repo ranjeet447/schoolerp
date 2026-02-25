@@ -11,7 +11,7 @@ import {
   MessageSquare,
 } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from "@schoolerp/ui"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { format } from "date-fns"
 
 interface Remark {
@@ -46,7 +46,7 @@ export default function ParentDiaryPage() {
       if (!childrenRes.ok) throw new Error("Failed to load children")
       
       const childrenData = await childrenRes.json()
-      const childArray = Array.isArray(childrenData) ? childrenData : childrenData.data || []
+      const childArray = asArrayPayload<Child>(childrenData, ["children"])
       setChildren(childArray)
 
       if (childArray.length > 0) {
@@ -62,10 +62,10 @@ export default function ParentDiaryPage() {
 
   const fetchRemarks = async (childId: string) => {
     try {
-      const res = await apiClient(`/admin/students/${childId}/remarks`)
+      const res = await apiClient(`/parent/children/${childId}/remarks`)
       if (!res.ok) throw new Error("Failed to load remarks")
       const data = await res.json()
-      setRemarks(data || [])
+      setRemarks(asArrayPayload<Remark>(data, ["remarks"]))
     } catch (err) {
       console.error(err)
     }
@@ -74,7 +74,7 @@ export default function ParentDiaryPage() {
   const acknowledgeRemark = async (remarkId: string) => {
     setAckLoading(remarkId)
     try {
-      const res = await apiClient(`/admin/remarks/${remarkId}/acknowledge`, {
+      const res = await apiClient(`/parent/remarks/${remarkId}/acknowledge`, {
         method: "POST",
       })
       if (!res.ok) throw new Error("Failed to acknowledge remark")

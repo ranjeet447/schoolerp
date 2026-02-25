@@ -34,7 +34,7 @@ import {
   DialogFooter,
   Separator
 } from "@schoolerp/ui"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { useAuth } from "@/components/auth-provider"
 import { toast } from "sonner"
 
@@ -77,10 +77,10 @@ export default function TeacherLeavesPage() {
       ])
 
       if (leavesRes.ok) {
-        setLeaves(await leavesRes.json())
+        setLeaves(asArrayPayload(await leavesRes.json()))
       }
       if (typesRes.ok) {
-        setLeaveTypes(await typesRes.json())
+        setLeaveTypes(asArrayPayload(await typesRes.json()))
       }
     } catch (err) {
       toast.error("Failed to load leave data")

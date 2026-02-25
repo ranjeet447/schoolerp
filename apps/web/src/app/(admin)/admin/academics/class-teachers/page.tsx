@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { 
   Button, 
   Card, 
@@ -74,7 +74,7 @@ export default function ClassTeachersPage() {
         const opts = await optsRes.json()
         setSections(opts.class_sections)
     }
-    if (aRes.ok) setAssignments(await aRes.json())
+    if (aRes.ok) setAssignments(asArrayPayload(await aRes.json()))
     
     setLoading(false)
   }

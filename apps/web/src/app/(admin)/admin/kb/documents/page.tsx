@@ -30,7 +30,7 @@ import {
   Textarea,
 } from "@schoolerp/ui"
 import { Loader2, Plus, RefreshCw } from "lucide-react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog"
 
 interface KBDocument {
@@ -74,7 +74,7 @@ export default function KBDocumentsPage() {
     try {
       const res = await apiClient("/admin/kb/documents?limit=200")
       if (!res.ok) throw new Error((await res.text()) || "Failed to load KB documents")
-      setDocs((await res.json()) || [])
+      setDocs(asArrayPayload(await res.json()))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load KB documents")
     } finally {

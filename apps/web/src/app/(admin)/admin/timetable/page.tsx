@@ -26,7 +26,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@schoolerp/ui"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { 
   CalendarDays, 
   Loader2, 
@@ -169,7 +169,7 @@ export default function TimetablePage() {
       const variantsRes = await apiClient("/admin/schedule/variants")
       if (!variantsRes.ok) throw new Error("Failed to load variants")
       const variantsData = await variantsRes.json()
-      setVariants(variantsData || [])
+      setVariants(asArrayPayload(variantsData))
 
       if (variantsData && variantsData.length > 0) {
         const defaultVariant = variantsData.find((v: Variant) => v.is_active) || variantsData[0]
@@ -191,8 +191,8 @@ export default function TimetablePage() {
           : Promise.resolve({ ok: true, json: () => Promise.resolve([]) } as any)
       ])
 
-      if (periodsRes.ok) setPeriods(await periodsRes.json())
-      if (entriesRes.ok) setEntries(await entriesRes.json())
+      if (periodsRes.ok) setPeriods(asArrayPayload(await periodsRes.json()))
+      if (entriesRes.ok) setEntries(asArrayPayload(await entriesRes.json()))
     } catch (err) {
       console.error("Failed to load variant details", err)
     }
@@ -228,7 +228,7 @@ export default function TimetablePage() {
   const fetchAbsentTeachers = async () => {
     try {
       const res = await apiClient(`/admin/schedule/substitutions/absences?date=${searchDate}`)
-      if (res.ok) setAbsentTeachers(await res.json())
+      if (res.ok) setAbsentTeachers(asArrayPayload(await res.json()))
     } catch (err) {
       toast.error("Failed to load absent teachers")
     }
@@ -237,7 +237,7 @@ export default function TimetablePage() {
   const fetchTeacherLessons = async (teacherID: string) => {
     try {
       const res = await apiClient(`/admin/schedule/substitutions/teacher-lessons/${teacherID}?date=${searchDate}`)
-      if (res.ok) setTeacherLessons(await res.json())
+      if (res.ok) setTeacherLessons(asArrayPayload(await res.json()))
     } catch (err) {
       toast.error("Failed to load lessons")
     }
@@ -247,7 +247,7 @@ export default function TimetablePage() {
     setLoadingSubs(true)
     try {
       const res = await apiClient(`/admin/schedule/substitutions/free-teachers?date=${searchDate}&period_id=${periodID}`)
-      if (res.ok) setSuggestedSubstitutes(await res.json())
+      if (res.ok) setSuggestedSubstitutes(asArrayPayload(await res.json()))
     } catch (err) {
       toast.error("Failed to load free teachers")
     } finally {

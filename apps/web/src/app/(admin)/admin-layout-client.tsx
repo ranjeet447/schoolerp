@@ -50,7 +50,7 @@ type NavItem = {
 
 const NAV_ITEMS = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
-  { href: '/admin/diary', label: 'Teacher Diary', icon: BookOpen, permission: 'sis:read' },
+  { href: '/admin/diary', label: 'Student Remarks', icon: BookOpen, permission: 'sis:read' },
   { href: '/admin/reception', label: 'Reception Hub', icon: School, permission: 'sis:read' },
   { href: '/admin/admissions/enquiries', label: 'Admissions', icon: ClipboardList, permission: 'sis:read' },
   { href: '/admin/safety/visitors', label: 'Visitor Logs', icon: Clock, permission: 'safety:read' },

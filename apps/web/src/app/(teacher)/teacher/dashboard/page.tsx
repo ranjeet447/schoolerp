@@ -17,7 +17,7 @@ import {
   QrCode
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from '@schoolerp/ui';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, asArrayPayload } from '@/lib/api-client';
 import { toast } from 'sonner';
 
 interface TimetableSlot {
@@ -60,7 +60,7 @@ export default function TeacherDashboardPage() {
 
       if (timetableRes.ok) {
         const data = await timetableRes.json()
-        setTimetable(data || [])
+        setTimetable(asArrayPayload(data))
         resolveCurrentPeriod(data || [])
       }
 

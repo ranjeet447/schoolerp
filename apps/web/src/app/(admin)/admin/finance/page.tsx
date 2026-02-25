@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { 
   Button, 
   Card, 
@@ -135,25 +135,25 @@ export default function AdminFinancePage() {
       if (bilRes.ok) {
         const payload = await bilRes.json()
         setSummary(payload.summary)
-        setRows(payload.rows || [])
+        setRows(asArrayPayload(payload, ["rows"]))
       }
 
       // 2. Fetch Collection Report (Head-wise)
       const colRes = await apiClient(`/admin/payments/reports/collections?from=${fromDate}&to=${toDate}`)
       if (colRes.ok) {
         const payload = await colRes.json()
-        setCollectionReport(payload || [])
+        setCollectionReport(asArrayPayload(payload, ["collection_report"]))
       }
 
       // 3. Fetch Rules
       const lateRes = await apiClient("/admin/rules/late-fees")
-      if (lateRes.ok) setLateFeeRules(await lateRes.json())
+      if (lateRes.ok) setLateFeeRules(asArrayPayload(await lateRes.json()))
 
       const conRes = await apiClient("/admin/rules/concessions")
-      if (conRes.ok) setConcessionRules(await conRes.json())
+      if (conRes.ok) setConcessionRules(asArrayPayload(await conRes.json()))
 
       const remRes = await apiClient("/admin/rules/fee-reminders")
-      if (remRes.ok) setReminderConfigs(await remRes.json())
+      if (remRes.ok) setReminderConfigs(asArrayPayload(await remRes.json()))
 
       await fetchDailySummary()
     } catch (err) {

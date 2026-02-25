@@ -7,7 +7,7 @@ import {
   Badge
 } from "@schoolerp/ui"
 import { Plus, User, Phone, FileText } from "lucide-react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { Driver } from "@/types/transport"
 import { DriverDialog } from "@/components/transport/driver-dialog"
 
@@ -27,7 +27,7 @@ export default function DriversPage() {
       const res = await apiClient("/admin/transport/drivers")
       if (res.ok) {
         const data = await res.json()
-        setDrivers(data || [])
+        setDrivers(asArrayPayload(data))
       }
     } catch (err) {
       console.error(err)

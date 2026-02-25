@@ -14,7 +14,7 @@ import {
   Loader2
 } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from "@schoolerp/ui"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { format } from "date-fns"
 
 export default function StudentDashboardPage() {
@@ -34,12 +34,12 @@ export default function StudentDashboardPage() {
 
       if (hwRes.ok) {
         const hwData = await hwRes.json()
-        setHomework(Array.isArray(hwData) ? hwData : hwData.data || [])
+        setHomework(asArrayPayload(hwData, ["homework"]))
       }
 
       if (noticesRes.ok) {
         const noticesData = await noticesRes.json()
-        setNotices(Array.isArray(noticesData) ? noticesData : noticesData.data || [])
+        setNotices(asArrayPayload(noticesData, ["notices"]))
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard")

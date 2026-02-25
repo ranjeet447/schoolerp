@@ -13,7 +13,7 @@ import {
 } from "@schoolerp/ui"
 import { Save } from "lucide-react"
 import { toast } from "sonner"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 
 interface EmployeeFormProps {
   onSuccess: () => void
@@ -45,7 +45,7 @@ export function EmployeeForm({ onSuccess }: EmployeeFormProps) {
 
   const fetchStructures = async () => {
     const res = await apiClient("/hrms/salary-structures")
-    if (res.ok) setStructures(await res.json())
+    if (res.ok) setStructures(asArrayPayload(await res.json()))
   }
 
   const handleSubmit = async () => {

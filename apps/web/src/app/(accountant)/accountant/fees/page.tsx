@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { 
   FeePlanBuilder, 
   Button, 
@@ -61,7 +61,7 @@ export default function AccountantFeesPage() {
       const res = await apiClient("/accountant/fees/heads")
       if (res.ok) {
         const data = await res.json()
-        setHeads(data || [])
+        setHeads(asArrayPayload(data))
       }
     } catch (err) {
       console.error("Failed to fetch fee heads", err)

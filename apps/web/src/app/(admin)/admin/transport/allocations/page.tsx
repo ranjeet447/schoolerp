@@ -7,7 +7,7 @@ import {
   Badge
 } from "@schoolerp/ui"
 import { Plus, User, MapPin, Calendar } from "lucide-react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { Allocation } from "@/types/transport"
 import { AllocationDialog } from "@/components/transport/allocation-dialog"
 
@@ -26,7 +26,7 @@ export default function AllocationsPage() {
       const res = await apiClient("/admin/transport/allocations")
       if (res.ok) {
         const data = await res.json()
-        setAllocations(data || [])
+        setAllocations(asArrayPayload(data))
       }
     } catch (err) {
       console.error(err)

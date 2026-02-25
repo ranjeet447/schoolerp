@@ -18,7 +18,7 @@ interface NoticeCardProps {
   onAcknowledge?: () => void
   ackCount?: number
   showAckStatus?: boolean
-  attachments?: Attachment[]
+  attachments?: Attachment[] | unknown
 }
 
 export function NoticeCard({
@@ -32,6 +32,19 @@ export function NoticeCard({
   showAckStatus = false,
   attachments = [],
 }: NoticeCardProps) {
+  const safeAttachments: Attachment[] = React.useMemo(() => {
+    if (Array.isArray(attachments)) return attachments as Attachment[]
+    if (typeof attachments === "string") {
+      try {
+        const parsed = JSON.parse(attachments)
+        return Array.isArray(parsed) ? parsed : []
+      } catch {
+        return []
+      }
+    }
+    return []
+  }, [attachments])
+
   return (
     <div className={cn(
       "relative border rounded-xl p-5 shadow-sm transition-all hover:shadow-md bg-white",
@@ -60,11 +73,11 @@ export function NoticeCard({
           {body}
         </div>
 
-        {attachments && attachments.length > 0 && (
+        {safeAttachments.length > 0 && (
           <div className="mt-2 space-y-2 mb-4">
             <p className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Attachments</p>
             <div className="flex flex-wrap gap-2">
-              {attachments.map((file, idx) => (
+              {safeAttachments.map((file, idx) => (
                 <a 
                   key={file.id || idx} 
                   href={file.url} 

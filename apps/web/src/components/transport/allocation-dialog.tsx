@@ -5,7 +5,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
   Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from "@schoolerp/ui"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { Allocation, Route, RouteStop } from "@/types/transport"
 import { toast } from "sonner"
 
@@ -50,8 +50,8 @@ export function AllocationDialog({ open, onOpenChange, onSuccess }: AllocationDi
         apiClient("/admin/students?limit=100") // Simple fetch for now, should be search/autocomplete in real app
       ])
       
-      if (rRes.ok) setRoutes(await rRes.json() || [])
-      if (sRes.ok) setStudents(await sRes.json() || [])
+      if (rRes.ok) setRoutes(asArrayPayload(await rRes.json()))
+      if (sRes.ok) setStudents(asArrayPayload(await sRes.json()))
     } catch (err) {
       console.error("Failed to load dependencies", err)
     }
@@ -61,7 +61,7 @@ export function AllocationDialog({ open, onOpenChange, onSuccess }: AllocationDi
     try {
       const res = await apiClient(`/admin/transport/routes/${routeId}/stops`)
       if (res.ok) {
-        setStops(await res.json() || [])
+        setStops(asArrayPayload(await res.json()))
       }
     } catch (err) {
       console.error("Failed to load stops", err)

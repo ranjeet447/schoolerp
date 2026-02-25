@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from "@schoolerp/ui";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, asArrayPayload } from "@/lib/api-client";
 import { toast } from "sonner";
 import {
   Upload, FileSpreadsheet, CheckCircle2, XCircle, Download,
@@ -43,7 +43,7 @@ export default function BulkImportPage() {
     setLoading(true);
     try {
       const res = await apiClient("/admin/import-jobs");
-      if (res.ok) setJobs(await res.json());
+      if (res.ok) setJobs(asArrayPayload(await res.json()));
     } catch (e) { console.error(e); }
     setLoading(false);
   };

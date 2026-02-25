@@ -26,7 +26,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@schoolerp/ui"
-import { apiClient, API_BASE_URL } from "@/lib/api-client"
+import { apiClient, API_BASE_URL, asArrayPayload } from "@/lib/api-client"
 import { FileCheck2, Loader2, RefreshCw, Clock, Download, FileText } from "lucide-react"
 import { toast } from "sonner"
 
@@ -162,7 +162,7 @@ export default function CertificatesPage() {
           const res = await apiClient(`/admin/students?query=${encodeURIComponent(studentQuery)}&limit=10`)
           if (res.ok) {
             const data = await res.json()
-            setStudents(Array.isArray(data) ? data : data.data || [])
+            setStudents(asArrayPayload(data, ["students"]))
           }
         } catch (err) {
           console.error("Failed to fetch students", err)

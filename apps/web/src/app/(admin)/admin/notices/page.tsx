@@ -10,6 +10,30 @@ type ScopeTarget = { value: string; label: string }
 
 const DEFAULT_SCOPES: ScopeTarget[] = [{ value: "all", label: "All School" }]
 
+const asArray = <T,>(input: any, candidates: string[] = []): T[] => {
+  if (Array.isArray(input)) return input as T[]
+  for (const key of candidates) {
+    if (Array.isArray(input?.[key])) return input[key] as T[]
+  }
+  return []
+}
+
+const normalizeNotice = (raw: any) => ({
+  ...raw,
+  attachments: Array.isArray(raw?.attachments)
+    ? raw.attachments
+    : typeof raw?.attachments === "string"
+      ? (() => {
+          try {
+            const parsed = JSON.parse(raw.attachments)
+            return Array.isArray(parsed) ? parsed : []
+          } catch {
+            return []
+          }
+        })()
+      : [],
+})
+
 const normalizeToken = (input: string) =>
   String(input || "")
     .trim()
@@ -85,10 +109,12 @@ export default function AdminNoticesPage() {
       ])
       
       if (statsRes.ok) {
-        setAckStats(await statsRes.json())
+        const statsPayload = await statsRes.json()
+        setAckStats(statsPayload?.stats || statsPayload || null)
       }
       if (listRes.ok) {
-        setAcks(await listRes.json())
+        const listPayload = await listRes.json()
+        setAcks(asArray<any>(listPayload, ["acks", "rows", "items", "data"]))
       }
     } catch (err) {
       toast.error("Failed to load notice acknowledgements")
@@ -111,7 +137,7 @@ export default function AdminNoticesPage() {
       }
 
       const classes = await classRes.json()
-      const classRows = Array.isArray(classes) ? classes : []
+      const classRows = asArray<any>(classes, ["classes", "rows", "items", "data"])
 
       const targets: ScopeTarget[] = [...DEFAULT_SCOPES]
       const seen = new Set<string>(targets.map((item) => item.value))
@@ -131,7 +157,7 @@ export default function AdminNoticesPage() {
         if (!sectionRes.ok) continue
 
         const sections = await sectionRes.json()
-        const sectionRows = Array.isArray(sections) ? sections : []
+        const sectionRows = asArray<any>(sections, ["sections", "rows", "items", "data"])
         for (const sectionRow of sectionRows) {
           const sectionName = String(sectionRow?.name || "")
           const sectionValue = sectionScopeValue(sectionName)
@@ -153,7 +179,8 @@ export default function AdminNoticesPage() {
       const res = await apiClient("/admin/notices")
       if (res.ok) {
         const data = await res.json()
-        setNotices(data || [])
+        const rows = asArray<any>(data, ["notices", "rows", "items", "data"]).map(normalizeNotice)
+        setNotices(rows)
       }
     } catch (err) {
       console.error("Failed to fetch notices", err)

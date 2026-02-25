@@ -7,7 +7,7 @@ import {
   Badge, Checkbox, Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@schoolerp/ui"
 import { Loader2, GraduationCap, ArrowRight, Filter, Search, ShieldAlert } from "lucide-react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { toast } from "sonner"
 
 type StudentRow = {
@@ -89,7 +89,7 @@ export default function PromotionManagerPage() {
           setTargetAY(firstYear.id)
         }
       }
-      if (classesRes.ok) setClasses(await classesRes.json())
+      if (classesRes.ok) setClasses(asArrayPayload(await classesRes.json()))
     } catch (err) {
       toast.error("Failed to load school structure")
     } finally {

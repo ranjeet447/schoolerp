@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { 
   Button, 
   Card, 
@@ -61,8 +61,8 @@ export default function StaffTasksPage() {
       apiClient("/hrms/employees?limit=100")
     ])
 
-    if (tasksRes.ok) setTasks(await tasksRes.json())
-    if (empRes.ok) setEmployees(await empRes.json())
+    if (tasksRes.ok) setTasks(asArrayPayload(await tasksRes.json()))
+    if (empRes.ok) setEmployees(asArrayPayload(await empRes.json()))
     setLoading(false)
   }
 

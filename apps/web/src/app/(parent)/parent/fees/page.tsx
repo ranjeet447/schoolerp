@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { 
   Button, 
   Card, 
@@ -95,7 +95,7 @@ export default function ParentFeesPage() {
 
         // Fetch Receipts
         const recRes = await apiClient(`/parent/children/${childId}/fees/receipts`)
-        if (recRes.ok) setReceipts(await recRes.json())
+        if (recRes.ok) setReceipts(asArrayPayload(await recRes.json()))
 
     } catch (err) {
         toast.error("Failed to load fee data")

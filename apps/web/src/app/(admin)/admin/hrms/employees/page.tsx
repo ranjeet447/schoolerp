@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { 
   Button, 
   Card, 
@@ -56,7 +56,7 @@ export default function EmployeesPage() {
     setLoading(true)
     const res = await apiClient("/hrms/employees?limit=100")
     if (res.ok) {
-      setEmployees(await res.json())
+      setEmployees(asArrayPayload(await res.json()))
     }
     setLoading(false)
   }

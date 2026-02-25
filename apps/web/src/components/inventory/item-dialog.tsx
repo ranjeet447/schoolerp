@@ -5,7 +5,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
   Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@schoolerp/ui"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { InventoryItem, InventoryCategory } from "@/types/inventory"
 import { toast } from "sonner"
 
@@ -61,7 +61,7 @@ export function ItemDialog({ open, onOpenChange, onSuccess, item }: ItemDialogPr
     try {
       const res = await apiClient("/admin/inventory/categories")
       if (res.ok) {
-        setCategories(await res.json() || [])
+        setCategories(asArrayPayload(await res.json()))
       }
     } catch (e) { console.error(e) }
   }

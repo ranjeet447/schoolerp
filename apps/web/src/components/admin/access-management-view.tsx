@@ -27,7 +27,7 @@ import {
   TabsTrigger,
   Textarea,
 } from "@schoolerp/ui";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, asArrayPayload } from "@/lib/api-client";
 import { toast } from "sonner";
 import { Loader2, RefreshCw, Search, Shield, Users } from "lucide-react";
 
@@ -133,9 +133,9 @@ export default function AccessManagementView() {
       if (!rolesRes.ok) throw new Error((await rolesRes.text()) || "Failed to load roles");
       if (!permsRes.ok) throw new Error((await permsRes.text()) || "Failed to load permissions");
 
-      setUsers(await usersRes.json());
-      setRoles(await rolesRes.json());
-      setPermissions(await permsRes.json());
+      setUsers(asArrayPayload(await usersRes.json()));
+      setRoles(asArrayPayload(await rolesRes.json()));
+      setPermissions(asArrayPayload(await permsRes.json()));
     } catch (err: any) {
       const message = err?.message || "Failed to load access data.";
       setError(message);

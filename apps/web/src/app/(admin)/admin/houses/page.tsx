@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Button, Input, Card, CardHeader, CardTitle, CardContent, Label } from "@schoolerp/ui";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, asArrayPayload } from "@/lib/api-client";
 import { Shield, Plus, Edit2, Trash2, Palette, X, Save, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
@@ -27,7 +27,7 @@ export default function HousesPage() {
     setLoading(true);
     try {
       const res = await apiClient("/admin/houses");
-      if (res.ok) setHouses(await res.json());
+      if (res.ok) setHouses(asArrayPayload(await res.json()));
     } catch (e) { console.error(e); }
     setLoading(false);
   };

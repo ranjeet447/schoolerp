@@ -7,7 +7,7 @@ import {
   Badge
 } from "@schoolerp/ui"
 import { Plus, MapPin, Bus, User, Navigation } from "lucide-react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { Route } from "@/types/transport"
 import { RouteDialog } from "@/components/transport/route-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@schoolerp/ui"
@@ -30,7 +30,7 @@ export default function RoutesPage() {
       const res = await apiClient("/admin/transport/routes")
       if (res.ok) {
         const data = await res.json()
-        setRoutes(data || [])
+        setRoutes(asArrayPayload(data))
       } else {
         const msg = await res.text()
         setError(msg || "Failed to fetch routes")

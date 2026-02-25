@@ -20,7 +20,7 @@ import {
   Switch,
 } from "@schoolerp/ui"
 import { Search, Info, Loader2, Sparkles, Zap } from "lucide-react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 
 interface SearchResult {
   document_id: string
@@ -149,7 +149,7 @@ export function KbSearchView({ heading, subheading, settingsPath, documentPathPr
       const data = (await res.json()) as SearchResponse
       setAccessDenied(false)
       setSummary(data.summary || "")
-      setResults(data.results || [])
+      setResults(asArrayPayload(data, ["results"]))
       setMeta(data.meta || null)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Search failed")

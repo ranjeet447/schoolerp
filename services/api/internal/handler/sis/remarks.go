@@ -1,6 +1,7 @@
 package sis
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -104,4 +105,135 @@ func (h *Handler) AcknowledgeRemark(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(remark)
+}
+
+func (h *Handler) ListMyChildRemarks(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	tenantID := middleware.GetTenantID(ctx)
+	userID := middleware.GetUserID(ctx)
+	childID := chi.URLParam(r, "id")
+
+	allowed, err := h.parentOwnsChild(ctx, tenantID, userID, childID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !allowed {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	sUUID := pgtype.UUID{}
+	sUUID.Scan(childID)
+
+	remarks, err := h.svc.ListStudentRemarks(ctx, db.ListStudentRemarksParams{
+		TenantID:  tUUID,
+		StudentID: sUUID,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(remarks)
+}
+
+func (h *Handler) AcknowledgeMyChildRemark(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	tenantID := middleware.GetTenantID(ctx)
+	userID := middleware.GetUserID(ctx)
+	remarkIDStr := chi.URLParam(r, "id")
+
+	canAck, err := h.parentCanAccessRemark(ctx, tenantID, userID, remarkIDStr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !canAck {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(userID)
+	rmkUUID := pgtype.UUID{}
+	rmkUUID.Scan(remarkIDStr)
+
+	remark, err := h.svc.AcknowledgeStudentRemark(ctx, db.AcknowledgeStudentRemarkParams{
+		TenantID:    tUUID,
+		ID:          rmkUUID,
+		AckByUserID: uUUID,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(remark)
+}
+
+func (h *Handler) parentOwnsChild(ctx context.Context, tenantID, userID, childID string) (bool, error) {
+	children, err := h.svc.ListChildrenByParent(ctx, tenantID, userID)
+	if err != nil {
+		return false, err
+	}
+	return childrenContainStudentID(children, childID), nil
+}
+
+func (h *Handler) parentCanAccessRemark(ctx context.Context, tenantID, userID, remarkID string) (bool, error) {
+	children, err := h.svc.ListChildrenByParent(ctx, tenantID, userID)
+	if err != nil {
+		return false, err
+	}
+
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+
+	for _, child := range children {
+		if !child.ID.Valid {
+			continue
+		}
+		remarks, err := h.svc.ListStudentRemarks(ctx, db.ListStudentRemarksParams{
+			TenantID:  tUUID,
+			StudentID: child.ID,
+		})
+		if err != nil {
+			return false, err
+		}
+		if remarksContainID(remarks, remarkID) {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func childrenContainStudentID(children []db.GetChildrenByParentUserRow, childID string) bool {
+	target := pgtype.UUID{}
+	if err := target.Scan(childID); err != nil || !target.Valid {
+		return false
+	}
+	for _, child := range children {
+		if child.ID.Valid && child.ID.Bytes == target.Bytes {
+			return true
+		}
+	}
+	return false
+}
+
+func remarksContainID(remarks []db.ListStudentRemarksRow, remarkID string) bool {
+	target := pgtype.UUID{}
+	if err := target.Scan(remarkID); err != nil || !target.Valid {
+		return false
+	}
+	for _, remark := range remarks {
+		if remark.ID.Valid && remark.ID.Bytes == target.Bytes {
+			return true
+		}
+	}
+	return false
 }

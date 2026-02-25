@@ -5,7 +5,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
   Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@schoolerp/ui"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { Book } from "@/types/library"
 import { toast } from "sonner"
 
@@ -39,8 +39,8 @@ export function IssueDialog({ open, onOpenChange, onSuccess }: IssueDialogProps)
         apiClient("/admin/students?limit=100")
       ])
       
-      if (bRes.ok) setBooks(await bRes.json() || [])
-      if (sRes.ok) setStudents(await sRes.json() || [])
+      if (bRes.ok) setBooks(asArrayPayload(await bRes.json()))
+      if (sRes.ok) setStudents(asArrayPayload(await sRes.json()))
     } catch (err) {
       console.error("Failed to load dependencies", err)
     }

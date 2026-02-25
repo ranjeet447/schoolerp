@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@schoolerp/ui"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { toast } from "sonner"
 import { Fingerprint, Wifi, WifiOff, RefreshCw, Activity } from "lucide-react"
 
@@ -37,8 +37,8 @@ export default function BiometricDeviceSyncPage() {
         apiClient("/admin/biometric/devices"),
         apiClient("/admin/biometric/logs")
       ])
-      if (devRes.ok) setDevices(await devRes.json())
-      if (logRes.ok) setLogs(await logRes.json())
+      if (devRes.ok) setDevices(asArrayPayload(await devRes.json()))
+      if (logRes.ok) setLogs(asArrayPayload(await logRes.json()))
     } catch (err) {
       toast.error("Failed to load biometric data")
     } finally {

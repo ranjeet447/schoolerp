@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { StudentSelect } from "@/components/students/student-select"
 import { 
   Button, 
@@ -143,7 +143,7 @@ export default function FeeSetupPage() {
   // Fetch Logic
   const fetchHeads = async () => {
     const res = await apiClient("/admin/fees/heads")
-    if (res.ok) setHeads(await res.json())
+    if (res.ok) setHeads(asArrayPayload(await res.json()))
   }
   
   const fetchMetadata = async () => {
@@ -178,7 +178,7 @@ export default function FeeSetupPage() {
       return
     }
     const res = await apiClient(`/admin/fees/structure?academic_year_id=${activeYearId}&class_id=${clsId}`)
-    if (res.ok) setConfigs(await res.json())
+    if (res.ok) setConfigs(asArrayPayload(await res.json()))
   }
 
   const fetchGateway = async (provider: string) => {

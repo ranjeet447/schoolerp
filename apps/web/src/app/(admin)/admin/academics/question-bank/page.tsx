@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { 
   Button, 
   Card, 
@@ -63,7 +63,7 @@ export default function QuestionBankPage() {
   const fetchSubjects = async () => {
     const res = await apiClient("/academics/subjects")
     if (res.ok) {
-      setSubjects(await res.json())
+      setSubjects(asArrayPayload(await res.json()))
     }
   }
 
@@ -75,7 +75,7 @@ export default function QuestionBankPage() {
 
     const res = await apiClient(`/exams/questions?${params.toString()}`)
     if (res.ok) {
-      setQuestions(await res.json())
+      setQuestions(asArrayPayload(await res.json()))
     }
     setLoading(false)
   }

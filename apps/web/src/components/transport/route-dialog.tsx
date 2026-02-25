@@ -5,7 +5,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
   Button, Input, Label, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from "@schoolerp/ui"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
 import { Route, Vehicle, Driver } from "@/types/transport"
 import { toast } from "sonner"
 
@@ -59,8 +59,8 @@ export function RouteDialog({ open, onOpenChange, onSuccess, route }: RouteDialo
         apiClient("/admin/transport/drivers")
       ])
       
-      if (vRes.ok) setVehicles(await vRes.json() || [])
-      if (dRes.ok) setDrivers(await dRes.json() || [])
+      if (vRes.ok) setVehicles(asArrayPayload(await vRes.json()))
+      if (dRes.ok) setDrivers(asArrayPayload(await dRes.json()))
     } catch (err) {
       console.error("Failed to load dependencies", err)
     }
