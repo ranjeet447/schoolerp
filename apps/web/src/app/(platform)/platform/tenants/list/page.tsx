@@ -4,18 +4,16 @@ import { useState, useEffect } from "react"
 import { 
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
   Button, Input, Card, CardContent, CardHeader, CardTitle,
-  Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+  Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, Label, Textarea
 } from "@schoolerp/ui"
 import { 
   Search, 
   Filter, 
-  MoreHorizontal, 
-  ShieldCheck, 
   UserCircle, 
   PauseCircle, 
   PlayCircle,
   Building2,
-  ExternalLink,
   ChevronLeft,
   Loader2
 } from "lucide-react"
@@ -31,6 +29,9 @@ export default function TenantListPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [impersonationDialogOpen, setImpersonationDialogOpen] = useState(false)
+  const [impersonationTenant, setImpersonationTenant] = useState<any | null>(null)
+  const [impersonationReason, setImpersonationReason] = useState("Support troubleshooting for tenant admin issue")
 
   useEffect(() => {
     fetchTenants()
@@ -71,25 +72,30 @@ export default function TenantListPage() {
     }
   }
 
-  const handleImpersonate = async (tenantId: string) => {
-    const tenantName = tenants.find((t) => t.id === tenantId)?.name || "this tenant"
-    const reason = window.prompt(
-      `Enter impersonation reason for ${tenantName} (minimum 10 characters):`,
-      "Support troubleshooting for tenant admin issue"
-    )
+  const openImpersonationDialog = (tenantId: string) => {
+    const tenant = tenants.find((t) => t.id === tenantId) || null
+    setImpersonationTenant(tenant)
+    setImpersonationReason("Support troubleshooting for tenant admin issue")
+    setImpersonationDialogOpen(true)
+  }
 
-    if (reason === null) return
-    if (reason.trim().length < 10) {
+  const handleImpersonate = async () => {
+    if (!impersonationTenant?.id) return
+
+    const reason = impersonationReason.trim()
+    if (reason.length < 10) {
       toast.error("Impersonation reason must be at least 10 characters")
       return
     }
 
-    setActionLoading(`impersonate-${tenantId}`)
+    setActionLoading(`impersonate-${impersonationTenant.id}`)
     try {
-      const result = await RBACService.impersonatePlatformTenant(tenantId, reason)
+      const result = await RBACService.impersonatePlatformTenant(impersonationTenant.id, reason)
       if (!result.success) {
         toast.error(result.error || "Impersonation failed")
+        return
       }
+      setImpersonationDialogOpen(false)
     } catch (error) {
       toast.error("Impersonation failed")
     } finally {
@@ -161,14 +167,14 @@ export default function TenantListPage() {
                 <TableHead className="text-muted-foreground font-black tracking-tighter uppercase">Plan</TableHead>
                 <TableHead className="text-muted-foreground font-black tracking-tighter uppercase">Joined</TableHead>
                 <TableHead className="text-muted-foreground font-black tracking-tighter uppercase text-center">Lifecycle</TableHead>
-                <TableHead className="text-right px-8">Remote Actions</TableHead>
+                <TableHead className="text-right px-8 text-muted-foreground font-black tracking-tighter uppercase">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody className="divide-y divide-border/50">
               {loading ? (
                 <TableRow>
                    <TableCell colSpan={6} className="text-center py-20 text-muted-foreground">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
                     Syncing global school directory...
                   </TableCell>
                 </TableRow>
@@ -215,8 +221,8 @@ export default function TenantListPage() {
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            className="rounded-xl h-9 px-4 font-bold border-indigo-500/20 text-indigo-500 hover:bg-indigo-500/5 gap-2"
-                            onClick={() => handleImpersonate(tenant.id)}
+                            className="rounded-xl h-9 px-4 font-bold border-primary/20 text-primary hover:bg-primary/5 gap-2"
+                            onClick={() => openImpersonationDialog(tenant.id)}
                             disabled={actionLoading === `impersonate-${tenant.id}`}
                           >
                              {actionLoading === `impersonate-${tenant.id}` ? (
@@ -251,6 +257,67 @@ export default function TenantListPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog
+        open={impersonationDialogOpen}
+        onOpenChange={(open) => {
+          setImpersonationDialogOpen(open)
+          if (!open) setImpersonationTenant(null)
+        }}
+      >
+        <DialogContent className="max-w-lg rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="tracking-tight">Impersonate Tenant Admin</DialogTitle>
+            <DialogDescription>
+              {impersonationTenant
+                ? `Start a temporary admin session for ${impersonationTenant.name}. This action is audited.`
+                : "Start a temporary tenant admin session."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {impersonationTenant && (
+              <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
+                <p className="text-xs font-black uppercase tracking-wider text-muted-foreground">Target Tenant</p>
+                <p className="mt-1 font-semibold text-foreground">{impersonationTenant.name}</p>
+                <p className="text-xs text-muted-foreground">{impersonationTenant.subdomain}.schoolerp.com</p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="tenant-impersonation-reason">Reason (required)</Label>
+              <Textarea
+                id="tenant-impersonation-reason"
+                rows={4}
+                value={impersonationReason}
+                onChange={(e) => setImpersonationReason(e.target.value)}
+                placeholder="Describe the support/debugging reason for this impersonation session"
+              />
+              <p className={`text-xs ${impersonationReason.trim().length < 10 ? "text-amber-600" : "text-muted-foreground"}`}>
+                Minimum 10 characters for audit compliance.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImpersonationDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleImpersonate}
+              disabled={!impersonationTenant || impersonationReason.trim().length < 10 || actionLoading === `impersonate-${impersonationTenant?.id}`}
+              className="gap-2"
+            >
+              {actionLoading === `impersonate-${impersonationTenant?.id}` ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserCircle className="h-4 w-4" />
+              )}
+              Start Impersonation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
