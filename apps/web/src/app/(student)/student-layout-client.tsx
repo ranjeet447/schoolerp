@@ -13,7 +13,7 @@ import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@schoo
 import { usePathname, useRouter } from 'next/navigation';
 import { TenantConfig } from '@/lib/tenant-utils';
 import { useAuth } from '@/components/auth-provider';
-import { isPlatformUser } from '@/lib/auth-service';
+import { RBACService, isPlatformUser } from '@/lib/auth-service';
 import { Home } from 'lucide-react';
 const NAV_ITEMS = [
   { href: '/student/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -27,16 +27,25 @@ export default function StudentLayoutClient({
   children: React.ReactNode;
   config: TenantConfig | null;
 }) {
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
+    if (isLoading) return;
+    if (!user?.role) {
+      router.replace('/auth/login');
+      return;
+    }
     if (isPlatformUser(user?.role)) {
       router.replace('/platform/dashboard');
+      return;
     }
-  }, [user?.role, router]);
+    if (user.role !== "student" && user.role !== "tenant_admin") {
+      router.replace(RBACService.getDashboardPath(user.role));
+    }
+  }, [isLoading, user?.role, router]);
 
   useEffect(() => {
     setMobileMenuOpen(false);

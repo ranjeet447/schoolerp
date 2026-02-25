@@ -12,8 +12,8 @@ import {
   CreditCard
 } from 'lucide-react';
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@schoolerp/ui';
-import { RBACService } from '@/lib/auth-service';
-import { usePathname } from 'next/navigation';
+import { RBACService, isPlatformUser } from '@/lib/auth-service';
+import { usePathname, useRouter } from 'next/navigation';
 import { TenantConfig } from '@/lib/tenant-utils';
 import { useAuth } from '@/components/auth-provider';
 
@@ -30,9 +30,25 @@ export default function AccountantLayoutClient({
   children: React.ReactNode;
   config: TenantConfig | null;
 }) {
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!user?.role) {
+      router.replace('/auth/login');
+      return;
+    }
+    if (isPlatformUser(user.role)) {
+      router.replace('/platform/dashboard');
+      return;
+    }
+    if (user.role !== 'accountant' && user.role !== 'tenant_admin') {
+      router.replace(RBACService.getDashboardPath(user.role));
+    }
+  }, [isLoading, router, user?.role]);
 
   useEffect(() => {
     setMobileMenuOpen(false);

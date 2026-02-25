@@ -41,17 +41,26 @@ export default function TeacherLayoutClient({
   children: React.ReactNode;
   config: TenantConfig | null;
 }) {
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [kbVisible, setKbVisible] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
+    if (isLoading) return;
+    if (!user?.role) {
+      router.replace('/auth/login');
+      return;
+    }
     if (isPlatformUser(user?.role)) {
       router.replace('/platform/dashboard');
+      return;
     }
-  }, [user?.role, router]);
+    if (user.role !== "teacher" && user.role !== "tenant_admin") {
+      router.replace(RBACService.getDashboardPath(user.role));
+    }
+  }, [isLoading, user?.role, router]);
 
   useEffect(() => {
     let active = true;

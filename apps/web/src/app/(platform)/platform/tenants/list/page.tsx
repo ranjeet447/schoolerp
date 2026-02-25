@@ -20,6 +20,7 @@ import {
   Loader2
 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
+import { RBACService } from "@/lib/auth-service"
 import { format } from "date-fns"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -71,16 +72,23 @@ export default function TenantListPage() {
   }
 
   const handleImpersonate = async (tenantId: string) => {
+    const tenantName = tenants.find((t) => t.id === tenantId)?.name || "this tenant"
+    const reason = window.prompt(
+      `Enter impersonation reason for ${tenantName} (minimum 10 characters):`,
+      "Support troubleshooting for tenant admin issue"
+    )
+
+    if (reason === null) return
+    if (reason.trim().length < 10) {
+      toast.error("Impersonation reason must be at least 10 characters")
+      return
+    }
+
     setActionLoading(`impersonate-${tenantId}`)
     try {
-      const res = await apiClient(`/admin/platform/tenants/${tenantId}/impersonate`, {
-        method: "POST"
-      })
-      if (res.ok) {
-        const data = await res.json()
-        toast.success("Impersonation session created")
-        // Typically would redirect to /admin/dashboard with a cookie/header set
-        window.location.href = "/admin/dashboard"
+      const result = await RBACService.impersonatePlatformTenant(tenantId, reason)
+      if (!result.success) {
+        toast.error(result.error || "Impersonation failed")
       }
     } catch (error) {
       toast.error("Impersonation failed")

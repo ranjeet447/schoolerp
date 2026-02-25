@@ -115,7 +115,14 @@ export default function PlatformPlansPage() {
   
   // Create/Edit Plan State
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
+  const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [cloneSourcePlan, setCloneSourcePlan] = useState<PlatformPlan | null>(null);
+  const [cloneForm, setCloneForm] = useState({
+    code: "",
+    name: "",
+    description: "",
+  });
   const [planForm, setPlanForm] = useState({
     code: "",
     name: "",
@@ -223,22 +230,46 @@ export default function PlatformPlansPage() {
     }
   };
 
-  const handleClonePlan = async (plan: PlatformPlan) => {
-    const cloneCode = window.prompt("Clone code (must be unique):", `${plan.code}-copy`);
-    if (!cloneCode) return;
-    setBusyId(`clone-${plan.id}`);
+  const handleOpenCloneDialog = (plan: PlatformPlan) => {
+    setCloneSourcePlan(plan);
+    setCloneForm({
+      code: `${plan.code}-copy`,
+      name: `${plan.name} Copy`,
+      description: plan.description || "",
+    });
+    setCloneDialogOpen(true);
+  };
+
+  const handleClonePlan = async () => {
+    if (!cloneSourcePlan) return;
+    const code = cloneForm.code.trim();
+    if (!code) {
+      toast.error("Clone code is required.");
+      return;
+    }
+
+    setBusyId(`clone-${cloneSourcePlan.id}`);
     try {
-        await apiClient(`/admin/platform/plans/${plan.id}/clone`, {
+        const res = await apiClient(`/admin/platform/plans/${cloneSourcePlan.id}/clone`, {
             method: "POST",
             body: JSON.stringify({
-                code: cloneCode.trim(),
-                name: `${plan.name} Copy`,
-                description: plan.description || "",
+                code,
+                name: cloneForm.name.trim() || `${cloneSourcePlan.name} Copy`,
+                description: cloneForm.description.trim(),
                 is_active: false
             })
         });
+        if (!res.ok) {
+          throw new Error(await res.text());
+        }
+        setCloneDialogOpen(false);
+        setCloneSourcePlan(null);
         loadPlans();
-    } catch(e) { console.error(e) } finally { setBusyId(""); }
+        toast.success("Plan cloned successfully.");
+    } catch(e: any) {
+      console.error(e);
+      toast.error(e?.message || "Failed to clone plan.");
+    } finally { setBusyId(""); }
   };
 
    const handleToggleStatus = async (plan: PlatformPlan) => {
@@ -355,7 +386,7 @@ export default function PlatformPlansPage() {
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
                                                 <DropdownMenuItem onClick={() => handleOpenPlanDialog(plan)}>Edit Plan</DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => handleClonePlan(plan)}>
+                                                <DropdownMenuItem onClick={() => handleOpenCloneDialog(plan)}>
                                                     <Copy className="mr-2 h-4 w-4" /> Clone
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem onClick={() => handleToggleStatus(plan)}>
@@ -523,6 +554,53 @@ export default function PlatformPlansPage() {
                   <Button onClick={handleSavePlan} disabled={busyId === "save-plan"}>
                       {busyId === "save-plan" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       Save Plan
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
+
+      <Dialog open={cloneDialogOpen} onOpenChange={setCloneDialogOpen}>
+          <DialogContent className="max-w-lg">
+              <DialogHeader>
+                  <DialogTitle>Clone Plan</DialogTitle>
+                  <DialogDescription>
+                    {cloneSourcePlan ? `Create a copy of ${cloneSourcePlan.name} (${cloneSourcePlan.code})` : "Create a cloned plan."}
+                  </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-2">
+                  <div className="grid gap-2">
+                      <Label htmlFor="clone-plan-code">Clone Code</Label>
+                      <Input
+                        id="clone-plan-code"
+                        value={cloneForm.code}
+                        onChange={(e) => setCloneForm((p) => ({ ...p, code: e.target.value }))}
+                        placeholder="pro-copy"
+                      />
+                  </div>
+                  <div className="grid gap-2">
+                      <Label htmlFor="clone-plan-name">Display Name</Label>
+                      <Input
+                        id="clone-plan-name"
+                        value={cloneForm.name}
+                        onChange={(e) => setCloneForm((p) => ({ ...p, name: e.target.value }))}
+                        placeholder="Pro Plan Copy"
+                      />
+                  </div>
+                  <div className="grid gap-2">
+                      <Label htmlFor="clone-plan-description">Description</Label>
+                      <Textarea
+                        id="clone-plan-description"
+                        rows={3}
+                        value={cloneForm.description}
+                        onChange={(e) => setCloneForm((p) => ({ ...p, description: e.target.value }))}
+                      />
+                  </div>
+              </div>
+              <DialogFooter>
+                  <Button variant="outline" onClick={() => setCloneDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={handleClonePlan} disabled={busyId.startsWith("clone-")}>
+                      {busyId.startsWith("clone-") && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Clone Plan
                   </Button>
               </DialogFooter>
           </DialogContent>

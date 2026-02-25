@@ -4,7 +4,22 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@schoolerp/ui";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Button,
+  Input,
+  Label,
+  Textarea,
+} from "@schoolerp/ui";
 import { BarChart3, FileText, Settings, ArrowRight } from "lucide-react";
 import { TenantSelect } from "@/components/ui/tenant-select";
 
@@ -107,6 +122,16 @@ type BillingConfigForm = {
   support_email: string;
   support_phone: string;
   footer_note: string;
+};
+
+type InvoiceAdjustmentDialogState = {
+  open: boolean;
+  type: "refund" | "credit_note";
+  invoice: PlatformInvoice | null;
+  amount: string;
+  reason: string;
+  reference: string;
+  applyImmediately: boolean;
 };
 
 const EMPTY_BILLING_CONFIG_FORM: BillingConfigForm = {
@@ -242,6 +267,15 @@ export function PaymentsManageView({ activeTab }: { activeTab: PaymentsManageTab
     invoice_template: {},
   });
   const [billingConfigForm, setBillingConfigForm] = useState<BillingConfigForm>(EMPTY_BILLING_CONFIG_FORM);
+  const [adjustmentDialog, setAdjustmentDialog] = useState<InvoiceAdjustmentDialogState>({
+    open: false,
+    type: "refund",
+    invoice: null,
+    amount: "",
+    reason: "",
+    reference: "",
+    applyImmediately: false,
+  });
 
   const invoiceCalc = useMemo(() => {
     const quantity = Number(newInvoice.quantity || 0);
@@ -594,75 +628,75 @@ export function PaymentsManageView({ activeTab }: { activeTab: PaymentsManageTab
     win.document.close();
   };
 
-  const issueRefund = async (invoice: PlatformInvoice) => {
-    const rawAmount = window.prompt(
-      `Refund amount for ${invoice.invoice_number}`,
-      String(invoice.amount_total + invoice.tax_amount)
-    );
-    if (!rawAmount) return;
-    const amount = Math.floor(Number(rawAmount));
-    const reason = window.prompt("Refund reason");
-    if (!reason) return;
-    const reference = window.prompt("Refund reference (optional)") || "";
+  const openAdjustmentDialog = (invoice: PlatformInvoice, type: "refund" | "credit_note") => {
+    setAdjustmentDialog({
+      open: true,
+      type,
+      invoice,
+      amount: String(invoice.amount_total + invoice.tax_amount),
+      reason: "",
+      reference: "",
+      applyImmediately: type === "credit_note",
+    });
+  };
 
-    setBusy(true);
-    setMessage("");
-    setError("");
-    try {
-      if (!Number.isFinite(amount) || amount <= 0) {
-        throw new Error("Refund amount must be a positive number.");
-      }
-      const res = await apiClient(`/admin/platform/invoices/${invoice.id}/refunds`, {
-        method: "POST",
-        body: JSON.stringify({
-          amount,
-          reason,
-          external_ref: reference,
-        }),
-      });
-      if (!res.ok) throw new Error(await readAPIError(res, "Failed to create refund."));
-      setMessage("Refund recorded.");
-      await loadInvoicesData();
-    } catch (e: any) {
-      setError(e?.message || "Failed to create refund.");
-    } finally {
-      setBusy(false);
-    }
+  const issueRefund = async (invoice: PlatformInvoice) => {
+    openAdjustmentDialog(invoice, "refund");
   };
 
   const issueCreditNote = async (invoice: PlatformInvoice) => {
-    const rawAmount = window.prompt(
-      `Credit note amount for ${invoice.invoice_number}`,
-      String(invoice.amount_total + invoice.tax_amount)
-    );
-    if (!rawAmount) return;
-    const amount = Math.floor(Number(rawAmount));
-    const reason = window.prompt("Credit note reason");
-    if (!reason) return;
-    const applyImmediately = window.confirm("Apply this credit note immediately to the invoice?");
-    const reference = window.prompt("Credit note reference (optional)") || "";
+    openAdjustmentDialog(invoice, "credit_note");
+  };
+
+  const submitInvoiceAdjustment = async () => {
+    if (!adjustmentDialog.invoice) return;
+
+    const amount = Math.floor(Number(adjustmentDialog.amount));
+    const reason = adjustmentDialog.reason.trim();
+    const reference = adjustmentDialog.reference.trim();
+    const isCreditNote = adjustmentDialog.type === "credit_note";
 
     setBusy(true);
     setMessage("");
     setError("");
     try {
       if (!Number.isFinite(amount) || amount <= 0) {
-        throw new Error("Credit note amount must be a positive number.");
+        throw new Error(`${isCreditNote ? "Credit note" : "Refund"} amount must be a positive number.`);
       }
-      const res = await apiClient(`/admin/platform/invoices/${invoice.id}/credit-notes`, {
+      if (reason.length < 3) {
+        throw new Error("Reason is required.");
+      }
+
+      const endpoint = isCreditNote
+        ? `/admin/platform/invoices/${adjustmentDialog.invoice.id}/credit-notes`
+        : `/admin/platform/invoices/${adjustmentDialog.invoice.id}/refunds`;
+
+      const payload: Record<string, unknown> = {
+        amount,
+        reason,
+        external_ref: reference,
+      };
+
+      if (isCreditNote) {
+        payload.apply_immediately = adjustmentDialog.applyImmediately;
+      }
+
+      const res = await apiClient(endpoint, {
         method: "POST",
-        body: JSON.stringify({
-          amount,
-          reason,
-          apply_immediately: applyImmediately,
-          external_ref: reference,
-        }),
+        body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(await readAPIError(res, "Failed to create credit note."));
-      setMessage("Credit note recorded.");
+
+      if (!res.ok) {
+        throw new Error(
+          await readAPIError(res, `Failed to create ${isCreditNote ? "credit note" : "refund"}.`)
+        );
+      }
+
+      setAdjustmentDialog((prev) => ({ ...prev, open: false, invoice: null }));
+      setMessage(isCreditNote ? "Credit note recorded." : "Refund recorded.");
       await loadInvoicesData();
     } catch (e: any) {
-      setError(e?.message || "Failed to create credit note.");
+      setError(e?.message || `Failed to create ${isCreditNote ? "credit note" : "refund"}.`);
     } finally {
       setBusy(false);
     }
@@ -1319,6 +1353,100 @@ export function PaymentsManageView({ activeTab }: { activeTab: PaymentsManageTab
       </div>
       </TabsContent>
       </Tabs>
+
+      <Dialog
+        open={adjustmentDialog.open}
+        onOpenChange={(open) =>
+          setAdjustmentDialog((prev) => ({
+            ...prev,
+            open,
+            invoice: open ? prev.invoice : null,
+          }))
+        }
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {adjustmentDialog.type === "credit_note" ? "Issue Credit Note" : "Issue Refund"}
+            </DialogTitle>
+            <DialogDescription>
+              {adjustmentDialog.invoice
+                ? `${adjustmentDialog.type === "credit_note" ? "Create a credit note for" : "Record a refund for"} invoice ${adjustmentDialog.invoice.invoice_number}.`
+                : "Provide amount and reason to continue."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="adjustment-amount">
+                Amount {adjustmentDialog.invoice?.currency ? `(${adjustmentDialog.invoice.currency})` : ""}
+              </Label>
+              <Input
+                id="adjustment-amount"
+                type="number"
+                min={1}
+                value={adjustmentDialog.amount}
+                onChange={(e) => setAdjustmentDialog((prev) => ({ ...prev, amount: e.target.value }))}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="adjustment-reason">Reason</Label>
+              <Textarea
+                id="adjustment-reason"
+                rows={3}
+                value={adjustmentDialog.reason}
+                onChange={(e) => setAdjustmentDialog((prev) => ({ ...prev, reason: e.target.value }))}
+                placeholder={
+                  adjustmentDialog.type === "credit_note"
+                    ? "Explain why the credit note is being issued"
+                    : "Explain why the refund is being recorded"
+                }
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="adjustment-ref">Reference (optional)</Label>
+              <Input
+                id="adjustment-ref"
+                value={adjustmentDialog.reference}
+                onChange={(e) => setAdjustmentDialog((prev) => ({ ...prev, reference: e.target.value }))}
+                placeholder="External reference / ticket / transaction id"
+              />
+            </div>
+
+            {adjustmentDialog.type === "credit_note" && (
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={adjustmentDialog.applyImmediately}
+                  onChange={(e) =>
+                    setAdjustmentDialog((prev) => ({ ...prev, applyImmediately: e.target.checked }))
+                  }
+                />
+                Apply immediately to invoice balance
+              </label>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setAdjustmentDialog((prev) => ({ ...prev, open: false, invoice: null }))}
+              disabled={busy}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={submitInvoiceAdjustment}
+              disabled={busy || !adjustmentDialog.invoice}
+            >
+              {busy && <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />}
+              {adjustmentDialog.type === "credit_note" ? "Create Credit Note" : "Record Refund"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

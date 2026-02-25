@@ -265,9 +265,26 @@ class AuthServiceClass {
       const response = await apiClient(`/admin/platform/tenants/${tenantId}/impersonate`, {
         method: 'POST',
         body: JSON.stringify({ reason }),
-      }) as { token: string; user_id: string; email: string; tenant_id: string; tenant_name: string };
+      }) as {
+        token: string;
+        user_id?: string;
+        email?: string;
+        tenant_id?: string;
+        tenant_name?: string;
+        target_user_id?: string;
+        target_user_email?: string;
+        target_tenant_id?: string;
+        target_tenant_name?: string;
+        target_user_role?: string;
+      };
 
       if (response && response.token) {
+        const impersonatedUserId = response.user_id || response.target_user_id || "";
+        const impersonatedUserEmail = response.email || response.target_user_email || "";
+        const impersonatedTenantId = response.tenant_id || response.target_tenant_id || "";
+        const impersonatedTenantName = response.tenant_name || response.target_tenant_name || "Tenant";
+        const impersonatedRole = response.target_user_role || "tenant_admin";
+
         // Capture current session as impersonator
         const currentToken = localStorage.getItem('auth_token');
         const currentRole = localStorage.getItem('user_role');
@@ -289,34 +306,34 @@ class AuthServiceClass {
           localStorage.setItem('impersonator_tenant_id', currentTenantId || '');
           
           // Track impersonation metadata for logging on exit
-          localStorage.setItem('impersonation_target_tenant_id', response.tenant_id);
-          localStorage.setItem('impersonation_target_user_id', response.user_id);
-          localStorage.setItem('impersonation_target_user_email', response.email);
+          localStorage.setItem('impersonation_target_tenant_id', impersonatedTenantId);
+          localStorage.setItem('impersonation_target_user_id', impersonatedUserId);
+          localStorage.setItem('impersonation_target_user_email', impersonatedUserEmail);
           localStorage.setItem('impersonation_started_at', new Date().toISOString());
           localStorage.setItem('impersonation_reason', reason);
         }
 
         // Save new session (impersonated)
         localStorage.setItem('auth_token', response.token);
-        localStorage.setItem('user_id', response.user_id);
-        localStorage.setItem('user_email', response.email);
-        localStorage.setItem('user_name', response.tenant_name + ' Admin');
-        localStorage.setItem('user_role', 'tenant_admin');
-        localStorage.setItem('tenant_id', response.tenant_id);
+        localStorage.setItem('user_id', impersonatedUserId);
+        localStorage.setItem('user_email', impersonatedUserEmail);
+        localStorage.setItem('user_name', `${impersonatedTenantName} Admin`);
+        localStorage.setItem('user_role', impersonatedRole);
+        localStorage.setItem('tenant_id', impersonatedTenantId);
 
         if (Capacitor.isNativePlatform()) {
            await this.persistToMobile('auth_token', response.token);
-           await this.persistToMobile('user_id', response.user_id);
-           await this.persistToMobile('user_email', response.email);
-           await this.persistToMobile('user_name', response.tenant_name + ' Admin');
-           await this.persistToMobile('user_role', 'tenant_admin');
-           await this.persistToMobile('tenant_id', response.tenant_id);
+           await this.persistToMobile('user_id', impersonatedUserId);
+           await this.persistToMobile('user_email', impersonatedUserEmail);
+           await this.persistToMobile('user_name', `${impersonatedTenantName} Admin`);
+           await this.persistToMobile('user_role', impersonatedRole);
+           await this.persistToMobile('tenant_id', impersonatedTenantId);
            
            if (currentToken) await this.persistToMobile('impersonator_auth_token', currentToken);
         }
 
         // Redirect to new dashboard
-        window.location.href = this.getDashboardPath('tenant_admin');
+        window.location.href = this.getDashboardPath(impersonatedRole);
         return { success: true };
       }
       return { success: false, error: 'Failed to create impersonation token' };

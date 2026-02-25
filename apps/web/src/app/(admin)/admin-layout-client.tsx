@@ -146,7 +146,7 @@ export default function AdminLayoutClient({
   children: React.ReactNode;
   config: TenantConfig | null;
 }) {
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -154,10 +154,19 @@ export default function AdminLayoutClient({
   const [exitingImpersonation, setExitingImpersonation] = useState(false);
 
   useEffect(() => {
+    if (isLoading) return;
+    if (!user?.role) {
+      router.replace('/auth/login');
+      return;
+    }
     if (isPlatformUser(user?.role)) {
       router.replace('/platform/dashboard');
+      return;
     }
-  }, [user?.role, router]);
+    if (["teacher", "parent", "student", "accountant"].includes(user.role)) {
+      router.replace(RBACService.getDashboardPath(user.role));
+    }
+  }, [isLoading, user?.role, router]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
