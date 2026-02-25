@@ -48,6 +48,7 @@ import {
 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog"
 
 interface NotificationTemplate {
   id: string
@@ -59,6 +60,7 @@ interface NotificationTemplate {
 }
 
 export default function NotificationTemplatesPage() {
+  const { confirm, confirmDialog } = useConfirmDialog()
   const [templates, setTemplates] = useState<NotificationTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -132,7 +134,12 @@ export default function NotificationTemplatesPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this template?")) return
+    if (!(await confirm({
+      title: "Delete Template",
+      description: "Delete this template?",
+      confirmText: "Delete",
+      tone: "danger",
+    }))) return
     try {
       const res = await apiClient(`/admin/notifications/templates/${id}`, {
         method: "DELETE"
@@ -187,6 +194,7 @@ export default function NotificationTemplatesPage() {
 
   return (
     <div className="p-6 space-y-6">
+      {confirmDialog}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Smart Alerts</h1>

@@ -30,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api-client";
 import { toast } from "sonner";
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 
 interface ConfidentialNote {
   id: string;
@@ -40,6 +41,7 @@ interface ConfidentialNote {
 }
 
 function ConfidentialNotesPageContent() {
+  const { confirm, confirmDialog } = useConfirmDialog();
   const searchParams = useSearchParams();
   const studentId = searchParams.get("student_id") || "";
   const studentName = searchParams.get("name") || "Student";
@@ -99,7 +101,12 @@ function ConfidentialNotesPageContent() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this confidential note? This cannot be undone.")) return;
+    if (!(await confirm({
+      title: "Delete Confidential Note",
+      description: "Delete this confidential note? This cannot be undone.",
+      confirmText: "Delete",
+      tone: "danger",
+    }))) return;
     try {
       const res = await apiClient(`/admin/safety/notes/${id}`, { method: "DELETE" });
       if (res.ok) {
@@ -115,6 +122,7 @@ function ConfidentialNotesPageContent() {
 
   return (
     <div className="flex flex-col gap-6 p-6 min-h-screen">
+      {confirmDialog}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-rose-400 to-pink-400 bg-clip-text text-transparent">

@@ -37,6 +37,7 @@ import {
 } from "@schoolerp/ui";
 import { apiClient } from "@/lib/api-client";
 import { toast } from "sonner";
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 
 interface AutomationRule {
   id: string;
@@ -49,6 +50,7 @@ interface AutomationRule {
 }
 
 export default function AutomationManagementPage() {
+  const { confirm, confirmDialog } = useConfirmDialog();
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -112,7 +114,12 @@ export default function AutomationManagementPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this rule?")) return;
+    if (!(await confirm({
+      title: "Delete Automation Rule",
+      description: "Are you sure you want to delete this rule?",
+      confirmText: "Delete",
+      tone: "danger",
+    }))) return;
     try {
       const res = await apiClient(`/admin/automation/rules/${id}`, {
         method: "DELETE"
@@ -150,6 +157,7 @@ export default function AutomationManagementPage() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Automation Studio</h1>

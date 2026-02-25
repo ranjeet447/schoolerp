@@ -31,6 +31,7 @@ import {
 } from "@schoolerp/ui"
 import { Loader2, Plus, RefreshCw } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog"
 
 interface KBDocument {
   id: string
@@ -53,6 +54,7 @@ const EMPTY_FORM = {
 }
 
 export default function KBDocumentsPage() {
+  const { confirm, confirmDialog } = useConfirmDialog()
   const [docs, setDocs] = useState<KBDocument[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -144,7 +146,12 @@ export default function KBDocumentsPage() {
   }
 
   const remove = async (id: string) => {
-    if (!confirm("Delete this knowledgebase document?")) return
+    if (!(await confirm({
+      title: "Delete Document",
+      description: "Delete this knowledgebase document?",
+      confirmText: "Delete",
+      tone: "danger",
+    }))) return
     try {
       const res = await apiClient(`/admin/kb/documents/${id}`, { method: "DELETE" })
       if (!res.ok) throw new Error((await res.text()) || "Failed to delete")
@@ -170,6 +177,7 @@ export default function KBDocumentsPage() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Knowledgebase Documents</h1>

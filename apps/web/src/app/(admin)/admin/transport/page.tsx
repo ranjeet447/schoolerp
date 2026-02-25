@@ -30,8 +30,10 @@ import {
 } from "@schoolerp/ui"
 import { MapPin, Bus, User, Map, Fuel, Users, Plus, ShieldCheck } from "lucide-react"
 import { toast } from "sonner"
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog"
 
 export default function TransportPage() {
+  const { confirm, confirmDialog } = useConfirmDialog()
   const [activeTab, setActiveTab] = useState("routes")
   const [vehicles, setVehicles] = useState([])
   const [drivers, setDrivers] = useState([])
@@ -66,7 +68,11 @@ export default function TransportPage() {
   }
 
   const handleGenerateFees = async () => {
-    if (!confirm("Are you sure you want to generate transport fees for all active allocations?")) return
+    if (!(await confirm({
+      title: "Generate Transport Fees",
+      description: "Generate transport fees for all active allocations?",
+      confirmText: "Generate",
+    }))) return
     
     setGenerating(true)
     try {
@@ -88,6 +94,7 @@ export default function TransportPage() {
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      {confirmDialog}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-black text-foreground tracking-tight">Transport Network</h1>

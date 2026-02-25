@@ -19,6 +19,7 @@ import {
 } from "@schoolerp/ui"
 import { Plus, UserCheck, School, Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog"
 
 type Teacher = {
   id: string
@@ -43,6 +44,7 @@ type Assignment = {
 }
 
 export default function ClassTeachersPage() {
+  const { confirm, confirmDialog } = useConfirmDialog()
   const [teachers, setTeachers] = useState<Teacher[]>([])
   const [sections, setSections] = useState<ClassSection[]>([])
   const [assignments, setAssignments] = useState<Assignment[]>([])
@@ -86,7 +88,11 @@ export default function ClassTeachersPage() {
     // Check if section already assigned
     const existing = assignments.find(a => a.class_section_id === selectedSection)
     if (existing) {
-        if (!confirm(`Class ${existing.class_name} ${existing.section_name} is already assigned to ${existing.teacher_name}. Reassign?`)) {
+        if (!(await confirm({
+          title: "Reassign Class Teacher",
+          description: `Class ${existing.class_name} ${existing.section_name} is already assigned to ${existing.teacher_name}. Reassign?`,
+          confirmText: "Reassign",
+        }))) {
             return
         }
     }
@@ -117,6 +123,7 @@ export default function ClassTeachersPage() {
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      {confirmDialog}
       <div>
         <h1 className="text-3xl font-black text-white tracking-tight">Class Teacher Assignments</h1>
         <p className="text-slate-400 font-medium">Designate a primary mentor for each class section.</p>

@@ -45,6 +45,7 @@ import {
 import { apiClient } from "@/lib/api-client";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 
 interface DigitalAsset {
   id: string;
@@ -59,6 +60,7 @@ interface DigitalAsset {
 }
 
 function DigitalAssetsPageContent() {
+  const { confirm, confirmDialog } = useConfirmDialog();
   const searchParams = useSearchParams();
   const bookId = searchParams.get("book_id") || "";
   const bookTitle = searchParams.get("title") || "Library Assets";
@@ -120,7 +122,12 @@ function DigitalAssetsPageContent() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to remove this digital asset?")) return;
+    if (!(await confirm({
+      title: "Remove Digital Asset",
+      description: "Are you sure you want to remove this digital asset?",
+      confirmText: "Remove",
+      tone: "danger",
+    }))) return;
     try {
       const res = await apiClient(`/admin/library/assets/${id}`, {
         method: "DELETE"
@@ -161,6 +168,7 @@ function DigitalAssetsPageContent() {
 
   return (
     <div className="p-6 space-y-6">
+      {confirmDialog}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Digital Assets</h1>

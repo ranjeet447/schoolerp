@@ -11,8 +11,10 @@ import { apiClient } from "@/lib/api-client"
 import { LibraryIssue } from "@/types/library"
 import { IssueDialog } from "@/components/library/issue-dialog"
 import { toast } from "sonner"
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog"
 
 export default function IssuesPage() {
+  const { confirm, confirmDialog } = useConfirmDialog()
   const [issues, setIssues] = useState<LibraryIssue[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -37,7 +39,11 @@ export default function IssuesPage() {
   }
 
   const handleReturn = async (issue: LibraryIssue) => {
-    if (!confirm(`Confirm return for "${issue.book_title}"?`)) return
+    if (!(await confirm({
+      title: "Confirm Book Return",
+      description: `Confirm return for "${issue.book_title}"?`,
+      confirmText: "Mark Returned",
+    }))) return
     
     try {
       const res = await apiClient(`/admin/library/issues/${issue.id}/return`, {
@@ -61,6 +67,7 @@ export default function IssuesPage() {
 
   return (
     <div className="p-6 space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Circulation Desk</h1>

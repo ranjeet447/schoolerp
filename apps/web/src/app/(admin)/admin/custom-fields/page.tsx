@@ -5,6 +5,7 @@ import { Button, Input, Card, CardContent, CardHeader, CardTitle, Badge } from "
 import { apiClient } from "@/lib/api-client";
 import { Plus, Settings, Trash2, Edit2, Save, X, GripVertical, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 
 interface FieldDefinition {
   id: string;
@@ -21,6 +22,7 @@ const ENTITY_TYPES = ["student", "employee", "guardian"];
 const FIELD_TYPES = ["text", "number", "date", "select", "multiselect", "boolean", "textarea"];
 
 export default function CustomFieldsPage() {
+  const { confirm, confirmDialog } = useConfirmDialog();
   const [definitions, setDefinitions] = useState<FieldDefinition[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeType, setActiveType] = useState("student");
@@ -76,7 +78,7 @@ export default function CustomFieldsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this custom field?")) return;
+    if (!(await confirm({ title: "Delete Custom Field", description: "Delete this custom field?", confirmText: "Delete", tone: "danger" }))) return;
     await apiClient(`/admin/custom-fields/definitions/${id}`, { method: "DELETE" });
     loadDefs();
   };
@@ -92,6 +94,7 @@ export default function CustomFieldsPage() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-foreground">Custom Fields</h1>

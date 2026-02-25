@@ -5,6 +5,7 @@ import { Button, Input, Card, CardHeader, CardTitle, CardContent, Label } from "
 import { apiClient } from "@/lib/api-client";
 import { Shield, Plus, Edit2, Trash2, Palette, X, Save, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 
 interface House {
   id: string;
@@ -15,6 +16,7 @@ interface House {
 }
 
 export default function HousesPage() {
+  const { confirm, confirmDialog } = useConfirmDialog();
   const [houses, setHouses] = useState<House[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -45,7 +47,7 @@ export default function HousesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this house?")) return;
+    if (!(await confirm({ title: "Delete House", description: "Delete this house?", confirmText: "Delete", tone: "danger" }))) return;
     await apiClient(`/admin/houses/${id}`, { method: "DELETE" });
     loadHouses();
   };
@@ -69,6 +71,7 @@ export default function HousesPage() {
 
   return (
     <div className="space-y-6 pb-10">
+      {confirmDialog}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-foreground tracking-tight">House System</h1>

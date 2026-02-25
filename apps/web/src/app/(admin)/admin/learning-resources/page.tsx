@@ -35,6 +35,7 @@ import {
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api-client";
 import { toast } from "sonner";
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 
 interface Resource {
   id: string;
@@ -62,6 +63,7 @@ interface SubjectRow {
 }
 
 export default function ResourcesPage() {
+  const { confirm, confirmDialog } = useConfirmDialog();
   const [resources, setResources] = useState<Resource[]>([]);
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
@@ -158,7 +160,12 @@ export default function ResourcesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this resource?")) return;
+    if (!(await confirm({
+      title: "Delete Resource",
+      description: "Delete this resource?",
+      confirmText: "Delete",
+      tone: "danger",
+    }))) return;
     try {
       const res = await apiClient(`/admin/resources/${id}`, { method: "DELETE" });
       if (res.ok) {
@@ -192,6 +199,7 @@ export default function ResourcesPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6 max-w-7xl mx-auto pb-10">
+      {confirmDialog}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-foreground tracking-tight">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { 
+import {
   Calendar, 
   Plus, 
   Trash2, 
@@ -37,6 +37,7 @@ import {
   SelectValue
 } from "@schoolerp/ui";
 import { apiClient } from "@/lib/api-client";
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 
 interface Holiday {
   id: string;
@@ -46,6 +47,7 @@ interface Holiday {
 }
 
 export default function HolidayManagementPage() {
+  const { confirm, confirmDialog } = useConfirmDialog();
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -91,7 +93,12 @@ export default function HolidayManagementPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this holiday?")) return;
+    if (!(await confirm({
+      title: "Delete Holiday",
+      description: "Are you sure you want to delete this holiday?",
+      confirmText: "Delete",
+      tone: "danger",
+    }))) return;
     try {
       const res = await apiClient(`/academics/holidays/${id}`, {
         method: "DELETE"
@@ -104,6 +111,7 @@ export default function HolidayManagementPage() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Holiday Management</h1>
