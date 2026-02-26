@@ -265,9 +265,44 @@ func (h *Handler) UpsertFeeClassConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) RegisterWebhookRoutes(r chi.Router) {
-	r.Post("/razorpay-webhook", h.HandleWebhook)
-	r.Post("/payu-webhook", h.HandleWebhook)
-	r.Post("/webhook/{provider}", h.HandleWebhookPublicByProvider)
+	razorpayLimiter := middleware.RateLimitByKey("payments_webhook_razorpay", 240, time.Minute, func(r *http.Request) string {
+		ip := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
+		if idx := strings.Index(ip, ","); idx >= 0 {
+			ip = strings.TrimSpace(ip[:idx])
+		}
+		if ip == "" {
+			ip = strings.TrimSpace(r.RemoteAddr)
+		}
+		return "razorpay|" + ip
+	})
+	payuLimiter := middleware.RateLimitByKey("payments_webhook_payu", 240, time.Minute, func(r *http.Request) string {
+		ip := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
+		if idx := strings.Index(ip, ","); idx >= 0 {
+			ip = strings.TrimSpace(ip[:idx])
+		}
+		if ip == "" {
+			ip = strings.TrimSpace(r.RemoteAddr)
+		}
+		return "payu|" + ip
+	})
+	dynamicWebhookLimiter := middleware.RateLimitByKey("payments_webhook_provider", 240, time.Minute, func(r *http.Request) string {
+		provider := strings.TrimSpace(strings.ToLower(chi.URLParam(r, "provider")))
+		if provider == "" {
+			provider = "unknown"
+		}
+		ip := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
+		if idx := strings.Index(ip, ","); idx >= 0 {
+			ip = strings.TrimSpace(ip[:idx])
+		}
+		if ip == "" {
+			ip = strings.TrimSpace(r.RemoteAddr)
+		}
+		return provider + "|" + ip
+	})
+
+	r.With(razorpayLimiter).Post("/razorpay-webhook", h.HandleWebhook)
+	r.With(payuLimiter).Post("/payu-webhook", h.HandleWebhook)
+	r.With(dynamicWebhookLimiter).Post("/webhook/{provider}", h.HandleWebhookPublicByProvider)
 }
 
 func (h *Handler) ListFeeClassConfigs(w http.ResponseWriter, r *http.Request) {

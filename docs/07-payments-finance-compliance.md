@@ -18,5 +18,6 @@
 - Generates `credit_note` entity for audit trail.
 
 ## 4. Tally ERP Exports
-- Standardized CSV/XML exports for direct Tally import.
+- Current implementation exports **CSV** (not Tally XML) for import/mapping workflows.
+- XML export remains a roadmap item and should not be claimed as implemented.
 - Mapping: `Fee Head` -> `Tally Ledger`.

@@ -148,14 +148,29 @@ func (s *Service) CreateOrUpdateGatewayConfig(ctx context.Context, tenantID, pro
 	tID.Scan(tenantID)
 
 	// Partial update support: If secrets are empty, keep existing encrypted values
+	// for the same provider (even if it is not currently active).
 	if apiKey == "" || apiSecret == "" {
-		existing, err := s.q.GetTenantActiveNotificationGateway(ctx, tID)
-		if err == nil && existing.Provider == provider {
-			if apiKey == "" {
-				apiKey = existing.ApiKey.String
+		if configs, err := s.q.ListNotificationGatewayConfigs(ctx, tID); err == nil {
+			for _, existing := range configs {
+				if strings.EqualFold(strings.TrimSpace(existing.Provider), strings.TrimSpace(provider)) {
+					if apiKey == "" {
+						apiKey = existing.ApiKey.String
+					}
+					if apiSecret == "" {
+						apiSecret = existing.ApiSecret.String
+					}
+					break
+				}
 			}
-			if apiSecret == "" {
-				apiSecret = existing.ApiSecret.String
+		} else {
+			existing, err := s.q.GetTenantActiveNotificationGateway(ctx, tID)
+			if err == nil && existing.Provider == provider {
+				if apiKey == "" {
+					apiKey = existing.ApiKey.String
+				}
+				if apiSecret == "" {
+					apiSecret = existing.ApiSecret.String
+				}
 			}
 		}
 	}
@@ -232,8 +247,8 @@ func (s *Service) GetUsageStats(ctx context.Context, tenantID string, since time
 	tID.Scan(tenantID)
 
 	return s.q.GetSmsUsageStats(ctx, db.GetSmsUsageStatsParams{
-		TenantID:  tID,
-		Since:     pgtype.Timestamptz{Time: since, Valid: !since.IsZero()},
+		TenantID: tID,
+		Since:    pgtype.Timestamptz{Time: since, Valid: !since.IsZero()},
 	})
 }
 
@@ -242,7 +257,7 @@ func (s *Service) GetOutboxStats(ctx context.Context, tenantID string, since tim
 	tID.Scan(tenantID)
 
 	return s.q.GetOutboxStatusStats(ctx, db.GetOutboxStatusStatsParams{
-		TenantID:  tID,
-		Since:     pgtype.Timestamptz{Time: since, Valid: !since.IsZero()},
+		TenantID: tID,
+		Since:    pgtype.Timestamptz{Time: since, Valid: !since.IsZero()},
 	})
 }

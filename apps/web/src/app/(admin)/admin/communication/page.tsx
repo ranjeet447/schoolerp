@@ -25,6 +25,7 @@ import {
 } from "@schoolerp/ui"
 import { toast } from "sonner"
 import { Loader2, RefreshCw } from "lucide-react"
+import Link from "next/link"
 
 type PtmEventRow = {
   id: string
@@ -241,9 +242,14 @@ export default function AdminCommunicationPage() {
           <h1 className="text-3xl font-black tracking-tight text-foreground">Communication Center</h1>
           <p className="text-sm font-medium text-muted-foreground">Messaging events, PTM events, and chat moderation settings.</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => fetchAll(true)} disabled={refreshing} className="gap-2 shrink-0">
-          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} /> Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="shrink-0">
+            <Link href="/admin/communication/gateways">Gateways</Link>
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={() => fetchAll(true)} disabled={refreshing} className="gap-2 shrink-0">
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} /> Refresh
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">

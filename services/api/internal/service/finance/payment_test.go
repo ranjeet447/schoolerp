@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
+	"errors"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -18,10 +19,11 @@ import (
 
 type mockFinanceQuerier struct {
 	db.Querier
-	outboxCreated     bool
-	gatewayConfig     db.PaymentGatewayConfig
-	processedEvents   map[string]bool
-	loggedEvents      map[string]bool
+	outboxCreated   bool
+	gatewayConfig   db.PaymentGatewayConfig
+	processedEvents map[string]bool
+	loggedEvents    map[string]bool
+	webhookLogs     map[string]db.WebhookLog
 }
 
 func (m *mockFinanceQuerier) CreatePaymentOrder(ctx context.Context, arg db.CreatePaymentOrderParams) (db.PaymentOrder, error) {
@@ -105,16 +107,44 @@ func (m *mockFinanceQuerier) GetTenantActiveGateway(ctx context.Context, tenantI
 	return m.gatewayConfig, nil
 }
 
+func (m *mockFinanceQuerier) CreateWebhookLog(ctx context.Context, arg db.CreateWebhookLogParams) (db.WebhookLog, error) {
+	if m.webhookLogs == nil {
+		m.webhookLogs = map[string]db.WebhookLog{}
+	}
+	id := pgtype.UUID{Bytes: [16]byte{9}, Valid: true}
+	entry := db.WebhookLog{
+		ID:       id,
+		TenantID: arg.TenantID,
+		Provider: arg.Provider,
+		EventID:  arg.EventID,
+		Payload:  arg.Payload,
+		Status:   "received",
+	}
+	m.webhookLogs[arg.EventID] = entry
+	return entry, nil
+}
+
+func (m *mockFinanceQuerier) UpdateWebhookLogStatus(ctx context.Context, arg db.UpdateWebhookLogStatusParams) (db.WebhookLog, error) {
+	entry := db.WebhookLog{
+		ID:           arg.ID,
+		TenantID:     arg.TenantID,
+		Status:       arg.Status,
+		ErrorMessage: arg.ErrorMessage,
+		ProcessedAt:  arg.ProcessedAt,
+	}
+	return entry, nil
+}
+
 func TestVerifyWebhookSignature(t *testing.T) {
 	provider := &RazorpayProvider{}
 	secret := "test_secret"
 	body := []byte(`{"event":"payment.captured","payload":{"payment":{"entity":{"id":"pay_123","amount":1000}}}}`)
-	
+
 	// Generate valid signature
 	h := hmac.New(sha256.New, []byte(secret))
 	h.Write(body)
 	sig := hex.EncodeToString(h.Sum(nil))
-	
+
 	if !provider.VerifyWebhookSignature(body, sig, secret) {
 		t.Errorf("Signature verification failed for valid signature")
 	}
@@ -144,16 +174,16 @@ func TestProcessPaymentWebhook(t *testing.T) {
 		},
 	}
 	provider := &RazorpayProvider{}
-	
+
 	auditLogger := audit.NewLogger(mock)
 	policyEval := policy.NewEvaluator(mock)
 	locksSvc := locks.NewService(mock)
 
 	svc := NewService(mock, nil, auditLogger, policyEval, locksSvc, provider, nil)
-	
+
 	secret := "test_secret"
 	body := []byte(`{"event":"payment.captured","payload":{"payment":{"entity":{"id":"pay_123","order_id":"order_00000000-0000-0000-0000-000000000001","amount":1000}}}}`)
-	
+
 	h := hmac.New(sha256.New, []byte(secret))
 	h.Write(body)
 	sig := hex.EncodeToString(h.Sum(nil))
@@ -162,7 +192,7 @@ func TestProcessPaymentWebhook(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	
+
 	if !mock.outboxCreated {
 		t.Errorf("Expected outbox event to be created for paid order")
 	}
@@ -211,7 +241,7 @@ func TestProcessPayUPaymentWebhookIdempotency(t *testing.T) {
 		},
 	}
 	provider := &PayUProvider{Salt: "test_salt"}
-	
+
 	auditLogger := audit.NewLogger(mock)
 	policyEval := policy.NewEvaluator(mock)
 	locksSvc := locks.NewService(mock)
@@ -221,7 +251,7 @@ func TestProcessPayUPaymentWebhookIdempotency(t *testing.T) {
 
 	orderID := "00000000-0000-0000-0000-000000000001"
 	body := []byte(`{"event":"payment_success","txnid":"` + orderID + `","mihpayid":"mih_456","status":"success"}`)
-	
+
 	// Create signature
 	h := hmac.New(sha512.New, []byte("test_salt"))
 	h.Write(body)
@@ -248,7 +278,7 @@ func TestProcessPayUPaymentWebhookIdempotency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Second call failed: %v", err)
 	}
-	
+
 	if mock.outboxCreated {
 		t.Errorf("Expected NO outbox event on second call (duplicate event)")
 	}
@@ -257,36 +287,83 @@ func TestProcessPayUPaymentWebhookIdempotency(t *testing.T) {
 func TestEncryptionDecryption(t *testing.T) {
 	key := []byte("01234567890123456789012345678901") // 32 bytes
 	crypto, _ := security.NewCrypto(key)
-	
+
 	mock := &mockFinanceQuerier{}
 	svc := &Service{q: mock, crypto: crypto}
-	
+
 	secret := "my-very-secret-key"
 	enc, err := crypto.Encrypt([]byte(secret))
 	if err != nil {
 		t.Fatalf("encryption failed: %v", err)
 	}
-	
+
 	val := "enc:" + hex.EncodeToString(enc)
 	dec := svc.decryptSecret(val)
-	
+
 	if dec != secret {
 		t.Errorf("Decryption failed. Expected %s, got %s", secret, dec)
 	}
-	
+
 	// Test non-encrypted value
 	if svc.decryptSecret("plain") != "plain" {
 		t.Errorf("Should return original value for non-encrypted input")
 	}
 }
 
+func TestRequireOnlinePaymentsAddonForProvider(t *testing.T) {
+	ctx := context.Background()
+	tenantID := "fcc75681-6967-4638-867c-9ef1c990fc7e"
+
+	t.Run("allows payments_pro", func(t *testing.T) {
+		var seen []string
+		err := requireOnlinePaymentsAddonWithChecker(ctx, tenantID, "razorpay", func(_ context.Context, _ string, addonCode string) (bool, error) {
+			seen = append(seen, addonCode)
+			return addonCode == "payments_pro", nil
+		})
+		if err != nil {
+			t.Fatalf("expected nil error, got %v", err)
+		}
+		if len(seen) == 0 || seen[0] != "payments_pro" {
+			t.Fatalf("expected payments_pro check first, got %v", seen)
+		}
+	})
+
+	t.Run("allows provider-specific addon", func(t *testing.T) {
+		err := requireOnlinePaymentsAddonWithChecker(ctx, tenantID, "payu", func(_ context.Context, _ string, addonCode string) (bool, error) {
+			return addonCode == "payments_payu", nil
+		})
+		if err != nil {
+			t.Fatalf("expected nil error, got %v", err)
+		}
+	})
+
+	t.Run("requires addon when none active", func(t *testing.T) {
+		err := requireOnlinePaymentsAddonWithChecker(ctx, tenantID, "razorpay", func(_ context.Context, _ string, _ string) (bool, error) {
+			return false, nil
+		})
+		if !errors.Is(err, ErrPaymentsAddonRequired) {
+			t.Fatalf("expected ErrPaymentsAddonRequired, got %v", err)
+		}
+	})
+
+	t.Run("propagates checker errors", func(t *testing.T) {
+		wantErr := errors.New("db down")
+		err := requireOnlinePaymentsAddonWithChecker(ctx, tenantID, "razorpay", func(_ context.Context, _ string, _ string) (bool, error) {
+			return false, wantErr
+		})
+		if !errors.Is(err, wantErr) {
+			t.Fatalf("expected %v, got %v", wantErr, err)
+		}
+	})
+}
+
 func TestGetTenantPaymentProvider(t *testing.T) {
 	key := []byte("01234567890123456789012345678901")
 	crypto, _ := security.NewCrypto(key)
-	
+
 	secret := "razor_secret_secret"
 	encSecret, _ := crypto.Encrypt([]byte(secret))
-	
+
 	mock := &mockFinanceQuerier{
 		gatewayConfig: db.PaymentGatewayConfig{
 			Provider:  "razorpay",
@@ -294,19 +371,19 @@ func TestGetTenantPaymentProvider(t *testing.T) {
 			ApiSecret: pgtype.Text{String: "enc:" + hex.EncodeToString(encSecret), Valid: true},
 		},
 	}
-	
+
 	svc := &Service{q: mock, crypto: crypto}
-	
+
 	provider, err := svc.getTenantPaymentProvider(context.Background(), "fcc75681-6967-4638-867c-9ef1c990fc7e")
 	if err != nil {
 		t.Fatalf("failed to get provider: %v", err)
 	}
-	
+
 	rzp, ok := provider.(*RazorpayProvider)
 	if !ok {
 		t.Fatalf("expected RazorpayProvider")
 	}
-	
+
 	if rzp.KeySecret != secret {
 		t.Errorf("Decryption in provider resolution failed. Expected %s, got %s", secret, rzp.KeySecret)
 	}

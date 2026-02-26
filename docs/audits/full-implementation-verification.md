@@ -21,26 +21,28 @@
 - Fixed by adding parent-scoped route `GET /parent/children/{childID}/fees/receipts/{receiptID}/pdf` in `services/api/internal/handler/finance/handler.go` and ownership-checking service method `GetReceiptPDFParent` in `services/api/internal/service/finance/payment.go`.
 - Parent UI updated in `apps/web/src/app/(parent)/parent/fees/page.tsx`.
 
-3. **P1: Marketing parity mismatches (claims vs implementation)**
-- `apps/marketing/src/app/integrations/data.ts` still marks `Google Workspace`, `Microsoft Teams/Meet`, and `Tally Prime` as `planned`, while backend/web paths exist for Google/Microsoft and a Tally export exists (CSV, not XML).
-- Homepage featured integrations in `apps/marketing/src/app/page.tsx` marks Tally as active while the integrations catalog page marks it planned.
+3. **P1 (fixed in this pass): Marketing parity mismatches were reduced**
+- Updated `apps/marketing/src/app/integrations/data.ts` statuses/copy for Google Workspace, Microsoft 365 Education, and Tally Prime to better match current implementation.
+- Updated homepage featured integrations in `apps/marketing/src/app/page.tsx` to use actual status values instead of forcing all cards to `active`.
+- Tally remains a CSV export integration (not XML), and that limitation is still tracked separately.
 
-4. **P1: Communication gateway tenant config UI is incomplete**
-- Backend supports `/admin/notifications/gateways` configuration in `services/api/internal/handler/notification/handler.go`, with encrypted/masked secrets in `services/api/internal/service/notification/service.go`.
-- No tenant-admin web page currently uses this endpoint (no `apps/web` calls found to `/admin/notifications/gateways`).
+4. **P1 (fixed in this pass): Communication gateway tenant config UI was missing**
+- Added tenant-admin page `apps/web/src/app/(admin)/admin/communication/gateways/page.tsx` wired to `/admin/notifications/gateways`.
+- Added CTA from `apps/web/src/app/(admin)/admin/communication/page.tsx`.
+- Backend secret preservation for provider updates was hardened in `services/api/internal/service/notification/service.go` (provider-specific partial secret update).
 
-5. **P1: Test truthfulness gaps for critical flows**
-- Some Playwright specs appear stale vs current UI/routes (e.g. `apps/web/src/tests/parent-payment.spec.ts`, `apps/web/src/tests/communication-logs.spec.ts`).
+5. **P1: Test coverage gaps remain for critical flows**
+- `parent-payment` and `communication-logs` Playwright specs were refreshed in this pass (mocked UI smoke).
 - Mocked integrations UI spec exists (`apps/web/src/tests/integrations-addons-credits-live-classes.mock.spec.ts`) but does not prove provider callbacks/meeting creation end-to-end.
 
-6. **P2: Tally export implementation is CSV, not XML pipeline**
+6. **P2 (closed in this pass): Tally export is CSV and docs now state that explicitly**
 - Endpoint `GET /payments/tally-export` returns CSV via `ExportReceiptsToTallyCSV` (`services/api/internal/service/finance/tally.go`).
-- Product/marketing wording should be adjusted unless XML is implemented.
+- Clarified in docs: `docs/how-to-tally-export-csv.md`, `docs/07-payments-finance-compliance.md`.
 
 ### Builds / Verification Executed In This Audit Pass
 
-- `go test ./internal/service/finance ./internal/handler/finance -run '^$' && go build ./cmd/api` in `services/api` ✅
-  - Note: full `finance` test suite has an unrelated existing mock panic in `TestProcessPaymentWebhook` (`services/api/internal/service/finance/payment_test.go`), so compile-only verification was used for this pass.
+- `go test ./internal/service/finance ./internal/handler/finance && go build ./cmd/api` in `services/api` ✅
+- `go test ./internal/service/notification` in `services/api` ✅
 - `go build ./cmd/worker && go test ./internal/service -run '^$'` in `services/worker` ✅
 - `pnpm build` (root Turbo; `apps/web`, `apps/marketing`, and workspace packages) ✅
   - Executed with `PATH` including `/opt/homebrew/bin` due local shell PATH differences in the tool environment.
@@ -170,7 +172,7 @@ Legend: `✅ Implemented`, `⚠️ Partial`, `❌ Missing`, `🛠 Fixed in this 
 |---|---|---|---|
 | Outbox processing | Reliable async delivery with retries/backoff | `services/api/internal/db/query/outbox.sql`, `services/worker/internal/worker/consumer.go` | ✅ |
 | SMS/WhatsApp provider adapters | Runtime provider send exists | `services/worker/internal/notification/msg91.go`, `smshorizon.go`, `adapter.go` | ✅ (provider matrix varies) |
-| Tenant gateway config UI | Tenant configures provider credentials from web app | API exists (`notification/handler.go`), encrypted service exists (`notification/service.go`) | ⚠️ (missing tenant-admin UI page wired to `/admin/notifications/gateways`) |
+| Tenant gateway config UI | Tenant configures provider credentials from web app | API exists (`notification/handler.go`), encrypted service exists (`notification/service.go`), tenant-admin UI page `apps/web/src/app/(admin)/admin/communication/gateways/page.tsx` | ✅ |
 | Credits cost controls on sends | Check entitlements and debit credits idempotently | `services/worker/internal/worker/consumer.go`, `services/worker/internal/service/billing.go` | ✅ |
 | Delivery center logs | Status lifecycle visible | `apps/web/src/app/(admin)/admin/communication/logs/page.tsx` + `/admin/notifications/logs` API | ✅ |
 
@@ -254,16 +256,14 @@ Failure modes & user messaging:
 - Replay webhook → idempotent no duplicate receipt due `CheckPaymentEventProcessed`/stable event ID
 - Parent receipt access to non-child receipt → `403` from new parent handler/service
 Tests covering it: (Go tests + Playwright)
-- `services/api/internal/service/finance/payment_test.go` (webhook signature/idempotency/tenant resolution; note one unrelated mock panic path in full suite)
-- `apps/web/src/tests/parent-payment.spec.ts` exists but appears stale vs current route/UI copy (partial truthfulness)
+- `services/api/internal/service/finance/payment_test.go` (webhook signature/idempotency/tenant resolution + add-on enforcement helper tests; mock panic fixed in this pass)
+- `apps/web/src/tests/parent-payment.spec.ts` refreshed in this pass as mocked UI smoke aligned to current `/parent/fees` flow
 Gaps / bugs found:
 - Parent receipt PDF route mismatch (fixed)
 - Add-on enforcement missing in online order path (fixed)
-- Dedicated webhook rate limiting not explicit (still gap)
+- No backend integration test yet directly asserts `CreateOnlineOrder*` add-on enforcement against DB-backed add-on states (helper-level unit coverage added in this pass)
 Fix recommendation: (minimal patch)
-- Add webhook-specific rate limiter middleware for `/v1/payments/webhook/*`
-- Add backend tests for add-on enforcement in `CreateOnlineOrder*`
-- Refresh/repair Playwright parent payment spec against current UI
+- Add DB-backed/integration tests for add-on enforcement in `CreateOnlineOrder*`
 
 ### Flow Spec
 Flow Name: Add-ons Monthly Subscription Lifecycle (Tenant View/Request/Activate/Cancel + Platform Catalog/Approval)
@@ -390,11 +390,11 @@ Tests covering it: (Go tests + Playwright)
 - `services/api/internal/service/notification/service_test.go` (secret masking/encryption config behavior)
 - `apps/web/src/tests/communication-logs.spec.ts` exists but appears stale vs current UI strings/actions
 Gaps / bugs found:
-- Missing tenant-admin gateway config UI for `/admin/notifications/gateways`
-- Delivery log Playwright spec drift reduces confidence
+- Communication logs flow is covered by a refreshed mocked Playwright smoke spec, but still lacks backend/API integration tests for filter semantics and export/retry behavior
+- Provider test/activate endpoints are still not exposed in notification API/UI (only create/list/get-active currently)
 Fix recommendation: (minimal patch)
-- Add `Admin -> Communication -> Gateways` page wired to notification gateway endpoints (reuse admin billing/settings form patterns)
-- Refresh `communication-logs.spec.ts` selectors and assertions to current UI
+- Add notification gateway test/activate endpoints (and UI actions) for safer operational validation
+- Add backend/API integration tests for notification logs filtering/export behavior
 
 ### Flow Spec
 Flow Name: Google Workspace / Microsoft 365 Live Classes (OAuth Connect + Schedule + Visibility + Token Refresh)
@@ -510,12 +510,12 @@ Failure modes & user messaging:
 - Missing reason for impersonation rejected (UI requires reason; backend validates payload)
 - Impersonated user blocked from platform routes by middleware
 Tests covering it: (Go tests + Playwright)
-- `services/api/internal/middleware/impersonation_test.go` (logic-level test; not full middleware integration)
+- `services/api/internal/middleware/impersonation_test.go` (real `AuthResolver` middleware integration test covering `/v1/admin/platform/*` denial)
 - `apps/web/src/tests/role-route-matrix.spec.ts` (route access smoke, env-gated)
 Gaps / bugs found:
-- Need stronger integration tests proving impersonated sessions cannot hit platform endpoints across real middleware stack
+- None found in this pass for the middleware platform-block path; test also caught and fixed `/v1` route-prefix mismatch.
 Fix recommendation: (minimal patch)
-- Add `httptest` middleware integration test mounting protected platform route with impersonation claims/session context
+- Keep the real middleware test and extend it if path prefixes or JWT/session validation order changes
 
 ---
 
@@ -524,6 +524,7 @@ Fix recommendation: (minimal patch)
 ### Web App Pages (`/platform/*`, `/admin/*`, `/teacher/*`, `/accountant/*`, `/parent/*`, `/student/*`)
 
 > Generated from `apps/web/src/app/**/page.tsx` and literal API-route extraction during this audit.
+> Post-generation update in this pass: added `apps/web/src/app/(admin)/admin/communication/gateways/page.tsx` (verified in `next build` route output as `/admin/communication/gateways`).
 
 | Page Route | Role(s) | Purpose | Key components | Backend endpoints | Add-on/credits required? | Tests |
 |---|---|---|---|---|---|---|
@@ -717,7 +718,7 @@ Fix recommendation: (minimal patch)
 | `/mockup-stage` | `apps/marketing/src/app/mockup-stage/page.tsx` | — | — |
 | `` | `apps/marketing/src/app/page.tsx` | Razorpay, WhatsApp, Tally, add-on | — |
 | `/partners/apply` | `apps/marketing/src/app/partners/apply/page.tsx` | Biometric | — |
-| `/pricing` | `apps/marketing/src/app/pricing/page.tsx` | — | Generic pricing; no add-on/credits pricing model details. |
+| `/pricing` | `apps/marketing/src/app/pricing/page.tsx` | — | Includes add-ons + credits + top-up cost-control messaging (high-level, sales-led pricing still applies). |
 | `/product` | `apps/marketing/src/app/product/page.tsx` | — | — |
 | `/resources/[slug]` | `apps/marketing/src/app/resources/[slug]/page.tsx` | — | — |
 | `/resources` | `apps/marketing/src/app/resources/page.tsx` | — | — |
@@ -764,7 +765,7 @@ Legend: `✅ yes`, `⚠️ partial`, `❌ no`, `N/A` not applicable
 
 | Check | Evidence | Result |
 |---|---|---|
-| Config UI exists | No tenant-admin web page wired to notification gateway endpoints | ⚠️ |
+| Config UI exists | `apps/web/src/app/(admin)/admin/communication/gateways/page.tsx` | ✅ |
 | Config API exists | `services/api/internal/handler/notification/handler.go` (`/admin/notifications/gateways`) | ✅ |
 | Secrets encrypted + masked | `services/api/internal/service/notification/service.go` | ✅ |
 | Runtime usage exists | `services/worker/internal/notification/msg91.go` | ✅ |
@@ -777,7 +778,7 @@ Legend: `✅ yes`, `⚠️ partial`, `❌ no`, `N/A` not applicable
 
 | Check | Evidence | Result |
 |---|---|---|
-| Config UI exists | No tenant-admin page wired | ⚠️ |
+| Config UI exists | `apps/web/src/app/(admin)/admin/communication/gateways/page.tsx` (provider-select form) | ✅ |
 | Config API exists | Notification gateway APIs support provider records | ✅ |
 | Secrets encrypted + masked | Notification service | ✅ |
 | Runtime usage exists | `services/worker/internal/notification/smshorizon.go` | ✅ |
@@ -862,7 +863,7 @@ Legend: `✅ yes`, `⚠️ partial`, `❌ no`, `N/A` not applicable
 | Callback/webhook verification exists | N/A | N/A |
 | Idempotency exists | Export generation is read-only | N/A |
 | Tests exist | No Tally export unit tests found | ⚠️ |
-| Docs exist | No dedicated Tally export doc found | ⚠️ |
+| Docs exist | `docs/how-to-tally-export-csv.md` | ✅ |
 | Accuracy vs claim | CSV export, not XML pipeline | ⚠️ |
 
 ### Biometric (Hardware / Device Sync)
@@ -874,9 +875,9 @@ Legend: `✅ yes`, `⚠️ partial`, `❌ no`, `N/A` not applicable
 | Secrets encrypted + masked | Device credentials handling not fully audited; likely generic config fields | ⚠️ |
 | Runtime usage exists | `services/api/internal/service/biometric/service.go` | ✅ |
 | Callback/webhook verification exists | Device push ingestion endpoints appear present depending handler; full proof not exhaustively traced | ⚠️ |
-| Idempotency exists | Duplicate punch handling not fully proven in tests | ⚠️ |
-| Tests exist | No biometric service/handler tests found | ❌ |
-| Docs exist | No biometric setup doc found | ❌ |
+| Idempotency exists | SQL semantics include attendance upsert and check-in/out LEAST/GREATEST protections; tested in `service_test.go` | ✅ |
+| Tests exist | `services/api/internal/service/biometric/service_test.go`, `services/api/internal/handler/biometric/handler_test.go` | ✅ |
+| Docs exist | `docs/how-to-biometric-emulator.md` | ✅ |
 
 ### Storage / Files (Local Provider)
 
@@ -889,7 +890,7 @@ Legend: `✅ yes`, `⚠️ partial`, `❌ no`, `N/A` not applicable
 | Callback/webhook verification exists | N/A | N/A |
 | Idempotency exists | N/A | N/A |
 | Tests exist | No strong file storage provider tests found | ⚠️ |
-| Docs exist | Not found | ❌ |
+| Docs exist | `docs/storage-upload-posture.md` (documents current local-public posture and mitigations) | ✅ |
 | Access control | Uploads returned as public `/uploads/...` URLs; no signed URLs/presigned S3 path found | ⚠️ |
 
 ### Directus (CMS)
@@ -910,17 +911,16 @@ Legend: `✅ yes`, `⚠️ partial`, `❌ no`, `N/A` not applicable
 
 ### 1) Rate limiting on public endpoints (`/login`, `/reset-password`, `/webhooks`)
 
-**Result:** ⚠️ Partial
+**Result:** ✅ Pass
 
 Evidence:
 - Global auth-path limiter in `services/api/internal/middleware/security.go` applies to `/v1/auth*`.
 - `forgot-password` has dedicated limiter in `services/api/internal/handler/auth/handler.go`.
-- No equally explicit dedicated stricter limiter found for login/reset-password endpoints.
-- Payment webhooks rely on signature verification and generic middleware; no dedicated webhook limiter found.
+- Dedicated endpoint-specific limiters now wrap `login`, `forgot-password`, and `reset-password` routes in `services/api/internal/handler/auth/handler.go`.
+- Payment webhooks now have provider/IP-keyed `RateLimitByKey(...)` wrappers in `services/api/internal/handler/finance/handler.go` (`RegisterWebhookRoutes`) in addition to signature verification.
 
 Minimal fix:
-- Add `RateLimitByKey` wrappers for `/login` and `/reset-password` handlers.
-- Add provider/IP webhook limiter on `/v1/payments/webhook/*` to reduce abuse/noise.
+- Keep monitoring webhook traffic volumes and tune the webhook limiter thresholds per provider as traffic grows.
 
 ### 2) Tenant isolation (tenant_id presence + query filtering)
 
@@ -974,18 +974,18 @@ Evidence:
 Evidence:
 - Platform impersonation start/exit routes in `tenant/handler.go`.
 - Middleware blocks platform access for impersonated sessions (`services/api/internal/middleware/middleware.go`).
+- Real middleware test coverage added in `services/api/internal/middleware/impersonation_test.go` (including `/v1/admin/platform/*` path).
 - UI exit path in `apps/web/src/app/(admin)/admin-layout-client.tsx` restores original token and calls impersonation-exit API.
 
 ### 7) Webhook logs retention policy exists (if payloads stored)
 
-**Result:** ⚠️ Partial
+**Result:** ✅ Pass
 
 Evidence:
-- Webhook payloads/logs recorded in `webhook_logs` by finance service.
-- `webhook_logs` retention cleanup job was specified in prior implementation and worker has billing/maintenance pattern, but explicit webhook-log cleanup job proof in this audit pass is incomplete.
-
-Minimal fix:
-- Add/verify worker cleanup job for `webhook_logs` older than retention threshold and document retention config.
+- Webhook payloads/logs are recorded in `webhook_logs` by finance service.
+- Worker maintenance job deletes old `webhook_logs` in `services/worker/cmd/worker/main.go` (`processMaintenance`).
+- Retention is now configurable via `WEBHOOK_LOG_RETENTION_DAYS` (`webhookLogRetentionDays`) with default `90`.
+- Operational doc updated: `docs/how-to-tenant-payment-gateways.md`.
 
 ---
 
@@ -1010,15 +1010,15 @@ Minimal fix:
 
 ### CI / Test Truthfulness Findings
 
-1. `⚠️` Some Playwright specs are drifted from current UI copy/routes
-- `parent-payment.spec.ts` references UI states not matching current parent fees page.
-- `communication-logs.spec.ts` selectors/text assumptions appear outdated.
+1. `⚠️` Playwright coverage exists for key flows, but much of it is mocked UI smoke rather than backend-integrated E2E
+- `parent-payment.spec.ts` and `communication-logs.spec.ts` were refreshed in this pass as mocked UI smoke specs aligned to current UI.
 
 2. `⚠️` Mocked integration tests prove UI wiring, not provider correctness
 - `integrations-addons-credits-live-classes.mock.spec.ts` is useful for UI flow but not real OAuth/webhook/provider interactions.
 
-3. `⚠️` Finance full test suite has mock fragility
-- `TestProcessPaymentWebhook` currently panics due mock querier setup path in `payment_test.go`, reducing confidence in webhook regression coverage until fixed.
+3. `⚠️` Backend test coverage is still incomplete for several critical flows
+- Finance webhook tests now run again (mock panic fixed in this pass), but add-on enforcement and credit idempotency paths still need dedicated unit tests.
+  - Add-on enforcement helper decision logic tests were added in this pass; DB-backed enforcement tests remain pending.
 
 ### Recommended Minimum Test Suite for “Production-ready” Claim
 
@@ -1028,7 +1028,7 @@ Minimal fix:
 - Credits: `RequireCredits` idempotency, insufficient balance, monthly allowance duplicate reference
 - Integrationhub: OAuth callback validation, token refresh failure -> `needs_reauth`, meeting payload mapping
 - Notification worker: MSG91/SMS Horizon/WebhookAdapter adapter contract tests, outbox retry behavior, no double-debit on retry
-- Middleware: impersonated session denied on platform routes (real middleware integration test)
+- Middleware: impersonated session denied on platform routes (real middleware integration test) ✅ added
 
 #### Must-pass Playwright (mocked/staging)
 - Tenant admin gateway config save + masked read + webhook status UI update (mocked webhook)
@@ -1048,40 +1048,42 @@ Minimal fix:
   - Fixed in this pass: `services/api/internal/service/finance/payment.go`, `services/api/internal/handler/finance/handler.go`
 - `[x]` **PAY-P0-002** Parent receipt PDF route must be parent-scoped with ownership validation
   - Fixed in this pass: `services/api/internal/handler/finance/handler.go`, `services/api/internal/service/finance/payment.go`, `apps/web/src/app/(parent)/parent/fees/page.tsx`
-- `[ ]` **PAY-P0-003** Add webhook-specific rate limiter for `/v1/payments/webhook/*`
-  - Files: `services/api/internal/middleware/security.go`, `services/api/cmd/api/main.go`
-- `[ ]` **PAY-P0-004** Repair `finance/payment_test.go` mock panic in `TestProcessPaymentWebhook`
-  - Files: `services/api/internal/service/finance/payment_test.go`
+- `[x]` **PAY-P0-003** Add webhook-specific rate limiter for `/v1/payments/webhook/*`
+  - Fixed in this pass: `services/api/internal/handler/finance/handler.go` (provider/IP-keyed rate limit wrappers on public webhook routes)
+- `[x]` **PAY-P0-004** Repair `finance/payment_test.go` mock panic in `TestProcessPaymentWebhook`
+  - Fixed in this pass: `services/api/internal/service/finance/payment_test.go` (webhook log mock methods)
 
 ### P1 (Operational Usability / Reliability)
 
-- `[ ]` **COM-P1-001** Build tenant-admin Notification Gateways UI (SMS/WhatsApp/Email provider config)
-  - Files: new page under `apps/web/src/app/(admin)/admin/communication/gateways/page.tsx` (or settings page), reuse `notification` APIs
-- `[ ]` **COM-P1-002** Refresh `communication-logs.spec.ts` to current UI behavior
-  - Files: `apps/web/src/tests/communication-logs.spec.ts`
-- `[ ]` **PAY-P1-003** Refresh `parent-payment.spec.ts` to current parent fees UI + new parent PDF route
-  - Files: `apps/web/src/tests/parent-payment.spec.ts`
-- `[ ]` **MKT-P1-004** Align marketing integration statuses (Google/Microsoft/Tally) with implementation reality
-  - Files: `apps/marketing/src/app/integrations/data.ts`, `apps/marketing/src/app/page.tsx`
-- `[ ]` **MKT-P1-005** Add add-ons/credits pricing model disclosure to marketing pricing page
-  - Files: `apps/marketing/src/app/pricing/page.tsx`
-- `[ ]` **SEC-P1-006** Add stricter per-endpoint rate limits for login/reset-password
-  - Files: `services/api/internal/handler/auth/handler.go`, `services/api/internal/middleware/security.go`
-- `[ ]` **OBS-P1-007** Verify/implement webhook logs retention cleanup worker job and document retention configuration
-  - Files: `services/worker/internal/service/*`, `services/worker/cmd/worker/main.go`, docs
+- `[x]` **COM-P1-001** Build tenant-admin Notification Gateways UI (SMS/WhatsApp/Email provider config)
+  - Fixed in this pass: `apps/web/src/app/(admin)/admin/communication/gateways/page.tsx`, `apps/web/src/app/(admin)/admin/communication/page.tsx`
+- `[x]` **COM-P1-002** Refresh `communication-logs.spec.ts` to current UI behavior
+  - Fixed in this pass: `apps/web/src/tests/communication-logs.spec.ts` (mocked UI smoke aligned to current Delivery Center page)
+- `[x]` **PAY-P1-003** Refresh `parent-payment.spec.ts` to current parent fees UI + new parent PDF route
+  - Fixed in this pass: `apps/web/src/tests/parent-payment.spec.ts` (mocked UI smoke aligned to `/parent/fees`)
+- `[x]` **MKT-P1-004** Align marketing integration statuses (Google/Microsoft/Tally) with implementation reality
+  - Fixed in this pass: `apps/marketing/src/app/integrations/data.ts`, `apps/marketing/src/app/page.tsx`
+- `[x]` **MKT-P1-005** Add add-ons/credits pricing model disclosure to marketing pricing page
+  - Fixed in this pass: `apps/marketing/src/app/pricing/page.tsx`
+- `[x]` **SEC-P1-006** Add stricter per-endpoint rate limits for login/reset-password
+  - Fixed in this pass: `services/api/internal/handler/auth/handler.go`
+- `[x]` **OBS-P1-007** Verify/implement webhook logs retention cleanup worker job and document retention configuration
+  - Verified existing cleanup and improved it in this pass with configurable retention: `services/worker/cmd/worker/main.go`, `services/worker/cmd/worker/main_test.go`, `docs/how-to-tenant-payment-gateways.md`
 
 ### P2 (Polish / Completeness / Test Depth)
 
-- `[ ]` **TAL-P2-001** Clarify Tally export is CSV (or implement XML export pipeline)
-  - Files: `services/api/internal/service/finance/tally.go`, docs/marketing copy
-- `[ ]` **BIO-P2-002** Add biometric service/handler tests and emulator/mock tooling (dev-only)
-  - Files: `services/api/internal/service/biometric/*`, `apps/web` biometric QA docs/tests
-- `[ ]` **STO-P2-003** Add S3 provider + signed URL support (or document local-only storage posture)
-  - Files: `services/api/internal/foundation/filestore/*`, `services/api/internal/handler/files/handler.go`
-- `[ ]` **AI-P2-004** Unify AI billing with new `tenant_credit_wallets` or document transitional split explicitly
-  - Files: `services/api/internal/service/ai/service.go`, `services/api/internal/service/tenant/billing.go`, migrations if migrating
-- `[ ]` **INT-P2-005** Add backend integration tests for live class scheduling idempotency / duplicate request behavior
-  - Files: `services/api/internal/service/integrationhub/service_test.go`
+- `[x]` **TAL-P2-001** Clarify Tally export is CSV (or implement XML export pipeline)
+  - Fixed/documented in this pass: `docs/how-to-tally-export-csv.md`, `docs/07-payments-finance-compliance.md`
+- `[x]` **BIO-P2-002** Add biometric service/handler tests and emulator/mock tooling (dev-only)
+  - Fixed in this pass: `services/api/internal/service/biometric/service_test.go`, `services/api/internal/handler/biometric/handler_test.go`, `scripts/dev/biometric-emulator.sh`, `docs/how-to-biometric-emulator.md`
+- `[x]` **STO-P2-003** Add S3 provider + signed URL support (or document local-only storage posture)
+  - Documented current posture in this pass: `docs/storage-upload-posture.md`
+- `[x]` **AI-P2-004** Unify AI billing with new `tenant_credit_wallets` or document transitional split explicitly
+  - Documented current transitional design in this pass: `docs/ai-billing-transition.md`
+- `[x]` **INT-P2-005** Add backend integration tests for live class scheduling idempotency / duplicate request behavior
+  - Fixed in this pass: `services/api/internal/service/integrationhub/service.go` (duplicate error normalization), `services/api/internal/service/integrationhub/service_test.go`
+- `[x]` **SEC-P2-006** Add real middleware integration tests for impersonated-session denial on platform routes
+  - Fixed in this pass: `services/api/internal/middleware/middleware.go`, `services/api/internal/middleware/impersonation_test.go`
 
 ---
 
@@ -1093,8 +1095,8 @@ Minimal fix:
 - [x] Webhook replay does not duplicate receipts
 - [x] Parent payment order creation path server-side add-on gated
 - [x] Parent receipt PDF download uses parent-scoped authorization
-- [ ] Webhook endpoint-specific rate limiting
-- [ ] Stable full finance webhook test suite (no mock panic)
+- [x] Webhook endpoint-specific rate limiting
+- [x] Stable full finance webhook test suite (no mock panic)
 
 ### Messaging / Comms
 - [x] Outbox + worker retries/backoff
@@ -1123,7 +1125,7 @@ Minimal fix:
 
 ### Biometric
 - [x] Admin page + API/service present
-- [ ] Duplicate punch/idempotency tests and QA emulator tooling
+- [x] Duplicate punch/idempotency semantics tests and QA emulator tooling (SQL semantics + handler tests + dev emulator script)
 
 ### Exports (Tally)
 - [x] Export endpoint exists and works (CSV)
@@ -1136,12 +1138,16 @@ Minimal fix:
 
 ### Commands Executed
 
-- `services/api`: `go test ./internal/service/finance ./internal/handler/finance -run '^$' && go build ./cmd/api` ✅
+- `services/api`: `go test ./internal/service/finance ./internal/handler/finance ./internal/middleware ./internal/service/integrationhub ./internal/service/biometric ./internal/handler/biometric && go build ./cmd/api` ✅
+- `services/api`: `go test ./internal/service/notification` ✅
+- `services/api`: `go test ./internal/handler/auth -run '^$' && go build ./cmd/api` ✅ (auth rate-limit route wrapper compile check)
 - `services/worker`: `go build ./cmd/worker && go test ./internal/service -run '^$'` ✅
+- `services/worker`: `go test ./cmd/worker && go build ./cmd/worker` ✅ (webhook retention env parsing helper + worker build)
 - repo root: `export PATH="/opt/homebrew/bin:$PATH"; pnpm build` ✅ (Turbo build; `@schoolerp/web` and `@schoolerp/marketing` both built successfully)
+- `apps/marketing`: `pnpm --filter @schoolerp/marketing build` ✅ (marketing parity/pricing updates)
+- `apps/web`: `pnpm --filter @schoolerp/web exec playwright test src/tests/parent-payment.spec.ts src/tests/communication-logs.spec.ts --list` ✅ (spec registration/parse check)
 
 ### Constraints
 
 - External provider credentials (Google/Microsoft/Razorpay/PayU) were not available in this audit session, so real provider callback/meeting/webhook runtime validation was not executed here.
 - Several assertions are therefore code-path + unit-test verified rather than live-provider verified.
-

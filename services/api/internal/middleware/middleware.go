@@ -416,7 +416,7 @@ func AuthResolver(next http.Handler) http.Handler {
 
 			// B2 Hardening: Block impersonated tokens from platform routes
 			if impersonated, ok := claims["impersonated"].(bool); ok && impersonated {
-				if strings.HasPrefix(r.URL.Path, "/admin/platform") {
+				if isImpersonationRestrictedPath(r.URL.Path) {
 					log.Ctx(ctx).Warn().
 						Str("user_id", claims["sub"].(string)).
 						Str("path", r.URL.Path).
@@ -588,6 +588,10 @@ func AuthResolver(next http.Handler) http.Handler {
 
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	})
+}
+
+func isImpersonationRestrictedPath(path string) bool {
+	return strings.HasPrefix(path, "/admin/platform") || strings.HasPrefix(path, "/v1/admin/platform")
 }
 
 // RoleGuard enforces that the authenticated user has one of the allowed roles

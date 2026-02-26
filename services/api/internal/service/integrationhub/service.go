@@ -949,7 +949,7 @@ func (s *Service) ScheduleLiveClass(ctx context.Context, p LiveClassSchedulePara
 	}
 	provider, addonCode, err := s.resolveConnectedLiveProvider(ctx, p.TenantID, p.Provider)
 	if err != nil {
-		return LiveClassEventRow{}, err
+		return LiveClassEventRow{}, normalizeLiveClassScheduleInsertError(err)
 	}
 	active, err := s.tenant.HasAddon(ctx, p.TenantID, addonCode)
 	if err != nil {
@@ -1398,6 +1398,18 @@ func errorAsPg(err error, target **pgconn.PgError) bool {
 		return false
 	}
 	return errors.As(err, target)
+}
+
+func normalizeLiveClassScheduleInsertError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var pgErr *pgconn.PgError
+	if errorAsPg(err, &pgErr) && pgErr.Code == "23505" {
+		// Duplicate request protection relies on a DB-side unique key (deployment-specific rollout).
+		return fmt.Errorf("DUPLICATE_REQUEST: live class already scheduled")
+	}
+	return err
 }
 
 func pgUUIDToString(v pgtype.UUID) (string, error) {

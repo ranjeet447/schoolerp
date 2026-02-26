@@ -110,10 +110,10 @@ export default function MarketingHomePage() {
           <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
             {[
               { name: 'Razorpay', category: 'Payments', status: 'active', description: 'Collect online fees with automatic receipt triggers.', slug: 'razorpay' },
-              { name: 'WhatsApp Business', category: 'Messaging', status: 'active', description: 'Absence and fee alerts directly on WhatsApp.', slug: 'whatsapp' },
-              { name: 'Tally Prime', category: 'Accounting', status: 'active', description: 'Export-ready ledger mapping for Indian accounting.', slug: 'tally' },
+              { name: 'WhatsApp Business', category: 'Messaging', status: 'beta', description: 'Absence and fee alerts directly on WhatsApp.', slug: 'whatsapp' },
+              { name: 'Tally Prime', category: 'Accounting', status: 'beta', description: 'CSV export-ready ledger mapping for Indian accounting.', slug: 'tally' },
             ].map((integration) => (
-              <IntegrationCard key={integration.slug} {...integration} status="active" />
+              <IntegrationCard key={integration.slug} {...integration} />
             ))}
           </div>
         </Container>

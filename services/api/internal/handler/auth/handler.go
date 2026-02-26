@@ -24,9 +24,9 @@ func NewHandler(svc *auth.Service) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(r chi.Router) {
-	r.Post("/auth/login", h.Login)
+	r.With(middleware.RateLimitByKey("auth_login", 10, 0, nil)).Post("/auth/login", h.Login)
 	r.With(middleware.RateLimitByKey("forgot_password", 3, 0, nil)).Post("/auth/forgot-password", h.ForgotPassword)
-	r.Post("/auth/reset-password", h.ResetPassword)
+	r.With(middleware.RateLimitByKey("reset_password", 5, 0, nil)).Post("/auth/reset-password", h.ResetPassword)
 	r.Post("/auth/mfa/setup", h.SetupMFA)
 	r.Post("/auth/mfa/enable", h.EnableMFA)
 	r.Post("/auth/mfa/validate", h.ValidateMFA)

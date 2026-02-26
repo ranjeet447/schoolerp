@@ -60,10 +60,22 @@ Notes:
 
 - Tenant is resolved server-side by signature verification over candidate active configs.
 - Do not rely on `tenant_id` query params for webhook routing.
+- Public payment webhook routes are rate-limited (provider/IP keyed) in addition to signature verification.
+
+## Webhook log retention (operations)
+
+- Incoming payment webhooks are written to `webhook_logs` for auditability and troubleshooting.
+- Worker maintenance deletes old webhook logs on a schedule.
+- Default retention: `90` days
+- Override with worker env var:
+  - `WEBHOOK_LOG_RETENTION_DAYS` (set `0` or a negative value to disable cleanup; not recommended in production)
+
+Implementation:
+
+- `services/worker/cmd/worker/main.go` (`processMaintenance`, `webhookLogRetentionDays`)
 
 ## Verification checklist
 
 - Save config returns masked secrets on subsequent reads.
 - Test connection succeeds (Razorpay does live auth check).
 - Webhook status page shows `last_received_at` after a successful provider callback.
-

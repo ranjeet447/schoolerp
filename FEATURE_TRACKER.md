@@ -139,28 +139,28 @@
 
 ## P0 — Money / Security / Correctness
 
-- [ ] AUD-P0-001 Add webhook-specific rate limiting for `POST /v1/payments/webhook/{provider}` (provider/IP keyed)
-- [ ] AUD-P0-002 Repair `services/api/internal/service/finance/payment_test.go` `TestProcessPaymentWebhook` mock panic so webhook regression tests run reliably
-- [ ] AUD-P0-003 Add backend tests for online payment order add-on enforcement (`CreateOnlineOrder`, `CreateOnlineOrderParent`)
+- [x] AUD-P0-001 Add webhook-specific rate limiting for `POST /v1/payments/webhook/{provider}` (provider/IP keyed)
+- [x] AUD-P0-002 Repair `services/api/internal/service/finance/payment_test.go` `TestProcessPaymentWebhook` mock panic so webhook regression tests run reliably
+- [x] AUD-P0-003 Add backend tests for online payment order add-on enforcement (`CreateOnlineOrder`, `CreateOnlineOrderParent`)
 
 ## P1 — Operational Usability / Reliability
 
-- [ ] AUD-P1-001 Build tenant-admin notification gateway configuration UI (`/admin/notifications/gateways`) for SMS/WhatsApp/Email providers
-- [ ] AUD-P1-002 Refresh Playwright `apps/web/src/tests/parent-payment.spec.ts` to current UI/routes (including parent-scoped receipt PDF)
-- [ ] AUD-P1-003 Refresh Playwright `apps/web/src/tests/communication-logs.spec.ts` to current communication logs UI
-- [ ] AUD-P1-004 Align marketing integrations statuses/copy with actual implementation (Google, Microsoft, Tally parity)
-- [ ] AUD-P1-005 Add add-ons + included credits + top-up cost-control messaging to marketing pricing page
-- [ ] AUD-P1-006 Add stricter per-endpoint rate limits for auth login/reset-password (not only generic auth path limits)
-- [ ] AUD-P1-007 Verify/implement webhook log retention cleanup job and retention config docs
+- [x] AUD-P1-001 Build tenant-admin notification gateway configuration UI (`/admin/notifications/gateways`) for SMS/WhatsApp/Email providers
+- [x] AUD-P1-002 Refresh Playwright `apps/web/src/tests/parent-payment.spec.ts` to current UI/routes (including parent-scoped receipt PDF)
+- [x] AUD-P1-003 Refresh Playwright `apps/web/src/tests/communication-logs.spec.ts` to current communication logs UI
+- [x] AUD-P1-004 Align marketing integrations statuses/copy with actual implementation (Google, Microsoft, Tally parity)
+- [x] AUD-P1-005 Add add-ons + included credits + top-up cost-control messaging to marketing pricing page
+- [x] AUD-P1-006 Add stricter per-endpoint rate limits for auth login/reset-password (not only generic auth path limits)
+- [x] AUD-P1-007 Verify/implement webhook log retention cleanup job and retention config docs
 
 ## P2 — Completeness / Test Depth / Platform Hygiene
 
-- [ ] AUD-P2-001 Clarify Tally export format (CSV vs XML) in product/marketing/docs or implement XML export
-- [ ] AUD-P2-002 Add biometric ingestion/idempotency tests and dev emulator/mock tooling
-- [ ] AUD-P2-003 Add storage provider hardening (S3 + signed URLs) or document local-public upload posture explicitly
-- [ ] AUD-P2-004 Unify AI billing with new credit wallets (`tenant_credit_wallets`) or document accepted transitional design
-- [ ] AUD-P2-005 Add integrationhub tests for live-class scheduling idempotency/duplicate request behavior
-- [ ] AUD-P2-006 Add real middleware integration tests for impersonated-session denial on platform routes
+- [x] AUD-P2-001 Clarify Tally export format (CSV vs XML) in product/marketing/docs or implement XML export
+- [x] AUD-P2-002 Add biometric ingestion/idempotency tests and dev emulator/mock tooling
+- [x] AUD-P2-003 Add storage provider hardening (S3 + signed URLs) or document local-public upload posture explicitly
+- [x] AUD-P2-004 Unify AI billing with new credit wallets (`tenant_credit_wallets`) or document accepted transitional design
+- [x] AUD-P2-005 Add integrationhub tests for live-class scheduling idempotency/duplicate request behavior
+- [x] AUD-P2-006 Add real middleware integration tests for impersonated-session denial on platform routes
 
 ## Fixed in Audit Pass (tracked for traceability)
 

@@ -99,6 +99,17 @@ func TestErrorAsPg(t *testing.T) {
 	}
 }
 
+func TestNormalizeLiveClassScheduleInsertError(t *testing.T) {
+	dup := &pgconn.PgError{Code: "23505", Message: "duplicate key value violates unique constraint"}
+	if got := normalizeLiveClassScheduleInsertError(dup); got == nil || !strings.Contains(got.Error(), "DUPLICATE_REQUEST") {
+		t.Fatalf("expected duplicate schedule error, got %v", got)
+	}
+	plain := errors.New("db timeout")
+	if got := normalizeLiveClassScheduleInsertError(plain); got == nil || got.Error() != "db timeout" {
+		t.Fatalf("expected passthrough error, got %v", got)
+	}
+}
+
 func TestPublicOAuthCallbackURLAndDefaultAPIBaseURL(t *testing.T) {
 	t.Setenv("PUBLIC_API_BASE_URL", "https://api.schoolerp.example")
 	if got := defaultAPIBaseURL(); got != "https://api.schoolerp.example" {

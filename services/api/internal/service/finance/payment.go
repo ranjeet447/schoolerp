@@ -23,10 +23,10 @@ import (
 )
 
 type gatewayWebhookCandidate struct {
-	TenantID       string
-	Provider       string
-	WebhookSecret  string
-	APISecret      string
+	TenantID      string
+	Provider      string
+	WebhookSecret string
+	APISecret     string
 }
 
 type PaymentProvider interface {
@@ -74,13 +74,26 @@ func (s *Service) requireOnlinePaymentsAddon(ctx context.Context, tenantID strin
 	if err != nil {
 		return err
 	}
-	providerCode := fmt.Sprintf("payments_%s", strings.ToLower(strings.TrimSpace(cfg.Provider)))
-	if ok, err := s.hasActiveAddon(ctx, tenantID, "payments_pro"); err != nil {
+	return s.requireOnlinePaymentsAddonForProvider(ctx, tenantID, cfg.Provider)
+}
+
+func (s *Service) requireOnlinePaymentsAddonForProvider(ctx context.Context, tenantID, provider string) error {
+	return requireOnlinePaymentsAddonWithChecker(ctx, tenantID, provider, s.hasActiveAddon)
+}
+
+func requireOnlinePaymentsAddonWithChecker(
+	ctx context.Context,
+	tenantID string,
+	provider string,
+	hasAddon func(context.Context, string, string) (bool, error),
+) error {
+	providerCode := fmt.Sprintf("payments_%s", strings.ToLower(strings.TrimSpace(provider)))
+	if ok, err := hasAddon(ctx, tenantID, "payments_pro"); err != nil {
 		return err
 	} else if ok {
 		return nil
 	}
-	if ok, err := s.hasActiveAddon(ctx, tenantID, providerCode); err != nil {
+	if ok, err := hasAddon(ctx, tenantID, providerCode); err != nil {
 		return err
 	} else if ok {
 		return nil
@@ -193,15 +206,14 @@ func resolveInternalOrderID(orderID string) (pgtype.UUID, error) {
 	return orderUUID, nil
 }
 
-
 // PayUProvider implementation
 type PayUProvider struct {
-	Key    string
-	Salt   string
+	Key  string
+	Salt string
 }
 
 func (p *PayUProvider) CreateOrder(ctx context.Context, amount int64, currency string, receiptID string) (string, error) {
-	// PayU does not require a server-side "create order" call like Razorpay. 
+	// PayU does not require a server-side "create order" call like Razorpay.
 	// We just use the receiptID as the transaction ID (txnid).
 	// The frontend will need the hash, which we should ideally generate here or in a separate "InitiatePayment" call.
 	// For now, consistent with the interface, we return the receiptID as the external reference.
@@ -323,18 +335,18 @@ func NormalizePayUEvent(payload []byte, headers map[string]string) (InternalPaym
 	}
 
 	type payUNested struct {
-		Event          string      `json:"event"`
-		Status         string      `json:"status"`
-		TxnID          string      `json:"txnid"`
-		MihPayID       string      `json:"mihpayid"`
-		Amount         interface{} `json:"amount"`
-		Currency       string      `json:"currency"`
-		OrderID        string      `json:"order_id"`
-		MerchantTxnID  string      `json:"merchantTransactionId"`
-		PaymentID      string      `json:"payment_id"`
-		PaymentIDAlt   string      `json:"paymentId"`
-		TxnStatus      string      `json:"transaction_status"`
-		Data           struct {
+		Event         string      `json:"event"`
+		Status        string      `json:"status"`
+		TxnID         string      `json:"txnid"`
+		MihPayID      string      `json:"mihpayid"`
+		Amount        interface{} `json:"amount"`
+		Currency      string      `json:"currency"`
+		OrderID       string      `json:"order_id"`
+		MerchantTxnID string      `json:"merchantTransactionId"`
+		PaymentID     string      `json:"payment_id"`
+		PaymentIDAlt  string      `json:"paymentId"`
+		TxnStatus     string      `json:"transaction_status"`
+		Data          struct {
 			TxnID         string      `json:"txnid"`
 			MihPayID      string      `json:"mihpayid"`
 			Amount        interface{} `json:"amount"`
@@ -608,7 +620,7 @@ func (s *Service) GetReceiptPDFParent(ctx context.Context, tenantID, userID, stu
 
 func (s *Service) ProcessPaymentWebhook(ctx context.Context, tenantID, eventID string, body []byte, signature string, secret string, headers map[string]string) (err error) {
 	tUUID := toPgUUID(tenantID)
-	
+
 	// Pre-normalize headers for identification
 	normalizedHeaders := map[string]string{}
 	for k, v := range headers {

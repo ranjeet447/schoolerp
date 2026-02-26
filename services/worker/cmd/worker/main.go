@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -34,7 +36,7 @@ func main() {
 	if dbURL == "" {
 		dbURL = "postgres://schoolerp:password@localhost:5432/schoolerp?sslmode=disable"
 	}
-	
+
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Unable to connect to database")
@@ -44,7 +46,7 @@ func main() {
 	querier := db.New(pool)
 	pdfSvc := pdf.NewProcessor(querier)
 	billingSvc := service.NewBillingService(pool)
-	
+
 	var fallbackSvc notification.Adapter
 	notifWebhookURL := os.Getenv("NOTIFICATION_WEBHOOK_URL")
 	if notifWebhookURL != "" {
@@ -100,13 +102,13 @@ func main() {
 	defer maintenanceTicker.Stop()
 	go func() {
 		// Run once on startup
-			processMaintenance(ctx, pool, billingSvc)
-			for {
+		processMaintenance(ctx, pool, billingSvc)
+		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-maintenanceTicker.C:
-					processMaintenance(ctx, pool, billingSvc)
+				processMaintenance(ctx, pool, billingSvc)
 			}
 		}
 	}()
@@ -133,13 +135,13 @@ func main() {
 
 	<-stop
 	log.Info().Msg("Shutting down worker...")
-	
+
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
-	
+
 	healthServer.Shutdown(shutdownCtx)
 	cancel()
-	
+
 	log.Info().Msg("Worker exited")
 }
 
@@ -158,13 +160,17 @@ func processPoll(ctx context.Context, q db.Querier, pdfSvc *pdf.Processor) {
 }
 
 func processMaintenance(ctx context.Context, pool *pgxpool.Pool, billingSvc *service.BillingService) {
-	// B3 Hardening: Delete webhook logs older than 90 days
-	// We use raw SQL to avoid needing to regenerate SQLC models during this hardening turn.
-	res, err := pool.Exec(ctx, "DELETE FROM webhook_logs WHERE created_at < NOW() - INTERVAL '90 days'")
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to cleanup old webhook logs")
-	} else if count := res.RowsAffected(); count > 0 {
-		log.Info().Int64("count", count).Msg("Cleaned up old webhook logs")
+	// B3 Hardening: Delete webhook logs older than configured retention.
+	retentionDays := webhookLogRetentionDays()
+	if retentionDays > 0 {
+		res, err := pool.Exec(ctx, "DELETE FROM webhook_logs WHERE created_at < NOW() - ($1::int * INTERVAL '1 day')", retentionDays)
+		if err != nil {
+			log.Error().Err(err).Int("retention_days", retentionDays).Msg("Failed to cleanup old webhook logs")
+		} else if count := res.RowsAffected(); count > 0 {
+			log.Info().Int64("count", count).Int("retention_days", retentionDays).Msg("Cleaned up old webhook logs")
+		}
+	} else {
+		log.Warn().Int("retention_days", retentionDays).Msg("Webhook log cleanup disabled by configuration")
 	}
 	if billingSvc != nil {
 		if err := billingSvc.ApplyMonthlyIncludedCredits(ctx, time.Now().Format("2006-01")); err != nil {
@@ -174,6 +180,18 @@ func processMaintenance(ctx context.Context, pool *pgxpool.Pool, billingSvc *ser
 			log.Error().Err(err).Msg("Failed refreshing tenant integration tokens")
 		}
 	}
+}
+
+func webhookLogRetentionDays() int {
+	raw := strings.TrimSpace(os.Getenv("WEBHOOK_LOG_RETENTION_DAYS"))
+	if raw == "" {
+		return 90
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		return 90
+	}
+	return n
 }
 
 func processReminders(ctx context.Context, q db.Querier) {

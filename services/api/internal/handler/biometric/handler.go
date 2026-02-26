@@ -1,6 +1,7 @@
 package biometric
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -10,7 +11,13 @@ import (
 )
 
 type Handler struct {
-	svc *bioservice.BiometricService
+	svc biometricService
+}
+
+type biometricService interface {
+	IngestLog(ctx context.Context, tenantID string, entry bioservice.LogEntry) (string, error)
+	ListDevices(ctx context.Context, tenantID string) ([]bioservice.DeviceStatus, error)
+	ListRecentLogs(ctx context.Context, tenantID string) ([]bioservice.LogRow, error)
 }
 
 func NewHandler(svc *bioservice.BiometricService) *Handler {
@@ -27,7 +34,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 
 func (h *Handler) IngestLog(w http.ResponseWriter, r *http.Request) {
 	tenantID := middleware.GetTenantID(r.Context())
-	
+
 	var entry bioservice.LogEntry
 	if err := json.NewDecoder(r.Body).Decode(&entry); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
