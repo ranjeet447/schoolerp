@@ -150,7 +150,7 @@ export default function AdminDashboardPage() {
 
       {/* 2. Top Row Quick Actions */}
       <div className="flex flex-wrap items-center gap-3">
-        <Link href="/admin/communication/notices">
+        <Link href="/admin/notices">
           <Button className="gap-2 bg-primary hover:bg-primary/90 text-white rounded-xl shadow-sm h-11 px-6">
             <Megaphone className="w-4 h-4" /> Broadcast Notice
           </Button>
@@ -376,7 +376,7 @@ export default function AdminDashboardPage() {
               </div>
             </Link>
 
-            <Link href="/admin/settings" className="flex items-center gap-3 p-4 rounded-xl border bg-white hover:bg-slate-50 transition-colors group">
+            <Link href="/admin/settings/profile" className="flex items-center gap-3 p-4 rounded-xl border bg-white hover:bg-slate-50 transition-colors group">
               <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center group-hover:bg-slate-600 group-hover:text-white transition-colors">
                 <Database className="w-5 h-5" />
               </div>

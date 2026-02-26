@@ -91,7 +91,7 @@ export default function ReceptionHubPage() {
               <UserPlus className="w-5 h-5" /> Visitor Check-In
             </Button>
           </Link>
-          <Link href="/admin/safety/gate-passes">
+          <Link href="/admin/students/gate-passes">
             <Button variant="outline" className="rounded-2xl font-bold gap-2 h-12 border-primary/20 hover:bg-primary/5">
               <QrCode className="w-5 h-5" /> Verify Gate Pass
             </Button>
@@ -146,7 +146,7 @@ export default function ReceptionHubPage() {
           </CardHeader>
           <CardContent>
             <div className="text-5xl font-black text-foreground">{stats.pendingGatePasses}</div>
-            <Link href="/admin/safety/gate-passes" className="mt-4 flex items-center text-xs font-bold text-amber-500 gap-1 hover:underline">
+            <Link href="/admin/students/gate-passes" className="mt-4 flex items-center text-xs font-bold text-amber-500 gap-1 hover:underline">
               Approve Requests <ArrowRight className="w-3 h-3" />
             </Link>
           </CardContent>
