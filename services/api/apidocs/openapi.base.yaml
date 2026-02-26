@@ -85,6 +85,22 @@ components:
       type: apiKey
       in: header
       name: X-Tenant-ID
+  schemas:
+    ApprovalRequest:
+      type: object
+      required: [id, module, action, status]
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        requester_id: { type: string, format: uuid }
+        module: { type: string, description: "Module name (e.g., student, finance)" }
+        action: { type: string, description: "Action being approved (e.g., promote, concede)" }
+        resource_id: { type: string, format: uuid }
+        payload: { type: object, description: "JSON payload for the action" }
+        status: { type: string, enum: [pending, approved, rejected] }
+        reason: { type: string, description: "Rejection or approval remark" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
 
 security:
   - BearerAuth: []

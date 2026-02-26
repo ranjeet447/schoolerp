@@ -2,6 +2,7 @@ package finance
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -14,6 +15,8 @@ import (
 	"github.com/schoolerp/api/internal/foundation/policy"
 	"github.com/schoolerp/api/internal/foundation/security"
 )
+
+var ErrPaymentsAddonRequired = errors.New("PAYMENTS_ADDON_REQUIRED")
 
 type Service struct {
 	q       db.Querier

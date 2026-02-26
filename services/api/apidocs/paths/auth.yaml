@@ -366,7 +366,7 @@
 
 /files/upload:
   post:
-    operationId: uploadFile
+    operationId: authUploadFile
     tags: [Files]
     summary: Upload a file to S3
     description: |

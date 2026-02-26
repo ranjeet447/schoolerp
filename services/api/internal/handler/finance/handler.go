@@ -86,6 +86,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 func (h *Handler) RegisterParentRoutes(r chi.Router) {
 	r.Get("/children/{id}/fees/summary", h.GetFeeSummary)
 	r.Get("/children/{id}/fees/receipts", h.ListReceipts)
+	r.Get("/children/{childID}/fees/receipts/{receiptID}/pdf", h.GetReceiptPDFParent)
 	r.Post("/payments/online", h.CreateOnlineOrderParent)
 	r.Get("/fees/gateways", h.GetGatewayKeyParent)
 }
@@ -568,6 +569,10 @@ func (h *Handler) CreateOnlineOrder(w http.ResponseWriter, r *http.Request) {
 
 	order, err := h.svc.CreateOnlineOrder(r.Context(), middleware.GetTenantID(r.Context()), req.StudentID, req.Amount)
 	if err != nil {
+		if err == financeservice.ErrPaymentsAddonRequired {
+			http.Error(w, "online payments add-on required", http.StatusForbidden)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -593,6 +598,10 @@ func (h *Handler) CreateOnlineOrderParent(w http.ResponseWriter, r *http.Request
 		req.Amount,
 	)
 	if err != nil {
+		if err == financeservice.ErrPaymentsAddonRequired {
+			http.Error(w, "online payments add-on required", http.StatusForbidden)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
@@ -801,6 +810,23 @@ func (h *Handler) GetReceiptPDF(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=receipt_%s.pdf", id))
+	w.Write(pdf)
+}
+
+func (h *Handler) GetReceiptPDFParent(w http.ResponseWriter, r *http.Request) {
+	childID := chi.URLParam(r, "childID")
+	receiptID := chi.URLParam(r, "receiptID")
+	tenantID := middleware.GetTenantID(r.Context())
+	userID := middleware.GetUserID(r.Context())
+
+	pdf, err := h.svc.GetReceiptPDFParent(r.Context(), tenantID, userID, childID, receiptID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=receipt_%s.pdf", receiptID))
 	w.Write(pdf)
 }
 

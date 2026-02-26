@@ -105,8 +105,12 @@ export default function ParentFeesPage() {
   }
 
   const downloadReceipt = async (receiptId: string) => {
+    if (!selectedChild) {
+      toast.error("Select a child first")
+      return
+    }
     try {
-      const res = await apiClient(`/v1/admin/receipts/${receiptId}/pdf`) // This might need parent specific route too if /admin is blocked
+      const res = await apiClient(`/v1/parent/children/${selectedChild}/fees/receipts/${receiptId}/pdf`)
       if (!res.ok) throw new Error("Download failed")
       
       const blob = await res.blob()

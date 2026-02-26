@@ -46,6 +46,64 @@ type InternalPaymentEvent struct {
 	Raw              json.RawMessage `json:"raw,omitempty"`
 }
 
+func (s *Service) hasActiveAddon(ctx context.Context, tenantID, addonCode string) (bool, error) {
+	if strings.TrimSpace(addonCode) == "" {
+		return false, nil
+	}
+	var active bool
+	err := s.db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM tenant_addons ta
+			JOIN platform_addons pa ON pa.id = ta.addon_id
+			WHERE ta.tenant_id = $1
+			  AND pa.code = $2
+			  AND ta.status = 'active'
+			  AND (ta.expires_at IS NULL OR ta.expires_at > NOW())
+		)
+	`, toPgUUID(tenantID), strings.TrimSpace(addonCode)).Scan(&active)
+	if err != nil && strings.Contains(strings.ToLower(err.Error()), "relation") {
+		// Backward compatibility for installs without addon tables.
+		return true, nil
+	}
+	return active, err
+}
+
+func (s *Service) requireOnlinePaymentsAddon(ctx context.Context, tenantID string) error {
+	cfg, err := s.q.GetTenantActiveGateway(ctx, toPgUUID(tenantID))
+	if err != nil {
+		return err
+	}
+	providerCode := fmt.Sprintf("payments_%s", strings.ToLower(strings.TrimSpace(cfg.Provider)))
+	if ok, err := s.hasActiveAddon(ctx, tenantID, "payments_pro"); err != nil {
+		return err
+	} else if ok {
+		return nil
+	}
+	if ok, err := s.hasActiveAddon(ctx, tenantID, providerCode); err != nil {
+		return err
+	} else if ok {
+		return nil
+	}
+	return ErrPaymentsAddonRequired
+}
+
+func (s *Service) parentOwnsStudent(ctx context.Context, tenantID, userID, studentID string) (bool, error) {
+	children, err := s.q.GetChildrenByParentUser(ctx, db.GetChildrenByParentUserParams{
+		UserID:   toPgUUID(userID),
+		TenantID: toPgUUID(tenantID),
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to verify relationship: %w", err)
+	}
+	for _, child := range children {
+		if fmtUUID(child.ID) == studentID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // RazorpayProvider is a production implementation
 type RazorpayProvider struct {
 	KeyID     string
@@ -467,6 +525,10 @@ func (s *Service) getTenantPaymentProvider(ctx context.Context, tenantID string)
 }
 
 func (s *Service) CreateOnlineOrder(ctx context.Context, tenantID, studentID string, amount int64) (db.PaymentOrder, error) {
+	if err := s.requireOnlinePaymentsAddon(ctx, tenantID); err != nil {
+		return db.PaymentOrder{}, err
+	}
+
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(tenantID)
 	sUUID := pgtype.UUID{}
@@ -513,31 +575,35 @@ func (s *Service) CreateOnlineOrder(ctx context.Context, tenantID, studentID str
 }
 
 func (s *Service) CreateOnlineOrderParent(ctx context.Context, tenantID, userID, studentID string, amount int64) (db.PaymentOrder, error) {
-	tUUID := toPgUUID(tenantID)
-	uUUID := toPgUUID(userID)
-
-	// Verify Relationship
-	children, err := s.q.GetChildrenByParentUser(ctx, db.GetChildrenByParentUserParams{
-		UserID:   uUUID,
-		TenantID: tUUID,
-	})
+	isChild, err := s.parentOwnsStudent(ctx, tenantID, userID, studentID)
 	if err != nil {
-		return db.PaymentOrder{}, fmt.Errorf("failed to verify relationship: %w", err)
+		return db.PaymentOrder{}, err
 	}
-
-	isChild := false
-	for _, child := range children {
-		if fmtUUID(child.ID) == studentID {
-			isChild = true
-			break
-		}
-	}
-
 	if !isChild {
 		return db.PaymentOrder{}, fmt.Errorf("student does not belong to the user")
 	}
 
 	return s.CreateOnlineOrder(ctx, tenantID, studentID, amount)
+}
+
+func (s *Service) GetReceiptPDFParent(ctx context.Context, tenantID, userID, studentID, receiptID string) ([]byte, error) {
+	ok, err := s.parentOwnsStudent(ctx, tenantID, userID, studentID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("student does not belong to the user")
+	}
+	receipts, err := s.ListStudentReceipts(ctx, tenantID, studentID)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range receipts {
+		if fmtUUID(r.ID) == receiptID {
+			return s.GetReceiptPDF(ctx, tenantID, receiptID)
+		}
+	}
+	return nil, fmt.Errorf("receipt not found for child")
 }
 
 func (s *Service) ProcessPaymentWebhook(ctx context.Context, tenantID, eventID string, body []byte, signature string, secret string, headers map[string]string) (err error) {
