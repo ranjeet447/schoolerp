@@ -110,7 +110,10 @@ function findViolations(filePath: string): Violation[] {
 test("critical pages use explicit button types for clickable actions", async () => {
   const repoRoot = process.cwd();
   const violations = CRITICAL_FILES.flatMap((relative) => {
-    const absolute = path.join(repoRoot, relative);
+    const normalized = repoRoot.endsWith(path.join("apps", "web")) && relative.startsWith("apps/web/")
+      ? relative.slice("apps/web/".length)
+      : relative;
+    const absolute = path.join(repoRoot, normalized);
     return findViolations(absolute).map((v) => ({ ...v, file: relative }));
   });
 

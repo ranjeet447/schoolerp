@@ -36,7 +36,7 @@ export default function PricingPage() {
             <div className="rounded-2xl border border-border/60 bg-card p-6">
               <h2 className="text-lg font-bold">Credits are usage-based</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Plans include free monthly allowances for email/SMS/WhatsApp. After included credits are used, schools buy top-up packs before sending more.
+                Plans include free monthly allowances for SMS/WhatsApp (and email credits where an email gateway adapter is enabled for your deployment). After included credits are used, schools buy top-up packs before sending more.
               </p>
             </div>
             <div className="rounded-2xl border border-border/60 bg-card p-6">

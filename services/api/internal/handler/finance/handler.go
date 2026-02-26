@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -266,43 +267,43 @@ func (h *Handler) UpsertFeeClassConfig(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) RegisterWebhookRoutes(r chi.Router) {
 	razorpayLimiter := middleware.RateLimitByKey("payments_webhook_razorpay", 240, time.Minute, func(r *http.Request) string {
-		ip := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
-		if idx := strings.Index(ip, ","); idx >= 0 {
-			ip = strings.TrimSpace(ip[:idx])
-		}
-		if ip == "" {
-			ip = strings.TrimSpace(r.RemoteAddr)
-		}
-		return "razorpay|" + ip
+		return paymentWebhookLimiterKey("razorpay", r)
 	})
 	payuLimiter := middleware.RateLimitByKey("payments_webhook_payu", 240, time.Minute, func(r *http.Request) string {
-		ip := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
-		if idx := strings.Index(ip, ","); idx >= 0 {
-			ip = strings.TrimSpace(ip[:idx])
-		}
-		if ip == "" {
-			ip = strings.TrimSpace(r.RemoteAddr)
-		}
-		return "payu|" + ip
+		return paymentWebhookLimiterKey("payu", r)
 	})
 	dynamicWebhookLimiter := middleware.RateLimitByKey("payments_webhook_provider", 240, time.Minute, func(r *http.Request) string {
 		provider := strings.TrimSpace(strings.ToLower(chi.URLParam(r, "provider")))
 		if provider == "" {
 			provider = "unknown"
 		}
-		ip := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
-		if idx := strings.Index(ip, ","); idx >= 0 {
-			ip = strings.TrimSpace(ip[:idx])
-		}
-		if ip == "" {
-			ip = strings.TrimSpace(r.RemoteAddr)
-		}
-		return provider + "|" + ip
+		return paymentWebhookLimiterKey(provider, r)
 	})
 
 	r.With(razorpayLimiter).Post("/razorpay-webhook", h.HandleWebhook)
 	r.With(payuLimiter).Post("/payu-webhook", h.HandleWebhook)
 	r.With(dynamicWebhookLimiter).Post("/webhook/{provider}", h.HandleWebhookPublicByProvider)
+}
+
+func paymentWebhookLimiterKey(provider string, r *http.Request) string {
+	provider = strings.TrimSpace(strings.ToLower(provider))
+	if provider == "" {
+		provider = "unknown"
+	}
+	ip := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
+	if idx := strings.Index(ip, ","); idx >= 0 {
+		ip = strings.TrimSpace(ip[:idx])
+	}
+	if ip == "" {
+		ip = strings.TrimSpace(r.RemoteAddr)
+		if host, _, err := net.SplitHostPort(ip); err == nil {
+			ip = strings.TrimSpace(host)
+		}
+	}
+	if ip == "" {
+		ip = "unknown"
+	}
+	return provider + "|" + ip
 }
 
 func (h *Handler) ListFeeClassConfigs(w http.ResponseWriter, r *http.Request) {
