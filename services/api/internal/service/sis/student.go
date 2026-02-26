@@ -19,6 +19,17 @@ type StudentService struct {
 	quota *quota.Service
 }
 
+type SectionWithDetails struct {
+	ID        pgtype.UUID        `json:"id"`
+	TenantID  pgtype.UUID        `json:"tenant_id"`
+	ClassID   pgtype.UUID        `json:"class_id"`
+	Name      string             `json:"name"`
+	Capacity  pgtype.Int4        `json:"capacity"`
+	Tags      []string           `json:"tags"`
+	Notes     pgtype.Text        `json:"notes"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 func NewStudentService(q db.Querier, audit *audit.Logger, quota *quota.Service) *StudentService {
 	return &StudentService{q: q, audit: audit, quota: quota}
 }
@@ -248,7 +259,7 @@ func (s *StudentService) DeleteStudent(ctx context.Context, tenantID, studentID,
 
 	uUUID := pgtype.UUID{}
 	uUUID.Scan(userID)
-	
+
 	_ = s.audit.Log(ctx, audit.Entry{
 		TenantID:     tUUID,
 		UserID:       uUUID,
@@ -407,7 +418,65 @@ func (s *StudentService) CreateClass(ctx context.Context, tenantID string, name 
 	return class, nil
 }
 
-func (s *StudentService) CreateSection(ctx context.Context, tenantID string, classID string, name string, userID, reqID, ip string) (db.Section, error) {
+func (s *StudentService) UpdateClass(ctx context.Context, tenantID, classID, name string, level int32, stream, userID, reqID, ip string) (db.Class, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	cUUID := pgtype.UUID{}
+	cUUID.Scan(classID)
+
+	class, err := s.q.UpdateClassBasic(ctx, db.UpdateClassBasicParams{
+		ID:       cUUID,
+		TenantID: tUUID,
+		Name:     strings.TrimSpace(name),
+		Level:    pgtype.Int4{Int32: level, Valid: true},
+		Stream:   pgtype.Text{String: strings.TrimSpace(stream), Valid: strings.TrimSpace(stream) != ""},
+	})
+	if err != nil {
+		return db.Class{}, err
+	}
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(userID)
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    reqID,
+		Action:       "academic.update_class",
+		ResourceType: "class",
+		ResourceID:   class.ID,
+		After:        class,
+		IPAddress:    ip,
+	})
+	return class, nil
+}
+
+func (s *StudentService) DeleteClass(ctx context.Context, tenantID, classID, userID, reqID, ip string) error {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	cUUID := pgtype.UUID{}
+	cUUID.Scan(classID)
+
+	class, err := s.q.DeleteClassByTenant(ctx, tUUID, cUUID)
+	if err != nil {
+		return err
+	}
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(userID)
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    reqID,
+		Action:       "academic.delete_class",
+		ResourceType: "class",
+		ResourceID:   class.ID,
+		Before:       class,
+		IPAddress:    ip,
+	})
+	return nil
+}
+
+func (s *StudentService) CreateSection(ctx context.Context, tenantID string, classID string, name string, capacity int32, tags []string, notes string, userID, reqID, ip string) (SectionWithDetails, error) {
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(tenantID)
 	cUUID := pgtype.UUID{}
@@ -417,9 +486,21 @@ func (s *StudentService) CreateSection(ctx context.Context, tenantID string, cla
 		TenantID: tUUID,
 		ClassID:  cUUID,
 		Name:     name,
+		Capacity: pgtype.Int4{Int32: capacity, Valid: true},
 	})
 	if err != nil {
-		return db.Section{}, err
+		return SectionWithDetails{}, err
+	}
+
+	cleanTags := normalizeSectionTags(tags)
+	profile, err := s.q.UpsertSectionProfile(ctx, db.UpsertSectionProfileParams{
+		SectionID: section.ID,
+		TenantID:  tUUID,
+		Tags:      cleanTags,
+		Notes:     pgtype.Text{String: strings.TrimSpace(notes), Valid: strings.TrimSpace(notes) != ""},
+	})
+	if err != nil {
+		return SectionWithDetails{}, err
 	}
 
 	uUUID := pgtype.UUID{}
@@ -436,7 +517,16 @@ func (s *StudentService) CreateSection(ctx context.Context, tenantID string, cla
 		IPAddress:    ip,
 	})
 
-	return section, nil
+	return SectionWithDetails{
+		ID:        section.ID,
+		TenantID:  section.TenantID,
+		ClassID:   section.ClassID,
+		Name:      section.Name,
+		Capacity:  section.Capacity,
+		Tags:      profile.Tags,
+		Notes:     profile.Notes,
+		CreatedAt: section.CreatedAt,
+	}, nil
 }
 
 func (s *StudentService) ListAcademicStructure(ctx context.Context, tenantID string) ([]db.Class, []db.Section, error) {
@@ -504,10 +594,228 @@ func (s *StudentService) ListAcademicYears(ctx context.Context, tenantID string)
 	return s.q.ListAcademicYears(ctx, tUUID)
 }
 
+func (s *StudentService) UpdateAcademicYear(ctx context.Context, tenantID, yearID, name, startDate, endDate string, isActive bool, userID, reqID, ip string) (db.AcademicYear, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	yUUID := pgtype.UUID{}
+	yUUID.Scan(yearID)
+
+	start := pgtype.Date{}
+	if err := start.Scan(startDate); err != nil {
+		return db.AcademicYear{}, err
+	}
+	end := pgtype.Date{}
+	if err := end.Scan(endDate); err != nil {
+		return db.AcademicYear{}, err
+	}
+
+	if isActive {
+		if err := s.q.DeactivateAcademicYearsExcept(ctx, tUUID, yUUID); err != nil {
+			return db.AcademicYear{}, err
+		}
+	}
+
+	year, err := s.q.UpdateAcademicYearBasic(ctx, db.UpdateAcademicYearBasicParams{
+		ID:        yUUID,
+		TenantID:  tUUID,
+		Name:      strings.TrimSpace(name),
+		StartDate: start,
+		EndDate:   end,
+		IsActive:  pgtype.Bool{Bool: isActive, Valid: true},
+	})
+	if err != nil {
+		return db.AcademicYear{}, err
+	}
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(userID)
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    reqID,
+		Action:       "academic.update_year",
+		ResourceType: "academic_year",
+		ResourceID:   year.ID,
+		After:        year,
+		IPAddress:    ip,
+	})
+	return year, nil
+}
+
+func (s *StudentService) DeleteAcademicYear(ctx context.Context, tenantID, yearID, userID, reqID, ip string) error {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	yUUID := pgtype.UUID{}
+	yUUID.Scan(yearID)
+
+	year, err := s.q.DeleteAcademicYearByTenant(ctx, tUUID, yUUID)
+	if err != nil {
+		return err
+	}
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(userID)
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    reqID,
+		Action:       "academic.delete_year",
+		ResourceType: "academic_year",
+		ResourceID:   year.ID,
+		Before:       year,
+		IPAddress:    ip,
+	})
+	return nil
+}
+
 func (s *StudentService) ListSectionsByClass(ctx context.Context, classID string) ([]db.Section, error) {
 	cUUID := pgtype.UUID{}
 	cUUID.Scan(classID)
 	return s.q.ListSectionsByClass(ctx, cUUID)
+}
+
+func (s *StudentService) ListSectionsByClassDetailed(ctx context.Context, tenantID, classID string) ([]SectionWithDetails, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	cUUID := pgtype.UUID{}
+	cUUID.Scan(classID)
+
+	sections, err := s.q.ListSectionsByClass(ctx, cUUID)
+	if err != nil {
+		return nil, err
+	}
+	profiles, err := s.q.ListSectionProfilesByClass(ctx, tUUID, cUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	profileBySection := map[[16]byte]db.SectionProfile{}
+	for _, p := range profiles {
+		if p.SectionID.Valid {
+			profileBySection[p.SectionID.Bytes] = p
+		}
+	}
+
+	out := make([]SectionWithDetails, 0, len(sections))
+	for _, section := range sections {
+		row := SectionWithDetails{
+			ID:        section.ID,
+			TenantID:  section.TenantID,
+			ClassID:   section.ClassID,
+			Name:      section.Name,
+			Capacity:  section.Capacity,
+			CreatedAt: section.CreatedAt,
+		}
+		if section.ID.Valid {
+			if p, ok := profileBySection[section.ID.Bytes]; ok {
+				row.Tags = p.Tags
+				row.Notes = p.Notes
+			}
+		}
+		out = append(out, row)
+	}
+	return out, nil
+}
+
+func (s *StudentService) UpdateSection(ctx context.Context, tenantID, sectionID, name string, capacity int32, tags []string, notes string, userID, reqID, ip string) (SectionWithDetails, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	sUUID := pgtype.UUID{}
+	sUUID.Scan(sectionID)
+
+	section, err := s.q.UpdateSectionBasic(ctx, db.UpdateSectionBasicParams{
+		ID:       sUUID,
+		TenantID: tUUID,
+		Name:     strings.TrimSpace(name),
+		Capacity: pgtype.Int4{Int32: capacity, Valid: true},
+	})
+	if err != nil {
+		return SectionWithDetails{}, err
+	}
+
+	profile, err := s.q.UpsertSectionProfile(ctx, db.UpsertSectionProfileParams{
+		SectionID: sUUID,
+		TenantID:  tUUID,
+		Tags:      normalizeSectionTags(tags),
+		Notes:     pgtype.Text{String: strings.TrimSpace(notes), Valid: strings.TrimSpace(notes) != ""},
+	})
+	if err != nil {
+		return SectionWithDetails{}, err
+	}
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(userID)
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    reqID,
+		Action:       "academic.update_section",
+		ResourceType: "section",
+		ResourceID:   section.ID,
+		After: map[string]any{
+			"section": section,
+			"tags":    profile.Tags,
+			"notes":   profile.Notes.String,
+		},
+		IPAddress: ip,
+	})
+
+	return SectionWithDetails{
+		ID:        section.ID,
+		TenantID:  section.TenantID,
+		ClassID:   section.ClassID,
+		Name:      section.Name,
+		Capacity:  section.Capacity,
+		Tags:      profile.Tags,
+		Notes:     profile.Notes,
+		CreatedAt: section.CreatedAt,
+	}, nil
+}
+
+func (s *StudentService) DeleteSection(ctx context.Context, tenantID, sectionID, userID, reqID, ip string) error {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	sUUID := pgtype.UUID{}
+	sUUID.Scan(sectionID)
+
+	section, err := s.q.DeleteSectionByTenant(ctx, tUUID, sUUID)
+	if err != nil {
+		return err
+	}
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(userID)
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    reqID,
+		Action:       "academic.delete_section",
+		ResourceType: "section",
+		ResourceID:   section.ID,
+		Before:       section,
+		IPAddress:    ip,
+	})
+	return nil
+}
+
+func normalizeSectionTags(tags []string) []string {
+	if len(tags) == 0 {
+		return []string{}
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(tags))
+	for _, raw := range tags {
+		tag := strings.ToLower(strings.TrimSpace(raw))
+		if tag == "" {
+			continue
+		}
+		if _, ok := seen[tag]; ok {
+			continue
+		}
+		seen[tag] = struct{}{}
+		out = append(out, tag)
+	}
+	return out
 }
 
 func (s *StudentService) CreateSubject(ctx context.Context, tenantID, name, code, subjectType, userID, reqID, ip string) (db.Subject, error) {
@@ -545,6 +853,64 @@ func (s *StudentService) ListSubjects(ctx context.Context, tenantID string) ([]d
 	tUUID := pgtype.UUID{}
 	tUUID.Scan(tenantID)
 	return s.q.ListSubjects(ctx, tUUID)
+}
+
+func (s *StudentService) UpdateSubject(ctx context.Context, tenantID, subjectID, name, code, subjectType, userID, reqID, ip string) (db.Subject, error) {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	sUUID := pgtype.UUID{}
+	sUUID.Scan(subjectID)
+
+	subject, err := s.q.UpdateSubjectBasic(ctx, db.UpdateSubjectBasicParams{
+		ID:       sUUID,
+		TenantID: tUUID,
+		Name:     strings.TrimSpace(name),
+		Code:     pgtype.Text{String: strings.TrimSpace(code), Valid: strings.TrimSpace(code) != ""},
+		Type:     pgtype.Text{String: strings.TrimSpace(subjectType), Valid: strings.TrimSpace(subjectType) != ""},
+	})
+	if err != nil {
+		return db.Subject{}, err
+	}
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(userID)
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    reqID,
+		Action:       "academic.update_subject",
+		ResourceType: "subject",
+		ResourceID:   subject.ID,
+		After:        subject,
+		IPAddress:    ip,
+	})
+	return subject, nil
+}
+
+func (s *StudentService) DeleteSubject(ctx context.Context, tenantID, subjectID, userID, reqID, ip string) error {
+	tUUID := pgtype.UUID{}
+	tUUID.Scan(tenantID)
+	sUUID := pgtype.UUID{}
+	sUUID.Scan(subjectID)
+
+	subject, err := s.q.DeleteSubjectByTenant(ctx, tUUID, sUUID)
+	if err != nil {
+		return err
+	}
+
+	uUUID := pgtype.UUID{}
+	uUUID.Scan(userID)
+	_ = s.audit.Log(ctx, audit.Entry{
+		TenantID:     tUUID,
+		UserID:       uUUID,
+		RequestID:    reqID,
+		Action:       "academic.delete_subject",
+		ResourceType: "subject",
+		ResourceID:   subject.ID,
+		Before:       subject,
+		IPAddress:    ip,
+	})
+	return nil
 }
 
 // Student Import logic

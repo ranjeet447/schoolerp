@@ -139,8 +139,11 @@ type Querier interface {
 	CreateVisitorLog(ctx context.Context, arg CreateVisitorLogParams) (VisitorLog, error)
 	CreateWebhookLog(ctx context.Context, arg CreateWebhookLogParams) (WebhookLog, error)
 	DeactivatePickupAuthorization(ctx context.Context, arg DeactivatePickupAuthorizationParams) error
+	DeactivateAcademicYearsExcept(ctx context.Context, tenantID, keepID pgtype.UUID) error
 	DeleteAttendanceEntries(ctx context.Context, sessionID pgtype.UUID) error
 	DeleteAutomationRule(ctx context.Context, arg DeleteAutomationRuleParams) error
+	DeleteAcademicYearByTenant(ctx context.Context, tenantID, yearID pgtype.UUID) (AcademicYear, error)
+	DeleteClassByTenant(ctx context.Context, tenantID, classID pgtype.UUID) (Class, error)
 	DeleteConfidentialNote(ctx context.Context, arg DeleteConfidentialNoteParams) error
 	DeleteDigitalAsset(ctx context.Context, id pgtype.UUID) error
 	DeleteExpiredAIChatSessions(ctx context.Context) error
@@ -150,7 +153,9 @@ type Querier interface {
 	DeleteLock(ctx context.Context, arg DeleteLockParams) error
 	DeleteNotice(ctx context.Context, arg DeleteNoticeParams) error
 	DeleteNotificationTemplate(ctx context.Context, arg DeleteNotificationTemplateParams) error
+	DeleteSectionByTenant(ctx context.Context, tenantID, sectionID pgtype.UUID) (Section, error)
 	DeleteStudent(ctx context.Context, arg DeleteStudentParams) error
+	DeleteSubjectByTenant(ctx context.Context, tenantID, subjectID pgtype.UUID) (Subject, error)
 	DeleteVehicle(ctx context.Context, arg DeleteVehicleParams) error
 	GetAIChatSession(ctx context.Context, arg GetAIChatSessionParams) (AiChatSession, error)
 	GetActiveAcademicYear(ctx context.Context, tenantID pgtype.UUID) (AcademicYear, error)
@@ -344,6 +349,7 @@ type Querier interface {
 	ListSchoolGroups(ctx context.Context, ownerUserID pgtype.UUID) ([]SchoolGroup, error)
 	ListSectionsByClass(ctx context.Context, classID pgtype.UUID) ([]Section, error)
 	ListSectionsByTenant(ctx context.Context, tenantID pgtype.UUID) ([]Section, error)
+	ListSectionProfilesByClass(ctx context.Context, tenantID, classID pgtype.UUID) ([]SectionProfile, error)
 	ListSmsUsageLogsWithFilters(ctx context.Context, arg ListSmsUsageLogsWithFiltersParams) ([]SmsUsageLog, error)
 	ListStaffAwards(ctx context.Context, tenantID pgtype.UUID) ([]ListStaffAwardsRow, error)
 	ListStaffLeaveRequests(ctx context.Context, arg ListStaffLeaveRequestsParams) ([]ListStaffLeaveRequestsRow, error)
@@ -411,8 +417,12 @@ type Querier interface {
 	UpdatePurchaseOrderStatus(ctx context.Context, arg UpdatePurchaseOrderStatusParams) (PurchaseOrder, error)
 	UpdateReceiptSeries(ctx context.Context, arg UpdateReceiptSeriesParams) (ReceiptSeries, error)
 	UpdateRoute(ctx context.Context, arg UpdateRouteParams) (TransportRoute, error)
+	UpdateAcademicYearBasic(ctx context.Context, arg UpdateAcademicYearBasicParams) (AcademicYear, error)
+	UpdateClassBasic(ctx context.Context, arg UpdateClassBasicParams) (Class, error)
+	UpdateSectionBasic(ctx context.Context, arg UpdateSectionBasicParams) (Section, error)
 	UpdateStudent(ctx context.Context, arg UpdateStudentParams) (Student, error)
 	UpdateStudentStatus(ctx context.Context, arg UpdateStudentStatusParams) error
+	UpdateSubjectBasic(ctx context.Context, arg UpdateSubjectBasicParams) (Subject, error)
 	UpdateTenantBoardType(ctx context.Context, arg UpdateTenantBoardTypeParams) (Tenant, error)
 	UpdateTenantConfig(ctx context.Context, arg UpdateTenantConfigParams) (Tenant, error)
 	UpdateVehicle(ctx context.Context, arg UpdateVehicleParams) (TransportVehicle, error)
@@ -431,6 +441,7 @@ type Querier interface {
 	UpsertMarks(ctx context.Context, arg UpsertMarksParams) error
 	UpsertMarksAggregate(ctx context.Context, arg UpsertMarksAggregateParams) (MarksAggregate, error)
 	UpsertOptionalFeeItem(ctx context.Context, arg UpsertOptionalFeeItemParams) (OptionalFeeItem, error)
+	UpsertSectionProfile(ctx context.Context, arg UpsertSectionProfileParams) (SectionProfile, error)
 	UpsertReadingLog(ctx context.Context, arg UpsertReadingLogParams) (LibraryReadingLog, error)
 	UpsertScholarship(ctx context.Context, arg UpsertScholarshipParams) (FeeDiscountsScholarship, error)
 	UpsertStock(ctx context.Context, arg UpsertStockParams) error

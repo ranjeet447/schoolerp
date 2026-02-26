@@ -44,12 +44,20 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	// Academic Structure
 	r.Get("/academic-structure/academic-years", h.ListAcademicYears)
 	r.Post("/academic-structure/academic-years", h.CreateAcademicYear)
+	r.Put("/academic-structure/academic-years/{yearID}", h.UpdateAcademicYear)
+	r.Delete("/academic-structure/academic-years/{yearID}", h.DeleteAcademicYear)
 	r.Get("/academic-structure/classes", h.ListClasses)
 	r.Post("/academic-structure/classes", h.CreateClass)
+	r.Put("/academic-structure/classes/{classID}", h.UpdateClass)
+	r.Delete("/academic-structure/classes/{classID}", h.DeleteClass)
 	r.Get("/academic-structure/classes/{classID}/sections", h.ListSectionsByClass)
 	r.Post("/academic-structure/classes/{classID}/sections", h.CreateSection)
+	r.Put("/academic-structure/sections/{sectionID}", h.UpdateSection)
+	r.Delete("/academic-structure/sections/{sectionID}", h.DeleteSection)
 	r.Get("/academic-structure/subjects", h.ListSubjects)
 	r.Post("/academic-structure/subjects", h.CreateSubject)
+	r.Put("/academic-structure/subjects/{subjectID}", h.UpdateSubject)
+	r.Delete("/academic-structure/subjects/{subjectID}", h.DeleteSubject)
 
 	// CSV Import
 	r.With(middleware.RateLimitByKey("student_import", 5, time.Hour, nil)).Post("/students/import", h.Import)
@@ -199,6 +207,12 @@ type createClassReq struct {
 	Stream string `json:"stream"`
 }
 
+type updateClassReq struct {
+	Name   string `json:"name"`
+	Level  int32  `json:"level"`
+	Stream string `json:"stream"`
+}
+
 func (h *Handler) CreateClass(w http.ResponseWriter, r *http.Request) {
 	tenantID := middleware.GetTenantID(r.Context())
 	var req createClassReq
@@ -223,10 +237,64 @@ func (h *Handler) CreateClass(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(class)
 }
 
+func (h *Handler) UpdateClass(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	tenantID := middleware.GetTenantID(ctx)
+	classID := chi.URLParam(r, "classID")
+	if strings.TrimSpace(classID) == "" {
+		http.Error(w, "classID is required", http.StatusBadRequest)
+		return
+	}
+
+	var req updateClassReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+
+	class, err := h.svc.UpdateClass(ctx, tenantID, classID, name, req.Level, strings.TrimSpace(req.Stream),
+		middleware.GetUserID(ctx), middleware.GetReqID(ctx), r.RemoteAddr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(class)
+}
+
+func (h *Handler) DeleteClass(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	tenantID := middleware.GetTenantID(ctx)
+	classID := chi.URLParam(r, "classID")
+	if strings.TrimSpace(classID) == "" {
+		http.Error(w, "classID is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.svc.DeleteClass(ctx, tenantID, classID, middleware.GetUserID(ctx), middleware.GetReqID(ctx), r.RemoteAddr); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 type createAcademicYearReq struct {
 	Name      string `json:"name"`
 	StartDate string `json:"start_date"`
 	EndDate   string `json:"end_date"`
+}
+
+type updateAcademicYearReq struct {
+	Name      string `json:"name"`
+	StartDate string `json:"start_date"`
+	EndDate   string `json:"end_date"`
+	IsActive  bool   `json:"is_active"`
 }
 
 func (h *Handler) ListAcademicYears(w http.ResponseWriter, r *http.Request) {
@@ -280,14 +348,73 @@ func (h *Handler) CreateAcademicYear(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(year)
 }
 
+func (h *Handler) UpdateAcademicYear(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	tenantID := middleware.GetTenantID(ctx)
+	yearID := chi.URLParam(r, "yearID")
+	if strings.TrimSpace(yearID) == "" {
+		http.Error(w, "yearID is required", http.StatusBadRequest)
+		return
+	}
+
+	var req updateAcademicYearReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+
+	name := strings.TrimSpace(req.Name)
+	if name == "" || strings.TrimSpace(req.StartDate) == "" || strings.TrimSpace(req.EndDate) == "" {
+		http.Error(w, "name, start_date and end_date are required", http.StatusBadRequest)
+		return
+	}
+
+	year, err := h.svc.UpdateAcademicYear(
+		ctx,
+		tenantID,
+		yearID,
+		name,
+		strings.TrimSpace(req.StartDate),
+		strings.TrimSpace(req.EndDate),
+		req.IsActive,
+		middleware.GetUserID(ctx),
+		middleware.GetReqID(ctx),
+		r.RemoteAddr,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(year)
+}
+
+func (h *Handler) DeleteAcademicYear(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	tenantID := middleware.GetTenantID(ctx)
+	yearID := chi.URLParam(r, "yearID")
+	if strings.TrimSpace(yearID) == "" {
+		http.Error(w, "yearID is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.svc.DeleteAcademicYear(ctx, tenantID, yearID, middleware.GetUserID(ctx), middleware.GetReqID(ctx), r.RemoteAddr); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *Handler) ListSectionsByClass(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
 	classID := chi.URLParam(r, "classID")
 	if strings.TrimSpace(classID) == "" {
 		http.Error(w, "classID is required", http.StatusBadRequest)
 		return
 	}
 
-	sections, err := h.svc.ListSectionsByClass(r.Context(), classID)
+	sections, err := h.svc.ListSectionsByClassDetailed(r.Context(), tenantID, classID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -302,8 +429,10 @@ func (h *Handler) ListSectionsByClass(w http.ResponseWriter, r *http.Request) {
 }
 
 type createSectionReq struct {
-	Name     string `json:"name"`
-	Capacity int32  `json:"capacity"`
+	Name     string   `json:"name"`
+	Capacity int32    `json:"capacity"`
+	Tags     []string `json:"tags"`
+	Notes    string   `json:"notes"`
 }
 
 func (h *Handler) CreateSection(w http.ResponseWriter, r *http.Request) {
@@ -332,6 +461,9 @@ func (h *Handler) CreateSection(w http.ResponseWriter, r *http.Request) {
 		tenantID,
 		classID,
 		name,
+		req.Capacity,
+		req.Tags,
+		req.Notes,
 		middleware.GetUserID(ctx),
 		middleware.GetReqID(ctx),
 		r.RemoteAddr,
@@ -346,7 +478,77 @@ func (h *Handler) CreateSection(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(section)
 }
 
+type updateSectionReq struct {
+	Name     string   `json:"name"`
+	Capacity int32    `json:"capacity"`
+	Tags     []string `json:"tags"`
+	Notes    string   `json:"notes"`
+}
+
+func (h *Handler) UpdateSection(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	tenantID := middleware.GetTenantID(ctx)
+	sectionID := chi.URLParam(r, "sectionID")
+	if strings.TrimSpace(sectionID) == "" {
+		http.Error(w, "sectionID is required", http.StatusBadRequest)
+		return
+	}
+
+	var req updateSectionReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+
+	section, err := h.svc.UpdateSection(
+		ctx,
+		tenantID,
+		sectionID,
+		name,
+		req.Capacity,
+		req.Tags,
+		req.Notes,
+		middleware.GetUserID(ctx),
+		middleware.GetReqID(ctx),
+		r.RemoteAddr,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(section)
+}
+
+func (h *Handler) DeleteSection(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	tenantID := middleware.GetTenantID(ctx)
+	sectionID := chi.URLParam(r, "sectionID")
+	if strings.TrimSpace(sectionID) == "" {
+		http.Error(w, "sectionID is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.svc.DeleteSection(ctx, tenantID, sectionID, middleware.GetUserID(ctx), middleware.GetReqID(ctx), r.RemoteAddr); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 type createSubjectReq struct {
+	Name string `json:"name"`
+	Code string `json:"code"`
+	Type string `json:"type"`
+}
+
+type updateSubjectReq struct {
 	Name string `json:"name"`
 	Code string `json:"code"`
 	Type string `json:"type"`
@@ -402,6 +604,62 @@ func (h *Handler) CreateSubject(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(subject)
+}
+
+func (h *Handler) UpdateSubject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	tenantID := middleware.GetTenantID(ctx)
+	subjectID := chi.URLParam(r, "subjectID")
+	if strings.TrimSpace(subjectID) == "" {
+		http.Error(w, "subjectID is required", http.StatusBadRequest)
+		return
+	}
+
+	var req updateSubjectReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+
+	subject, err := h.svc.UpdateSubject(
+		ctx,
+		tenantID,
+		subjectID,
+		name,
+		strings.TrimSpace(req.Code),
+		strings.TrimSpace(req.Type),
+		middleware.GetUserID(ctx),
+		middleware.GetReqID(ctx),
+		r.RemoteAddr,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(subject)
+}
+
+func (h *Handler) DeleteSubject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	tenantID := middleware.GetTenantID(ctx)
+	subjectID := chi.URLParam(r, "subjectID")
+	if strings.TrimSpace(subjectID) == "" {
+		http.Error(w, "subjectID is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.svc.DeleteSubject(ctx, tenantID, subjectID, middleware.GetUserID(ctx), middleware.GetReqID(ctx), r.RemoteAddr); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 type createStudentReq struct {

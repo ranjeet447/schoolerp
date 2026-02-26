@@ -26,7 +26,8 @@ import {
   TabsTrigger,
 } from "@schoolerp/ui"
 import { Loader2, RefreshCw, School } from "lucide-react"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, asArrayPayload } from "@/lib/api-client"
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog"
 
 interface AcademicYearRow {
   id: unknown
@@ -47,6 +48,9 @@ interface SectionRow {
   id: unknown
   name: string
   class_id: unknown
+  capacity?: unknown
+  tags?: string[]
+  notes?: unknown
 }
 
 interface SubjectRow {
@@ -128,8 +132,14 @@ export default function MasterDataSettingsPage() {
 
   const [yearForm, setYearForm] = useState({ name: "", start_date: "", end_date: "" })
   const [classForm, setClassForm] = useState({ name: "", level: "1", stream: "" })
-  const [sectionForm, setSectionForm] = useState({ name: "" })
+  const [sectionForm, setSectionForm] = useState({ name: "", capacity: "40", tags: "", notes: "" })
+  const [editingYearID, setEditingYearID] = useState("")
+  const [editingYearActive, setEditingYearActive] = useState(false)
+  const [editingClassID, setEditingClassID] = useState("")
+  const [editingSectionID, setEditingSectionID] = useState("")
+  const [editingSubjectID, setEditingSubjectID] = useState("")
   const [subjectForm, setSubjectForm] = useState({ name: "", code: "", type: "core" })
+  const { confirm, confirmDialog } = useConfirmDialog()
 
   const classOptions = useMemo(
     () => classes.map((c) => ({ id: uuidValue(c.id), label: `${c.name} (Level ${numberValue(c.level)})` })),
@@ -147,7 +157,7 @@ export default function MasterDataSettingsPage() {
       throw new Error(msg || "Failed to load sections")
     }
     const payload = await res.json()
-    setSections(Array.isArray(payload) ? payload : [])
+    setSections(asArrayPayload(payload, ["sections"]))
   }
 
   const fetchAll = async (silent = false) => {
@@ -171,10 +181,10 @@ export default function MasterDataSettingsPage() {
         subjectsRes.json(),
       ])
 
-      const loadedClasses = Array.isArray(classesData) ? classesData : []
-      setYears(Array.isArray(yearsData) ? yearsData : [])
+      const loadedClasses = asArrayPayload(classesData, ["classes"])
+      setYears(asArrayPayload(yearsData, ["years"]))
       setClasses(loadedClasses)
-      setSubjects(Array.isArray(subjectsData) ? subjectsData : [])
+      setSubjects(asArrayPayload(subjectsData, ["subjects"]))
 
       const firstClassID = loadedClasses.length > 0 ? uuidValue(loadedClasses[0].id) : ""
       const nextClassID = selectedClassID || firstClassID
@@ -222,6 +232,104 @@ export default function MasterDataSettingsPage() {
     }
   }
 
+  const updateAcademicYear = async () => {
+    if (!editingYearID) return
+    if (!yearForm.name || !yearForm.start_date || !yearForm.end_date) {
+      setError("Academic year requires name, start date, and end date")
+      return
+    }
+    setSavingYear(true)
+    setError("")
+    try {
+      const res = await apiClient(`/admin/academic-structure/academic-years/${editingYearID}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: yearForm.name,
+          start_date: yearForm.start_date,
+          end_date: yearForm.end_date,
+          is_active: editingYearActive,
+        }),
+      })
+      if (!res.ok) throw new Error((await res.text()) || "Failed to update academic year")
+      setEditingYearID("")
+      setEditingYearActive(false)
+      setYearForm({ name: "", start_date: "", end_date: "" })
+      await fetchAll(true)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update academic year"
+      setError(message)
+    } finally {
+      setSavingYear(false)
+    }
+  }
+
+  const startEditAcademicYear = (year: AcademicYearRow) => {
+    setEditingYearID(uuidValue(year.id))
+    setEditingYearActive(boolValue(year.is_active))
+    setYearForm({
+      name: year.name || "",
+      start_date: dateValue(year.start_date) === "-" ? "" : dateValue(year.start_date),
+      end_date: dateValue(year.end_date) === "-" ? "" : dateValue(year.end_date),
+    })
+  }
+
+  const activateAcademicYear = async (year: AcademicYearRow) => {
+    const yearID = uuidValue(year.id)
+    if (!yearID) return
+    if (boolValue(year.is_active)) return
+
+    setSavingYear(true)
+    setError("")
+    try {
+      const res = await apiClient(`/admin/academic-structure/academic-years/${yearID}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: year.name,
+          start_date: dateValue(year.start_date),
+          end_date: dateValue(year.end_date),
+          is_active: true,
+        }),
+      })
+      if (!res.ok) throw new Error((await res.text()) || "Failed to activate academic year")
+      await fetchAll(true)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to activate academic year"
+      setError(message)
+    } finally {
+      setSavingYear(false)
+    }
+  }
+
+  const deleteAcademicYear = async (year: AcademicYearRow) => {
+    const yearID = uuidValue(year.id)
+    if (!yearID) return
+    const ok = await confirm({
+      title: "Delete Academic Year",
+      description: `Delete ${year.name}? This cannot be undone.`,
+      confirmText: "Delete",
+      tone: "danger",
+    })
+    if (!ok) return
+
+    setSavingYear(true)
+    setError("")
+    try {
+      const res = await apiClient(`/admin/academic-structure/academic-years/${yearID}`, { method: "DELETE" })
+      if (!res.ok) throw new Error((await res.text()) || "Failed to delete academic year")
+      if (editingYearID === yearID) {
+        setEditingYearID("")
+        setEditingYearActive(false)
+        setYearForm({ name: "", start_date: "", end_date: "" })
+      }
+      await fetchAll(true)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete academic year"
+      setError(message)
+    } finally {
+      setSavingYear(false)
+    }
+  }
+
   const createClass = async () => {
     if (!classForm.name) {
       setError("Class name is required")
@@ -249,6 +357,85 @@ export default function MasterDataSettingsPage() {
     }
   }
 
+  const updateClass = async () => {
+    if (!editingClassID) return
+    if (!classForm.name) {
+      setError("Class name is required")
+      return
+    }
+    setSavingClass(true)
+    setError("")
+    try {
+      const res = await apiClient(`/admin/academic-structure/classes/${editingClassID}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: classForm.name,
+          level: Number(classForm.level) || 1,
+          stream: classForm.stream,
+        }),
+      })
+      if (!res.ok) throw new Error((await res.text()) || "Failed to update class")
+      setEditingClassID("")
+      setClassForm({ name: "", level: "1", stream: "" })
+      await fetchAll(true)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update class"
+      setError(message)
+    } finally {
+      setSavingClass(false)
+    }
+  }
+
+  const startEditClass = (row: ClassRow) => {
+    setEditingClassID(uuidValue(row.id))
+    setClassForm({
+      name: row.name || "",
+      level: String(numberValue(row.level) || 1),
+      stream: textValue(row.stream),
+    })
+    const classID = uuidValue(row.id)
+    if (classID) {
+      setSelectedClassID(classID)
+      void fetchSections(classID).catch((err) => {
+        const message = err instanceof Error ? err.message : "Failed to load sections"
+        setError(message)
+      })
+    }
+  }
+
+  const deleteClass = async (row: ClassRow) => {
+    const classID = uuidValue(row.id)
+    if (!classID) return
+    const ok = await confirm({
+      title: "Delete Class",
+      description: `Delete class ${row.name}? This may fail if students/sections are linked.`,
+      confirmText: "Delete",
+      tone: "danger",
+    })
+    if (!ok) return
+
+    setSavingClass(true)
+    setError("")
+    try {
+      const res = await apiClient(`/admin/academic-structure/classes/${classID}`, { method: "DELETE" })
+      if (!res.ok) throw new Error((await res.text()) || "Failed to delete class")
+      if (editingClassID === classID) {
+        setEditingClassID("")
+        setClassForm({ name: "", level: "1", stream: "" })
+      }
+      if (selectedClassID === classID) {
+        setSelectedClassID("")
+        setSections([])
+      }
+      await fetchAll(true)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete class"
+      setError(message)
+    } finally {
+      setSavingClass(false)
+    }
+  }
+
   const createSection = async () => {
     if (!selectedClassID) {
       setError("Select a class before adding sections")
@@ -263,13 +450,94 @@ export default function MasterDataSettingsPage() {
     try {
       const res = await apiClient(`/admin/academic-structure/classes/${selectedClassID}/sections`, {
         method: "POST",
-        body: JSON.stringify({ name: sectionForm.name }),
+        body: JSON.stringify({
+          name: sectionForm.name,
+          capacity: Number(sectionForm.capacity) || 40,
+          tags: sectionForm.tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
+          notes: sectionForm.notes,
+        }),
       })
       if (!res.ok) throw new Error((await res.text()) || "Failed to create section")
-      setSectionForm({ name: "" })
+      setSectionForm({ name: "", capacity: "40", tags: "", notes: "" })
       await fetchSections(selectedClassID)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create section"
+      setError(message)
+    } finally {
+      setSavingSection(false)
+    }
+  }
+
+  const updateSection = async () => {
+    if (!editingSectionID) return
+    if (!sectionForm.name) {
+      setError("Section name is required")
+      return
+    }
+
+    setSavingSection(true)
+    setError("")
+    try {
+      const res = await apiClient(`/admin/academic-structure/sections/${editingSectionID}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: sectionForm.name,
+          capacity: Number(sectionForm.capacity) || 40,
+          tags: sectionForm.tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
+          notes: sectionForm.notes,
+        }),
+      })
+      if (!res.ok) throw new Error((await res.text()) || "Failed to update section")
+      setEditingSectionID("")
+      setSectionForm({ name: "", capacity: "40", tags: "", notes: "" })
+      await fetchSections(selectedClassID)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update section"
+      setError(message)
+    } finally {
+      setSavingSection(false)
+    }
+  }
+
+  const startEditSection = (section: SectionRow) => {
+    setEditingSectionID(uuidValue(section.id))
+    setSectionForm({
+      name: section.name || "",
+      capacity: String(numberValue(section.capacity) || 40),
+      tags: Array.isArray(section.tags) ? section.tags.join(", ") : "",
+      notes: textValue(section.notes),
+    })
+  }
+
+  const deleteSection = async (section: SectionRow) => {
+    const sectionID = uuidValue(section.id)
+    if (!sectionID) return
+    const ok = await confirm({
+      title: "Delete Section",
+      description: `Delete section ${section.name}? This may fail if students are assigned.`,
+      confirmText: "Delete",
+      tone: "danger",
+    })
+    if (!ok) return
+
+    setSavingSection(true)
+    setError("")
+    try {
+      const res = await apiClient(`/admin/academic-structure/sections/${sectionID}`, { method: "DELETE" })
+      if (!res.ok) throw new Error((await res.text()) || "Failed to delete section")
+      if (editingSectionID === sectionID) {
+        setEditingSectionID("")
+        setSectionForm({ name: "", capacity: "40", tags: "", notes: "" })
+      }
+      await fetchSections(selectedClassID)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete section"
       setError(message)
     } finally {
       setSavingSection(false)
@@ -293,6 +561,69 @@ export default function MasterDataSettingsPage() {
       await fetchAll(true)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create subject"
+      setError(message)
+    } finally {
+      setSavingSubject(false)
+    }
+  }
+
+  const updateSubject = async () => {
+    if (!editingSubjectID) return
+    if (!subjectForm.name) {
+      setError("Subject name is required")
+      return
+    }
+    setSavingSubject(true)
+    setError("")
+    try {
+      const res = await apiClient(`/admin/academic-structure/subjects/${editingSubjectID}`, {
+        method: "PUT",
+        body: JSON.stringify(subjectForm),
+      })
+      if (!res.ok) throw new Error((await res.text()) || "Failed to update subject")
+      setEditingSubjectID("")
+      setSubjectForm({ name: "", code: "", type: "core" })
+      await fetchAll(true)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update subject"
+      setError(message)
+    } finally {
+      setSavingSubject(false)
+    }
+  }
+
+  const startEditSubject = (subject: SubjectRow) => {
+    setEditingSubjectID(uuidValue(subject.id))
+    setSubjectForm({
+      name: subject.name || "",
+      code: textValue(subject.code),
+      type: textValue(subject.type) || "core",
+    })
+  }
+
+  const deleteSubject = async (subject: SubjectRow) => {
+    const subjectID = uuidValue(subject.id)
+    if (!subjectID) return
+    const ok = await confirm({
+      title: "Delete Subject",
+      description: `Delete subject ${subject.name}?`,
+      confirmText: "Delete",
+      tone: "danger",
+    })
+    if (!ok) return
+
+    setSavingSubject(true)
+    setError("")
+    try {
+      const res = await apiClient(`/admin/academic-structure/subjects/${subjectID}`, { method: "DELETE" })
+      if (!res.ok) throw new Error((await res.text()) || "Failed to delete subject")
+      if (editingSubjectID === subjectID) {
+        setEditingSubjectID("")
+        setSubjectForm({ name: "", code: "", type: "core" })
+      }
+      await fetchAll(true)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete subject"
       setError(message)
     } finally {
       setSavingSubject(false)
@@ -327,7 +658,7 @@ export default function MasterDataSettingsPage() {
         <TabsContent value="years" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Add Academic Year</CardTitle>
+              <CardTitle>{editingYearID ? "Edit Academic Year" : "Add Academic Year"}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-4">
               <div className="space-y-2 md:col-span-2">
@@ -355,9 +686,34 @@ export default function MasterDataSettingsPage() {
                 />
               </div>
               <div className="md:col-span-4">
-                <Button onClick={createAcademicYear} disabled={savingYear || loading} className="gap-2">
-                  {savingYear && <Loader2 className="h-4 w-4 animate-spin" />} Create Academic Year
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={editingYearID ? updateAcademicYear : createAcademicYear}
+                    disabled={savingYear || loading}
+                    className="gap-2"
+                  >
+                    {savingYear && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {editingYearID ? "Save Academic Year" : "Create Academic Year"}
+                  </Button>
+                  {editingYearID && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEditingYearID("")
+                        setEditingYearActive(false)
+                        setYearForm({ name: "", start_date: "", end_date: "" })
+                      }}
+                      disabled={savingYear}
+                    >
+                      Cancel Edit
+                    </Button>
+                  )}
+                </div>
+                {editingYearID && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Use “Set Active” in the table to switch the active academic year.
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -374,18 +730,19 @@ export default function MasterDataSettingsPage() {
                     <TableHead>Start</TableHead>
                     <TableHead>End</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8">
+                      <TableCell colSpan={5} className="text-center py-8">
                         <Loader2 className="mx-auto h-5 w-5 animate-spin" />
                       </TableCell>
                     </TableRow>
                   ) : years.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No academic years found.</TableCell>
+                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No academic years found.</TableCell>
                     </TableRow>
                   ) : (
                     years.map((year) => (
@@ -394,6 +751,31 @@ export default function MasterDataSettingsPage() {
                         <TableCell>{dateValue(year.start_date)}</TableCell>
                         <TableCell>{dateValue(year.end_date)}</TableCell>
                         <TableCell>{boolValue(year.is_active) ? "Active" : "Inactive"}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            {!boolValue(year.is_active) && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => void activateAcademicYear(year)}
+                                disabled={savingYear}
+                              >
+                                Set Active
+                              </Button>
+                            )}
+                            <Button variant="outline" size="sm" onClick={() => startEditAcademicYear(year)}>
+                              Edit
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => void deleteAcademicYear(year)}
+                              disabled={savingYear}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))
                   )}
@@ -406,7 +788,7 @@ export default function MasterDataSettingsPage() {
         <TabsContent value="classes" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Add Class</CardTitle>
+              <CardTitle>{editingClassID ? "Edit Class" : "Add Class"}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-4">
               <div className="space-y-2">
@@ -435,9 +817,28 @@ export default function MasterDataSettingsPage() {
                 />
               </div>
               <div className="space-y-2 flex items-end">
-                <Button onClick={createClass} disabled={savingClass || loading} className="gap-2 w-full">
-                  {savingClass && <Loader2 className="h-4 w-4 animate-spin" />} Create Class
-                </Button>
+                <div className="flex w-full gap-2">
+                  <Button
+                    onClick={editingClassID ? updateClass : createClass}
+                    disabled={savingClass || loading}
+                    className="gap-2 w-full"
+                  >
+                    {savingClass && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {editingClassID ? "Save Class" : "Create Class"}
+                  </Button>
+                  {editingClassID && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEditingClassID("")
+                        setClassForm({ name: "", level: "1", stream: "" })
+                      }}
+                      disabled={savingClass}
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -453,12 +854,13 @@ export default function MasterDataSettingsPage() {
                     <TableHead>Name</TableHead>
                     <TableHead>Level</TableHead>
                     <TableHead>Stream</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {classes.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">No classes found.</TableCell>
+                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No classes found.</TableCell>
                     </TableRow>
                   ) : (
                     classes.map((row) => (
@@ -466,6 +868,21 @@ export default function MasterDataSettingsPage() {
                         <TableCell className="font-medium">{row.name}</TableCell>
                         <TableCell>{numberValue(row.level)}</TableCell>
                         <TableCell>{textValue(row.stream) || "-"}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => startEditClass(row)}>
+                              Edit
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => void deleteClass(row)}
+                              disabled={savingClass}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))
                   )}
@@ -476,9 +893,9 @@ export default function MasterDataSettingsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Add Section</CardTitle>
+              <CardTitle>{editingSectionID ? "Edit Section" : "Add Section"}</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-3">
+            <CardContent className="grid gap-4 md:grid-cols-6">
               <div className="space-y-2">
                 <Label>Class</Label>
                 <Select
@@ -510,14 +927,57 @@ export default function MasterDataSettingsPage() {
                 <Label>Section Name</Label>
                 <Input
                   value={sectionForm.name}
-                  onChange={(e) => setSectionForm({ name: e.target.value })}
+                  onChange={(e) => setSectionForm((prev) => ({ ...prev, name: e.target.value }))}
                   placeholder="A"
                 />
               </div>
-              <div className="space-y-2 flex items-end">
-                <Button onClick={createSection} disabled={savingSection || !selectedClassID} className="gap-2 w-full">
-                  {savingSection && <Loader2 className="h-4 w-4 animate-spin" />} Create Section
+              <div className="space-y-2">
+                <Label>Capacity</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={sectionForm.capacity}
+                  onChange={(e) => setSectionForm((prev) => ({ ...prev, capacity: e.target.value }))}
+                  placeholder="40"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Tags</Label>
+                <Input
+                  value={sectionForm.tags}
+                  onChange={(e) => setSectionForm((prev) => ({ ...prev, tags: e.target.value }))}
+                  placeholder="senior, lab-floor, morning"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-6">
+                <Label>Notes / Extra Info</Label>
+                <Input
+                  value={sectionForm.notes}
+                  onChange={(e) => setSectionForm((prev) => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Class teacher room, floor, wing, special instructions..."
+                />
+              </div>
+              <div className="space-y-2 flex items-end md:col-span-6 gap-2">
+                <Button
+                  onClick={editingSectionID ? updateSection : createSection}
+                  disabled={savingSection || !selectedClassID}
+                  className="gap-2"
+                >
+                  {savingSection && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {editingSectionID ? "Save Section" : "Create Section"}
                 </Button>
+                {editingSectionID && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setEditingSectionID("")
+                      setSectionForm({ name: "", capacity: "40", tags: "", notes: "" })
+                    }}
+                    disabled={savingSection}
+                  >
+                    Cancel Edit
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -531,19 +991,43 @@ export default function MasterDataSettingsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
-                    <TableHead>Class ID</TableHead>
+                    <TableHead>Capacity</TableHead>
+                    <TableHead>Tags</TableHead>
+                    <TableHead>Notes</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sections.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={2} className="text-center py-8 text-muted-foreground">No sections found for selected class.</TableCell>
+                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No sections found for selected class.</TableCell>
                     </TableRow>
                   ) : (
                     sections.map((row) => (
                       <TableRow key={uuidValue(row.id) || row.name}>
                         <TableCell className="font-medium">{row.name}</TableCell>
-                        <TableCell className="font-mono text-xs">{uuidValue(row.class_id) || "-"}</TableCell>
+                        <TableCell>{numberValue(row.capacity) || 40}</TableCell>
+                        <TableCell className="text-xs">
+                          {Array.isArray(row.tags) && row.tags.length > 0 ? row.tags.join(", ") : "-"}
+                        </TableCell>
+                        <TableCell className="max-w-[280px] truncate" title={textValue(row.notes)}>
+                          {textValue(row.notes) || "-"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => startEditSection(row)}>
+                              Edit
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => void deleteSection(row)}
+                              disabled={savingSection}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))
                   )}
@@ -556,7 +1040,7 @@ export default function MasterDataSettingsPage() {
         <TabsContent value="subjects" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Add Subject</CardTitle>
+              <CardTitle>{editingSubjectID ? "Edit Subject" : "Add Subject"}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-4">
               <div className="space-y-2">
@@ -592,9 +1076,28 @@ export default function MasterDataSettingsPage() {
                 </Select>
               </div>
               <div className="space-y-2 flex items-end">
-                <Button onClick={createSubject} disabled={savingSubject || loading} className="gap-2 w-full">
-                  {savingSubject && <Loader2 className="h-4 w-4 animate-spin" />} Create Subject
-                </Button>
+                <div className="flex w-full gap-2">
+                  <Button
+                    onClick={editingSubjectID ? updateSubject : createSubject}
+                    disabled={savingSubject || loading}
+                    className="gap-2 w-full"
+                  >
+                    {savingSubject && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {editingSubjectID ? "Save Subject" : "Create Subject"}
+                  </Button>
+                  {editingSubjectID && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEditingSubjectID("")
+                        setSubjectForm({ name: "", code: "", type: "core" })
+                      }}
+                      disabled={savingSubject}
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -610,12 +1113,13 @@ export default function MasterDataSettingsPage() {
                     <TableHead>Name</TableHead>
                     <TableHead>Code</TableHead>
                     <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {subjects.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">No subjects found.</TableCell>
+                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No subjects found.</TableCell>
                     </TableRow>
                   ) : (
                     subjects.map((subject) => (
@@ -623,6 +1127,21 @@ export default function MasterDataSettingsPage() {
                         <TableCell className="font-medium">{subject.name}</TableCell>
                         <TableCell>{textValue(subject.code) || "-"}</TableCell>
                         <TableCell className="capitalize">{textValue(subject.type) || "-"}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => startEditSubject(subject)}>
+                              Edit
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => void deleteSubject(subject)}
+                              disabled={savingSubject}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))
                   )}
@@ -648,6 +1167,7 @@ export default function MasterDataSettingsPage() {
           </CardContent>
         </Card>
       )}
+      {confirmDialog}
     </div>
   )
 }
