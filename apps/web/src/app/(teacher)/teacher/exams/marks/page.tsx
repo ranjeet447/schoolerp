@@ -215,7 +215,7 @@ export default function TeacherMarksPage() {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Marks Entry</h1>
+          <h1 className="text-3xl font-bold">Exams & Report Cards (Marks Entry)</h1>
           <p className="text-gray-500">
             {exams.find((exam) => exam.id === selectedExamID)?.name || "Select exam"}
             {selectedSubject ? ` • ${selectedSubject.subject_name}` : ""}

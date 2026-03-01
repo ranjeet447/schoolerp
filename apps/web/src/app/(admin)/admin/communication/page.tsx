@@ -239,8 +239,8 @@ export default function AdminCommunicationPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-foreground">Communication Center</h1>
-          <p className="text-sm font-medium text-muted-foreground">Messaging events, PTM events, and chat moderation settings.</p>
+          <h1 className="text-3xl font-black tracking-tight text-foreground">Parent Communication Center</h1>
+          <p className="text-sm font-medium text-muted-foreground">Manage transparent parent updates across notices, reminders, PTM events, and moderated school communication channels.</p>
         </div>
         <div className="flex items-center gap-2">
           <Button asChild variant="outline" size="sm" className="shrink-0">
@@ -309,7 +309,7 @@ export default function AdminCommunicationPage() {
 
           <Card className="border-none shadow-sm">
             <CardHeader className="border-b pb-4 flex flex-row items-center justify-between">
-              <CardTitle className="text-lg">Recent Alerts & Communications</CardTitle>
+              <CardTitle className="text-lg">Recent Parent Communication Activity</CardTitle>
               <Button variant="outline" size="sm" onClick={() => window.location.href = '/admin/communication/logs'}>Full History</Button>
             </CardHeader>
             <CardContent className="p-0">

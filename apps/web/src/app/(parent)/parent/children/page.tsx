@@ -40,9 +40,9 @@ export default function ChildrenPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-bold tracking-tight">My Children</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Student Profile</h1>
         <p className="text-muted-foreground">
-          View academic profiles and performance of your children.
+          View student profile details, class info, and attendance-related records for your children.
         </p>
       </div>
 
@@ -73,7 +73,7 @@ export default function ChildrenPage() {
                 </div>
                 <Button asChild className="w-full mt-4" variant="outline">
                   <Link href={`/parent/children/${child.id}`}>
-                    View Profile <ChevronRight className="ml-2 h-4 w-4" />
+                    Open Student Profile <ChevronRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
               </CardContent>

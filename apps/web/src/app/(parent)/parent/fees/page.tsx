@@ -193,8 +193,8 @@ export default function ParentFeesPage() {
       
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-            <h1 className="text-2xl font-black text-slate-800 dark:text-white">Fee Center</h1>
-            <p className="text-slate-500">Manage your child's school fees and view history.</p>
+            <h1 className="text-2xl font-black text-slate-800 dark:text-white">Fees & Dues</h1>
+            <p className="text-slate-500">Track dues, make online fee payments, and download receipts.</p>
         </div>
         
         {/* Child Selector */}

@@ -41,6 +41,12 @@ const SEGMENT_LABELS: Record<string, string> = {
   "gate-passes": "Gate Passes",
   "book-demo": "Book Demo",
   "use-cases": "Use Cases",
+  finance: "Fee Collection & Accounting",
+  fees: "Fees & Dues",
+  communication: "Parent Communication",
+  notices: "Parent Communication",
+  exams: "Exams & Report Cards",
+  sis: "Student Profile",
 };
 
 function isLikelyId(segment: string): boolean {

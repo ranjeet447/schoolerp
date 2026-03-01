@@ -16,12 +16,30 @@ import { RBACService, isPlatformUser } from '@/lib/auth-service';
 import { usePathname, useRouter } from 'next/navigation';
 import { TenantConfig } from '@/lib/tenant-utils';
 import { useAuth } from '@/components/auth-provider';
+import { ACCOUNTANT_NAV_ITEMS } from '@/config/nav/accountantNav';
+import type { NavItemConfig } from '@/config/nav/types';
 
-const NAV_ITEMS = [
-  { href: '/accountant/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
-  { href: '/accountant/fees', label: 'Fee Collection', icon: Banknote, permission: 'fees:write' },
-  { href: '/accountant/payments', label: 'Payments & Receipts', icon: CreditCard, permission: 'fees:write' },
-];
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  layout_dashboard: LayoutDashboard,
+  banknote: Banknote,
+  credit_card: CreditCard,
+};
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  permission?: string;
+};
+
+function resolveAccountantNavItems(items: NavItemConfig[]): NavItem[] {
+  return items.map((item) => ({
+    href: item.href,
+    label: item.label,
+    icon: ICON_MAP[item.iconKey] ?? LayoutDashboard,
+    permission: item.permission,
+  }));
+}
 
 export default function AccountantLayoutClient({
   children,
@@ -54,11 +72,13 @@ export default function AccountantLayoutClient({
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  const filteredNavItems = NAV_ITEMS.filter(item => 
+  const resolvedNavItems = resolveAccountantNavItems(ACCOUNTANT_NAV_ITEMS);
+
+  const filteredNavItems = resolvedNavItems.filter(item => 
     !item.permission || RBACService.hasPermission(item.permission)
   );
 
-  const schoolName = config?.branding?.name_override || config?.name || 'AccountantOS';
+  const schoolName = config?.branding?.name_override || config?.name || 'Fee Desk';
   const logoUrl = config?.branding?.logo_url;
   const primaryColor = config?.branding?.primary_color || '#4f46e5'; // Indigo 600
 
@@ -77,7 +97,7 @@ export default function AccountantLayoutClient({
                 <GraduationCap className="h-6 w-6" />
             )}
             {!config?.white_label ? (
-                <span>Accountant<span className="text-slate-900">Portal</span></span>
+                <span>Fee<span className="text-slate-900">Desk</span></span>
             ) : (
                 <span className="text-slate-900 truncate">{schoolName}</span>
             )}
@@ -186,7 +206,7 @@ export default function AccountantLayoutClient({
       <Dialog open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <DialogContent className="w-[92vw] max-w-sm p-0">
           <DialogHeader className="border-b border-slate-100 p-4">
-            <DialogTitle className="text-base">Accountant Navigation</DialogTitle>
+            <DialogTitle className="text-base">Fee Collection & Accounting</DialogTitle>
           </DialogHeader>
           <div className="max-h-[72vh] overflow-y-auto p-4">
             <ul className="space-y-1">

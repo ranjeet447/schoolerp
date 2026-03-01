@@ -16,7 +16,7 @@ test.describe('Notices & Circulars Smoke Tests', () => {
 
   test('Parent can view and acknowledge a notice', async ({ page }) => {
     await page.goto('/parent/notices');
-    await expect(page.getByText('Notices & Communications')).toBeVisible();
+    await expect(page.getByText('Parent Communication & Notices')).toBeVisible();
 
     const unreadNotice = page.getByText('School Annual Day Celebration');
     await expect(unreadNotice).toBeVisible();

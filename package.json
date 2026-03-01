@@ -6,6 +6,8 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "test": "turbo run test",
+    "refocus:verify": "node --experimental-strip-types scripts/verify-refocus.ts",
+    "refocus:test": "node --experimental-strip-types --test scripts/__tests__/verify-refocus-lib.test.ts",
     "storybook": "turbo run storybook",
     "test-ui": "turbo run test-ui",
     "screenshots:dashboards": "pnpm --filter @schoolerp/web run screenshots:dashboards"

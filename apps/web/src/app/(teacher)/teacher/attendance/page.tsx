@@ -316,7 +316,7 @@ function AttendanceContent() {
             <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none px-3 py-0.5 font-black uppercase text-[10px] tracking-widest">Attendance Module</Badge>
           </div>
           <div className="flex items-center gap-4">
-            <h1 className="text-4xl font-black text-slate-900 font-outfit">Smart Attendance</h1>
+            <h1 className="text-4xl font-black text-slate-900 font-outfit">Attendance Management</h1>
             <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
                <Button 
                 variant={mode === 'daily' ? 'default' : 'ghost'} 

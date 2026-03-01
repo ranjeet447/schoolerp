@@ -101,7 +101,7 @@ export const CASE_STUDIES_DATA: CaseStudyDetail[] = [
         <p>As Demo International Academy grew from a single campus to a multi-city network, they faced severe fragmentation. Each campus used separate systems for attendance and records, making it impossible for the central management to get a unified view of performance, attendance, or financial health.</p>
         
         <h3>The Solution</h3>
-        <p>The academy adopted our multi-tenant <strong>Enterprise ERP Architecture</strong>. This allowed them to maintain individual campus settings while centralizing the <strong>Student 360</strong> database. We implemented standardized academic reporting across all branches, ensuring that a progress report in the Bangalore South campus looked and functioned exactly like one in the East campus.</p>
+        <p>The academy adopted our multi-tenant <strong>Enterprise ERP Architecture</strong>. This allowed them to maintain individual campus settings while centralizing the <strong>Student Profile</strong> database. We implemented standardized academic reporting across all branches, ensuring that a progress report in the Bangalore South campus looked and functioned exactly like one in the East campus.</p>
         
         <h3>The Result</h3>
         <p>By centralizing governance, the academy was able to manage 5,000 students with an administrative team only slightly larger than what they had for 1,500 students. Real-time dashboards allowed the Chairman to monitor the performance of all three campuses simultaneously, leading to faster data-driven expansions into two more cities.</p>
@@ -486,7 +486,7 @@ export const CASE_STUDIES_DATA: CaseStudyDetail[] = [
         <p>St. Peters, a historical institution, was drowning in paper files. Alumni frequently requested duplicate marksheets or background checks from employers, a process that took the school weeks to retrieve from dusty archives. There was also a constant risk of damage due to moisture or fire in the storage room.</p>
         
         <h3>The Solution</h3>
-        <p>We executed a massive data migration project. Using our <strong>Student 360</strong> framework, we digitized 10 years of records. Each record was tagged with a unique <strong>ID Card Generator</strong> ID and uploaded to an encrypted AWS cloud vault. We then provided a secure 'Alumni Portal' where former students could request verified digital transcripts.</p>
+        <p>We executed a massive data migration project. Using our <strong>Student Profile</strong> framework, we digitized 10 years of records. Each record was tagged with a unique <strong>ID Card Generator</strong> ID and uploaded to an encrypted AWS cloud vault. We then provided a secure 'Alumni Portal' where former students could request verified digital transcripts.</p>
         
         <h3>The Result</h3>
         <p>The school reclaimed 800 sq. ft. of storage space. Background verification requests are now handled in 24 hours instead of 14 days. This project not only secured the institution's history but also built a powerful foundation for a vibrant, engaged alumni network that now actively contributes to school development.</p>

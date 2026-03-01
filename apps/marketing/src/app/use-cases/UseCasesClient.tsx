@@ -4,6 +4,7 @@ import React, { useState, useMemo } from "react";
 import { USE_CASES_DATA, UseCaseGrid, Container, Section, UseCaseRole, UseCaseDetail } from "@schoolerp/ui";
 import { motion } from "framer-motion";
 import { Search } from "lucide-react";
+import Link from "next/link";
 
 const ROLES: { value: UseCaseRole | 'all'; label: string }[] = [
   { value: 'all', label: 'All Roles' },
@@ -51,21 +52,20 @@ export function UseCasesClient() {
             transition={{ duration: 0.6 }}
           >
             <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.2em] text-primary mb-8 backdrop-blur-xl">
-              Workflow Solutions
+              School ERP Workflows
             </div>
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter text-foreground leading-[0.95] mb-8">
-              Engineered for Every <br />
-              <span className="text-primary italic">School Stakeholder</span>.
+              Use Cases for Fees, Parent App, Attendance & Exams
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground/80 font-medium leading-relaxed max-w-2xl mx-auto mb-12">
-              See how SchoolERP solves specific pain points for Principals, Admission teams, and Teachers.
+              Explore role-based workflows for school admins, principals, teachers, and parents using the four core pillars first.
             </p>
             
             <div className="relative max-w-lg mx-auto mb-12">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <input 
                 type="text" 
-                placeholder="Search use cases (e.g. fees, attendance)..."
+                placeholder="Search use cases (e.g. fee collection, attendance, report cards)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-12 pr-4 py-4 rounded-full border border-border/60 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-primary/50 shadow-sm"
@@ -86,6 +86,12 @@ export function UseCasesClient() {
                   {role.label}
                 </button>
               ))}
+            </div>
+            <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm font-semibold">
+              <Link href="/features" className="text-primary hover:underline">Features</Link>
+              <Link href="/pricing" className="text-primary hover:underline">Pricing & Credits</Link>
+              <Link href="/blog" className="text-primary hover:underline">Blog Guides</Link>
+              <Link href="/book-demo" className="text-primary hover:underline">Book Demo</Link>
             </div>
           </motion.div>
         </Container>

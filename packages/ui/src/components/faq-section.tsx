@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Container, Section } from './layout-foundation';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { FAQSchema } from './seo';
 
 const FAQS = [
   {
@@ -25,7 +26,7 @@ const FAQS = [
   },
   {
     q: "What are the messaging costs?",
-    a: "Transactional emails and in-app alerts are free. External SMS and WhatsApp alerts are charged at actual carrier rates without markup."
+    a: "Plans include monthly SMS and WhatsApp credits. After included credits are used, schools buy top-up packs before sending more. This keeps messaging costs predictable."
   }
 ];
 
@@ -34,6 +35,7 @@ export const FAQSection = () => {
 
   return (
     <Section className="bg-background">
+      <FAQSchema faqs={FAQS.map((faq) => ({ question: faq.q, answer: faq.a }))} />
       <Container size="small">
         <div className="flex flex-col items-center text-center mb-16">
           <div className="text-primary font-black uppercase tracking-widest text-[10px] mb-4">

@@ -95,7 +95,7 @@ export default function ReportsPage() {
             <CalendarDays className="h-4 w-4" /> Attendance
           </TabsTrigger>
           <TabsTrigger value="finance" className="rounded-lg gap-2">
-            <Banknote className="h-4 w-4" /> Finance
+            <Banknote className="h-4 w-4" /> Fee Collection & Accounting
           </TabsTrigger>
           <TabsTrigger value="admissions" className="rounded-lg gap-2">
             <PhoneCall className="h-4 w-4" /> Admissions

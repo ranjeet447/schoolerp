@@ -339,7 +339,7 @@ export default function StudentProfileClient({ id }: { id: string }) {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] gap-4">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="text-muted-foreground animate-pulse">Aggregating 360° Profile...</p>
+        <p className="text-muted-foreground animate-pulse">Loading Student Profile...</p>
       </div>
     )
   }
@@ -358,7 +358,7 @@ export default function StudentProfileClient({ id }: { id: string }) {
             </Link>
           </Button>
           <div className="flex flex-col">
-            <h1 className="text-3xl font-bold tracking-tight">Student 360°</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Student Profile</h1>
             <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold mt-1">Holistic View & Governance</p>
           </div>
         </div>
@@ -400,7 +400,7 @@ export default function StudentProfileClient({ id }: { id: string }) {
             <Tabs defaultValue="insights" className="w-full">
               <TabsList className="flex flex-wrap h-auto bg-slate-50/50 p-1 border border-slate-200">
                 <TabsTrigger value="insights" className="gap-2"><TrendingUp className="h-4 w-4" /> Insights</TabsTrigger>
-                <TabsTrigger value="overview" className="gap-2"><Search className="h-4 w-4" /> 360° Profile</TabsTrigger>
+                <TabsTrigger value="overview" className="gap-2"><Search className="h-4 w-4" /> Student Profile</TabsTrigger>
                 <TabsTrigger value="academics" className="gap-2"><Medal className="h-4 w-4" /> Academics</TabsTrigger>
                 <TabsTrigger value="health" className="gap-2"><HeartPulse className="h-4 w-4" /> Health</TabsTrigger>
                 <TabsTrigger value="documents" className="gap-2"><FileText className="h-4 w-4" /> Vault</TabsTrigger>

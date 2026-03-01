@@ -1,19 +1,50 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { FEATURES_DATA, Container, Section, IconMapper } from '@schoolerp/ui';
+import { FEATURES_DATA, Container, Section, IconMapper, MockupFrame } from '@schoolerp/ui';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { Search, ChevronRight, Zap } from 'lucide-react';
 
 const CATEGORIES = [
-  { value: 'all', label: 'All Modules' },
-  { value: 'finance', label: 'Fees & Accounts' },
-  { value: 'academics', label: 'Academics & Exams' },
-  { value: 'communication', label: 'Parent Communication' },
-  { value: 'safety', label: 'Safety & Ops' },
-  { value: 'platform', label: 'Admin & Reports' },
-  { value: 'ai', label: 'AI Assistants' }
+  { value: 'all', label: 'All Features' },
+  { value: 'finance', label: 'Online Fee Collection & Dues' },
+  { value: 'communication', label: 'Parent Communication & Parent App' },
+  { value: 'safety', label: 'Attendance, Biometric & Safety' },
+  { value: 'academics', label: 'Exams, Results & Report Cards' },
+  { value: 'platform', label: 'Advanced Modules' },
+  { value: 'ai', label: 'AI Add-ons' }
+];
+
+const PILLAR_SCREEN_PREVIEWS = [
+  {
+    title: 'Online Fee Collection & Dues Management',
+    description: 'UPI-ready fee collection and dues follow-up dashboard.',
+    src: '/product-screens/accountant/accountant-dashboard.png',
+    alt: 'School fee collection and dues management dashboard screenshot',
+    href: '/features/fee-management-software',
+  },
+  {
+    title: 'Parent Communication & Parent App',
+    description: 'Notices, reminders, and parent timeline in one place.',
+    src: '/product-screens/parent/parent-dashboard.png',
+    alt: 'Parent communication and parent app dashboard screenshot',
+    href: '/features/whatsapp-notifications',
+  },
+  {
+    title: 'Attendance Management',
+    description: 'Daily attendance workflows with biometric-ready support.',
+    src: '/product-screens/teacher/teacher-attendance.png',
+    alt: 'Teacher attendance management screen with biometric-ready support',
+    href: '/features/attendance-management',
+  },
+  {
+    title: 'Exams, Results & Report Cards',
+    description: 'Marks entry and report card workflows for schools.',
+    src: '/product-screens/admin/admin-dashboard.png',
+    alt: 'Exam management and report card workflow dashboard screenshot',
+    href: '/features/report-card-generator',
+  },
 ];
 
 export function FeaturesClient() {
@@ -40,22 +71,50 @@ export function FeaturesClient() {
         <Container>
           <div className="text-center max-w-3xl mx-auto space-y-6">
             <h1 className="text-4xl md:text-6xl font-black tracking-tight">
-              A Complete <span className="text-primary italic">Operating System</span> for Schools
+              School ERP Features for <span className="text-primary italic">Fee Collection, Parent App, Attendance & Exams</span>
             </h1>
             <p className="text-xl text-muted-foreground font-medium">
-              Explore 20+ purpose-built modules designed specifically for Indian budget and private schools.
+              Explore school fee management software, parent communication tools, attendance management, exam/report card workflows, and advanced modules for Indian schools.
             </p>
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-left">
+              <p className="text-sm font-bold text-foreground">Most schools start with these 4:</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Online Fee Collection & Dues, Parent Communication, Attendance Management, and Exams & Report Cards. Advanced modules stay optional.
+              </p>
+            </div>
             
             <div className="relative max-w-lg mx-auto mt-8">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <input 
                 type="text" 
-                placeholder="Search for fees, attendance, report cards..."
+                placeholder="Search fee collection, parent app, attendance, report cards..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-12 pr-4 py-4 rounded-full border border-border/60 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-primary/50 shadow-sm text-lg"
               />
             </div>
+            <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm font-semibold">
+              <Link href="/use-cases" className="text-primary hover:underline">Use Cases</Link>
+              <Link href="/pricing" className="text-primary hover:underline">Pricing & Credits</Link>
+              <Link href="/integrations" className="text-primary hover:underline">Integrations</Link>
+              <Link href="/book-demo" className="text-primary hover:underline">Book Demo</Link>
+            </div>
+          </div>
+
+          <div className="mt-10 grid gap-6 md:grid-cols-2">
+            {PILLAR_SCREEN_PREVIEWS.map((pillar) => (
+              <Link
+                key={pillar.title}
+                href={pillar.href}
+                className="group rounded-2xl border bg-card p-5 shadow-sm transition hover:border-primary/40 hover:shadow-md"
+              >
+                <MockupFrame src={pillar.src} alt={pillar.alt} className="w-full rounded-xl border" />
+                <h3 className="mt-4 text-lg font-bold tracking-tight group-hover:text-primary transition-colors">
+                  {pillar.title}
+                </h3>
+                <p className="mt-2 text-sm text-muted-foreground">{pillar.description}</p>
+              </Link>
+            ))}
           </div>
         </Container>
       </Section>
@@ -151,6 +210,28 @@ export function FeaturesClient() {
               ))}
             </div>
           )}
+        </Container>
+      </Section>
+
+      <Section className="pt-0 pb-16">
+        <Container>
+          <div className="rounded-3xl border bg-card p-6 md:p-8">
+            <h2 className="text-2xl font-bold tracking-tight">Advanced Modules</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Need hostel/transport/library? It&apos;s available when you&apos;re ready.
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2 text-sm text-foreground md:grid-cols-4">
+              <span className="rounded-lg border px-3 py-2">Transport</span>
+              <span className="rounded-lg border px-3 py-2">Hostel</span>
+              <span className="rounded-lg border px-3 py-2">Library</span>
+              <span className="rounded-lg border px-3 py-2">Inventory</span>
+            </div>
+            <div className="mt-5">
+              <Link href="/book-demo" className="font-semibold text-primary hover:underline">
+                Plan advanced rollout with our team →
+              </Link>
+            </div>
+          </div>
         </Container>
       </Section>
     </div>

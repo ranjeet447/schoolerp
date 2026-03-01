@@ -39,64 +39,59 @@ import { TenantConfig } from '@/lib/tenant-utils';
 import { useAuth } from '@/components/auth-provider';
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { apiClient } from "@/lib/api-client";
+import { ADMIN_ADVANCED_SECTION_ID, ADMIN_NAV_ITEMS, ADMIN_NAV_SECTIONS } from "@/config/nav/adminNav";
+import type { NavItemConfig } from "@/config/nav/types";
+import { useAdvancedModulesVisibility } from "@/lib/module-visibility";
 
 type NavItem = {
+  id: string;
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   permission?: string;
   activePrefixes?: string[];
+  sectionId: string;
+  isAdvancedModule?: boolean;
 };
 
-const NAV_ITEMS = [
-  { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
-  { href: '/admin/diary', label: 'Student Remarks', icon: BookOpen, permission: 'sis:read' },
-  { href: '/admin/reception', label: 'Reception Hub', icon: School, permission: 'sis:read' },
-  { href: '/admin/admissions/enquiries', label: 'Admissions', icon: ClipboardList, permission: 'sis:read' },
-  { href: '/admin/safety/visitors', label: 'Visitor Logs', icon: Clock, permission: 'safety:read' },
-  { href: '/admin/attendance', label: 'Attendance', icon: CalendarCheck, permission: 'attendance:read' },
-  { href: '/admin/staff-attendance', label: 'Staff Attendance', icon: Clock, permission: 'attendance:read' },
-  { href: '/admin/timetable', label: 'Timetable', icon: CalendarDays, permission: 'attendance:read' },
-  { href: '/admin/finance', label: 'Fees & Finance', icon: Banknote, permission: 'fees:read' },
-  { href: '/admin/finance/counter', label: 'Fee Counter', icon: Banknote, permission: 'fees:read' },
-  { href: '/admin/approvals', label: 'Approvals Inbox', icon: CheckCircle, permission: 'fees:read' },
-  { href: '/admin/reports', label: 'Office Reports', icon: Printer, permission: 'fees:read' },
-  { href: '/admin/exams', label: 'Exams & Results', icon: GraduationCap, permission: 'exams:read' },
-  { href: '/admin/communication', label: 'Communication', icon: MessageSquare, permission: 'notices:read' },
-  { href: '/admin/kb', label: 'Knowledgebase', icon: BookOpen, permission: 'notices:read' },
-  { href: '/admin/certificates', label: 'TC & Certificates', icon: FileCheck2, permission: 'sis:read' },
-  { href: '/admin/notices', label: 'Notices', icon: FileText, permission: 'notices:read' },
-  { href: '/admin/students/promotion', label: 'Year-end Promotion', icon: GraduationCap, permission: 'sis:write' },
-  { href: '/admin/houses', label: 'Houses', icon: Shield, permission: 'sis:read' },
-  { href: '/admin/custom-fields', label: 'Custom Fields', icon: Sliders, permission: 'tenant:settings:view' },
-  { href: '/admin/bulk-import', label: 'Bulk Import', icon: Upload, permission: 'sis:write' },
-  { href: '/admin/calendar', label: 'School Calendar', icon: CalendarDays, permission: 'attendance:read' },
-  { href: '/admin/hostel', label: 'Hostel Module', icon: Home, permission: 'sis:read' },
-  { href: '/admin/id-cards', label: 'Digital ID Cards', icon: CreditCard, permission: 'sis:read' },
-  { href: '/admin/learning-resources', label: 'Learning Resources', icon: BookOpen, permission: 'notices:read' },
-  { href: '/admin/school-profile', label: 'School Profile', icon: Building, permission: 'tenant:settings:view' },
-  { href: '/admin/plan', label: 'Platform Plan', icon: Layers3, permission: 'tenant:settings:view' },
-  { href: '/admin/billing', label: 'Platform Billing', icon: CreditCard, permission: 'tenant:settings:view' },
-  {
-    href: '/admin/settings/users',
-    label: 'User & Access',
-    icon: Shield,
-    permission: 'tenant:users:manage',
-    activePrefixes: ['/admin/settings/users', '/admin/settings/roles', '/admin/settings/permissions', '/admin/settings/access'],
-  },
-  { href: '/admin/settings/onboarding', label: 'School Onboarding', icon: School, permission: 'platform:manage' },
-  { href: '/admin/settings/templates', label: 'Smart Alerts', icon: MessageSquare, permission: 'tenant:settings:view' },
-  { href: '/admin/settings/profile', label: 'My Profile', icon: User },
-  { href: '/admin/settings/master-data', label: 'Master Data', icon: Settings, permission: 'tenant:settings:view' },
-];
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  layout_dashboard: LayoutDashboard,
+  book_open: BookOpen,
+  school: School,
+  clipboard_list: ClipboardList,
+  clock: Clock,
+  calendar_check: CalendarCheck,
+  calendar_days: CalendarDays,
+  banknote: Banknote,
+  check_circle: CheckCircle,
+  printer: Printer,
+  graduation_cap: GraduationCap,
+  message_square: MessageSquare,
+  file_check: FileCheck2,
+  file_text: FileText,
+  shield: Shield,
+  sliders: Sliders,
+  upload: Upload,
+  home: Home,
+  credit_card: CreditCard,
+  building: Building,
+  layers: Layers3,
+  user: User,
+  settings: Settings,
+};
 
-const NAV_GROUP_ORDER = [
-  'Overview',
-  'Reception',
-  'Academics & Students',
-  'Operations',
-  'Administration',
-] as const;
+function resolveAdminNavItems(items: NavItemConfig[]): NavItem[] {
+  return items.map((item) => ({
+    id: item.id,
+    href: item.href,
+    label: item.label,
+    icon: ICON_MAP[item.iconKey] ?? LayoutDashboard,
+    permission: item.permission,
+    activePrefixes: item.activePrefixes,
+    sectionId: item.sectionId,
+    isAdvancedModule: item.isAdvancedModule,
+  }));
+}
 
 function isNavItemActive(pathname: string, item: NavItem): boolean {
   if (pathname === item.href || pathname.startsWith(`${item.href}/`)) {
@@ -104,38 +99,6 @@ function isNavItemActive(pathname: string, item: NavItem): boolean {
   }
   if (!item.activePrefixes?.length) return false;
   return item.activePrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-}
-
-function getNavGroup(href: string): (typeof NAV_GROUP_ORDER)[number] {
-  if (href.startsWith('/admin/reception') || href.startsWith('/admin/admissions/enquiries') || href.startsWith('/admin/safety/visitors')) return 'Reception';
-  if (href.startsWith('/admin/settings') || href.startsWith('/admin/plan') || href.startsWith('/admin/billing')) return 'Administration';
-  if (
-    href.startsWith('/admin/students') ||
-    href.startsWith('/admin/admissions') ||
-    href.startsWith('/admin/attendance') ||
-    href.startsWith('/admin/staff-attendance') ||
-    href.startsWith('/admin/timetable') ||
-    href.startsWith('/admin/exams') ||
-    href.startsWith('/admin/certificates') ||
-    href.startsWith('/admin/notices') ||
-    href.startsWith('/admin/communication') ||
-    href.startsWith('/admin/kb') ||
-    href.startsWith('/admin/houses') ||
-    href.startsWith('/admin/learning-resources')
-  ) {
-    return 'Academics & Students';
-  }
-  if (
-    href.startsWith('/admin/finance') ||
-    href.startsWith('/admin/calendar') ||
-    href.startsWith('/admin/hostel') ||
-    href.startsWith('/admin/id-cards') ||
-    href.startsWith('/admin/school-profile') ||
-    href.startsWith('/admin/bulk-import')
-  ) {
-    return 'Operations';
-  }
-  return 'Overview';
 }
 
 export default function AdminLayoutClient({
@@ -146,9 +109,13 @@ export default function AdminLayoutClient({
   config: TenantConfig | null;
 }) {
   const { user, logout, isLoading } = useAuth();
+  const { hideAdvancedModules } = useAdvancedModulesVisibility();
   const pathname = usePathname();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [advancedModulesOpen, setAdvancedModulesOpen] = useState(
+    () => ADMIN_NAV_SECTIONS.find((section) => section.id === ADMIN_ADVANCED_SECTION_ID)?.defaultOpen ?? true,
+  );
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [exitingImpersonation, setExitingImpersonation] = useState(false);
 
@@ -237,23 +204,24 @@ export default function AdminLayoutClient({
     window.location.href = "/platform/dashboard";
   };
 
+  const resolvedNavItems = useMemo(() => resolveAdminNavItems(ADMIN_NAV_ITEMS), []);
+
   const filteredNavItems = useMemo(
-    () => NAV_ITEMS.filter((item) => !item.permission || RBACService.hasPermission(item.permission)),
-    []
+    () => resolvedNavItems.filter((item) => !item.permission || RBACService.hasPermission(item.permission)),
+    [resolvedNavItems]
   );
 
   const groupedNavItems = useMemo(() => {
-    const groups = new Map<string, NavItem[]>();
-    for (const item of filteredNavItems) {
-      const group = getNavGroup(item.href);
-      const existing = groups.get(group) ?? [];
-      existing.push(item);
-      groups.set(group, existing);
-    }
-    return NAV_GROUP_ORDER
-      .map((title) => ({ title, items: groups.get(title) ?? [] }))
+    const visibleSections = ADMIN_NAV_SECTIONS.filter(
+      (section) => !(section.id === ADMIN_ADVANCED_SECTION_ID && hideAdvancedModules),
+    );
+    return visibleSections
+      .map((section) => ({
+        section,
+        items: filteredNavItems.filter((item) => item.sectionId === section.id),
+      }))
       .filter((group) => group.items.length > 0);
-  }, [filteredNavItems]);
+  }, [filteredNavItems, hideAdvancedModules]);
 
   const activeNavLabel = useMemo(() => {
     const match = filteredNavItems.find((item) => isNavItemActive(pathname, item));
@@ -288,11 +256,22 @@ export default function AdminLayoutClient({
         <nav className="flex-1 overflow-y-auto py-4">
           <div className="space-y-5 px-3">
             {groupedNavItems.map((group) => (
-              <div key={group.title} className="space-y-1.5">
-                <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
-                  {group.title}
-                </h3>
-                <ul className="space-y-1">
+              <div key={group.section.id} className="space-y-1.5">
+                {group.section.collapsible ? (
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between px-3 text-left text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70 hover:text-foreground"
+                    onClick={() => setAdvancedModulesOpen((v) => !v)}
+                  >
+                    <span>{group.section.label}</span>
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${advancedModulesOpen ? "rotate-180" : ""}`} />
+                  </button>
+                ) : (
+                  <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                    {group.section.label}
+                  </h3>
+                )}
+                <ul className={`space-y-1 ${group.section.collapsible && !advancedModulesOpen ? "hidden" : ""}`}>
                   {group.items.map((item) => {
                     const isActive = isNavItemActive(pathname, item);
                     return (
@@ -430,11 +409,22 @@ export default function AdminLayoutClient({
           <div className="max-h-[72vh] overflow-y-auto p-4">
             <div className="space-y-5">
               {groupedNavItems.map((group) => (
-                <div key={`mobile-${group.title}`} className="space-y-1.5">
-                  <p className="px-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
-                    {group.title}
-                  </p>
-                  <ul className="space-y-1">
+                <div key={`mobile-${group.section.id}`} className="space-y-1.5">
+                  {group.section.collapsible ? (
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between px-1 text-left text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70"
+                      onClick={() => setAdvancedModulesOpen((v) => !v)}
+                    >
+                      <span>{group.section.label}</span>
+                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${advancedModulesOpen ? "rotate-180" : ""}`} />
+                    </button>
+                  ) : (
+                    <p className="px-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                      {group.section.label}
+                    </p>
+                  )}
+                  <ul className={`space-y-1 ${group.section.collapsible && !advancedModulesOpen ? "hidden" : ""}`}>
                     {group.items.map((item) => {
                       const isActive = isNavItemActive(pathname, item);
                       return (

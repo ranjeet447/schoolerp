@@ -10,15 +10,15 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from './tabs';
 import { FEATURES_DATA, FeatureCategory } from '../data/features';
 
 const CATEGORIES: { id: FeatureCategory; label: string }[] = [
-  { id: 'academics', label: 'Academics & Learning' },
-  { id: 'finance', label: 'Finance & HR' },
-  { id: 'safety', label: 'Safety & Access' },
-  { id: 'communication', label: 'Communication' },
-  { id: 'platform', label: 'Platform & Automation' },
+  { id: 'finance', label: 'Online Fee Collection & Dues' },
+  { id: 'communication', label: 'Parent Communication & Parent App' },
+  { id: 'safety', label: 'Attendance, Biometric & Safety' },
+  { id: 'academics', label: 'Exams, Results & Report Cards' },
+  { id: 'platform', label: 'Advanced Modules & Automation' },
 ];
 
 export const FeatureTabs = () => {
-  const [activeTab, setActiveTab] = useState<string>('academics');
+  const [activeTab, setActiveTab] = useState<string>('finance');
 
   return (
     <Section className="bg-muted/10 overflow-hidden" id="features">
@@ -30,18 +30,18 @@ export const FeatureTabs = () => {
           className="mx-auto max-w-4xl text-center mb-12 md:mb-16"
         >
           <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-[11px] font-black uppercase tracking-widest text-primary shadow-sm border border-primary/10">
-            Comprehensive Suite
+            Top School ERP Features
           </div>
           <h2 className="text-4xl font-black tracking-tighter text-foreground sm:text-6xl mb-8 leading-[0.95]">
-            Everything you need to run a <br />
-            <span className="text-primary italic px-2">high-performance</span> school.
+            Start with the 4 features schools search first, <br />
+            then add <span className="text-primary italic px-2">advanced modules</span> when ready.
           </h2>
           <p className="mt-4 text-xl text-muted-foreground font-medium max-w-2xl mx-auto">
-            One unified operating system that Replaces 10+ disconnected tools with a premium, audit-ready experience.
+            Online fee collection, parent app communication, attendance management, and exams/report cards in one school ERP platform.
           </p>
         </motion.div>
 
-        <Tabs defaultValue="academics" value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs defaultValue="finance" value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex w-full overflow-x-auto mb-16 pb-4 scrollbar-hide">
             <TabsList className="mx-auto w-max h-auto p-1.5 bg-muted/30 backdrop-blur-xl rounded-full border border-white/10 shadow-inner">
               {CATEGORIES.map((category) => (

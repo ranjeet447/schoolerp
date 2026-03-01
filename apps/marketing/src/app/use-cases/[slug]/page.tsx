@@ -32,9 +32,21 @@ export async function generateMetadata({ params }: UseCasePageProps): Promise<Me
   return {
     title: `${data.title} - Workflow Solution | SchoolERP`,
     description: `Learn how SchoolERP solves ${data.title.toLowerCase()} for Indian budget and private schools.`,
+    keywords: [
+      "school ERP use cases",
+      "school fee collection software",
+      "parent communication app for schools",
+      "school attendance management system",
+      "exam management software for schools"
+    ],
     alternates: {
       canonical: `https://schoolerp.com/use-cases/${slug}`
-    }
+    },
+    openGraph: {
+      title: `${data.title} Use Case | School ERP`,
+      description: data.shortDescription,
+      url: `https://schoolerp.com/use-cases/${slug}`,
+    },
   };
 }
 
@@ -128,7 +140,7 @@ export default async function UseCaseDetailPage({ params }: UseCasePageProps) {
 
           {data.seoContent && (
             <div className="max-w-3xl mx-auto mb-24 prose prose-slate lg:prose-lg dark:prose-invert">
-              <h2 className="text-3xl font-bold tracking-tight mb-6">In-Depth Look</h2>
+              <h2 className="text-3xl font-bold tracking-tight mb-6">Workflow details for schools</h2>
               {data.seoContent.map((paragraph, idx) => (
                 <p key={idx} className="text-muted-foreground leading-relaxed mb-4">
                   {paragraph}

@@ -39,15 +39,15 @@ export function BookDemoClient() {
           {/* Left Column: Content */}
           <div className="space-y-8 pt-4">
             <h1 className="text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.1]">
-              Transform your school operations.
+              See how SchoolERP improves fee collection, parent updates, attendance and exams.
             </h1>
             <p className="text-xl text-slate-600 leading-relaxed max-w-lg">
-              Get a personalized walkthrough of the complete operating system. See how you can save 20+ hours a week.
+              Get a personalized walkthrough of the four core school workflows first, then explore advanced modules based on your needs.
             </p>
             
             <div className="space-y-6 pt-4">
               {[
-                { title: "Complete System Tour", desc: "SIS, Finance, Transport, and more." },
+                { title: "Complete System Tour", desc: "Student Profile, Fee Collection & Dues, Parent Communication, Attendance, Exams, and more." },
                 { title: "Q&A Session", desc: "Ask specific questions about your school's needs." },
                 { title: "Pricing Discussion", desc: "Transparent pricing tailored to your size." }
               ].map((item, i) => (

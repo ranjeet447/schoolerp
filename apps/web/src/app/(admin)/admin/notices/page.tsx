@@ -219,7 +219,8 @@ export default function AdminNoticesPage() {
 
   return (
     <div className="p-6 space-y-8">
-      <h1 className="text-3xl font-bold">Notices & Circulars</h1>
+      <h1 className="text-3xl font-bold">Parent Communication: Notices & Circulars</h1>
+      <p className="mt-2 text-sm text-muted-foreground">Publish transparent school updates for parents, teachers, and students with acknowledgement tracking.</p>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1">
@@ -295,7 +296,7 @@ export default function AdminNoticesPage() {
         </div>
 
         <div className="lg:col-span-2 space-y-4">
-          <h2 className="text-xl font-bold tracking-tight">Recent Notices</h2>
+          <h2 className="text-xl font-bold tracking-tight">Recent Parent Notices</h2>
           {notices.length === 0 ? (
             <div className="text-center py-20 bg-muted/30 border-2 border-dashed rounded-xl text-muted-foreground font-medium">
               No notices published yet.

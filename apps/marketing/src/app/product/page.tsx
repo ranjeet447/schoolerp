@@ -13,28 +13,28 @@ import {
 } from '@schoolerp/ui';
 
 export const metadata: Metadata = {
-  title: 'Product Gallery - School ERP Dashboards',
-  description: 'Take a tour of the School ERP interface. Real screenshots of Admin, Teacher, and Parent dashboards.',
+  title: 'School ERP Product Screenshots | Fee Collection, Parent App, Attendance, Exams',
+  description: 'Real SchoolERP screenshots for admin, teacher, accountant, and parent app workflows: fee collection & dues, parent communication, attendance management, and exams/report cards.',
 };
 
 const SCREENSHOTS = {
   admin: [
     { title: 'Administrator Dashboard', src: '/product-screens/admin/admin-dashboard.png', description: 'Centralized control center for school management.' },
-    { title: 'Student Management', src: '/product-screens/admin/admin-students.png', description: 'Full SIS with 360-degree student profiles.' },
-    { title: 'Financial Analytics', src: '/product-screens/admin/admin-finance.png', description: 'Real-time revenue tracking and fee analytics.' },
+    { title: 'Student Profile Management', src: '/product-screens/admin/admin-students.png', description: 'Student profile records, class/section data, and school administration workflows.' },
+    { title: 'Fee Collection & Dues Analytics', src: '/product-screens/admin/admin-finance.png', description: 'Real-time fee collection, dues tracking, receipts, and accounting dashboards.' },
   ],
   teacher: [
     { title: 'Teacher Dashboard', src: '/product-screens/teacher/teacher-dashboard.png', description: 'Simplified daily workflow for educators.' },
-    { title: 'Attendance Marking', src: '/product-screens/teacher/teacher-attendance.png', description: '1-click attendance marking for classes.' },
+    { title: 'Attendance Management', src: '/product-screens/teacher/teacher-attendance.png', description: 'Fast class attendance marking and absence workflows for teachers.' },
     { title: 'Mobile View', src: '/product-screens/teacher/teacher-dashboard-mobile.png', description: 'Mobile-first design for on-the-go access.', isMobile: true },
   ],
   accountant: [
-    { title: 'Finance Center', src: '/product-screens/accountant/accountant-dashboard.png', description: 'Comprehensive fee collection and ledger management.' },
-    { title: 'Real-time Collections', src: '/product-screens/accountant/accountant-collections.png', description: 'Monitor daily cash, cheque, and UPI collections.' },
+    { title: 'Fee Collection Desk', src: '/product-screens/accountant/accountant-dashboard.png', description: 'Comprehensive fee collection, receipts, and ledger-ready accounting workflows.' },
+    { title: 'Real-time Fee Collections', src: '/product-screens/accountant/accountant-collections.png', description: 'Monitor daily cash, cheque, and UPI fee collections with receipt tracking.' },
   ],
   parent: [
-    { title: 'Parent Portal', src: '/product-screens/parent/parent-dashboard.png', description: 'Stay updated with your child\'s progress and notices.' },
-    { title: 'Fee Payments', src: '/product-screens/parent/parent-fees.png', description: 'Secure online fee payments with instant receipts.' },
+    { title: 'Parent App / Parent Portal', src: '/product-screens/parent/parent-dashboard.png', description: 'Real-time parent updates for notices, homework, attendance, and results.' },
+    { title: 'Fees & Dues Payments', src: '/product-screens/parent/parent-fees.png', description: 'Secure online fee payments, dues tracking, and instant receipt downloads.' },
   ]
 };
 
@@ -48,7 +48,7 @@ export default function ProductGalleryPage() {
               Interface <span className="text-primary italic">Preview</span>
             </h1>
             <p className="text-xl text-muted-foreground font-medium">
-              Explore the premium, intuitive interface used by thousands of schools across India. No dummy data, just real productivity.
+              Explore real SchoolERP screens for the four core pillars schools care about first: fee collection & dues, parent app communication, attendance management, and exams/report cards.
             </p>
           </div>
 

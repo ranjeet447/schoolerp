@@ -44,7 +44,7 @@ export const HeroSection = () => {
           className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.2em] text-primary mb-10 backdrop-blur-xl shadow-2xl shadow-primary/20"
         >
           <Sparkles className="h-4 w-4 fill-primary animate-pulse" />
-          <span>Next-Gen Enterprise Education</span>
+          <span>School ERP for India (2025-2026)</span>
         </motion.div>
         
         <motion.h1 
@@ -53,10 +53,10 @@ export const HeroSection = () => {
           transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
           className="max-w-5xl text-5xl font-black tracking-tight text-foreground sm:text-7xl lg:text-8xl leading-[0.95]"
         >
-          Run Your School Effortlessly.<br />
+          School Fee Collection, Parent Communication, Attendance & Exams.<br />
           <span className="relative inline-block mt-4 drop-shadow-2xl">
             <span className="relative z-10 bg-gradient-to-br from-primary via-violet-500 to-fuchsia-500 bg-clip-text text-transparent italic px-2">
-              No Registers, No Errors.
+              One School ERP. Less Manual Work.
             </span>
             <div className="absolute -bottom-2 left-0 right-0 h-4 bg-primary/20 blur-2xl -rotate-1" />
           </span>
@@ -68,10 +68,11 @@ export const HeroSection = () => {
           transition={{ duration: 0.8, delay: 0.4 }}
           className="mt-10 max-w-2xl text-xl md:text-2xl text-muted-foreground/80 leading-relaxed font-medium"
         >
-          The modern SchoolERP built for Indian schools. 
-          <span className="text-foreground"> Fast fee counters</span>, 
-          <span className="text-foreground"> instant parent updates</span>, and 
-          <span className="text-foreground"> inspection-ready reports</span> with zero manual typing.
+          School ERP software built for Indian schools with 
+          <span className="text-foreground"> online fee collection & dues management</span>, 
+          <span className="text-foreground"> parent app updates</span>, 
+          <span className="text-foreground"> attendance management</span>, and 
+          <span className="text-foreground"> exam results & report cards</span>.
         </motion.p>
         
         <motion.div 
@@ -93,9 +94,9 @@ export const HeroSection = () => {
             </a>
           </div>
           <div className="flex flex-wrap justify-center gap-6 text-sm font-semibold text-muted-foreground mt-2">
-            <span className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-emerald-500" /> Setup in 48 hours</span>
-            <span className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-emerald-500" /> Mobile-ready for teachers</span>
-            <span className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-emerald-500" /> 100% Data Security</span>
+            <span className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-emerald-500" /> UPI fee receipts & dues reminders</span>
+            <span className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-emerald-500" /> Parent app real-time updates</span>
+            <span className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-emerald-500" /> Biometric-ready attendance support</span>
           </div>
         </motion.div>
 

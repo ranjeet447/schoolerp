@@ -84,12 +84,12 @@ export default function AccountantDashboardPage() {
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Finance Overview</h1>
-          <p className="text-slate-500">Operational finance setup, receipt controls, and ledger integrations.</p>
+          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Fee Collection & Accounting</h1>
+          <p className="text-slate-500">Manage fee collection, receipts, dues, and accounting-ready ledger mappings.</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="px-4 py-2 bg-slate-900 rounded-full text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-            <PieChart className="h-3 w-3" /> Finance Console
+            <PieChart className="h-3 w-3" /> Fee Desk Console
           </div>
           <Button variant="outline" onClick={() => loadDashboard(true)} disabled={refreshing} className="gap-2">
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh

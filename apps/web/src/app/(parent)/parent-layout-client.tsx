@@ -21,18 +21,35 @@ import { TenantConfig } from '@/lib/tenant-utils';
 import { useAuth } from '@/components/auth-provider';
 import { apiClient } from '@/lib/api-client';
 import { Home, Banknote as BanknoteIcon, BookOpen as BookIcon, GraduationCap as ResultsIcon, FileText as NoticesIcon } from 'lucide-react';
+import { PARENT_NAV_ITEMS } from '@/config/nav/parentNav';
+import type { NavItemConfig } from '@/config/nav/types';
 
-const NAV_ITEMS = [
-  { href: '/parent/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
-  { href: '/parent/children', label: 'My Children', icon: Users, permission: 'sis:read' },
-  { href: '/parent/homework', label: 'Homework', icon: BookOpen, permission: 'sis:read' },
-  { href: '/parent/kb', label: 'Knowledgebase', icon: BookOpen, permission: 'sis:read' },
-  { href: '/parent/fees', label: 'Fees & Payments', icon: Banknote, permission: 'fees:read' },
-  { href: '/parent/results', label: 'Exam Results', icon: GraduationCap, permission: 'exams:read' },
-  { href: '/parent/notices', label: 'Notices', icon: FileText, permission: 'notices:read' },
-  { href: '/parent/leaves', label: 'Leave Requests', icon: MessageSquare, permission: 'attendance:write' },
-  { href: '/parent/profile', label: 'My Profile', icon: User },
-];
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  layout_dashboard: LayoutDashboard,
+  users: Users,
+  book_open: BookOpen,
+  banknote: Banknote,
+  graduation_cap: GraduationCap,
+  file_text: FileText,
+  message_square: MessageSquare,
+  user: User,
+};
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  permission?: string;
+};
+
+function resolveParentNavItems(items: NavItemConfig[]): NavItem[] {
+  return items.map((item) => ({
+    href: item.href,
+    label: item.label,
+    icon: ICON_MAP[item.iconKey] ?? LayoutDashboard,
+    permission: item.permission,
+  }));
+}
 
 export default function ParentLayoutClient({
   children,
@@ -86,7 +103,9 @@ export default function ParentLayoutClient({
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  const filteredNavItems = NAV_ITEMS.filter(item => {
+  const resolvedNavItems = resolveParentNavItems(PARENT_NAV_ITEMS);
+
+  const filteredNavItems = resolvedNavItems.filter(item => {
     if (item.href === "/parent/kb" && !kbVisible) {
       return false;
     }
@@ -112,7 +131,7 @@ export default function ParentLayoutClient({
                 <GraduationCap className="h-6 w-6" />
             )}
             {!config?.white_label ? (
-                <span>Parent<span className="text-slate-900">Portal</span></span>
+                <span>Parent<span className="text-slate-900">App</span></span>
             ) : (
                 <span className="text-slate-900 truncate">{schoolName}</span>
             )}
@@ -197,7 +216,7 @@ export default function ParentLayoutClient({
             style={pathname.startsWith('/parent/homework') ? { color: primaryColor } : {}}
           >
             <BookIcon className="h-5 w-5" />
-            <span className="text-[10px] font-bold uppercase tracking-tighter">Works</span>
+            <span className="text-[10px] font-bold uppercase tracking-tighter">HW</span>
           </Link>
           <Link 
             href="/parent/fees" 
@@ -205,7 +224,7 @@ export default function ParentLayoutClient({
             style={pathname.startsWith('/parent/fees') ? { color: primaryColor } : {}}
           >
             <BanknoteIcon className="h-5 w-5" />
-            <span className="text-[10px] font-bold uppercase tracking-tighter">Fees</span>
+            <span className="text-[10px] font-bold uppercase tracking-tighter">Dues</span>
           </Link>
           <Link 
             href="/parent/notices" 
@@ -213,7 +232,7 @@ export default function ParentLayoutClient({
             style={pathname.startsWith('/parent/notices') ? { color: primaryColor } : {}}
           >
             <NoticesIcon className="h-5 w-5" />
-            <span className="text-[10px] font-bold uppercase tracking-tighter">Notices</span>
+            <span className="text-[10px] font-bold uppercase tracking-tighter">Updates</span>
           </Link>
           <button 
             onClick={() => setMobileMenuOpen(true)}
@@ -229,7 +248,7 @@ export default function ParentLayoutClient({
       <Dialog open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <DialogContent className="w-[92vw] max-w-sm p-0">
           <DialogHeader className="border-b border-rose-100 p-4">
-            <DialogTitle className="text-base">Parent Navigation</DialogTitle>
+            <DialogTitle className="text-base">Parent App / Parent Portal</DialogTitle>
           </DialogHeader>
           <div className="max-h-[72vh] overflow-y-auto p-4">
             <ul className="space-y-1">

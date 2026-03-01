@@ -490,6 +490,8 @@ func main() {
 			aiHandler.RegisterRoutes(r)
 
 			r.Post("/tenants/config", tenantHandler.UpdateConfig)
+			r.Get("/settings/preferences", tenantHandler.GetPreferences)
+			r.Put("/settings/preferences", tenantHandler.UpdatePreferences)
 			r.Get("/tenant/plan", tenantHandler.GetAdminTenantPlan)
 			r.Get("/tenant/billing", tenantHandler.GetAdminTenantBilling)
 			r.Get("/tenant/invoices", tenantHandler.ListAdminTenantInvoices)

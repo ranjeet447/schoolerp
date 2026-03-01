@@ -30,9 +30,22 @@ export async function generateMetadata({ params }: IntegrationPageProps): Promis
   return {
     title: `${integration.name} Integration for Schools | SchoolERP`,
     description: integration.shortDescription,
+    keywords: [
+      `${integration.name} school integration`,
+      "school ERP integrations",
+      integration.category === "Payments" ? "school fee collection software" : "",
+      integration.slug.includes("google") ? "google workspace education live classes" : "",
+      integration.slug.includes("microsoft") ? "microsoft 365 education teams integration school" : "",
+      integration.slug.includes("tally") ? "tally school accounting export" : ""
+    ].filter(Boolean),
     alternates: {
       canonical: `https://schoolerp.com/integrations/${slug}`,
-    }
+    },
+    openGraph: {
+      title: `${integration.name} Integration | School ERP`,
+      description: integration.shortDescription,
+      url: `https://schoolerp.com/integrations/${slug}`,
+    },
   };
 }
 
@@ -108,7 +121,7 @@ export default async function IntegrationDetailPage({ params }: IntegrationPageP
                 prose-strong:text-foreground prose-strong:font-black
                 marker:text-primary">
                 
-                <h2 className="text-4xl font-black mb-8">Elevate your school operations.</h2>
+                <h2 className="text-4xl font-black mb-8">Connect this tool to your school workflows.</h2>
                 <div dangerouslySetInnerHTML={{ __html: integration.longDescription }} />
                </article>
             </div>
@@ -140,7 +153,7 @@ export default async function IntegrationDetailPage({ params }: IntegrationPageP
                         ))}
                      </div>
                      <p className="mt-8 text-xs text-muted-foreground font-medium leading-relaxed">
-                        Our {integration.name} integration is regularly audited for security vulnerabilities and complies with global educational data standards.
+                        Availability and rollout can vary by deployment. We document setup requirements, security checks, and supported workflows for each integration.
                      </p>
                   </div>
                </div>

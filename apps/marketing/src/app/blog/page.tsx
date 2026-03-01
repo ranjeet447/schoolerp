@@ -8,6 +8,13 @@ import { ArrowRight, Calendar, Sparkles, Clock } from 'lucide-react';
 export const metadata: Metadata = {
   title: 'Blog - School ERP Guides & Insights for Indian Schools',
   description: 'Actionable strategies, feature updates, and best practices for managing modern Indian private schools.',
+  keywords: [
+    'school fee management software guide',
+    'parent communication for schools',
+    'school attendance management best practices',
+    'exam management software guide',
+    'school ERP implementation guide India'
+  ],
   alternates: {
     canonical: 'https://schoolerp.com/blog',
   }
@@ -37,6 +44,12 @@ export default function BlogListingPage() {
             <p className="text-xl md:text-2xl text-muted-foreground font-medium mx-auto max-w-2xl leading-relaxed">
               Actionable advice on fee collections, parent communication, and operational excellence.
             </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm font-semibold">
+              <Link href="/features" className="text-primary hover:underline">Features</Link>
+              <Link href="/use-cases" className="text-primary hover:underline">Use Cases</Link>
+              <Link href="/pricing" className="text-primary hover:underline">Pricing & Credits</Link>
+              <Link href="/book-demo" className="text-primary hover:underline">Book Demo</Link>
+            </div>
           </div>
         </Container>
       </div>

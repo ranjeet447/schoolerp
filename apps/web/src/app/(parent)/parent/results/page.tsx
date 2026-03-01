@@ -152,7 +152,7 @@ export default function ParentResultsPage() {
   return (
     <div className="p-6 space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Academic Results</h1>
+        <h1 className="text-3xl font-bold">Exams, Results & Report Cards</h1>
         <p className="text-gray-500 font-medium">
           {selectedChild ? `${selectedChild.full_name || "Student"} • ${(selectedChild.class_name || "N/A")} ${(selectedChild.section_name ? `- ${selectedChild.section_name}` : "")}` : "Select a child to view results"}
         </p>

@@ -8,18 +8,34 @@ import {
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Pricing - School ERP',
-  description: 'Transparent pricing for schools of all sizes. No hidden implementation fees.',
+  title: 'School ERP Pricing | Add-ons + Credits for SMS/WhatsApp',
+  description: 'School ERP pricing for Indian schools with optional monthly add-ons and credit-based SMS/WhatsApp usage. Plans include generous monthly credits; top-ups required beyond limits.',
+  keywords: [
+    'school erp pricing',
+    'school fee management software pricing',
+    'school whatsapp notification pricing',
+    'school sms credits pricing',
+    'school erp add-on pricing'
+  ],
+  alternates: {
+    canonical: 'https://schoolerp.com/pricing',
+  },
 };
 
 export default function PricingPage() {
   return (
     <main>
       <div className="pt-32 pb-12 text-center bg-muted/20">
-        <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl">Invest in Efficiency</h1>
+        <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl">Simple Pricing for Schools</h1>
         <p className="mt-4 text-xl text-muted-foreground mx-auto max-w-2xl">
-          Our pricing scales with your student count. Start small, grow indefinitely.
+          Core subscription + optional monthly add-ons + credit top-ups for usage-heavy channels like SMS and WhatsApp.
         </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm font-semibold">
+          <a href="/features" className="text-primary hover:underline">Compare Features</a>
+          <a href="/use-cases" className="text-primary hover:underline">See Use Cases</a>
+          <a href="/integrations" className="text-primary hover:underline">Integrations</a>
+          <a href="/book-demo" className="text-primary hover:underline">Book Demo</a>
+        </div>
       </div>
 
       <PricingTable />
@@ -36,7 +52,7 @@ export default function PricingPage() {
             <div className="rounded-2xl border border-border/60 bg-card p-6">
               <h2 className="text-lg font-bold">Credits are usage-based</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Plans include free monthly allowances for SMS/WhatsApp (and email credits where an email gateway adapter is enabled for your deployment). After included credits are used, schools buy top-up packs before sending more.
+                Plans include generous monthly SMS/WhatsApp credits (and email credits only when an email gateway is enabled for your deployment). After included credits are used, schools buy top-up packs before sending more to prevent uncontrolled platform-side spend.
               </p>
             </div>
             <div className="rounded-2xl border border-border/60 bg-card p-6">

@@ -466,8 +466,8 @@ export default function AdminExamsPage() {
     <div className="space-y-6 pb-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-black text-foreground tracking-tight">Examination Management</h1>
-          <p className="text-muted-foreground font-medium text-sm mt-1">Schedule exams, manage sets, and publish results.</p>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">Exam Management, Results & Report Cards</h1>
+          <p className="text-muted-foreground font-medium text-sm mt-1">Schedule exams, manage question papers, and publish results/report cards for parent-facing access.</p>
         </div>
       </div>
 

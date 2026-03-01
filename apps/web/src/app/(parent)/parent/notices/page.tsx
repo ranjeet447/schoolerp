@@ -98,7 +98,7 @@ export default function ParentNoticesPage() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Notices & Communications</h1>
+        <h1 className="text-3xl font-bold">Parent Communication & Notices</h1>
       </div>
 
       {error && (

@@ -104,7 +104,7 @@ export default function ParentActivityFeedPage() {
       {/* Dynamic Header */}
       <div className="flex items-center justify-between px-2 pt-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 italic uppercase italic tracking-tighter">Day <span className="text-rose-600">Feed</span></h1>
+          <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Parent <span className="text-rose-600">App</span></h1>
           <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">{format(new Date(), 'EEEE, MMMM do')}</p>
         </div>
         <div className="flex -space-x-3">
@@ -122,25 +122,31 @@ export default function ParentActivityFeedPage() {
           <Link href="/parent/fees" className="flex-shrink-0">
             <Button className="h-24 w-28 rounded-[2rem] bg-rose-600 hover:bg-rose-700 flex-col gap-2 shadow-lg shadow-rose-200 border-none transition-transform active:scale-95">
               <CreditCard className="h-6 w-6" />
-              <span className="text-[10px] font-black uppercase tracking-widest">Pay Fees</span>
+              <span className="text-[10px] font-black uppercase tracking-widest">Fees & Dues</span>
             </Button>
           </Link>
-          <Link href="/parent/leaves" className="flex-shrink-0">
+          <Link href="/parent/children" className="flex-shrink-0">
             <Button variant="outline" className="h-24 w-28 rounded-[2rem] flex-col gap-2 border-rose-100 bg-white hover:bg-rose-50 transition-transform active:scale-95">
               <Calendar className="h-6 w-6 text-rose-500" />
-              <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Leave</span>
+              <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Attendance</span>
             </Button>
           </Link>
           <Link href="/parent/homework" className="flex-shrink-0">
             <Button variant="outline" className="h-24 w-28 rounded-[2rem] flex-col gap-2 border-rose-100 bg-white hover:bg-rose-50 transition-transform active:scale-95">
               <BookOpen className="h-6 w-6 text-rose-500" />
-              <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Diary</span>
+              <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Homework</span>
             </Button>
           </Link>
           <Link href="/parent/results" className="flex-shrink-0">
             <Button variant="outline" className="h-24 w-28 rounded-[2rem] flex-col gap-2 border-rose-100 bg-white hover:bg-rose-50 transition-transform active:scale-95">
               <TrendingUp className="h-6 w-6 text-rose-500" />
-              <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Results</span>
+              <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Exams</span>
+            </Button>
+          </Link>
+          <Link href="/parent/notices" className="flex-shrink-0">
+            <Button variant="outline" className="h-24 w-28 rounded-[2rem] flex-col gap-2 border-rose-100 bg-white hover:bg-rose-50 transition-transform active:scale-95">
+              <Bell className="h-6 w-6 text-rose-500" />
+              <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Updates</span>
             </Button>
           </Link>
         </div>
@@ -168,7 +174,7 @@ export default function ParentActivityFeedPage() {
       {/* Activity Feed */}
       <div className="space-y-6 px-2">
         <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2 mb-4">
-          <TrendingUp className="h-3 w-3" /> Latest Activities
+          <TrendingUp className="h-3 w-3" /> Parent Communication & Real-time Updates
         </h2>
 
         {loading ? (

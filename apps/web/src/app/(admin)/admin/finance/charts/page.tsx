@@ -198,9 +198,9 @@ export default function FinanceDashboardChartsPage() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <BarChart3 className="w-8 h-8 text-primary" />
-            Finance Dashboard
+            Fee Collection & Dues Dashboard
           </h1>
-          <p className="text-muted-foreground mt-1">Visual analytics for fee collections and financial health</p>
+          <p className="text-muted-foreground mt-1">Visual analytics for dues, receipts, collections, and payment trends (including UPI collections).</p>
         </div>
         <div className="flex gap-3">
           <Select value={period} onValueChange={setPeriod}>

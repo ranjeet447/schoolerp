@@ -22,9 +22,9 @@ const PHASES: Phase[] = [
   {
     status: "Released",
     title: "Phase 1: Academic & Financial Core",
-    description: "SIS, attendance, leaves, fee receipts, exams, report cards, multilingual UI.",
+    description: "Student profiles, attendance, leaves, fee receipts, exams, report cards, multilingual UI.",
     features: [
-      "Student Information System (SIS)",
+      "Student Profile & Records",
       "Daily Attendance & Leave Management",
       "Compliance-grade Fee Receipting",
       "Examination & Report Card Engine",

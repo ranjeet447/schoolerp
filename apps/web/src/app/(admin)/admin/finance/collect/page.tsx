@@ -197,8 +197,8 @@ export default function FeeCollectionPage() {
     <div className="space-y-6 pb-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-black text-foreground tracking-tight">Fee Collection</h1>
-          <p className="text-muted-foreground font-medium text-sm mt-1">Collect fees and generate receipts.</p>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">Fee Collection & Dues</h1>
+          <p className="text-muted-foreground font-medium text-sm mt-1">Collect dues, issue receipts instantly, and support UPI/cash/cheque collections from one desk.</p>
         </div>
       </div>
 

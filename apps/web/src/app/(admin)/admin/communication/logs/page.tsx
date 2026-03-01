@@ -118,8 +118,8 @@ export default function CommunicationLogsPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-foreground tracking-tight">Delivery Center</h1>
-          <p className="text-muted-foreground font-medium">Real-time status tracking for all school communications.</p>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">Parent Communication Delivery Center</h1>
+          <p className="text-muted-foreground font-medium">Track real-time delivery status for parent updates, reminders, notices, and school-wide communication.</p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" onClick={onRefresh} disabled={refreshing}>

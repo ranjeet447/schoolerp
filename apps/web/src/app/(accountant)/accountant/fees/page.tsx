@@ -150,7 +150,7 @@ export default function AccountantFeesPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-3xl font-bold">Finance Management</h1>
+      <h1 className="text-3xl font-bold">Fee Collection & Accounting Setup</h1>
 
       <Tabs defaultValue="plans" className="w-full">
         <TabsList>

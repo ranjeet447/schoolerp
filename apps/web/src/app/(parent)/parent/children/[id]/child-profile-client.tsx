@@ -151,7 +151,7 @@ export default function ChildProfileClient({ id }: { id: string }) {
             <ChevronLeft className="h-4 w-4" />
           </Link>
         </Button>
-        <h1 className="text-3xl font-bold tracking-tight">{student.full_name}'s Profile</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{student.full_name}'s Student Profile</h1>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -164,9 +164,9 @@ export default function ChildProfileClient({ id }: { id: string }) {
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="attendance">Attendance</TabsTrigger>
-              <TabsTrigger value="fees">Fees & Payments</TabsTrigger>
-              <TabsTrigger value="exams">Exams</TabsTrigger>
-              <TabsTrigger value="notices">Notices</TabsTrigger>
+              <TabsTrigger value="fees">Fees & Dues</TabsTrigger>
+              <TabsTrigger value="exams">Exams & Results</TabsTrigger>
+              <TabsTrigger value="notices">Parent Communication</TabsTrigger>
             </TabsList>
             <TabsContent value="overview" className="py-4">
                <div className="rounded-lg border bg-card p-6">

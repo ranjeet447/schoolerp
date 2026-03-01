@@ -168,12 +168,12 @@ export default function AdminCommunicationGatewaysPage() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Link href="/admin/communication" className="inline-flex items-center gap-1 hover:text-foreground">
               <ArrowLeft className="h-4 w-4" />
-              Communication Center
+              Parent Communication Center
             </Link>
           </div>
-          <h1 className="text-3xl font-black tracking-tight text-foreground">Notification Gateways</h1>
+          <h1 className="text-3xl font-black tracking-tight text-foreground">Parent Communication Gateways</h1>
           <p className="text-sm text-muted-foreground">
-            Configure SMS / WhatsApp / webhook delivery providers. Secrets are masked on read and only updated when re-entered.
+            Configure SMS / WhatsApp / email/webhook delivery providers for parent communication. Secrets are masked on read and only updated when re-entered.
           </p>
         </div>
         <Button type="button" variant="outline" size="sm" onClick={() => fetchGateways(true)} disabled={refreshing} className="gap-2">

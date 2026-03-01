@@ -10,6 +10,7 @@ import {
   Ban,
   Building2,
   CreditCard,
+  ClipboardList,
   FileText,
   FileCheck2,
   LayoutGrid,
@@ -77,6 +78,7 @@ const NAV_GROUPS = [
       { href: "/platform/support", label: "Support Dashboard", icon: LifeBuoy, permission: "platform:tenant.read", keywords: ["tickets", "sla", "desk"] },
       { href: "/platform/incidents", label: "Service Incidents", icon: AlertTriangle, permission: "platform:tenant.read", keywords: ["outage", "status", "postmortem"] },
       { href: "/platform/marketing", label: "Communications", icon: Megaphone, permission: "platform:marketing.write", keywords: ["campaign", "broadcast", "outreach"] },
+      { href: "/platform/refocus-status", label: "Refocus Status", icon: ClipboardList, permission: "platform:analytics.read", keywords: ["naming", "seo", "tracking", "progress"] },
     ],
   },
   {

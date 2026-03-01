@@ -40,64 +40,72 @@ type BrandingConfig struct {
 	LogoURL      string `json:"logo_url,omitempty"`
 }
 
+type TenantUIPreferences struct {
+	HideAdvancedModules bool `json:"hide_advanced_modules"`
+}
+
+type TenantPreferences struct {
+	UI TenantUIPreferences `json:"ui"`
+}
+
 type PluginMetadata struct {
-	ID          string                 `json:"id"`
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Category    string                 `json:"category"`
-	Config      map[string]interface{} `json:"config_schema,omitempty"` // For dynamic form generation
-	PricePaise  int64                  `json:"price_paise,omitempty"`
-	BillingPeriod string               `json:"billing_period,omitempty"`
-	IsActive    bool                   `json:"is_active"`
+	ID            string                 `json:"id"`
+	Name          string                 `json:"name"`
+	Description   string                 `json:"description"`
+	Category      string                 `json:"category"`
+	Config        map[string]interface{} `json:"config_schema,omitempty"` // For dynamic form generation
+	PricePaise    int64                  `json:"price_paise,omitempty"`
+	BillingPeriod string                 `json:"billing_period,omitempty"`
+	IsActive      bool                   `json:"is_active"`
 }
 
 var SystemPlugins = []PluginMetadata{
 	{
-		ID:          "payments_razorpay",
-		Name:        "Razorpay Payments",
-		Description: "Accept online payments via Razorpay gateway.",
-		Category:    "Finance",
-		PricePaise:  19900,
+		ID:            "payments_razorpay",
+		Name:          "Razorpay Payments",
+		Description:   "Accept online payments via Razorpay gateway.",
+		Category:      "Finance",
+		PricePaise:    19900,
 		BillingPeriod: "monthly",
-		IsActive:    true,
+		IsActive:      true,
 		Config: map[string]interface{}{
 			"key_id":     "text",
 			"key_secret": "password",
 		},
 	},
 	{
-		ID:          "notifications_sms",
-		Name:        "SMS Gateway",
-		Description: "Send automated SMS notifications to parents and staff.",
-		Category:    "Communication",
-		PricePaise:  0,
+		ID:            "notifications_sms",
+		Name:          "SMS Gateway",
+		Description:   "Send automated SMS notifications to parents and staff.",
+		Category:      "Communication",
+		PricePaise:    0,
 		BillingPeriod: "monthly",
-		IsActive:    true,
+		IsActive:      true,
 		Config: map[string]interface{}{
 			"provider": "text", // e.g. "twilio", "msg91"
 			"api_key":  "password",
 		},
 	},
 	{
-		ID:          "analytics_google",
-		Name:        "Google Analytics",
-		Description: "Track website traffic and user engagement.",
-		Category:    "Marketing",
-		PricePaise:  0,
+		ID:            "analytics_google",
+		Name:          "Google Analytics",
+		Description:   "Track website traffic and user engagement.",
+		Category:      "Marketing",
+		PricePaise:    0,
 		BillingPeriod: "monthly",
-		IsActive:    true,
+		IsActive:      true,
 		Config: map[string]interface{}{
 			"tracking_id": "text",
 		},
 	},
 	{
-		ID:          "ai_suite_v1",
-		Name:        "AI Suite (Practical AI)",
-		Description: "Enable AI Teacher Copilot and Parent Helpdesk.",
-		Category:    "AI & Automation",
-		PricePaise:  99900,
+		ID:            "ai_suite_v1",
+		Name:          "AI Suite (Practical AI)",
+		Description:   "Enable AI Teacher Copilot and Parent Helpdesk.",
+		Category:      "AI & Automation",
+		PricePaise:    99900,
 		BillingPeriod: "monthly",
-		IsActive:    true,
+		IsActive:      true,
 		Config: map[string]interface{}{
 			"enable_teacher_copilot": "boolean",
 			"enable_parent_helpdesk": "boolean",
@@ -163,6 +171,95 @@ func (s *Service) UpdateConfig(ctx context.Context, tenantID string, config map[
 	return err
 }
 
+func (s *Service) GetPreferences(ctx context.Context, tenantID string) (TenantPreferences, error) {
+	prefs := TenantPreferences{}
+
+	var tid pgtype.UUID
+	if err := tid.Scan(strings.TrimSpace(tenantID)); err != nil {
+		return prefs, err
+	}
+
+	t, err := s.q.GetTenantByID(ctx, tid)
+	if err != nil {
+		return prefs, err
+	}
+
+	return decodeTenantPreferences(t.Config), nil
+}
+
+func (s *Service) UpdatePreferences(ctx context.Context, tenantID string, prefs TenantPreferences) (TenantPreferences, error) {
+	var tid pgtype.UUID
+	if err := tid.Scan(strings.TrimSpace(tenantID)); err != nil {
+		return TenantPreferences{}, err
+	}
+
+	t, err := s.q.GetTenantByID(ctx, tid)
+	if err != nil {
+		return TenantPreferences{}, err
+	}
+
+	configBytes, err := mergeTenantPreferences(t.Config, prefs)
+	if err != nil {
+		return TenantPreferences{}, err
+	}
+
+	if _, err := s.q.UpdateTenantConfig(ctx, db.UpdateTenantConfigParams{
+		ID:     tid,
+		Config: configBytes,
+	}); err != nil {
+		return TenantPreferences{}, err
+	}
+
+	return prefs, nil
+}
+
+func coerceBool(input interface{}) (bool, bool) {
+	switch v := input.(type) {
+	case bool:
+		return v, true
+	case string:
+		switch strings.ToLower(strings.TrimSpace(v)) {
+		case "true", "1", "yes", "on":
+			return true, true
+		case "false", "0", "no", "off":
+			return false, true
+		}
+	}
+	return false, false
+}
+
+func decodeTenantPreferences(configBytes []byte) TenantPreferences {
+	prefs := TenantPreferences{}
+	config := make(map[string]interface{})
+	if len(configBytes) > 0 {
+		_ = json.Unmarshal(configBytes, &config)
+	}
+
+	if uiConfig, ok := config["ui"].(map[string]interface{}); ok {
+		if hidden, ok := coerceBool(uiConfig["hide_advanced_modules"]); ok {
+			prefs.UI.HideAdvancedModules = hidden
+		}
+	}
+
+	return prefs
+}
+
+func mergeTenantPreferences(configBytes []byte, prefs TenantPreferences) ([]byte, error) {
+	config := make(map[string]interface{})
+	if len(configBytes) > 0 {
+		_ = json.Unmarshal(configBytes, &config)
+	}
+
+	uiConfig, _ := config["ui"].(map[string]interface{})
+	if uiConfig == nil {
+		uiConfig = make(map[string]interface{})
+	}
+	uiConfig["hide_advanced_modules"] = prefs.UI.HideAdvancedModules
+	config["ui"] = uiConfig
+
+	return json.Marshal(config)
+}
+
 func (s *Service) ListPlugins(ctx context.Context, tenantSubdomain string) ([]map[string]interface{}, error) {
 	t, err := s.resolveTenant(ctx, tenantSubdomain)
 	if err != nil {
@@ -204,12 +301,12 @@ func (s *Service) ListPlugins(ctx context.Context, tenantSubdomain string) ([]ma
 		entitlement, hasEntitlement := entitlements[p.ID]
 
 		result = append(result, map[string]interface{}{
-			"metadata": p,
-			"enabled":  isEnabled,
-			"settings": settings,
-			"catalog_active": p.IsActive,
-			"entitled": hasEntitlement && strings.EqualFold(entitlement.Status, "active"),
-			"entitlement_status": entitlement.Status,
+			"metadata":               p,
+			"enabled":                isEnabled,
+			"settings":               settings,
+			"catalog_active":         p.IsActive,
+			"entitled":               hasEntitlement && strings.EqualFold(entitlement.Status, "active"),
+			"entitlement_status":     entitlement.Status,
 			"entitlement_expires_at": entitlement.ExpiresAt,
 		})
 		seen[p.ID] = struct{}{}
@@ -228,9 +325,9 @@ func (s *Service) ListPlugins(ctx context.Context, tenantSubdomain string) ([]ma
 			settings = pluginState["settings"]
 		}
 		result = append(result, map[string]interface{}{
-			"metadata": p,
-			"enabled":  isEnabled,
-			"settings": settings,
+			"metadata":       p,
+			"enabled":        isEnabled,
+			"settings":       settings,
 			"catalog_active": p.IsActive,
 		})
 	}

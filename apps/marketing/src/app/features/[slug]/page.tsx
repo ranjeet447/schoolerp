@@ -31,12 +31,27 @@ export async function generateMetadata({ params }: FeaturePageProps): Promise<Me
   const feature = FEATURES_DATA.find((f) => f.slug === slug);
   if (!feature) return { title: 'Not Found' };
   
+  const keywordCluster = [
+    "school erp software India",
+    "school management software for schools",
+    feature.slug.includes("fee") ? "school fee management software" : "",
+    feature.slug.includes("attendance") ? "school attendance management system" : "",
+    feature.slug.includes("report-card") || feature.slug.includes("exam") ? "report card software for schools" : "",
+    feature.slug.includes("whatsapp") ? "parent communication app for schools" : "",
+  ].filter(Boolean);
+
   return {
     title: `${feature.title} - School ERP Product Modules`,
     description: feature.longDescription,
+    keywords: keywordCluster,
     alternates: {
       canonical: `https://schoolerp.com/features/${slug}`
-    }
+    },
+    openGraph: {
+      title: `${feature.title} | School ERP`,
+      description: feature.description,
+      url: `https://schoolerp.com/features/${slug}`,
+    },
   };
 }
 
@@ -152,7 +167,7 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
       <Section>
         <Container>
           <div className="max-w-3xl">
-            <h2 className="text-3xl font-bold tracking-tight mb-12">Key Capabilities & Benefits</h2>
+            <h2 className="text-3xl font-bold tracking-tight mb-12">Key Capabilities & School Outcomes</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {feature.benefits.map((benefit, i) => (
                 <div key={i} className="flex gap-4">
@@ -167,7 +182,7 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
           
           {feature.seoContent && (
             <div className="mt-16 max-w-3xl prose prose-slate lg:prose-lg dark:prose-invert">
-              <h2 className="text-3xl font-bold tracking-tight mb-6">Detailed Overview</h2>
+              <h2 className="text-3xl font-bold tracking-tight mb-6">How this School ERP feature works in practice</h2>
               {feature.seoContent.map((paragraph, idx) => (
                 <p key={idx} className="text-muted-foreground leading-relaxed mb-4">
                   {paragraph}

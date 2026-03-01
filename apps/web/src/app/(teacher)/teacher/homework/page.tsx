@@ -226,8 +226,8 @@ export default function TeacherHomeworkPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Homework & Assignments</h1>
-          <p className="text-sm text-muted-foreground">Manage tasks, review submissions and provide feedback.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Homework & Parent App Updates</h1>
+          <p className="text-sm text-muted-foreground">Post homework, review submissions, and publish classroom updates visible in the parent app/portal.</p>
         </div>
         <div className="flex gap-2">
           {classSections.length > 0 && (

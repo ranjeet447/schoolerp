@@ -11,6 +11,7 @@ import {
 } from '@schoolerp/ui';
 import { apiClient } from '@/lib/api-client';
 import Link from 'next/link';
+import { useAdvancedModulesVisibility } from '@/lib/module-visibility';
 
 type DefaulterSummary = {
   classLabel: string
@@ -19,6 +20,7 @@ type DefaulterSummary = {
 }
 
 export default function AdminDashboardPage() {
+  const { showAdvancedModules } = useAdvancedModulesVisibility();
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -120,7 +122,7 @@ export default function AdminDashboardPage() {
           <h1 className="text-3xl font-black text-foreground tracking-tight flex items-center gap-3">
             Principal Dashboard <Badge variant="secondary" className="text-[10px] animate-pulse bg-emerald-100 text-emerald-800 border-none hover:bg-emerald-100">LIVE</Badge>
           </h1>
-          <p className="text-muted-foreground font-medium text-sm mt-1">Real-time operational depth & school governance.</p>
+          <p className="text-muted-foreground font-medium text-sm mt-1">Track the four daily pillars first: fees & dues, parent communication, attendance, and exams/report cards.</p>
         </div>
         <div className="flex gap-3">
           <Button variant="outline" size="sm" onClick={() => loadDashboard(true)} disabled={refreshing} className="gap-2 shrink-0">
@@ -131,7 +133,7 @@ export default function AdminDashboardPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-emerald-500/10 text-emerald-700 p-4 rounded-xl border border-emerald-500/20">
-          <p className="text-xs uppercase font-bold opacity-80 mb-1">Collection Today</p>
+          <p className="text-xs uppercase font-bold opacity-80 mb-1">Fee Collection Today</p>
           <p className="text-2xl font-black">₹{stats.collectionToday.toLocaleString()}</p>
         </div>
         <div className="bg-orange-500/10 text-orange-700 p-4 rounded-xl border border-orange-500/20">
@@ -152,12 +154,12 @@ export default function AdminDashboardPage() {
       <div className="flex flex-wrap items-center gap-3">
         <Link href="/admin/notices">
           <Button className="gap-2 bg-primary hover:bg-primary/90 text-white rounded-xl shadow-sm h-11 px-6">
-            <Megaphone className="w-4 h-4" /> Broadcast Notice
+            <Megaphone className="w-4 h-4" /> Parent Communication
           </Button>
         </Link>
         <Link href="/admin/reports">
           <Button variant="outline" className="gap-2 rounded-xl shadow-sm h-11 px-6 bg-white hover:bg-slate-50">
-            <Printer className="w-4 h-4" /> View Day Book
+            <Printer className="w-4 h-4" /> Fee & Accounting Reports
           </Button>
         </Link>
         <Link href="/admin/approvals">
@@ -167,14 +169,14 @@ export default function AdminDashboardPage() {
         </Link>
       </div>
 
-      {/* 3. Core Widgets (Max 6) */}
+      {/* 3. Core Widgets (pillar-first) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Widget 1: Approvals Inbox */}
+        {/* Widget 1: Online Fee Collection & Dues Management */}
         <Card className="border-none shadow-sm flex flex-col h-full bg-orange-50/30">
           <CardHeader className="pb-3 border-b border-orange-100 mb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2 tracking-tight"><CheckCircle className="w-5 h-5 text-orange-500" /> Approvals Inbox</CardTitle>
+              <CardTitle className="text-lg flex items-center gap-2 tracking-tight"><CheckCircle className="w-5 h-5 text-orange-500" /> Fee Approvals & Exceptions</CardTitle>
               <Badge variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-100 border-none">{approvals.length} Pending</Badge>
             </div>
           </CardHeader>
@@ -204,11 +206,11 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Widget 2: Fee Defaulters */}
+        {/* Widget 2: Dues Management */}
         <Card className="border-none shadow-sm flex flex-col h-full">
           <CardHeader className="pb-3 border-b mb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2 tracking-tight"><Banknote className="w-5 h-5 text-red-500" /> Top Defaulters</CardTitle>
+              <CardTitle className="text-lg flex items-center gap-2 tracking-tight"><Banknote className="w-5 h-5 text-red-500" /> Top Dues Pending</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col gap-3">
@@ -258,11 +260,11 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Widget 4: Attendance Overview */}
+        {/* Widget 4: Attendance Management */}
         <Card className="border-none shadow-sm flex flex-col h-full bg-primary text-primary-foreground">
           <CardHeader className="pb-3 border-b border-white/10 mb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2 tracking-tight"><UserCheck className="w-5 h-5" /> Attendance Today</CardTitle>
+              <CardTitle className="text-lg flex items-center gap-2 tracking-tight"><UserCheck className="w-5 h-5" /> Attendance Management</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col justify-center">
@@ -340,12 +342,15 @@ export default function AdminDashboardPage() {
 
       </div>
 
-      {/* 4. "Also Included" Expandable Section */}
-      <div className="mt-8 pt-8 border-t border-border">
-         <h2 className="text-xl font-bold tracking-tight mb-4 flex items-center gap-2">
-           <LayoutGrid className="w-5 h-5" /> More Modules & Settings
-         </h2>
-         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {showAdvancedModules && (
+        <div className="mt-8 pt-8 border-t border-border">
+          <h2 className="text-xl font-bold tracking-tight mb-1 flex items-center gap-2">
+            <LayoutGrid className="w-5 h-5" /> Explore advanced modules
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Need hostel, transport, library, or other operational modules? They are available when you are ready.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Link href="/admin/timetable" className="flex items-center gap-3 p-4 rounded-xl border bg-white hover:bg-slate-50 transition-colors group">
               <div className="w-10 h-10 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center group-hover:bg-orange-600 group-hover:text-white transition-colors">
                 <Clock className="w-5 h-5" />
@@ -355,7 +360,7 @@ export default function AdminDashboardPage() {
                 <p className="text-xs text-muted-foreground">Class schedules</p>
               </div>
             </Link>
-            
+
             <Link href="/admin/exams" className="flex items-center gap-3 p-4 rounded-xl border bg-white hover:bg-slate-50 transition-colors group">
               <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                 <BookOpen className="w-5 h-5" />
@@ -365,7 +370,7 @@ export default function AdminDashboardPage() {
                 <p className="text-xs text-muted-foreground">Presets & Marks</p>
               </div>
             </Link>
-            
+
             <Link href="/admin/transport" className="flex items-center gap-3 p-4 rounded-xl border bg-white hover:bg-slate-50 transition-colors group">
               <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
                 <Truck className="w-5 h-5" />
@@ -385,8 +390,9 @@ export default function AdminDashboardPage() {
                 <p className="text-xs text-muted-foreground">System config</p>
               </div>
             </Link>
-         </div>
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

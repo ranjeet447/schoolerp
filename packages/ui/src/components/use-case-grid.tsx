@@ -75,13 +75,13 @@ export const UseCaseGrid = ({ cases = DEFAULT_USE_CASES }: { cases?: UseCaseItem
       <Container>
         <div className="flex flex-col items-center text-center max-w-3xl mx-auto mb-12 md:mb-16">
           <div className="text-primary font-black uppercase tracking-[0.3em] text-[10px] mb-4">
-            Specialized Solutions
+            School ERP Use Cases
           </div>
           <h2 className="text-4xl font-black tracking-tighter text-foreground sm:text-6xl leading-[0.95]">
-            Engineered for every <span className="italic">educational</span> frontier.
+            Problem-first workflows for every <span className="italic">school role</span>.
           </h2>
           <p className="mt-8 text-xl text-muted-foreground font-medium">
-            Whether you are a local private school or a global multi-branch institution, SchoolERP adapts to your unique DNA.
+            From fee collection teams to parent communication desks, choose the workflow your school needs first and add advanced modules later.
           </p>
         </div>
 

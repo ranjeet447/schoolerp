@@ -1,0 +1,544 @@
+{
+  "version": 1,
+  "owner": "Codex",
+  "last_updated": "2026-02-26",
+  "advanced_modules_policy": {
+    "name": "Advanced Modules",
+    "description": "Keep advanced modules accessible but secondary to the 4 core school ERP pillars in navigation and marketing.",
+    "placement_rules": [
+      "Admin sidebar groups advanced operational modules under a collapsible Advanced Modules section",
+      "Marketing features page labels platform modules as Advanced Modules",
+      "Advanced modules remain discoverable and linked from core pages"
+    ],
+    "status": "Done"
+  },
+  "pillars": [
+    {
+      "pillar_id": "fees_dues",
+      "name": "Online Fee Collection & Dues Management",
+      "keywords": [
+        "school fee management software",
+        "school fee collection software",
+        "dues reminders",
+        "receipts",
+        "UPI payments"
+      ],
+      "web_app_changes": [
+        {
+          "id": "admin_nav_finance_label",
+          "label": "Admin nav uses fee collection terminology",
+          "status": "Done",
+          "checks": [
+            {
+              "path": "apps/web/src/app/(admin)/admin-layout-client.tsx",
+              "contains": [
+                "Fee Collection & Accounting",
+                "Online Fee Collection & Dues Management"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "admin_finance_pages_headings",
+          "label": "Finance subpages use dues/receipts/UPI wording",
+          "status": "Done",
+          "checks": [
+            {
+              "path": "apps/web/src/app/(admin)/admin/finance/page.tsx",
+              "contains": [
+                "Fee Collection & Accounting",
+                "Manage dues rules, fee reminders, UPI-enabled collections, receipts"
+              ]
+            },
+            {
+              "path": "apps/web/src/app/(admin)/admin/finance/collect/page.tsx",
+              "contains": [
+                "Fee Collection & Dues",
+                "UPI/cash/cheque collections"
+              ]
+            },
+            {
+              "path": "apps/web/src/app/(admin)/admin/finance/counter/page.tsx",
+              "contains": [
+                "Fee Collection & Dues Counter",
+                "UPI/cash/cheque fee collection"
+              ]
+            },
+            {
+              "path": "apps/web/src/app/(parent)/parent/fees/page.tsx",
+              "contains": [
+                "Fees & Dues",
+                "dues, make online fee payments, and download receipts"
+              ]
+            }
+          ]
+        }
+      ],
+      "marketing_changes": [
+        {
+          "id": "home_fee_pillar",
+          "label": "Homepage features fee collection & dues pillar",
+          "status": "Done",
+          "checks": [
+            {
+              "path": "apps/marketing/src/app/page.tsx",
+              "contains": [
+                "Online Fee Collection & Dues Management",
+                "school fee management software"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "pricing_addons_credits_copy",
+          "label": "Pricing explains add-ons and credits cost controls",
+          "status": "Done",
+          "checks": [
+            {
+              "path": "apps/marketing/src/app/pricing/page.tsx",
+              "contains": [
+                "optional monthly add-ons",
+                "top-up packs",
+                "prevent uncontrolled platform-side spend"
+              ]
+            }
+          ]
+        }
+      ],
+      "test_updates": [
+        {
+          "id": "marketing_refocus_pricing_test",
+          "label": "Marketing pricing refocus smoke test covers add-ons/credits copy",
+          "status": "Done",
+          "checks": [
+            {
+              "path": "apps/marketing/src/tests/refocus-marketing.spec.ts",
+              "contains": [
+                "add-ons, credits, and cost-control copy",
+                "/pricing"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pillar_id": "parent_communication",
+      "name": "Parent Communication & Parent App (Real-time Updates)",
+      "keywords": [
+        "parent communication app for schools",
+        "parent portal",
+        "parent app",
+        "notifications",
+        "school notices"
+      ],
+      "web_app_changes": [
+        {
+          "id": "parent_nav_labels",
+          "label": "Parent portal labels use Parent App / Parent Portal and communication wording",
+          "status": "Done",
+          "checks": [
+            {
+              "path": "apps/web/src/app/(parent)/parent-layout-client.tsx",
+              "contains": [
+                "Parent App",
+                "Parent App / Parent Portal",
+                "Parent Communication"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "admin_parent_communication_pages",
+          "label": "Admin communication pages use parent communication wording",
+          "status": "Done",
+          "checks": [
+            {
+              "path": "apps/web/src/app/(admin)/admin/communication/page.tsx",
+              "contains": [
+                "Parent Communication Center",
+                "transparent parent updates"
+              ]
+            },
+            {
+              "path": "apps/web/src/app/(admin)/admin/communication/logs/page.tsx",
+              "contains": [
+                "Parent Communication Delivery Center"
+              ]
+            },
+            {
+              "path": "apps/web/src/app/(admin)/admin/notices/page.tsx",
+              "contains": [
+                "Parent Communication: Notices & Circulars"
+              ]
+            }
+          ]
+        }
+      ],
+      "marketing_changes": [
+        {
+          "id": "home_parent_comm_pillar",
+          "label": "Homepage highlights parent communication and parent app pillar",
+          "status": "Done",
+          "checks": [
+            {
+              "path": "apps/marketing/src/app/page.tsx",
+              "contains": [
+                "Parent Communication & Parent App (Real-time Updates)",
+                "parent communication app for schools"
+              ]
+            }
+          ]
+        }
+      ],
+      "test_updates": [
+        {
+          "id": "web_refocus_nav_test",
+          "label": "Mocked web refocus nav smoke covers parent communication grouping",
+          "status": "Done",
+          "checks": [
+            {
+              "path": "apps/web/src/tests/refocus-admin-nav.mock.spec.ts",
+              "contains": [
+                "Parent Communication & Parent App",
+                "Advanced Modules"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pillar_id": "attendance_management",
+      "name": "Attendance Management (Biometric/RFID Support)",
+      "keywords": [
+        "school attendance management system",
+        "biometric attendance for schools",
+        "daily attendance",
+        "leave approvals"
+      ],
+      "web_app_changes": [
+        {
+          "id": "attendance_labels",
+          "label": "Teacher/admin attendance pages and nav use Attendance Management",
+          "status": "Done",
+          "checks": [
+            {
+              "path": "apps/web/src/app/(teacher)/teacher-layout-client.tsx",
+              "contains": [
+                "Attendance Management"
+              ]
+            },
+            {
+              "path": "apps/web/src/app/(teacher)/teacher/attendance/page.tsx",
+              "contains": [
+                "Attendance Management"
+              ]
+            }
+          ]
+        }
+      ],
+      "marketing_changes": [
+        {
+          "id": "marketing_attendance_pillar",
+          "label": "Marketing pages use attendance + biometric terminology",
+          "status": "Done",
+          "checks": [
+            {
+              "path": "apps/marketing/src/app/page.tsx",
+              "contains": [
+                "Attendance Management (Biometric/RFID Support)"
+              ]
+            },
+            {
+              "path": "apps/marketing/src/app/features/FeaturesClient.tsx",
+              "contains": [
+                "Attendance, Biometric & Safety"
+              ]
+            }
+          ]
+        }
+      ],
+      "test_updates": [
+        {
+          "id": "marketing_refocus_home_attendance",
+          "label": "Marketing refocus smoke asserts attendance pillar on homepage",
+          "status": "Done",
+          "checks": [
+            {
+              "path": "apps/marketing/src/tests/refocus-marketing.spec.ts",
+              "contains": [
+                "Attendance Management (Biometric/RFID Support)"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pillar_id": "exams_report_cards",
+      "name": "Exam Management, Results & Report Cards",
+      "keywords": [
+        "exam management software for schools",
+        "results",
+        "report card software for schools",
+        "marks entry"
+      ],
+      "web_app_changes": [
+        {
+          "id": "exam_labels_h1s",
+          "label": "Admin/teacher/parent exam pages use exam + report card wording",
+          "status": "Done",
+          "checks": [
+            {
+              "path": "apps/web/src/app/(admin)/admin/exams/page.tsx",
+              "contains": [
+                "Exam Management, Results & Report Cards"
+              ]
+            },
+            {
+              "path": "apps/web/src/app/(teacher)/teacher/exams/marks/page.tsx",
+              "contains": [
+                "Exams & Report Cards (Marks Entry)"
+              ]
+            },
+            {
+              "path": "apps/web/src/app/(parent)/parent/results/page.tsx",
+              "contains": [
+                "Exams, Results & Report Cards"
+              ]
+            }
+          ]
+        }
+      ],
+      "marketing_changes": [
+        {
+          "id": "marketing_exam_keywords",
+          "label": "Marketing metadata includes exam/report card keyword clusters",
+          "status": "Done",
+          "checks": [
+            {
+              "path": "apps/marketing/src/app/layout.tsx",
+              "contains": [
+                "exam management software for schools",
+                "report card software for schools"
+              ]
+            },
+            {
+              "path": "apps/marketing/src/app/features/page.tsx",
+              "contains": [
+                "exam management software for schools",
+                "report card software for schools"
+              ]
+            }
+          ]
+        }
+      ],
+      "test_updates": [
+        {
+          "id": "exam_smoke_selector_updates",
+          "label": "Exam smoke tests use updated headings",
+          "status": "Done",
+          "checks": [
+            {
+              "path": "apps/web/src/tests/exam-smoke.spec.ts",
+              "contains": [
+                "Exam Management, Results & Report Cards",
+                "Exams & Report Cards (Marks Entry)",
+                "Exams, Results & Report Cards"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "global_checks": [
+    {
+      "id": "schema_organization_website_software",
+      "label": "Marketing root layout renders Organization + WebSite + SoftwareApplication schema",
+      "status": "Done",
+      "checks": [
+        {
+          "path": "apps/marketing/src/app/layout.tsx",
+          "contains": [
+            "WebSiteSchema",
+            "SoftwareApplicationSchema",
+            "OrganizationSchema"
+          ]
+        },
+        {
+          "path": "packages/ui/src/components/seo.tsx",
+          "contains": [
+            "export const WebSiteSchema"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "schema_faq_breadcrumb",
+      "label": "FAQ and breadcrumb schema are present",
+      "status": "Done",
+      "checks": [
+        {
+          "path": "packages/ui/src/components/faq-section.tsx",
+          "contains": [
+            "FAQSchema"
+          ]
+        },
+        {
+          "path": "packages/ui/src/components/breadcrumbs.tsx",
+          "contains": [
+            "\"@type\": \"BreadcrumbList\""
+          ]
+        }
+      ]
+    },
+    {
+      "id": "verification_hardening",
+      "label": "Refocus verification uses structural checks for nav config, route metadata, and sitemap coverage",
+      "status": "Done",
+      "checks": [
+        {
+          "path": "scripts/verify-refocus.ts",
+          "contains": [
+            "validateAdminNavStructure",
+            "MARKETING_ROUTE_SPECS",
+            "validateSitemapSource"
+          ]
+        },
+        {
+          "path": "scripts/verify-refocus-lib.ts",
+          "contains": [
+            "ADMIN_CORE_PILLAR_IDS",
+            "hasMetadataExport",
+            "stripComments"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "module_visibility_toggle",
+      "label": "Tenant admin can hide advanced modules with tenant-persisted preference and local offline cache fallback",
+      "status": "Done",
+      "checks": [
+        {
+          "path": "apps/web/src/components/user-profile-page.tsx",
+          "contains": [
+            "Show advanced modules",
+            "Navigation Preferences"
+          ]
+        },
+        {
+          "path": "apps/web/src/app/(admin)/admin-layout-client.tsx",
+          "contains": [
+            "hideAdvancedModules",
+            "ADMIN_ADVANCED_SECTION_ID"
+          ]
+        },
+        {
+          "path": "apps/web/src/lib/module-visibility.ts",
+          "contains": [
+            "/admin/settings/preferences",
+            "apiClient(PREFERENCES_ENDPOINT"
+          ]
+        },
+        {
+          "path": "services/api/cmd/api/main.go",
+          "contains": [
+            "/settings/preferences",
+            "tenantHandler.GetPreferences",
+            "tenantHandler.UpdatePreferences"
+          ]
+        },
+        {
+          "path": "apps/web/src/app/(admin)/admin/dashboard/page.tsx",
+          "contains": [
+            "showAdvancedModules",
+            "Explore advanced modules"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tests_updated",
+      "label": "Refocus hardening tests cover module visibility toggle, marketing core-copy, and verifier unit checks",
+      "status": "Done",
+      "checks": [
+        {
+          "path": "apps/web/src/tests/refocus-admin-nav.mock.spec.ts",
+          "contains": [
+            "hides advanced modules from sidebar when toggle is disabled in settings",
+            "await page.reload()"
+          ]
+        },
+        {
+          "path": "apps/marketing/src/tests/refocus-marketing.spec.ts",
+          "contains": [
+            "Most schools start with these 4",
+            "templates page uses updated taxonomy labels",
+            "features page shows pillar screenshots in framed product previews"
+          ]
+        },
+        {
+          "path": "scripts/__tests__/verify-refocus-lib.test.ts",
+          "contains": [
+            "fails when required section IDs are missing",
+            "keywords only in comments",
+            "validateModuleVisibilityPersistence"
+          ]
+        },
+        {
+          "path": "services/api/internal/service/tenant/service_test.go",
+          "contains": [
+            "TestDecodeTenantPreferencesReadsHideAdvancedModules",
+            "TestMergeTenantPreferencesPersistsAndPreservesExistingConfig"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "terminology_cleanup_phase_a",
+      "label": "Remaining old-term labels are cleaned on admin reports and marketing templates display taxonomy",
+      "status": "Done",
+      "checks": [
+        {
+          "path": "apps/web/src/app/(admin)/admin/reports/page.tsx",
+          "contains": [
+            "Fee Collection & Accounting"
+          ]
+        },
+        {
+          "path": "apps/marketing/src/app/templates/page.tsx",
+          "contains": [
+            "Fees & Dues",
+            "Parent Communication"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pillar_screenshot_frames",
+      "label": "Homepage and features pillar sections use real product screenshots with MockupFrame and SEO alt text",
+      "status": "Done",
+      "checks": [
+        {
+          "path": "apps/marketing/src/app/page.tsx",
+          "contains": [
+            "MockupFrame",
+            "/product-screens/",
+            "screenshot"
+          ]
+        },
+        {
+          "path": "apps/marketing/src/app/features/FeaturesClient.tsx",
+          "contains": [
+            "MockupFrame",
+            "/product-screens/",
+            "PILLAR_SCREEN_PREVIEWS"
+          ]
+        }
+      ]
+    }
+  ]
+}

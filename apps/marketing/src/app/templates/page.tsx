@@ -14,7 +14,14 @@ export const metadata: Metadata = {
 };
 
 export default function TemplatesListingPage() {
-  const categories = ['All', 'Admin', 'Finance', 'Academics', 'HR', 'Communication'];
+  const categories: Array<{ id: string; label: string }> = [
+    { id: 'all', label: 'All' },
+    { id: 'admin', label: 'Admin' },
+    { id: 'finance', label: 'Fees & Dues' },
+    { id: 'academics', label: 'Academics' },
+    { id: 'hr', label: 'HR' },
+    { id: 'communication', label: 'Parent Communication' },
+  ];
 
   return (
     <main className="min-h-screen bg-background relative selection:bg-primary/20">
@@ -33,7 +40,7 @@ export default function TemplatesListingPage() {
               Ready-to-Use <br className="hidden md:block" /> School Templates
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground font-medium mx-auto max-w-2xl leading-relaxed">
-              Skip the paperwork. Download verified formats for admissions, finance, and human resources.
+              Skip the paperwork. Download verified formats for admissions, fees & dues, parent communication, and human resources.
             </p>
           </div>
         </Container>
@@ -46,14 +53,14 @@ export default function TemplatesListingPage() {
             <div className="flex flex-wrap items-center justify-center gap-2">
               {categories.map((cat) => (
                 <button 
-                  key={cat} 
+                  key={cat.id} 
                   className={`text-[10px] font-black uppercase tracking-[0.2em] px-6 py-3 rounded-2xl transition-all border shrink-0 ${
-                    cat === 'All' 
+                    cat.id === 'all'
                       ? 'bg-primary border-primary text-primary-foreground shadow-xl shadow-primary/20 -translate-y-1' 
                       : 'bg-card border-border/50 text-muted-foreground hover:border-primary/30 hover:text-primary'
                   }`}
                 >
-                  {cat}
+                  {cat.label}
                 </button>
               ))}
             </div>

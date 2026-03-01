@@ -29,16 +29,19 @@ import {
   TabsList,
   TabsTrigger,
   Input,
-  Label
+  Label,
+  Switch
 } from '@schoolerp/ui';
 import { useAuth } from '@/components/auth-provider';
 import { apiClient } from '@/lib/api-client';
+import { useAdvancedModulesVisibility } from '@/lib/module-visibility';
 
 export function UserProfilePage() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { hideAdvancedModules, isSavingPreference, setHideAdvancedModules } = useAdvancedModulesVisibility();
   
   // Form State
   const [fullName, setFullName] = useState('');
@@ -97,6 +100,8 @@ export function UserProfilePage() {
   }
 
   const roleLabel = profile?.role?.replace('_', ' ') || user?.role?.replace('_', ' ') || 'User';
+  const currentRole = (profile?.role || user?.role || "").toLowerCase();
+  const canToggleAdvancedModules = currentRole === "tenant_admin";
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
@@ -275,6 +280,33 @@ export function UserProfilePage() {
                   </Button>
                 </CardContent>
               </Card>
+
+              {canToggleAdvancedModules && (
+                <Card className="border-border/50 bg-card/50 backdrop-blur-sm rounded-2xl">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Navigation Preferences</CardTitle>
+                    <CardDescription>Keep advanced modules hidden until your school is ready.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center justify-between rounded-xl border border-border/40 bg-background/40 px-3 py-3">
+                      <div className="pr-4">
+                        <p className="text-sm font-semibold">Show advanced modules</p>
+                        <p className="text-xs text-muted-foreground">
+                          When off, only the 4 core pillars are shown in admin sidebar and dashboard.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={!hideAdvancedModules}
+                        disabled={isSavingPreference}
+                        onCheckedChange={(checked) => {
+                          void setHideAdvancedModules(!checked);
+                        }}
+                        aria-label="Show advanced modules"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </TabsContent>

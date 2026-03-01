@@ -267,6 +267,50 @@ func (h *Handler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
+func (h *Handler) GetPreferences(w http.ResponseWriter, r *http.Request) {
+	tenantID := strings.TrimSpace(middleware.GetTenantID(r.Context()))
+	if tenantID == "" {
+		http.Error(w, "tenant context missing", http.StatusBadRequest)
+		return
+	}
+
+	prefs, err := h.service.GetPreferences(r.Context(), tenantID)
+	if err != nil {
+		http.Error(w, "Failed to load tenant preferences", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"preferences": prefs,
+	})
+}
+
+func (h *Handler) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
+	tenantID := strings.TrimSpace(middleware.GetTenantID(r.Context()))
+	if tenantID == "" {
+		http.Error(w, "tenant context missing", http.StatusBadRequest)
+		return
+	}
+
+	var req tenant.TenantPreferences
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	updated, err := h.service.UpdatePreferences(r.Context(), tenantID, req)
+	if err != nil {
+		http.Error(w, "Failed to update tenant preferences", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"preferences": updated,
+	})
+}
+
 func (h *Handler) ListPlugins(w http.ResponseWriter, r *http.Request) {
 	tenantID := middleware.GetTenantID(r.Context())
 	if tenantID == "" {

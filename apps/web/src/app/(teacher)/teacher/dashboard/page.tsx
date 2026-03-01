@@ -117,8 +117,8 @@ export default function TeacherDashboardPage() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight font-outfit">Action Center</h1>
-          <p className="text-slate-500 font-medium">Streamlined daily operations for modern educators.</p>
+          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight font-outfit">Teacher App Dashboard</h1>
+          <p className="text-slate-500 font-medium">Daily teaching workflow with attendance management, homework follow-up, and exam/report card tasks.</p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" size="lg" className="rounded-2xl border-emerald-100 hover:bg-emerald-50 gap-2 font-bold shadow-sm" onClick={() => loadDashboard(true)} disabled={refreshing}>
@@ -159,7 +159,7 @@ export default function TeacherDashboardPage() {
                 <div className="flex flex-col gap-3">
                   <Button className="bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-black px-8 py-6 rounded-3xl h-auto text-lg gap-2"
                     onClick={() => window.location.href = `/teacher/attendance?section_id=${currentPeriod.class_section_id}`}>
-                    <UserCheck className="h-6 w-6" /> Smart Attendance
+                    <UserCheck className="h-6 w-6" /> Attendance Management
                   </Button>
                   <Button variant="ghost" className="text-white bg-white/5 hover:bg-white/10 rounded-2xl gap-2 font-bold">
                     <BookOpen className="h-4 w-4" /> Lesson Planner

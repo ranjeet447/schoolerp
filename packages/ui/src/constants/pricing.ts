@@ -7,7 +7,7 @@ export const PRICING_PLANS = [
     priceMonthly: 6999,
     priceYearly: 69999,
     features: [
-      "Student profiles (SIS) + class/section management",
+      "Student profiles + class/section management",
       "Attendance (manual/app-based)",
       "Fees: dues, receipts, basic reports",
       "Announcements & in-app alerts",

@@ -11,8 +11,16 @@ import {
 } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Integration Hub | Connect SchoolERP with Your Favorite Tools',
-  description: 'Connect your school with biometric devices, payment gateways, LMS platforms, and accounting software. 15+ seamless enterprise integrations.',
+  title: 'School ERP Integrations | Razorpay, PayU, Google, Microsoft, Tally',
+  description: 'School ERP integrations for payment gateways, parent communication providers, live classes (Google Workspace/Microsoft 365), accounting exports, and biometric attendance devices.',
+  keywords: [
+    'razorpay school fee collection integration',
+    'payu school fee payment gateway',
+    'google workspace education live classes integration',
+    'microsoft 365 education teams integration school',
+    'tally school accounting export',
+    'biometric attendance for schools'
+  ],
   alternates: {
     canonical: 'https://schoolerp.com/integrations',
   }
@@ -42,8 +50,7 @@ export default function IntegrationsListingPage() {
             </h1>
             
             <p className="max-w-2xl mx-auto text-xl text-muted-foreground font-medium mb-12">
-               Connect your school ecosystem with industry-leading hardware and software. 
-               Zero-code setup. Enterprise-grade security. Instant synchronization.
+               Connect fee collection, parent communication, attendance devices, accounting exports, and live classes tools your school already uses.
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-4 max-w-4xl mx-auto">
@@ -69,6 +76,12 @@ export default function IntegrationsListingPage() {
       {/* Main Grid */}
       <Section className="py-24">
          <Container>
+            <div className="mb-8 flex flex-wrap gap-4 text-sm font-semibold">
+              <Link href="/features" className="text-primary hover:underline">Features</Link>
+              <Link href="/use-cases" className="text-primary hover:underline">Use Cases</Link>
+              <Link href="/pricing" className="text-primary hover:underline">Pricing & Credits</Link>
+              <Link href="/book-demo" className="text-primary hover:underline">Book Demo</Link>
+            </div>
             <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
                {INTEGRATIONS_DATA.map((integration) => {
                  const Icon = ICON_MAP[integration.iconName] || Zap;
@@ -91,7 +104,7 @@ export default function IntegrationsListingPage() {
                         <div className="flex items-center justify-between mb-4">
                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">{integration.category}</span>
                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold">
-                              <CheckCircle2 className="h-3 w-3" /> Certified
+                              <CheckCircle2 className="h-3 w-3" /> Available / Beta
                            </div>
                         </div>
                         <h3 className="text-3xl font-black tracking-tight mb-4 group-hover:text-primary transition-colors">{integration.name}</h3>

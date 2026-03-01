@@ -210,8 +210,8 @@ export default function AdminFinancePage() {
     <div className="space-y-6 pb-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-black text-foreground tracking-tight">Finance Control</h1>
-          <p className="text-muted-foreground font-medium text-sm mt-1">Manage fee rules, track collections, and analyze revenue.</p>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">Fee Collection & Accounting</h1>
+          <p className="text-muted-foreground font-medium text-sm mt-1">Manage dues rules, fee reminders, UPI-enabled collections, receipts, and accounting-ready revenue reports.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={fetchBackendData} disabled={refreshing}>
@@ -226,10 +226,10 @@ export default function AdminFinancePage() {
       <Tabs defaultValue="dashboard" className="space-y-6">
         <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 max-w-3xl">
           <TabsTrigger value="dashboard" className="gap-2">
-            <BarChart3 className="h-4 w-4" /> Dashboard
+            <BarChart3 className="h-4 w-4" /> Dues & Collection Dashboard
           </TabsTrigger>
           <TabsTrigger value="rules" className="gap-2">
-            <Clock className="h-4 w-4" /> Late Fees & Discounts
+            <Clock className="h-4 w-4" /> Dues Rules & Reminders
           </TabsTrigger>
           <TabsTrigger value="ledger" className="gap-2">
             <Receipt className="h-4 w-4" /> Daily Ledger

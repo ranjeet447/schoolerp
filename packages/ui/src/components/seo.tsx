@@ -30,6 +30,28 @@ export const OrganizationSchema = () => {
   );
 };
 
+export const WebSiteSchema = () => {
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "School ERP",
+    "url": "https://schoolerp.com",
+    "inLanguage": "en-IN",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://schoolerp.com/features?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+    />
+  );
+};
+
 export const SoftwareApplicationSchema = ({ name, description, applicationCategory = "EducationalApplication" }: { name?: string, description?: string, applicationCategory?: string }) => {
   const schema = {
     "@context": "https://schema.org",

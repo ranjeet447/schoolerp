@@ -15,10 +15,27 @@ import { TenantConfig } from '@/lib/tenant-utils';
 import { useAuth } from '@/components/auth-provider';
 import { RBACService, isPlatformUser } from '@/lib/auth-service';
 import { Home } from 'lucide-react';
-const NAV_ITEMS = [
-  { href: '/student/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/student/profile', label: 'My Profile', icon: User },
-];
+import { STUDENT_NAV_ITEMS } from '@/config/nav/studentNav';
+import type { NavItemConfig } from '@/config/nav/types';
+
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  layout_dashboard: LayoutDashboard,
+  user: User,
+};
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
+
+function resolveStudentNavItems(items: NavItemConfig[]): NavItem[] {
+  return items.map((item) => ({
+    href: item.href,
+    label: item.label,
+    icon: ICON_MAP[item.iconKey] ?? LayoutDashboard,
+  }));
+}
 
 export default function StudentLayoutClient({
   children,
@@ -31,6 +48,7 @@ export default function StudentLayoutClient({
   const pathname = usePathname();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navItems = resolveStudentNavItems(STUDENT_NAV_ITEMS);
 
   useEffect(() => {
     if (isLoading) return;
@@ -70,7 +88,7 @@ export default function StudentLayoutClient({
                 <GraduationCap className="h-6 w-6" />
             )}
             {!config?.white_label ? (
-                <span>Student<span className="text-slate-900">Hub</span></span>
+                <span>Student<span className="text-slate-900">App</span></span>
             ) : (
                 <span className="text-slate-900 truncate">{schoolName}</span>
             )}
@@ -78,7 +96,7 @@ export default function StudentLayoutClient({
         </div>
         <nav className="flex-1 overflow-y-auto py-4">
           <ul className="space-y-1 px-3">
-            {NAV_ITEMS.map((item) => (
+            {navItems.map((item) => (
               <li key={item.href}>
                 <Link
                   href={item.href}
@@ -171,11 +189,11 @@ export default function StudentLayoutClient({
       <Dialog open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <DialogContent className="w-[92vw] max-w-sm p-0">
           <DialogHeader className="border-b border-slate-200 p-4">
-            <DialogTitle className="text-base">Student Navigation</DialogTitle>
+            <DialogTitle className="text-base">Student App / Student Portal</DialogTitle>
           </DialogHeader>
           <div className="max-h-[72vh] overflow-y-auto p-4">
             <ul className="space-y-1">
-              {NAV_ITEMS.map((item) => {
+              {navItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
                   <li key={`mobile-${item.href}`}>

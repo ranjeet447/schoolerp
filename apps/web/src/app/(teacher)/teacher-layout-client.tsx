@@ -20,19 +20,35 @@ import { usePathname, useRouter } from 'next/navigation';
 import { TenantConfig } from '@/lib/tenant-utils';
 import { useAuth } from '@/components/auth-provider';
 import { apiClient } from '@/lib/api-client';
+import { TEACHER_NAV_ITEMS } from '@/config/nav/teacherNav';
+import type { NavItemConfig } from '@/config/nav/types';
 
-const NAV_ITEMS = [
-  { href: '/teacher/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
-  { href: '/teacher/attendance', label: 'Mark Attendance', icon: CalendarCheck, permission: 'attendance:write' },
-  { href: '/teacher/timetable', label: 'My Timetable', icon: CalendarDays, permission: 'academics:read' },
-  { href: '/teacher/homework', label: 'Homework', icon: BookOpen, permission: 'sis:read' },
-  { href: '/teacher/remarks', label: 'Remarks', icon: MessageSquare, permission: 'sis:write' },
-  { href: '/teacher/leaves', label: 'My Leaves', icon: FileText, permission: 'hrms:read' },
-  { href: '/teacher/kb', label: 'Knowledgebase', icon: BookOpen, permission: 'sis:read' },
-  { href: '/teacher/exams/marks', label: 'Enter Marks', icon: GraduationCap, permission: 'exams:write' },
-  { href: '/teacher/notices', label: 'Notices', icon: FileText, permission: 'notices:read' },
-  { href: '/teacher/profile', label: 'My Profile', icon: User },
-];
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  layout_dashboard: LayoutDashboard,
+  calendar_check: CalendarCheck,
+  calendar_days: CalendarDays,
+  book_open: BookOpen,
+  message_square: MessageSquare,
+  file_text: FileText,
+  graduation_cap: GraduationCap,
+  user: User,
+};
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  permission?: string;
+};
+
+function resolveTeacherNavItems(items: NavItemConfig[]): NavItem[] {
+  return items.map((item) => ({
+    href: item.href,
+    label: item.label,
+    icon: ICON_MAP[item.iconKey] ?? LayoutDashboard,
+    permission: item.permission,
+  }));
+}
 
 export default function TeacherLayoutClient({
   children,
@@ -86,14 +102,16 @@ export default function TeacherLayoutClient({
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  const filteredNavItems = NAV_ITEMS.filter(item => {
+  const resolvedNavItems = resolveTeacherNavItems(TEACHER_NAV_ITEMS);
+
+  const filteredNavItems = resolvedNavItems.filter(item => {
     if (item.href === "/teacher/kb" && !kbVisible) {
       return false;
     }
     return !item.permission || RBACService.hasPermission(item.permission);
   });
 
-  const schoolName = config?.branding?.name_override || config?.name || 'TeacherOS';
+  const schoolName = config?.branding?.name_override || config?.name || 'Teacher App';
   const logoUrl = config?.branding?.logo_url;
   const primaryColor = config?.branding?.primary_color || '#10b981'; // Emerald 600
 
@@ -112,7 +130,7 @@ export default function TeacherLayoutClient({
                 <GraduationCap className="h-6 w-6" />
             )}
             {!config?.white_label ? (
-                <span>Teacher<span className="text-slate-900">OS</span></span>
+                <span>Teacher<span className="text-slate-900">App</span></span>
             ) : (
                 <span className="text-slate-900 truncate">{schoolName}</span>
             )}
@@ -198,7 +216,7 @@ export default function TeacherLayoutClient({
           style={pathname.startsWith('/teacher/attendance') ? { color: primaryColor } : {}}
         >
           <CalendarCheck className="h-5 w-5" />
-          <span className="text-[10px] font-bold uppercase tracking-tighter">Attend</span>
+            <span className="text-[10px] font-bold uppercase tracking-tighter">Attend.</span>
         </Link>
         <Link 
           href="/teacher/homework" 
@@ -206,7 +224,7 @@ export default function TeacherLayoutClient({
           style={pathname.startsWith('/teacher/homework') ? { color: primaryColor } : {}}
         >
           <BookOpen className="h-5 w-5" />
-          <span className="text-[10px] font-bold uppercase tracking-tighter">Works</span>
+            <span className="text-[10px] font-bold uppercase tracking-tighter">HW</span>
         </Link>
         <Link 
           href="/teacher/notices" 
@@ -214,7 +232,7 @@ export default function TeacherLayoutClient({
           style={pathname.startsWith('/teacher/notices') ? { color: primaryColor } : {}}
         >
           <FileText className="h-5 w-5" />
-          <span className="text-[10px] font-bold uppercase tracking-tighter">Notices</span>
+            <span className="text-[10px] font-bold uppercase tracking-tighter">Updates</span>
         </Link>
         <button 
           onClick={() => setMobileMenuOpen(true)}

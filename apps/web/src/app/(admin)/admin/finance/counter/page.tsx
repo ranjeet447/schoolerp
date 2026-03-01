@@ -206,8 +206,8 @@ export default function FeeCounterPage() {
     <div className="space-y-6 pb-10 max-w-7xl mx-auto h-[calc(100vh-80px)] flex flex-col">
       <div className="flex justify-between items-center shrink-0">
         <div>
-          <h1 className="text-3xl font-black text-foreground tracking-tight">Fee Counter Mode</h1>
-          <p className="text-muted-foreground font-medium text-sm mt-1">Lightning fast search, collect, and print.</p>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">Fee Collection & Dues Counter</h1>
+          <p className="text-muted-foreground font-medium text-sm mt-1">Lightning-fast dues lookup, receipt printing, and UPI/cash/cheque fee collection.</p>
         </div>
         <div className="flex gap-2">
            <Button variant="outline" size="sm" className="hidden sm:flex border-amber-500/30 text-amber-600 bg-amber-500/5 hover:bg-amber-500/10">

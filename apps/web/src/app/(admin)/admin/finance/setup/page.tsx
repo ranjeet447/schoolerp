@@ -338,8 +338,8 @@ export default function FeeSetupPage() {
     <div className="space-y-6 pb-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-black text-foreground tracking-tight">Fee Setup Wizard</h1>
-          <p className="text-muted-foreground font-medium text-sm mt-1">Configure fee structures, heads, and payment gateways.</p>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">Fee Collection & Dues Setup</h1>
+          <p className="text-muted-foreground font-medium text-sm mt-1">Configure fee heads, dues structures, reminders, receipts, and online payment gateway setup.</p>
         </div>
       </div>
 
@@ -601,7 +601,7 @@ export default function FeeSetupPage() {
                 </div>
 
                 <div className="bg-muted/30 border rounded-xl p-3 text-xs text-muted-foreground">
-                  This screen supports assignment updates. Student-wise selected items history/listing is still managed in Student 360.
+                  This screen supports assignment updates. Student-wise selected items history/listing is still managed in Student Profile.
                 </div>
 
                 <div className="space-y-3">
